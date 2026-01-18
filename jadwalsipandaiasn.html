@@ -1,0 +1,125 @@
+<div class="wrap">
+  <h2>📅 Jadwal Kegiatan Terintegrasi</h2>
+
+  <div class="filter">
+    <input type="date" id="searchTanggal">
+    <select id="filterBulan">
+      <option value="">Semua Bulan</option>
+    </select>
+    <input id="filterTema" placeholder="Filter Tema">
+    <select id="filterJP">
+      <option value="">Semua JP</option>
+      <option value="<=2">≤ 2 JP</option>
+      <option value="3-6">3 - 6 JP</option>
+      <option value=">6">> 6 JP</option>
+    </select>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<style>
+.wrap{
+  max-width:1200px;
+  margin:auto;
+  font-family:Segoe UI,Arial;
+}
+h2{margin-bottom:10px}
+
+.filter{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:8px;
+  margin-bottom:15px;
+}
+.filter input,.filter select{
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #ddd;
+}
+
+.card{
+  background:#fff;
+  border-radius:14px;
+  padding:14px;
+  margin-bottom:12px;
+  box-shadow:0 8px 18px rgba(0,0,0,.08);
+  animation:fade .4s ease;
+}
+@keyframes fade{
+  from{opacity:0;transform:translateY(10px)}
+}
+
+.badge{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:20px;
+  background:#3b82f6;
+  color:#fff;
+  font-size:12px;
+}
+.jp{
+  background:#22c55e;
+}
+small{color:#555}
+</style>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbzo5p7P7xO-nHvM1bb08BUyWbAbwNMn4VaE-eWz0oj4UDowA04MvECa-5CG0IbVV6LNuQ/exec";
+let DATA = [];
+
+fetch(API).then(r=>r.json()).then(res=>{
+  DATA = res;
+  isiBulan();
+  render(DATA);
+});
+
+function isiBulan(){
+  const bulan = [...new Set(DATA.map(d=>d.bulan))];
+  const sel = document.getElementById("filterBulan");
+  bulan.forEach(b=>{
+    sel.innerHTML += `<option value="${b}">${b}</option>`;
+  });
+}
+
+document.querySelectorAll("input,select")
+.forEach(el=>el.oninput=filter);
+
+function filter(){
+  const tgl = searchTanggal.value;
+  const bln = filterBulan.value.toLowerCase();
+  const tema = filterTema.value.toLowerCase();
+  const jp = filterJP.value;
+
+  const f = DATA.filter(d=>{
+    return (!tgl || d.tanggal==tgl) &&
+           (!bln || d.bulan.toLowerCase()==bln) &&
+           (!tema || d.tema.toLowerCase().includes(tema)) &&
+           cekJP(d.total,jp);
+  });
+  render(f);
+}
+
+function cekJP(val,rule){
+  if(!rule) return true;
+  if(rule=="<=10") return val<=10;
+  if(rule=="11-20") return val>=11 && val<=20;
+  if(rule==">20") return val>20;
+}
+
+function render(arr){
+  list.innerHTML = arr.map(d=>`
+    <div class="card">
+      <span class="badge">${d.bulan}</span>
+      <span class="badge jp">${d.total} JP</span>
+      <h3>${d.tema}</h3>
+      <small>📅 ${d.tanggal} | 💻 ${d.platform}</small>
+      <ul>
+        ${d.n1?`<li><b>${d.n1}</b> – ${d.j1} (${d.jp1} JP)</li>`:''}
+        ${d.n2?`<li><b>${d.n2}</b> – ${d.j2} (${d.jp2} JP)</li>`:''}
+        ${d.n3?`<li><b>${d.n3}</b> – ${d.j3} (${d.jp3} JP)</li>`:''}
+      </ul>
+    </div>
+  `).join('');
+}
+</script>
