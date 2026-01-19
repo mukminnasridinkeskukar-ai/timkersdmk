@@ -15,7 +15,7 @@ body{
   margin:auto;
 }
 
-/* ================= LOGIN ================= */
+/* LOGIN */
 .login-box{
   max-width:380px;
   margin:40px auto;
@@ -52,7 +52,7 @@ body{
   display:none;
 }
 
-/* ================= DASHBOARD ================= */
+/* DASHBOARD */
 .dashboard{
   display:none;
   background:#fff;
@@ -90,7 +90,7 @@ body{
 .card h3{margin:0;font-size:26px;color:#28a745}
 .card p{margin:5px 0 0}
 
-input.search{
+.search{
   padding:10px;
   width:320px;
   margin-bottom:15px;
@@ -114,39 +114,25 @@ th{background:#f1f1f1}
 
 <div class="container">
 
-<!-- ================= LOGIN ================= -->
 <div class="login-box" id="loginBox">
   <h2>Login Admin</h2>
   <div class="sub">Dashboard Pendaftaran SIPANDAI-ASN</div>
-
   <input id="username" placeholder="Username">
   <input id="password" type="password" placeholder="Password">
-
-  <button onclick="login()">MASUK</button>
+  <button id="loginBtn">MASUK</button>
   <div class="login-msg" id="loginMsg"></div>
 </div>
 
-<!-- ================= DASHBOARD ================= -->
 <div class="dashboard" id="dashboard">
-
   <div class="topbar">
     <h2>Dashboard Admin Pendaftaran</h2>
-    <button class="logout" onclick="logout()">Logout</button>
+    <button class="logout" id="logoutBtn">Logout</button>
   </div>
 
   <div class="cards">
-    <div class="card">
-      <h3 id="total">0</h3>
-      <p>Total Pendaftar</p>
-    </div>
-    <div class="card">
-      <h3 id="zoom">0</h3>
-      <p>Zoom Meeting</p>
-    </div>
-    <div class="card">
-      <h3 id="youtube">0</h3>
-      <p>YouTube</p>
-    </div>
+    <div class="card"><h3 id="total">0</h3><p>Total Pendaftar</p></div>
+    <div class="card"><h3 id="zoom">0</h3><p>Zoom Meeting</p></div>
+    <div class="card"><h3 id="youtube">0</h3><p>YouTube</p></div>
   </div>
 
   <input class="search" id="search" placeholder="Cari nama / NIP / unit / tema">
@@ -165,95 +151,110 @@ th{background:#f1f1f1}
     </thead>
     <tbody id="tbody"></tbody>
   </table>
-
 </div>
 
 </div>
 
 <script>
-/* ================= KONFIG ================= */
-const SCRIPT_URL =
-"https://script.google.com/macros/s/AKfycbxaZbKSnm3Q36qCC-TVO7N6U3dUac5-LK2HCb-CWEG_nL5P6QB519KAy5YF-0nuhuS8Qw/exec";
+document.addEventListener("DOMContentLoaded", () => {
 
-/* ================= LOGIN ================= */
-async function login(){
-  loginMsg.style.display="none";
+  const SCRIPT_URL =
+    "https://script.google.com/macros/s/AKfycbxaZbKSnm3Q36qCC-TVO7N6U3dUac5-LK2HCb-CWEG_nL5P6QB519KAy5YF-0nuhuS8Qw/exec";
 
-  const res = await fetch(SCRIPT_URL,{
-    method:"POST",
-    body:JSON.stringify({
-      action:"login",
-      username:username.value,
-      password:password.value
-    })
-  });
+  const el = id => document.getElementById(id);
 
-  const out = await res.json();
-  if(!out.success){
-    loginMsg.innerText = out.message;
-    loginMsg.style.display="block";
-    return;
+  const loginBox = el("loginBox");
+  const dashboard = el("dashboard");
+  const loginMsg = el("loginMsg");
+  const loginBtn = el("loginBtn");
+  const logoutBtn = el("logoutBtn");
+
+  const total = el("total");
+  const zoom = el("zoom");
+  const youtube = el("youtube");
+  const tbody = el("tbody");
+  const search = el("search");
+
+  let dataGlobal = [];
+
+  loginBtn.onclick = async () => {
+    loginMsg.style.display = "none";
+
+    const res = await fetch(SCRIPT_URL,{
+      method:"POST",
+      body:JSON.stringify({
+        action:"login",
+        username: el("username").value,
+        password: el("password").value
+      })
+    });
+
+    const out = await res.json();
+    if(!out.success){
+      loginMsg.innerText = out.message;
+      loginMsg.style.display = "block";
+      return;
+    }
+
+    loginBox.style.display = "none";
+    dashboard.style.display = "block";
+    loadDashboard();
+  };
+
+  logoutBtn.onclick = () => {
+    if(confirm("Yakin ingin logout?")){
+      dashboard.style.display="none";
+      loginBox.style.display="block";
+      tbody.innerHTML="";
+      search.value="";
+    }
+  };
+
+  async function loadDashboard(){
+    const res = await fetch(SCRIPT_URL+"?action=admin");
+    const data = await res.json();
+    if(!Array.isArray(data)) return;
+
+    dataGlobal = data;
+
+    total.innerText = data.length;
+    zoom.innerText = data.filter(d =>
+      (d["Platform Digital"]||"").toLowerCase().includes("zoom")
+    ).length;
+    youtube.innerText = data.filter(d =>
+      (d["Platform Digital"]||"").toLowerCase().includes("youtube")
+    ).length;
+
+    renderTable(data);
   }
 
-  loginBox.style.display="none";
-  dashboard.style.display="block";
-  loadDashboard();
-}
-
-function logout(){
-  if(confirm("Yakin ingin logout?")){
-    dashboard.style.display="none";
-    loginBox.style.display="block";
+  function renderTable(data){
+    tbody.innerHTML="";
+    data.forEach(d=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML=`
+        <td>${d["Nama Lengkap"]||"-"}</td>
+        <td>${d["NIP"]||"-"}</td>
+        <td>${d["Unit Kerja"]||"-"}</td>
+        <td>${d["Status Pegawai"]||"-"}</td>
+        <td>${d["Jenis SDMK"]||"-"}</td>
+        <td>${d["Tema Pembelajaran"]||"-"}</td>
+        <td>${d["Platform Digital"]||"-"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
-}
 
-/* ================= DASHBOARD ================= */
-let dataGlobal=[];
-
-async function loadDashboard(){
-  const res = await fetch(SCRIPT_URL+"?action=admin");
-  const data = await res.json();
-  if(!Array.isArray(data)) return;
-
-  dataGlobal=data;
-  total.innerText=data.length;
-
-  zoom.innerText=data.filter(d=>
-    (d["Platform Digital"]||"").toLowerCase().includes("zoom")
-  ).length;
-
-  youtube.innerText=data.filter(d=>
-    (d["Platform Digital"]||"").toLowerCase().includes("youtube")
-  ).length;
-
-  renderTable(data);
-}
-
-function renderTable(data){
-  tbody.innerHTML="";
-  data.forEach(d=>{
-    const tr=document.createElement("tr");
-    tr.innerHTML=`
-      <td>${d["Nama Lengkap"]||"-"}</td>
-      <td>${d["NIP"]||"-"}</td>
-      <td>${d["Unit Kerja"]||"-"}</td>
-      <td>${d["Status Pegawai"]||"-"}</td>
-      <td>${d["Jenis SDMK"]||"-"}</td>
-      <td>${d["Tema Pembelajaran"]||"-"}</td>
-      <td>${d["Platform Digital"]||"-"}</td>
-    `;
-    tbody.appendChild(tr);
+  search.addEventListener("input",()=>{
+    const q=search.value.toLowerCase();
+    renderTable(dataGlobal.filter(d =>
+      (d["Nama Lengkap"]||"").toLowerCase().includes(q) ||
+      (d["NIP"]||"").toLowerCase().includes(q) ||
+      (d["Unit Kerja"]||"").toLowerCase().includes(q) ||
+      (d["Tema Pembelajaran"]||"").toLowerCase().includes(q)
+    ));
   });
-}
 
-search.addEventListener("input",()=>{
-  const q=search.value.toLowerCase();
-  renderTable(dataGlobal.filter(d=>
-    (d["Nama Lengkap"]||"").toLowerCase().includes(q)||
-    (d["NIP"]||"").toLowerCase().includes(q)||
-    (d["Unit Kerja"]||"").toLowerCase().includes(q)||
-    (d["Tema Pembelajaran"]||"").toLowerCase().includes(q)
-  ));
 });
 </script>
 
