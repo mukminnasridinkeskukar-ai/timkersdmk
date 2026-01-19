@@ -114,6 +114,7 @@ th{background:#f1f1f1}
 
 <div class="container">
 
+<!-- LOGIN -->
 <div class="login-box" id="loginBox">
   <h2>Login Admin</h2>
   <div class="sub">Dashboard Pendaftaran SIPANDAI-ASN</div>
@@ -123,6 +124,7 @@ th{background:#f1f1f1}
   <div class="login-msg" id="loginMsg"></div>
 </div>
 
+<!-- DASHBOARD -->
 <div class="dashboard" id="dashboard">
   <div class="topbar">
     <h2>Dashboard Admin Pendaftaran</h2>
@@ -156,83 +158,66 @@ th{background:#f1f1f1}
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTQFns-zuzDZnT9IOJWAxNNZKoiat8TZqSIJgoFjmtDs_8s2ALbW85Etkg1u1R_qGSeg/exec";
 
-  const SCRIPT_URL =
-    "https://script.google.com/macros/s/AKfycbwMjsgtHQHCaJ7-fTXqwuo_dWmAmf7SMIB75ZuKs1c0coVUkOVCZFNKUlePPnA3E0lK/exec";
+const el = id => document.getElementById(id);
+const loginBox = el("loginBox");
+const dashboard = el("dashboard");
+const loginMsg = el("loginMsg");
 
-  const el = id => document.getElementById(id);
+el("loginBtn").onclick = async () => {
+  loginMsg.style.display="none";
 
-  const loginBox = el("loginBox");
-  const dashboard = el("dashboard");
-  const loginMsg = el("loginMsg");
-  const loginBtn = el("loginBtn");
-  const logoutBtn = el("logoutBtn");
+  const res = await fetch(SCRIPT_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      action:"login",
+      username:el("username").value,
+      password:el("password").value
+    })
+  });
 
-  const total = el("total");
-  const zoom = el("zoom");
-  const youtube = el("youtube");
-  const tbody = el("tbody");
-  const search = el("search");
-
-  let dataGlobal = [];
-
-  loginBtn.onclick = async () => {
-    loginMsg.style.display = "none";
-
-    const res = await fetch(SCRIPT_URL,{
-      method:"POST",
-      body:JSON.stringify({
-        action:"login",
-        username: el("username").value,
-        password: el("password").value
-      })
-    });
-
-    const out = await res.json();
-    if(!out.success){
-      loginMsg.innerText = out.message;
-      loginMsg.style.display = "block";
-      return;
-    }
-
-    loginBox.style.display = "none";
-    dashboard.style.display = "block";
-    loadDashboard();
-  };
-
-  logoutBtn.onclick = () => {
-    if(confirm("Yakin ingin logout?")){
-      dashboard.style.display="none";
-      loginBox.style.display="block";
-      tbody.innerHTML="";
-      search.value="";
-    }
-  };
-
-  async function loadDashboard(){
-    const res = await fetch(SCRIPT_URL+"?action=admin");
-    const data = await res.json();
-    if(!Array.isArray(data)) return;
-
-    dataGlobal = data;
-
-    total.innerText = data.length;
-    zoom.innerText = data.filter(d =>
-      (d["Platform Digital"]||"").toLowerCase().includes("zoom")
-    ).length;
-    youtube.innerText = data.filter(d =>
-      (d["Platform Digital"]||"").toLowerCase().includes("youtube")
-    ).length;
-
-    renderTable(data);
+  const out = await res.json();
+  if(!out.success){
+    loginMsg.innerText = out.message;
+    loginMsg.style.display="block";
+    return;
   }
 
-  function renderTable(data){
-    tbody.innerHTML="";
-    data.forEach(d=>{
-      const tr=document.createElement("tr");
-      tr.innerHTML=`
+  loginBox.style.display="none";
+  dashboard.style.display="block";
+  loadDashboard();
+};
+
+el("logoutBtn").onclick = () => {
+  if(confirm("Yakin logout?")){
+    dashboard.style.display="none";
+    loginBox.style.display="block";
+  }
+};
+
+async function loadDashboard(){
+  const res = await fetch(SCRIPT_URL+"?action=admin");
+  const data = await res.json();
+  if(!Array.isArray(data)) return;
+
+  el("total").innerText = data.length;
+  el("zoom").innerText = data.filter(d =>
+    (d["Platform Digital"]||"").toLowerCase().includes("zoom")
+  ).length;
+  el("youtube").innerText = data.filter(d =>
+    (d["Platform Digital"]||"").toLowerCase().includes("youtube")
+  ).length;
+
+  renderTable(data);
+}
+
+function renderTable(data){
+  el("tbody").innerHTML="";
+  data.forEach(d=>{
+    el("tbody").innerHTML += `
+      <tr>
         <td>${d["Nama Lengkap"]||"-"}</td>
         <td>${d["NIP"]||"-"}</td>
         <td>${d["Unit Kerja"]||"-"}</td>
@@ -240,22 +225,9 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${d["Jenis SDMK"]||"-"}</td>
         <td>${d["Tema Pembelajaran"]||"-"}</td>
         <td>${d["Platform Digital"]||"-"}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  search.addEventListener("input",()=>{
-    const q=search.value.toLowerCase();
-    renderTable(dataGlobal.filter(d =>
-      (d["Nama Lengkap"]||"").toLowerCase().includes(q) ||
-      (d["NIP"]||"").toLowerCase().includes(q) ||
-      (d["Unit Kerja"]||"").toLowerCase().includes(q) ||
-      (d["Tema Pembelajaran"]||"").toLowerCase().includes(q)
-    ));
+      </tr>`;
   });
-
-});
+}
 </script>
 
 </body>
