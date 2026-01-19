@@ -15,46 +15,8 @@ body{
   margin:auto;
 }
 
-/* LOGIN */
-.login-box{
-  max-width:380px;
-  margin:40px auto;
-  background:#fff;
-  padding:30px;
-  border-radius:16px;
-  box-shadow:0 10px 25px rgba(0,0,0,.08);
-  text-align:center;
-}
-.login-box h2{margin-bottom:5px}
-.login-box .sub{color:#666;font-size:14px;margin-bottom:20px}
-.login-box input{
-  width:100%;
-  padding:12px;
-  margin-top:12px;
-  border-radius:10px;
-  border:1px solid #ccc;
-}
-.login-box button{
-  width:100%;
-  padding:12px;
-  margin-top:20px;
-  border:none;
-  border-radius:12px;
-  background:#0d6efd;
-  color:#fff;
-  font-weight:700;
-  cursor:pointer;
-}
-.login-msg{
-  margin-top:15px;
-  color:#dc3545;
-  font-weight:600;
-  display:none;
-}
-
 /* DASHBOARD */
 .dashboard{
-  display:none;
   background:#fff;
   padding:25px;
   border-radius:16px;
@@ -65,15 +27,6 @@ body{
   justify-content:space-between;
   align-items:center;
   margin-bottom:15px;
-}
-.logout{
-  padding:8px 14px;
-  border:none;
-  border-radius:10px;
-  background:#dc3545;
-  color:#fff;
-  cursor:pointer;
-  font-weight:600;
 }
 .cards{
   display:grid;
@@ -114,21 +67,10 @@ th{background:#f1f1f1}
 
 <div class="container">
 
-<!-- LOGIN -->
-<div class="login-box" id="loginBox">
-  <h2>Login Admin</h2>
-  <div class="sub">Dashboard Pendaftaran SIPANDAI-ASN</div>
-  <input id="username" placeholder="Username">
-  <input id="password" type="password" placeholder="Password">
-  <button id="loginBtn">MASUK</button>
-  <div class="login-msg" id="loginMsg"></div>
-</div>
-
 <!-- DASHBOARD -->
 <div class="dashboard" id="dashboard">
   <div class="topbar">
-    <h2>Dashboard Admin Pendaftaran</h2>
-    <button class="logout" id="logoutBtn">Logout</button>
+    <h2>Dashboard Admin Pendaftaran SIPANDAI-ASN</h2>
   </div>
 
   <div class="cards">
@@ -158,48 +100,19 @@ th{background:#f1f1f1}
 </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzTQFns-zuzDZnT9IOJWAxNNZKoiat8TZqSIJgoFjmtDs_8s2ALbW85Etkg1u1R_qGSeg/exec";
+const SCRIPT_URL =
+"https://script.google.com/macros/s/AKfycbzTQFns-zuzDZnT9IOJWAxNNZKoiat8TZqSIJgoFjmtDs_8s2ALbW85Etkg1u1R_qGSeg/exec";
 
 const el = id => document.getElementById(id);
-const loginBox = el("loginBox");
-const dashboard = el("dashboard");
-const loginMsg = el("loginMsg");
+let allData = [];
 
-el("loginBtn").onclick = async () => {
-  loginMsg.style.display = "none";
-
-  alert("LOGIN DIKLIK"); // 🔎 CEK 1
-
-  const res = await fetch(SCRIPT_URL,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
-      action:"login",
-      username:el("username").value,
-      password:el("password").value
-    })
-  });
-
-  alert("RESPON DITERIMA"); // 🔎 CEK 2
-
-  const out = await res.json();
-  alert(JSON.stringify(out)); // 🔎 CEK 3
-
-  if(!out.success){
-    loginMsg.innerText = out.message || "Login gagal";
-    loginMsg.style.display="block";
-    return;
-  }
-
-  loginBox.style.display="none";
-  dashboard.style.display="block";
-};
-
-
+/* LOAD DATA LANGSUNG */
 async function loadDashboard(){
-  const res = await fetch(SCRIPT_URL+"?action=admin");
+  const res = await fetch(SCRIPT_URL + "?action=admin");
   const data = await res.json();
   if(!Array.isArray(data)) return;
+
+  allData = data;
 
   el("total").innerText = data.length;
   el("zoom").innerText = data.filter(d =>
@@ -212,6 +125,7 @@ async function loadDashboard(){
   renderTable(data);
 }
 
+/* RENDER TABLE */
 function renderTable(data){
   el("tbody").innerHTML="";
   data.forEach(d=>{
@@ -227,6 +141,19 @@ function renderTable(data){
       </tr>`;
   });
 }
+
+/* SEARCH */
+el("search").addEventListener("input",()=>{
+  const q = el("search").value.toLowerCase();
+  renderTable(
+    allData.filter(d =>
+      Object.values(d).join(" ").toLowerCase().includes(q)
+    )
+  );
+});
+
+/* INIT */
+loadDashboard();
 </script>
 
 </body>
