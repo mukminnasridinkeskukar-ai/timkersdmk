@@ -63,11 +63,28 @@ button{
   font-weight:700;
   cursor:pointer;
 }
-button:hover{opacity:.9}
+button:disabled{
+  opacity:.7;
+  cursor:not-allowed;
+}
 #notif{
   margin-top:16px;
   text-align:center;
   font-weight:700;
+}
+.spinner{
+  width:20px;
+  height:20px;
+  border:3px solid #fff;
+  border-top:3px solid transparent;
+  border-radius:50%;
+  display:inline-block;
+  animation:spin 1s linear infinite;
+  vertical-align:middle;
+  margin-right:8px;
+}
+@keyframes spin{
+  to{transform:rotate(360deg)}
 }
 </style>
 </head>
@@ -138,11 +155,73 @@ button:hover{opacity:.9}
 <label>Email Aktif</label>
 <input id="email" type="email" required>
 
-<button type="submit">🚀 KIRIM PENDAFTARAN</button>
+<button id="btnSubmit" type="submit">🚀 KIRIM PENDAFTARAN</button>
 </form>
 
 <div id="notif"></div>
 </div>
+
+<script>
+/* ================= CONFIG ================= */
+const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx0Su64h-CTAyDu5IxqqjK6OSaUnzzxP5WVBKCZ6ESaaMk9ow9jk2cXLEs3lrzgpyLrrA/exec";
+const DASHBOARD_URL = "/jadwal.html"; // ganti sesuai halaman jadwal kamu
+
+const form  = document.getElementById("formDaftar");
+const notif = document.getElementById("notif");
+const btn   = document.getElementById("btnSubmit");
+
+/* ================= SUBMIT ================= */
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  // LOCK BUTTON
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Mengirim...';
+  notif.innerHTML = "⏳ Mohon tunggu, data sedang diproses...";
+
+  const data = {
+    nama: nama.value.trim(),
+    nip: nip.value.trim(),
+    unit: unit.value.trim(),
+    status: status.value,
+    jenis: jenis.value,
+    jp_terakhir: jp_terakhir.value,
+    tema: tema.value.trim(),
+    tanggal: tanggal.value,
+    jp: jp.value,
+    platform: platform.value,
+    wa: wa.value.trim(),
+    email: email.value.trim()
+  };
+
+  try {
+    const res = await fetch(WEBAPP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+
+    const result = await res.json();
+
+    if (!result.success) {
+      throw new Error(result.message);
+    }
+
+    notif.innerHTML = "✅ Pendaftaran berhasil. Mengalihkan ke dashboard...";
+
+    // JEDA 2 DETIK → REDIRECT
+    setTimeout(() => {
+      window.location.href = DASHBOARD_URL;
+    }, 2000);
+
+  } catch (err) {
+    console.error(err);
+    notif.innerHTML = "❌ Gagal menyimpan data: " + err.message;
+    btn.disabled = false;
+    btn.innerHTML = "🚀 KIRIM PENDAFTARAN";
+  }
+});
+</script>
 
 </body>
 </html>
