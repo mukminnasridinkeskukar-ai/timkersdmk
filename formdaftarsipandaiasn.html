@@ -1,4 +1,190 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyH24WixIFBA3Bs7q0-g8kv13nhqyic8SGuNMP11B7_Va4K4sHzFFsIGqdcuKlEZaGiqg/exec";
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Form Pendaftaran Kegiatan</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  padding: 20px;
+}
+.container {
+  max-width: 700px;
+  margin: auto;
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+}
+h2 { text-align: center; }
+label { font-weight: bold; display: block; margin-top: 15px; }
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+}
+.radio-group {
+  display: flex;
+  gap: 15px;
+  margin-top: 8px;
+}
+button {
+  margin-top: 25px;
+  width: 100%;
+  padding: 12px;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.progress-box {
+  margin-top: 20px;
+}
+.progress {
+  height: 20px;
+  background: #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  background: #28a745;
+  width: 0%;
+}
+.timer {
+  margin: 15px 0;
+  font-weight: bold;
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h2>Form Pendaftaran Kegiatan</h2>
+
+<div class="timer" id="timer"></div>
+
+<div class="progress-box">
+  <p>Jumlah Pendaftar: <span id="total">0</span></p>
+  <div class="progress">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+</div>
+
+<form id="form">
+
+<label>Nama Lengkap</label>
+<input required id="nama">
+
+<label>NIP</label>
+<input required id="nip">
+
+<label>Unit Kerja</label>
+<input required id="unit">
+
+<label>Status Pegawai</label>
+<div class="radio-group">
+  <label><input type="radio" name="status" value="PNS" required> PNS</label>
+  <label><input type="radio" name="status" value="PPPK"> PPPK</label>
+</div>
+
+<label>Jenis SDMK</label>
+<div class="radio-group">
+  <label><input type="radio" name="jenis" value="Tenaga Medis" required> Tenaga Medis</label>
+  <label><input type="radio" name="jenis" value="Tenaga Kesehatan"> Tenaga Kesehatan</label>
+  <label><input type="radio" name="jenis" value="Tenaga Penunjang"> Tenaga Penunjang</label>
+</div>
+
+<label>Jumlah JP Terakhir</label>
+<input type="number" required id="jpTerakhir">
+
+<label>Tanggal Kegiatan</label>
+<input type="date" required id="tanggal">
+
+<label>Jumlah JP Kegiatan</label>
+<input type="number" required id="jpKegiatan">
+
+<label>Platform Digital</label>
+<div class="radio-group">
+  <label><input type="radio" name="platform" value="Zoom Meeting" required> Zoom</label>
+  <label><input type="radio" name="platform" value="YouTube"> YouTube</label>
+</div>
+
+<label>Whatsapp / Telpon</label>
+<input required id="wa">
+
+<label>Email Aktif</label>
+<input type="email" required id="email">
+
+<button type="submit">DAFTAR</button>
+</form>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzp6-vqfxliYzsHtmj8cFFHuUORO237WA1cEXE__WU2K_sInsJtXfVzHiBYVIlzsycLQ/exec";
 const KUOTA_ZOOM = 100;
 const KUOTA_YOUTUBE = 1000;
 const BATAS_PENDAFTARAN = "2026-01-21T23:59:59";
+
+async function loadTotal() {
+  const res = await fetch(SCRIPT_URL);
+  const data = await res.json();
+  document.getElementById("total").innerText = data.total;
+
+  const persen = (data.total / (KUOTA_ZOOM + KUOTA_YOUTUBE)) * 100;
+  document.getElementById("progressBar").style.width = persen + "%";
+}
+loadTotal();
+
+document.getElementById("form").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const payload = {
+    nama: nama.value,
+    nip: nip.value,
+    unit: unit.value,
+    status: document.querySelector("input[name=status]:checked").value,
+    jenis: document.querySelector("input[name=jenis]:checked").value,
+    jpTerakhir: jpTerakhir.value,
+    tanggal: tanggal.value,
+    jpKegiatan: jpKegiatan.value,
+    platform: document.querySelector("input[name=platform]:checked").value,
+    wa: wa.value,
+    email: email.value
+  };
+
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  alert("Pendaftaran berhasil!");
+  e.target.reset();
+  loadTotal();
+});
+
+// Timer
+setInterval(() => {
+  const end = new Date(BATAS_PENDAFTARAN);
+  const now = new Date();
+  const diff = end - now;
+
+  if (diff <= 0) {
+    document.getElementById("timer").innerText = "Pendaftaran ditutup";
+    return;
+  }
+
+  const d = Math.floor(diff / (1000*60*60*24));
+  const h = Math.floor(diff / (1000*60*60)) % 24;
+  const m = Math.floor(diff / (1000*60)) % 60;
+
+  document.getElementById("timer").innerText =
+    `Sisa waktu pendaftaran: ${d} hari ${h} jam ${m} menit`;
+}, 1000);
+</script>
+
+</body>
+</html>
