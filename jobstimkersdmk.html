@@ -7,121 +7,53 @@
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
-:root{
-  --primary:#6366f1;
-  --primary-dark:#4f46e5;
-  --bg:#f4f6fb;
-  --card:#ffffff;
-}
-
-*{box-sizing:border-box}
-body{
-  margin:0;
-  font-family:'Inter',sans-serif;
-  background:var(--bg);
-  color:#1f2937;
-}
-
-/* ===== ANIMATION ===== */
-.fade{animation:fade .6s ease}
-.slide{animation:slide .6s ease}
-@keyframes fade{from{opacity:0}to{opacity:1}}
-@keyframes slide{from{opacity:0;transform:translateY(30px)}to{opacity:1}}
-
-/* ===== HEADER ===== */
+body{margin:0;font-family:Inter,sans-serif;background:#f4f6fb;color:#111}
 header{
   margin:20px;
-  background:linear-gradient(135deg,var(--primary),#818cf8);
-  color:white;
   padding:28px;
-  border-radius:28px;
-  box-shadow:0 25px 60px rgba(0,0,0,.25);
+  color:#fff;
+  border-radius:24px;
+  background:linear-gradient(135deg,#6366f1,#818cf8);
+  box-shadow:0 20px 50px rgba(0,0,0,.25);
 }
-header h1{margin:0}
-header p{margin-top:6px;opacity:.9}
-
-/* ===== CONTROLS ===== */
 .controls{
   margin:20px;
   display:flex;
   gap:14px;
   flex-wrap:wrap;
 }
-.controls input,
-.controls select{
+.controls input,.controls select{
   padding:14px;
   border-radius:14px;
   border:1px solid #ddd;
-  font-size:14px;
   min-width:220px;
 }
-
-/* ===== TABLE ===== */
 .table-wrap{
   margin:20px;
-  background:white;
-  border-radius:26px;
-  box-shadow:0 20px 45px rgba(0,0,0,.15);
+  background:#fff;
+  border-radius:24px;
+  box-shadow:0 18px 45px rgba(0,0,0,.15);
   overflow-x:auto;
 }
-table{
-  width:100%;
-  min-width:900px;
-  border-collapse:collapse;
-}
-thead th{
-  position:sticky;
-  top:0;
-  background:#eef2ff;
-}
-th,td{
-  padding:14px 16px;
-  font-size:14px;
-}
-tbody tr{
-  transition:.2s;
-}
-tbody tr:hover{
-  background:#f9fafb;
-  transform:scale(1.01);
-}
-.link-btn{
-  background:var(--primary);
+table{width:100%;min-width:900px;border-collapse:collapse}
+th,td{padding:14px;border-bottom:1px solid #eee}
+th{background:#eef2ff}
+tbody tr:hover{background:#f9fafb}
+a.btn{
+  background:#6366f1;
   color:white;
   padding:8px 14px;
   border-radius:10px;
   text-decoration:none;
-  font-size:13px;
-  font-weight:600;
 }
-
-/* ===== MOBILE CARD ===== */
-.cards{
-  display:none;
-  margin:20px;
-}
+.cards{display:none;margin:20px}
 .card{
-  background:white;
-  border-radius:22px;
+  background:#fff;
+  border-radius:20px;
   padding:18px;
   margin-bottom:16px;
   box-shadow:0 15px 40px rgba(0,0,0,.15);
 }
-.card h4{margin:0 0 6px}
-.card small{color:#6b7280}
-.card p{margin:6px 0}
-.card a{
-  display:inline-block;
-  margin-top:10px;
-  background:var(--primary);
-  color:white;
-  padding:8px 14px;
-  border-radius:10px;
-  text-decoration:none;
-}
-
-/* ===== RESPONSIVE ===== */
 @media(max-width:768px){
   table{display:none}
   .cards{display:block}
@@ -131,27 +63,26 @@ tbody tr:hover{
 
 <body>
 
-<header class="slide">
+<header>
   <h1>📊 Dashboard Tugas Pokok & Fungsi</h1>
-  <p>Monitoring kegiatan & penanggung jawab</p>
+  <p>Monitoring kegiatan tim</p>
 </header>
 
-<div class="controls fade">
+<div class="controls">
   <input id="search" placeholder="🔍 Cari tugas / sub kegiatan">
   <select id="filterPJ">
     <option value="">📌 Semua Penanggung Jawab</option>
   </select>
 </div>
 
-<!-- DESKTOP TABLE -->
-<div class="table-wrap fade">
+<div class="table-wrap">
   <table>
     <thead>
       <tr>
         <th>No</th>
-        <th>Tugas Pokok & Fungsi</th>
+        <th>Tugas Pokok</th>
         <th>Sub Kegiatan</th>
-        <th>Penanggung Jawab</th>
+        <th>PJ</th>
         <th>Pendamping</th>
         <th>Link</th>
       </tr>
@@ -160,77 +91,63 @@ tbody tr:hover{
   </table>
 </div>
 
-<!-- MOBILE CARD -->
 <div class="cards" id="cardData"></div>
 
 <script>
-/* ================= CONFIG ================= */
-const API_URL = "https://script.google.com/macros/s/AKfycbyCsclHGMi9ljI0sESvhwzyZia9Alv0yEkNwIz5gcjiCLmeMw5MSml4e-78qefgBFF3/exec";
-let allData = [];
+const API_URL = "https://script.google.com/macros/s/AKfycbxOYvzPXOecwy1Z_kEeAtjvUrrEjoLYdW2PFtG8-SiJ8cR9vxJbHgkPA6LOD9oPY7jS/exec";
+let allData=[];
 
-/* ================= LOAD DATA ================= */
 fetch(API_URL,{
   method:"POST",
   body:new URLSearchParams({action:"data"})
 })
 .then(r=>r.json())
 .then(d=>{
-  allData = d;
+  allData=d;
   render(d);
   fillFilter(d);
 });
 
-/* ================= RENDER ================= */
 function render(data){
   tableData.innerHTML="";
   cardData.innerHTML="";
-
-  data.forEach((d,i)=>{
+  data.forEach(d=>{
     tableData.innerHTML+=`
       <tr>
-        <td>${d.NO || i+1}</td>
-        <td>${d["TUGAS POKOK DAN FUNGSI"]||""}</td>
-        <td>${d["SUB KEGIATAN"]||""}</td>
-        <td>${d["PENANGGUNG JAWAB"]||""}</td>
-        <td>${d.PENDAMPING||""}</td>
-        <td>${d["LINK AKSES"]
-          ? `<a class="link-btn" target="_blank" href="${d["LINK AKSES"]}">Buka</a>`
-          : "-"}</td>
+        <td>${d.NO}</td>
+        <td>${d.TUGAS}</td>
+        <td>${d.SUB}</td>
+        <td>${d.PJ}</td>
+        <td>${d.PENDAMPING}</td>
+        <td>${d.LINK?`<a class="btn" target="_blank" href="${d.LINK}">Buka</a>`:"-"}</td>
       </tr>`;
-
     cardData.innerHTML+=`
-      <div class="card fade">
-        <h4>${d["TUGAS POKOK DAN FUNGSI"]||""}</h4>
-        <small>${d["SUB KEGIATAN"]||""}</small>
-        <p><b>PJ:</b> ${d["PENANGGUNG JAWAB"]||"-"}</p>
-        <p><b>Pendamping:</b> ${d.PENDAMPING||"-"}</p>
-        ${d["LINK AKSES"]
-          ? `<a target="_blank" href="${d["LINK AKSES"]}">Buka Dokumen</a>`
-          : ""}
+      <div class="card">
+        <h4>${d.TUGAS}</h4>
+        <p>${d.SUB}</p>
+        <p><b>PJ:</b> ${d.PJ}</p>
+        <p><b>Pendamping:</b> ${d.PENDAMPING}</p>
+        ${d.LINK?`<a class="btn" target="_blank" href="${d.LINK}">Buka</a>`:""}
       </div>`;
   });
 }
 
-/* ================= FILTER ================= */
 function fillFilter(data){
   filterPJ.innerHTML='<option value="">📌 Semua Penanggung Jawab</option>';
-  [...new Set(data.map(d=>d["PENANGGUNG JAWAB"]))].forEach(p=>{
+  [...new Set(data.map(d=>d.PJ))].forEach(p=>{
     if(p) filterPJ.innerHTML+=`<option>${p}</option>`;
   });
 }
 
-search.oninput = applyFilter;
-filterPJ.onchange = applyFilter;
+search.oninput=applyFilter;
+filterPJ.onchange=applyFilter;
 
 function applyFilter(){
-  const q = search.value.toLowerCase();
-  const pj = filterPJ.value;
-
+  const q=search.value.toLowerCase();
+  const pj=filterPJ.value;
   render(allData.filter(d=>{
-    const text =
-      (d["TUGAS POKOK DAN FUNGSI"]||"").toLowerCase().includes(q) ||
-      (d["SUB KEGIATAN"]||"").toLowerCase().includes(q);
-    return (!pj || d["PENANGGUNG JAWAB"]===pj) && text;
+    const s=d.TUGAS.toLowerCase().includes(q)||d.SUB.toLowerCase().includes(q);
+    return(!pj||d.PJ===pj)&&s;
   }));
 }
 </script>
