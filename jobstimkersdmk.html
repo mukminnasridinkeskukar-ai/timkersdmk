@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Kegiatan</title>
+
+<style>
+:root{
+  --primary:#4f46e5;
+  --bg:#f4f6fb;
+  --card:#ffffff;
+}
+body{
+  margin:0;
+  font-family:'Segoe UI',sans-serif;
+  background:var(--bg);
+}
+
+/* ================= LOGIN ================= */
+#loginBox{
+  max-width:380px;
+  margin:90px auto;
+  background:var(--card);
+  padding:32px;
+  border-radius:18px;
+  box-shadow:0 18px 45px rgba(0,0,0,.15);
+}
+#loginBox h2{
+  text-align:center;
+  margin-bottom:18px;
+}
+#loginBox input{
+  width:100%;
+  padding:12px 14px;
+  margin-top:12px;
+  border-radius:12px;
+  border:1px solid #ddd;
+  font-size:15px;
+}
+#loginBox button{
+  width:100%;
+  margin-top:18px;
+  padding:12px;
+  border:none;
+  border-radius:14px;
+  background:var(--primary);
+  color:white;
+  font-size:16px;
+  font-weight:700;
+  cursor:pointer;
+}
+#loginBox button:hover{background:#3730a3}
+
+/* ================= DASHBOARD ================= */
+#dashboard{
+  display:none;
+  width:100%;
+  padding:20px;
+  box-sizing:border-box;
+}
+
+header{
+  background:linear-gradient(135deg,var(--primary),#6366f1);
+  color:white;
+  padding:22px;
+  border-radius:18px;
+  box-shadow:0 12px 35px rgba(0,0,0,.2);
+}
+
+/* CONTROLS */
+.controls{
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+  margin:20px 0;
+}
+.controls input,
+.controls select{
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid #ddd;
+  min-width:230px;
+  box-shadow:0 4px 12px rgba(0,0,0,.06);
+}
+
+/* ================= TABLE ================= */
+.table-wrap{
+  position:relative;
+  width:100%;
+  background:white;
+  border-radius:18px;
+  box-shadow:0 15px 40px rgba(0,0,0,.1);
+  overflow-x:auto;
+}
+
+/* SCROLL INDICATOR */
+.table-wrap::after{
+  content:"⇆ geser tabel";
+  position:absolute;
+  right:14px;
+  bottom:8px;
+  font-size:12px;
+  color:#666;
+  opacity:.7;
+  pointer-events:none;
+}
+
+/* TABLE */
+table{
+  width:100%;
+  min-width:950px;
+  border-collapse:collapse;
+}
+
+/* STICKY HEADER */
+thead th{
+  position:sticky;
+  top:0;
+  background:#eef2ff;
+  z-index:3;
+  box-shadow:0 2px 0 rgba(0,0,0,.08);
+}
+
+/* CELL */
+th,td{
+  padding:14px 16px;
+  text-align:left;
+  white-space:nowrap;
+}
+
+tbody tr:hover{
+  background:#f9fafb;
+}
+
+/* BUTTON */
+.link-btn{
+  background:var(--primary);
+  color:white;
+  padding:8px 14px;
+  border-radius:10px;
+  text-decoration:none;
+  font-weight:600;
+}
+
+/* FOOTER */
+footer{
+  text-align:center;
+  padding:16px;
+  color:#666;
+}
+
+/* MOBILE */
+@media(max-width:768px){
+  .controls{
+    flex-direction:column;
+  }
+  table{
+    min-width:800px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginBox">
+  <h2>🔐 Login Dashboard</h2>
+  <input id="username" placeholder="Username">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="login()">Masuk</button>
+  <p id="msg" style="color:red;text-align:center"></p>
+</div>
+
+<!-- ================= DASHBOARD ================= -->
+<div id="dashboard">
+  <header>
+    <h1>📊 Dashboard Kegiatan</h1>
+    <p>Sistem Informasi Internal</p>
+  </header>
+
+  <div class="controls">
+    <input type="text" id="search" placeholder="🔍 Cari kegiatan / pengampu / username">
+    <select id="filterPengampu">
+      <option value="">📌 Semua Pengampu</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Kegiatan</th>
+          <th>Pengampu</th>
+          <th>Link Akses</th>
+          <th>Username</th>
+          <th>Password</th>
+        </tr>
+      </thead>
+      <tbody id="tableData"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>© Dashboard Internal</footer>
+
+<script>
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxPO3MPsFCmgnIJ_v6FYQ5cZWJ6IB96-bbQtneelfAXiVC7DUtwVt4qxWK8yvY4ctdy/exec";
+let allData = [];
+
+/* LOGIN */
+function login(){
+  fetch(WEB_APP_URL,{
+    method:"POST",
+    body:new URLSearchParams({
+      action:"login",
+      username:username.value,
+      password:password.value
+    })
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.status==="success"){
+      loginBox.style.display="none";
+      dashboard.style.display="block";
+      loadData();
+    }else{
+      msg.innerText="Login gagal";
+    }
+  });
+}
+
+/* LOAD DATA */
+function loadData(){
+  fetch(WEB_APP_URL,{
+    method:"POST",
+    body:new URLSearchParams({action:"data"})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    allData = data;
+    renderTable(data);
+    fillFilter(data);
+  });
+}
+
+function renderTable(data){
+  tableData.innerHTML="";
+  data.forEach((d,i)=>{
+    tableData.innerHTML+=`
+      <tr>
+        <td>${d.No || i+1}</td>
+        <td>${d.Kegiatan}</td>
+        <td>${d.Pengampu}</td>
+        <td><a class="link-btn" href="${d["Link Akses"]}" target="_blank">Buka</a></td>
+        <td>${d.Username}</td>
+        <td>${d.Password}</td>
+      </tr>`;
+  });
+}
+
+function fillFilter(data){
+  const s = document.getElementById("filterPengampu");
+  s.innerHTML = `<option value="">📌 Semua Pengampu</option>`;
+  [...new Set(data.map(d=>d.Pengampu))].forEach(p=>{
+    s.innerHTML+=`<option value="${p}">${p}</option>`;
+  });
+}
+
+search.addEventListener("input",filterData);
+filterPengampu.addEventListener("change",filterData);
+
+function filterData(){
+  const q = search.value.toLowerCase();
+  const p = filterPengampu.value;
+
+  renderTable(
+    allData.filter(d=>{
+      const s =
+        d.Kegiatan.toLowerCase().includes(q) ||
+        d.Pengampu.toLowerCase().includes(q) ||
+        d.Username.toLowerCase().includes(q);
+      const f = !p || d.Pengampu === p;
+      return s && f;
+    })
+  );
+}
+</script>
+
+</body>
+</html>
