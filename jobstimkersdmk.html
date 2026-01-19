@@ -12,10 +12,40 @@ body{
   margin:0;
   font-family:'Inter',sans-serif;
   background:#f4f6fb;
-  color:#111;
 }
 
-/* HEADER */
+/* LOGIN */
+#loginBox{
+  max-width:380px;
+  margin:120px auto;
+  background:white;
+  padding:32px;
+  border-radius:22px;
+  box-shadow:0 25px 60px rgba(0,0,0,.25);
+}
+#loginBox h2{text-align:center;margin-bottom:20px}
+#loginBox input{
+  width:100%;
+  padding:14px;
+  border-radius:14px;
+  border:1px solid #ddd;
+}
+#loginBox button{
+  width:100%;
+  margin-top:18px;
+  padding:14px;
+  border:none;
+  border-radius:14px;
+  background:#6366f1;
+  color:white;
+  font-weight:700;
+  cursor:pointer;
+}
+#msg{text-align:center;color:red;margin-top:12px}
+
+/* DASHBOARD */
+#dashboard{display:none}
+
 header{
   margin:20px;
   padding:28px;
@@ -25,7 +55,6 @@ header{
   box-shadow:0 25px 60px rgba(0,0,0,.25);
 }
 
-/* CONTROLS */
 .controls{
   margin:20px;
   display:flex;
@@ -37,11 +66,8 @@ header{
   padding:14px;
   border-radius:14px;
   border:1px solid #ddd;
-  font-size:14px;
-  min-width:220px;
 }
 
-/* TABLE */
 .table-wrap{
   margin:20px;
   background:white;
@@ -57,90 +83,94 @@ table{
 th,td{
   padding:14px;
   border-bottom:1px solid #eee;
-  font-size:14px;
 }
-th{
-  background:#eef2ff;
-  text-align:left;
-}
-tbody tr:hover{
-  background:#f9fafb;
-}
+th{background:#eef2ff}
 a.btn{
   background:#6366f1;
   color:white;
   padding:8px 14px;
   border-radius:10px;
   text-decoration:none;
-  font-size:13px;
 }
 
-/* MOBILE CARD */
-.cards{
-  display:none;
-  margin:20px;
-}
-.card{
-  background:white;
-  border-radius:22px;
-  padding:18px;
-  margin-bottom:16px;
-  box-shadow:0 15px 40px rgba(0,0,0,.15);
-}
-
-/* RESPONSIVE */
+/* MOBILE */
 @media(max-width:768px){
   table{display:none}
-  .cards{display:block}
 }
 </style>
 </head>
 
 <body>
 
-<header>
-  <h1>📊 Dashboard Tugas Pokok & Fungsi</h1>
-  <p>Monitoring kegiatan dan penanggung jawab</p>
-</header>
-
-<div class="controls">
-  <input id="search" placeholder="🔍 Cari tugas / sub kegiatan">
-  <select id="filterPJ">
-    <option value="">📌 Semua Penanggung Jawab</option>
-  </select>
+<!-- LOGIN -->
+<div id="loginBox">
+  <h2>🔐 Login Dashboard</h2>
+  <input type="password" id="password" placeholder="Masukkan password">
+  <button onclick="login()">Masuk</button>
+  <div id="msg"></div>
 </div>
 
-<div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>No</th>
-        <th>Tugas Pokok dan Fungsi</th>
-        <th>Sub Kegiatan</th>
-        <th>Penanggung Jawab</th>
-        <th>Pendamping</th>
-        <th>Link</th>
-      </tr>
-    </thead>
-    <tbody id="tableData"></tbody>
-  </table>
-</div>
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <header>
+    <h1>📊 Dashboard Tugas Pokok & Fungsi</h1>
+    <p>Monitoring kegiatan dan penanggung jawab</p>
+  </header>
 
-<div class="cards" id="cardData"></div>
+  <div class="controls">
+    <input id="search" placeholder="🔍 Cari tugas / sub kegiatan">
+    <select id="filterPJ">
+      <option value="">📌 Semua Penanggung Jawab</option>
+    </select>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Tugas Pokok dan Fungsi</th>
+          <th>Sub Kegiatan</th>
+          <th>PJ</th>
+          <th>Pendamping</th>
+          <th>Link</th>
+        </tr>
+      </thead>
+      <tbody id="tableData"></tbody>
+    </table>
+  </div>
+</div>
 
 <script>
-fetch("https://script.google.com/macros/s/AKfycbyszWLm2G6Jy46AO9ugoUT-qDyW2IYiSqM4vY156nVHdlTfEU3ku74vI_dd9ML_HFDE/exec")
-  .then(res => res.json())
-  .then(data => {
-    console.log("DATA:", data);
-    render(data);
-  });
+const API_URL = "https://script.google.com/macros/s/AKfycbzreb5E10p9bBErHHR9zuhZo8Z5SdjCTqT91YeNsrQe7nIDI1ElUQgV0jujSjKhfdJD/exec";
+let PASSWORD = "";
+let allData = [];
 
+/* LOGIN */
+function login(){
+  PASSWORD = document.getElementById("password").value;
+  if(!PASSWORD){ msg.innerText="Password wajib diisi"; return; }
+
+  fetch(API_URL + "?key=" + encodeURIComponent(PASSWORD))
+    .then(r => r.json())
+    .then(d => {
+      if(d.error){
+        msg.innerText="Password salah";
+        return;
+      }
+      document.getElementById("loginBox").style.display="none";
+      document.getElementById("dashboard").style.display="block";
+      allData = d;
+      render(d);
+      fillFilter(d);
+    });
+}
+
+/* RENDER */
 function render(data){
   tableData.innerHTML="";
-  cardData.innerHTML="";
   data.forEach(d=>{
-    tableData.innerHTML+=`
+    tableData.innerHTML += `
       <tr>
         <td>${d.no}</td>
         <td>${d.tugas}</td>
@@ -152,8 +182,9 @@ function render(data){
   });
 }
 
+/* FILTER */
 function fillFilter(data){
-  filterPJ.innerHTML = '<option value="">📌 Semua Penanggung Jawab</option>';
+  filterPJ.innerHTML='<option value="">📌 Semua Penanggung Jawab</option>';
   [...new Set(data.map(d=>d.pj))].forEach(p=>{
     if(p) filterPJ.innerHTML += `<option>${p}</option>`;
   });
@@ -166,14 +197,11 @@ function applyFilter(){
   const q = search.value.toLowerCase();
   const pj = filterPJ.value;
   render(allData.filter(d=>{
-    const s =
-      d.tugas.toLowerCase().includes(q) ||
-      d.sub.toLowerCase().includes(q);
-    return (!pj || d.pj === pj) && s;
+    return (!pj || d.pj === pj) &&
+      (d.tugas.toLowerCase().includes(q) || d.sub.toLowerCase().includes(q));
   }));
 }
 </script>
-
 
 </body>
 </html>
