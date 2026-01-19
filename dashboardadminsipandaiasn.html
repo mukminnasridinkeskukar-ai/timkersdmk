@@ -1,26 +1,116 @@
 <!DOCTYPE html>
-<html>
-<body style="font-family:Arial;text-align:center;padding:50px">
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIPANDAI-ASN | Admin</title>
 
-<h2>🔐 Login Admin SIPANDAI-ASN</h2>
+<style>
+body{
+  font-family:Arial, sans-serif;
+  background:#f4f6fb;
+  padding:30px;
+}
+.box{
+  max-width:420px;
+  margin:auto;
+  background:#fff;
+  padding:25px;
+  border-radius:12px;
+  box-shadow:0 10px 25px rgba(0,0,0,.1);
+}
+.hidden{display:none}
+input,button{
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+}
+button{
+  background:#2563eb;
+  color:white;
+  border:none;
+  cursor:pointer;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+th,td{
+  border:1px solid #ddd;
+  padding:8px;
+  font-size:13px;
+}
+th{background:#eef2ff}
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+</style>
+</head>
 
-<input id="u" placeholder="Email"><br><br>
-<input id="p" type="password" placeholder="Password"><br><br>
-<button onclick="login()">LOGIN</button>
+<body>
 
-<p id="msg" style="color:red"></p>
+<!-- LOGIN -->
+<div id="loginBox" class="box hidden">
+  <h3>🔐 Login Admin SIPANDAI-ASN</h3>
+  <input id="username" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="login()">LOGIN</button>
+  <div id="msg" style="color:red;margin-top:10px"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden">
+  <div class="top">
+    <h2>📊 Dashboard Admin</h2>
+    <button onclick="logout()" style="width:auto">Logout</button>
+  </div>
+
+  <input id="search" placeholder="Cari data...">
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nama</th>
+        <th>NIP</th>
+        <th>Unit</th>
+        <th>Tema</th>
+        <th>Platform</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbxa0jYXSpWsVtogE4ZMYThHqECa5FPX2CKlIg4cNE4LvdAtTnhlb1H76YyzwLseg7mV/exec";
+/* ========= KONFIG ========= */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxa0jYXSpWsVtogE4ZMYThHqECa5FPX2CKlIg4cNE4LvdAtTnhlb1H76YyzwLseg7mV/exec";
+const ADMIN_TOKEN = "SIPANDAI_ADMIN_2026";
 
+/* ========= ELEMEN ========= */
+const loginBox = document.getElementById("loginBox");
+const dashboard = document.getElementById("dashboard");
+
+/* ========= CEK TOKEN ========= */
+if(localStorage.getItem("ADMIN_TOKEN") === ADMIN_TOKEN){
+  showDashboard();
+}else{
+  loginBox.classList.remove("hidden");
+}
+
+/* ========= LOGIN ========= */
 function login(){
-  fetch(API,{
+  msg.innerText = "Memverifikasi...";
+
+  fetch(SCRIPT_URL,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
       action:"login",
-      username:u.value,
-      password:p.value
+      username:username.value,
+      password:password.value
     })
   })
   .then(r=>r.json())
@@ -30,8 +120,51 @@ function login(){
       return;
     }
     localStorage.setItem("ADMIN_TOKEN",d.token);
-    location.href="dashboard-admin.html";
+    showDashboard();
   });
+}
+
+/* ========= DASHBOARD ========= */
+let allData=[];
+
+function showDashboard(){
+  loginBox.classList.add("hidden");
+  dashboard.classList.remove("hidden");
+
+  fetch(SCRIPT_URL+"?action=admin")
+    .then(r=>r.json())
+    .then(d=>{
+      allData=d;
+      render(d);
+    });
+}
+
+function render(data){
+  tbody.innerHTML="";
+  data.forEach(x=>{
+    tbody.innerHTML+=`
+      <tr>
+        <td>${x["Nama Lengkap"]||""}</td>
+        <td>${x["NIP"]||""}</td>
+        <td>${x["Unit Kerja"]||""}</td>
+        <td>${x["Tema Pembelajaran"]||""}</td>
+        <td>${x["Platform Digital"]||""}</td>
+      </tr>`;
+  });
+}
+
+/* ========= SEARCH ========= */
+search.oninput=()=>{
+  const q=search.value.toLowerCase();
+  render(allData.filter(d=>
+    JSON.stringify(d).toLowerCase().includes(q)
+  ));
+}
+
+/* ========= LOGOUT ========= */
+function logout(){
+  localStorage.removeItem("ADMIN_TOKEN");
+  location.reload();
 }
 </script>
 
