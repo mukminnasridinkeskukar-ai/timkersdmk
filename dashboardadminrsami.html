@@ -1,223 +1,311 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard SDMK</title>
-
-<style>
-body{
-  margin:0;
-  font-family:Segoe UI,Arial,sans-serif;
-  background:linear-gradient(120deg,#0a0f2c,#050814);
-  color:#eaf1ff;
-}
-
-header{
-  padding:28px;
-  text-align:center;
-  font-size:28px;
-  font-weight:700;
-}
-
-.tools{
-  padding:0 30px 20px;
-  display:flex;
-  gap:14px;
-  flex-wrap:wrap;
-  justify-content:center;
-}
-
-.tools input,.tools select{
-  padding:10px 14px;
-  border-radius:10px;
-  border:none;
-  font-size:14px;
-  min-width:220px;
-}
-
-.grid{
-  padding:30px;
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-  gap:24px;
-}
-
-.card{
-  background:linear-gradient(145deg,#121a3a,#0a1026);
-  border-radius:20px;
-  padding:18px;
-  cursor:pointer;
-  transition:.3s;
-}
-
-.card:hover{
-  transform:translateY(-6px);
-  box-shadow:0 20px 40px rgba(0,0,0,.5);
-}
-
-.card img{
-  width:100%;
-  height:240px;
-  object-fit:cover;
-  border-radius:16px;
-}
-
-.card h3{
-  margin:14px 0 4px;
-  font-size:18px;
-}
-
-.card small{opacity:.7}
-
-/* MODAL */
-.modal{
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,.9);
-  display:none;
-  z-index:999;
-}
-
-.modal-content{
-  max-width:1200px;
-  margin:40px auto;
-  background:#0e1538;
-  border-radius:24px;
-  padding:25px;
-}
-
-.modal-grid{
-  display:grid;
-  grid-template-columns:360px 1fr;
-  gap:30px;
-}
-
-.modal img{
-  width:100%;
-  border-radius:18px;
-  cursor:pointer;
-}
-
-.label{
-  font-size:12px;
-  opacity:.6;
-}
-
-.value{
-  margin-bottom:10px;
-}
-
-.close{
-  text-align:right;
-  margin-bottom:10px;
-}
-
-.close button{
-  background:#ff4b4b;
-  border:none;
-  color:#fff;
-  padding:8px 16px;
-  border-radius:10px;
-  cursor:pointer;
-}
-
-@media(max-width:900px){
-  .modal-grid{grid-template-columns:1fr}
-}
-</style>
-</head>
-
-<body>
-
-<header>DASHBOARD DATA SDMK</header>
-
-<div class="tools">
-  <input id="search" placeholder="Cari Nama atau NIK">
-  <select id="filter">
-    <option value="">Semua Jenis SDMK</option>
-  </select>
-</div>
-
-<div class="grid" id="grid"></div>
-
-<div class="modal" id="modal">
-  <div class="modal-content">
-    <div class="close">
-      <button onclick="closeModal()">Tutup</button>
+<!-- ================= LOGIN ================= -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo">🔐</div>
+      <h2>Admin Panel</h2>
+      <p>Dashboard Peminatan SDM Kesehatan RSUD Aji Muhammad Idris</p>
     </div>
-    <div class="modal-grid" id="modalBody"></div>
+
+    <div class="login-field">
+      <span>👤</span>
+      <input id="loginUser" placeholder="Username">
+    </div>
+
+    <div class="login-field">
+      <span>🔑</span>
+      <input id="loginPass" type="password" placeholder="Password">
+    </div>
+
+    <button class="login-btn" onclick="login()">Masuk</button>
+    <div class="login-error" id="loginError"></div>
+
+    <div class="login-footer">© 2026</div>
   </div>
 </div>
 
+<!-- ================= DASHBOARD ================= -->
+<div class="dash-wrap hidden" id="dashWrap">
+  <div class="dash">
+    <div class="dash-top">
+      <h2>📊 Dashboard Peminat SDM Kesehatan RSUD Aji Muhammad Idris</h2>
+      <button class="logout" onclick="logout()">Logout</button>
+    </div>
+
+    <input id="search" placeholder="🔍 Cari Nama..." />
+
+    <div class="filters">
+      <select id="fJK"><option value="">Jenis Kelamin</option></select>
+      <select id="fPend"><option value="">Pendidikan</option></select>
+      <select id="fSDMK"><option value="">Jenis SDMK</option></select>
+    </div>
+
+    <div class="charts">
+      <div class="chart-card"><canvas id="jkChart"></canvas></div>
+      <div class="chart-card"><canvas id="pendChart"></canvas></div>
+      <div class="chart-card"><canvas id="sdmkChart"></canvas></div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Foto</th>
+            <th>Nama</th>
+            <th>JK</th>
+            <th>Pendidikan</th>
+            <th>SDMK</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL ================= -->
+<div class="modal" id="modal" tabindex="-1">
+  <div class="modal-box">
+    <button class="modal-close">&times;</button>
+
+    <!-- FOTO -->
+    <div style="text-align:center;margin-bottom:14px">
+      <img id="modalPhoto"
+           style="max-width:180px;border-radius:14px;box-shadow:0 8px 20px rgba(0,0,0,.25);cursor:pointer">
+    </div>
+
+    <!-- DATA -->
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* ===== LOGIN ===== */
+.login-wrap{
+  position:fixed; inset:0;
+  background:linear-gradient(135deg,#020617,#0f172a,#1e293b);
+  display:flex; align-items:center; justify-content:center;
+  z-index:10000;
+}
+.login-card{
+  width:360px;
+  padding:28px;
+  border-radius:20px;
+  background:rgba(255,255,255,.12);
+  backdrop-filter:blur(16px);
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  color:#fff;
+  animation:fadeUp .6s ease;
+}
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(20px)}
+  to{opacity:1;transform:none}
+}
+.login-header{text-align:center;margin-bottom:20px}
+.login-header .logo{font-size:42px}
+.login-header h2{margin:6px 0 0}
+.login-header p{font-size:14px;opacity:.8}
+
+.login-field{
+  display:flex;align-items:center;
+  background:rgba(255,255,255,.18);
+  border-radius:12px;
+  padding:10px 12px;
+  margin-bottom:12px;
+}
+.login-field span{margin-right:8px}
+.login-field input{
+  flex:1;border:none;background:none;
+  color:#fff;font-size:15px;outline:none;
+}
+.login-btn{
+  width:100%;padding:12px;
+  border:none;border-radius:12px;
+  background:linear-gradient(135deg,#3b82f6,#2563eb);
+  color:#fff;font-weight:600;
+  cursor:pointer;
+}
+.login-error{text-align:center;color:#fecaca;margin-top:8px}
+.login-footer{text-align:center;font-size:12px;opacity:.6;margin-top:16px}
+
+/* ===== DASHBOARD ===== */
+.hidden{display:none}
+.dash-wrap{padding:10px}
+.dash{font-family:Segoe UI,Arial,sans-serif}
+.dash-top{display:flex;justify-content:space-between;align-items:center}
+.logout{
+  background:#ef4444;color:#fff;
+  border:none;padding:6px 12px;
+  border-radius:8px;cursor:pointer;
+}
+#search{width:100%;padding:10px;margin:10px 0}
+
+.filters{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:8px;margin-bottom:16px;
+}
+.filters select{padding:8px}
+
+.charts{
+  display:grid;gap:16px;margin-bottom:20px;
+}
+@media(min-width:900px){
+  .charts{grid-template-columns:repeat(3,1fr)}
+}
+.chart-card{
+  background:#fff;border:1px solid #e5e7eb;
+  border-radius:14px;padding:12px;height:300px;
+}
+.chart-card canvas{width:100%!important;height:100%!important}
+
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ddd;padding:8px}
+th{background:#f1f5f9}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#f9fafb}
+table img{width:42px;height:42px;border-radius:50%}
+
+/* ===== MODAL ===== */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  visibility:hidden;
+  opacity:0;
+  pointer-events:none;
+  z-index:999999; /* 🔥 layer paling depan */
+}
+
+.modal.show{visibility:visible;opacity:1;pointer-events:auto}
+.modal-box{
+  background:#fff;
+  width:96%;
+  max-width:1100px;      /* 🔥 LEBAR */
+  padding:32px;
+  border-radius:20px;
+  max-height:92vh;       /* 🔥 TINGGI */
+  overflow:auto;
+  position:relative;
+}
+
+.modal-close{
+  position:absolute;top:12px;right:14px;
+  border:none;background:none;font-size:26px;cursor:pointer;
+}
+</style>
+
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbwFU8qgdIHrL28zR-QxWuz34GCz_5_z6r1RV7DubKN7ttwezDrxP57B4bQJ8pzJcJMp/exec";
+/* ================= LOGIN CONFIG ================= */
+const ADMIN_USER="rsudami";
+const ADMIN_PASS="muarabadak";
 
-let DATA=[];
+/* ================= LOGIN ================= */
+function login(){
+  if(loginUser.value===ADMIN_USER && loginPass.value===ADMIN_PASS){
+    localStorage.setItem("adminLogin","1");
+    showDashboard();
+  }else{
+    loginError.textContent="Username atau password salah";
+  }
+}
+function logout(){
+  localStorage.removeItem("adminLogin");
+  location.reload();
+}
+function showDashboard(){
+  loginWrap.style.display="none";
+  dashWrap.classList.remove("hidden");
+  initDashboard();
+}
+if(localStorage.getItem("adminLogin")==="1") showDashboard();
 
-fetch(API_URL)
-.then(r=>r.json())
-.then(d=>{
-  DATA=d;
-  buildFilter();
-  render();
-});
+/* ================= DASHBOARD ================= */
+const URL="https://script.google.com/macros/s/AKfycbw-FUNXOSpeu8LttreF4PocNkfTg8RlJXWSMYrtqIRPd3kRcxbt6pkitf9jtqSXDPK2Mg/exec";
+let dataAll=[], charts=[];
 
-search.oninput = render;
-filter.onchange = render;
-
-function buildFilter(){
-  const jenis = [...new Set(DATA.map(d=>d["Jenis SDMK"]))];
-  jenis.forEach(j=>{
-    const opt=document.createElement("option");
-    opt.value=j;
-    opt.textContent=j;
-    filter.appendChild(opt);
+function initDashboard(){
+  fetch(URL).then(r=>r.json()).then(d=>{
+    dataAll=d;
+    fill("fJK","Jenis Kelamin");
+    fill("fPend","Pendidikan");
+    fill("fSDMK","Jenis SDMK");
+    render();
   });
 }
+
+function fill(id,key){
+  const el=document.getElementById(id);
+  [...new Set(dataAll.map(x=>x[key]).filter(Boolean))]
+    .forEach(v=>el.innerHTML+=`<option>${v}</option>`);
+}
+["search","fJK","fPend","fSDMK"]
+.forEach(id=>document.getElementById(id).addEventListener("input",render));
 
 function render(){
-  const q = search.value.toLowerCase();
-  const f = filter.value;
-  grid.innerHTML="";
+  const q=search.value.toLowerCase();
+  const d=dataAll.filter(r=>
+    (!fJK.value||r["Jenis Kelamin"]===fJK.value)&&
+    (!fPend.value||r["Pendidikan"]===fPend.value)&&
+    (!fSDMK.value||r["Jenis SDMK"]===fSDMK.value)&&
+    r["Nama Lengkap & Gelar"].toLowerCase().includes(q)
+  );
+  tbl.querySelector("tbody").innerHTML=d.map(r=>`
+    <tr onclick='openModal(${JSON.stringify(r)})'>
+      <td><img src="https://lh3.googleusercontent.com/d/${r["ID FOTO DRIVE"]}"></td>
+      <td>${r["Nama Lengkap & Gelar"]}</td>
+      <td>${r["Jenis Kelamin"]}</td>
+      <td>${r["Pendidikan"]}</td>
+      <td>${r["Jenis SDMK"]}</td>
+    </tr>
+  `).join("");
 
-  DATA.filter(d=>{
-    return (!f || d["Jenis SDMK"]===f) &&
-      (
-        (d["Nama Lengkap & Gelar"]||"").toLowerCase().includes(q) ||
-        (d["NIK"]||"").toLowerCase().includes(q)
-      );
-  }).forEach(d=>{
-    const foto = `https://lh3.googleusercontent.com/d/${(d["ID FOTO DRIVE"]||"").trim()}`;
-    const card=document.createElement("div");
-    card.className="card";
-    card.innerHTML=`
-      <img src="${foto}">
-      <h3>${d["Nama Lengkap & Gelar"]}</h3>
-      <small>${d["Jenis SDMK"]}</small>
-    `;
-    card.onclick=()=>openModal(d,foto);
-    grid.appendChild(card);
+  charts.forEach(c=>c.destroy());
+  charts=[
+    bar("jkChart","JK",count("Jenis Kelamin",d)),
+    bar("pendChart","Pendidikan",count("Pendidikan",d)),
+    bar("sdmkChart","SDMK",count("Jenis SDMK",d))
+  ];
+}
+
+/* ================= CHART ================= */
+function count(k,d){return d.reduce((a,c)=>(a[c[k]]=(a[c[k]]||0)+1,a),{})}
+function bar(id,l,d){
+  return new Chart(document.getElementById(id),{
+    type:"bar",
+    data:{labels:Object.keys(d),datasets:[{label:l,data:Object.values(d)}]},
+    options:{responsive:true,maintainAspectRatio:false}
   });
 }
 
-function openModal(d,foto){
-  modal.style.display="block";
-  modalBody.innerHTML=`
-    <img src="${foto}" onerror="this.src='https://via.placeholder.com/400x500?text=No+Photo'">
-    <div>
-      ${Object.entries(d).map(([k,v])=>`
-        <div class="label">${k}</div>
-        <div class="value">${v||"-"}</div>
-      `).join("")}
-    </div>
+/* ================= MODAL ================= */
+const modal=document.getElementById("modal");
+const modalPhoto=document.getElementById("modalPhoto");
+
+function openModal(r){
+  modal.classList.add("show");
+
+  // FOTO
+  modalPhoto.src = `https://lh3.googleusercontent.com/d/${r["ID FOTO DRIVE"]}`;
+
+  // DATA
+  modalContent.innerHTML = `
+    <h3>${r["Nama Lengkap & Gelar"]}</h3>
+  ${Object.keys(r)
+  .filter(k => k !== "ID FOTO DRIVE")
+  .map(k => `
+    <div><b>${k}</b>: ${r[k] || "-"}</div>
+  `).join("")}
+
   `;
 }
 
-function closeModal(){
-  modal.style.display="none";
-}
+document.querySelector(".modal-close").onclick=()=>modal.classList.remove("show");
+modal.onclick=e=>{if(e.target===modal)modal.classList.remove("show")};
 </script>
-
-</body>
-</html>
