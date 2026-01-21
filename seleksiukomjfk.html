@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Seleksi UKOM JFK</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body{font-family:Segoe UI,Arial;background:#f8fafc;margin:0}
+.container{max-width:1200px;margin:auto;padding:24px}
+table{width:100%;border-collapse:collapse;background:#fff}
+th,td{padding:12px;border-bottom:1px solid #e5e7eb}
+th{background:#1e40af;color:#fff}
+img.thumb{width:60px;height:60px;border-radius:10px;object-fit:cover;cursor:pointer;filter:blur(6px)}
+/* MODAL */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:99}
+.box{background:#fff;border-radius:16px;padding:24px;max-width:900px;width:90%}
+.close{cursor:pointer;color:#dc2626;font-weight:bold}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}
+.foto-besar{width:100%;border-radius:12px}
+input{width:100%;padding:10px;margin:8px 0}
+button{padding:12px 20px;background:#2563eb;color:#fff;border:none;border-radius:10px}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h2>Dashboard Proses Seleksi Calon Peserta UKOM JFK</h2>
+
+<table id="tbl">
+<thead>
+<tr>
+<th>Tanggal Diperiksa</th>
+<th>Nama</th>
+<th>NIP</th>
+<th>Kategori</th>
+<th>Jabatan Dituju</th>
+<th>Jenjang</th>
+<th>Foto</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal" id="loginModal">
+<div class="box">
+<span class="close" onclick="closeLogin()">✖</span>
+<h3>Login Peserta</h3>
+<input id="nik" placeholder="NIK">
+<input id="nip" placeholder="NIP">
+<button onclick="login()">Masuk</button>
+</div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal" id="detailModal">
+<div class="box">
+<span class="close" onclick="closeDetail()">✖</span>
+<div class="grid">
+<div id="detailText"></div>
+<div><img id="detailFoto" class="foto-besar"></div>
+</div>
+</div>
+</div>
+
+<script>
+const API = 'PASTE_URL_WEB_APP';
+let currentNIK = '', currentNIP = '';
+
+fetch(API,{
+  method:'POST',
+  body:JSON.stringify({action:'list'})
+})
+.then(r=>r.json())
+.then(res=>{
+  const tb = document.querySelector('#tbl tbody');
+  res.data.forEach(r=>{
+    tb.innerHTML += `
+      <tr>
+        <td>${r.tanggal}</td>
+        <td>${r.nama}</td>
+        <td>${r.nip_masked}</td>
+        <td>${r.kategori}</td>
+        <td>${r.jabatan}</td>
+        <td>${r.jenjang}</td>
+        <td>
+          <img class="thumb"
+            src="https://drive.google.com/uc?export=view&id=${r.foto}"
+            onclick="openLogin()">
+        </td>
+      </tr>`;
+  });
+});
+
+function openLogin(){ document.getElementById('loginModal').style.display='flex'; }
+function closeLogin(){ document.getElementById('loginModal').style.display='none'; }
+
+function login(){
+  currentNIK = document.getElementById('nik').value;
+  currentNIP = document.getElementById('nip').value;
+
+  fetch(API,{
+    method:'POST',
+    body:JSON.stringify({action:'login', nik:currentNIK, nip:currentNIP})
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.status==='OK'){
+      showDetail(res.detail);
+      closeLogin();
+    } else alert('Login gagal');
+  });
+}
+
+function showDetail(d){
+  document.getElementById('detailText').innerHTML = `
+    <b>Nama:</b> ${d.nama}<br>
+    <b>NIK:</b> ${d.nik}<br>
+    <b>NIP:</b> ${d.nip}<br>
+    <b>Unit:</b> ${d.unit}<br>
+    <b>Jenis Jabatan:</b> ${d.jenis}<br>
+    <b>Jenjang:</b> ${d.jenjang}<br>
+    <b>Pangkat:</b> ${d.pangkat}<br>
+    <b>Nilai PAK:</b> ${d.pak}<br>
+    <b>STR:</b> ${d.str}<br>
+    <b>Kategori:</b> ${d.kategori}<br>
+    <b>Jabatan Dituju:</b> ${d.jabatan}<br>
+    <b>Jenjang Tujuan:</b> ${d.jenjang_tujuan}<br>
+    <b>Keputusan:</b> <b>${d.keputusan}</b>
+  `;
+  document.getElementById('detailFoto').src =
+    'https://drive.google.com/uc?export=view&id='+d.foto;
+  document.getElementById('detailModal').style.display='flex';
+}
+function closeDetail(){ document.getElementById('detailModal').style.display='none'; }
+</script>
+</body>
+</html>
