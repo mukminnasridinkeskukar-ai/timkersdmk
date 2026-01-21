@@ -47,14 +47,14 @@ input,select{
   background:#fafafa;
   transition:.2s;
 }
-.option-box:hover{
-  transform:translateY(-2px);
-  box-shadow:0 6px 15px rgba(0,0,0,.15);
-}
 .option-box.active{
   background:var(--success);
   color:#fff;
   border-color:var(--success);
+}
+.option-box:hover{
+  transform:translateY(-2px);
+  box-shadow:0 6px 15px rgba(0,0,0,.15);
 }
 .btn-main{
   margin-top:35px;
@@ -84,7 +84,6 @@ input,select{
   background:rgba(0,0,0,.6);
   align-items:center;
   justify-content:center;
-  z-index:9999;
 }
 .modal-box{
   background:#fff;
@@ -111,7 +110,7 @@ input,select{
 
 <div class="container">
 <h2>Form Pendaftaran Kegiatan Bangkom</h2>
-<div class="sub">22 Januari 2026 • 13.00–16.00 WITA</div>
+<div class="sub">22 Januari 2025 • 13.00–16.00 WITA</div>
 
 <div class="timer" id="timer"></div>
 <p>Jumlah Pendaftar: <b><span id="total">0</span></b></p>
@@ -143,20 +142,32 @@ input,select{
 </div>
 <input type="hidden" id="jenis" required>
 
-<label>JP Terakhir (2026)</label>
+<label>JP Terakhir (Tahun 2026)</label>
 <input type="number" id="jpTerakhir" required>
 
-<label>Platform</label>
+<label>Tema Pembelajaran</label>
+<select id="tema" required>
+  <option value="">-- Pilih Tema --</option>
+  <option value="Platform SKP">Pemanfaatan Platform SKP</option>
+</select>
+
+<label>Tanggal Kegiatan</label>
+<input type="date" id="tanggal" required>
+
+<label>Jumlah JP Kegiatan</label>
+<input type="number" id="jpKegiatan" required>
+
+<label>Platform Digital</label>
 <div class="option-group" data-target="platform">
-  <div class="option-box" data-value="Zoom">Zoom Meeting</div>
+  <div class="option-box" data-value="Zoom Meeting">Zoom Meeting</div>
   <div class="option-box" data-value="YouTube">YouTube</div>
 </div>
 <input type="hidden" id="platform" required>
 
-<label>WhatsApp</label>
+<label>WhatsApp / Telepon</label>
 <input id="wa" required>
 
-<label>Email</label>
+<label>Email Aktif</label>
 <input type="email" id="email" required>
 
 <button type="button" class="btn-main" id="openModal">DAFTAR SEKARANG</button>
@@ -165,7 +176,7 @@ input,select{
 
 <div class="modal" id="modal">
   <div class="modal-box">
-    <h3>Konfirmasi</h3>
+    <h3>Konfirmasi Pendaftaran</h3>
     <p>Data hanya dapat dikirim satu kali.</p>
     <button class="confirm" id="confirmBtn">YA, DAFTAR</button>
     <button class="cancel" onclick="closeModal()">BATAL</button>
@@ -173,11 +184,9 @@ input,select{
 </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwq7hBMH2aEdXHzBFb80NIy4Et4cOaBC8XFmslFQfwBttj4mea0BEgU1j_9-f56joWBGg/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwno35Pgl7De0aa_IqAAbBtJYiNDdrbDyzxBmYE9ABdzskM-Cm9TBYGBYqutto6UDMDAg/exec";
 const KUOTA_TOTAL = 593;
-const BATAS = new Date("2026-01-21T23:59:00+08:00");
-const LINK_ZOOM = "https://zoom.us/";
-const LINK_YOUTUBE = "https://youtube.com/";
+const BATAS = "2026-01-21T23:59:00+08:00";
 
 const form = document.getElementById("form");
 const timer = document.getElementById("timer");
@@ -191,14 +200,14 @@ const inputs = form.querySelectorAll("input,select,button");
 let sending = false;
 
 /* OPTION BOX */
-document.querySelectorAll(".option-group").forEach(g=>{
-  const target = document.getElementById(g.dataset.target);
-  g.querySelectorAll(".option-box").forEach(b=>{
-    b.onclick=()=>{
-      g.querySelectorAll(".option-box").forEach(x=>x.classList.remove("active"));
-      b.classList.add("active");
-      target.value=b.dataset.value;
-    }
+document.querySelectorAll(".option-group").forEach(group=>{
+  const target = document.getElementById(group.dataset.target);
+  group.querySelectorAll(".option-box").forEach(box=>{
+    box.onclick=()=>{
+      group.querySelectorAll(".option-box").forEach(b=>b.classList.remove("active"));
+      box.classList.add("active");
+      target.value = box.dataset.value;
+    };
   });
 });
 
@@ -215,13 +224,12 @@ loadTotal();
 /* TIMER */
 function lockForm(msg){
   timer.innerText = msg;
-  inputs.forEach(i=>i.disabled=true);
+  inputs.forEach(el=>el.disabled=true);
 }
 setInterval(()=>{
   const diff = new Date(BATAS) - Date.now();
-  if(diff<=0) return lockForm("❌ Pendaftaran Ditutup");
-  timer.innerText =
-    `⏳ Sisa waktu: ${Math.floor(diff/86400000)} hari`;
+  if(diff<=0) lockForm("❌ Pendaftaran Ditutup");
+  else timer.innerText = "⏳ Pendaftaran masih dibuka";
 },1000);
 
 /* MODAL */
@@ -234,18 +242,28 @@ function closeModal(){modal.style.display="none";}
 /* SUBMIT */
 confirmBtn.onclick=async()=>{
   if(sending) return;
-  sending=true;
-  confirmBtn.disabled=true;
-  confirmBtn.innerText="Mengirim...";
+  sending = true;
+  confirmBtn.disabled = true;
+  confirmBtn.innerText = "Mengirim...";
 
-  const data = Object.fromEntries(
-    ["nama","nip","unit","status","jenis","jpTerakhir","platform","wa","email"]
-    .map(id=>[id,document.getElementById(id).value])
-  );
+  const payload = {
+    nama: nama.value,
+    nip: nip.value,
+    unit: unit.value,
+    status: status.value,
+    jenis: jenis.value,
+    jpTerakhir: jpTerakhir.value,
+    tema: tema.value,
+    tanggal: tanggal.value,
+    jpKegiatan: jpKegiatan.value,
+    platform: platform.value,
+    wa: wa.value,
+    email: email.value
+  };
 
   const res = await fetch(SCRIPT_URL,{
     method:"POST",
-    body:JSON.stringify(data)
+    body: JSON.stringify(payload)
   });
   const out = await res.json();
 
@@ -258,13 +276,9 @@ confirmBtn.onclick=async()=>{
   }
 
   alert("✅ Pendaftaran berhasil");
-  if(data.platform==="Zoom") window.open(LINK_ZOOM);
-  if(data.platform==="YouTube") window.open(LINK_YOUTUBE);
+  location.reload();
 };
 </script>
 
 </body>
 </html>
-
-
-
