@@ -66,16 +66,23 @@ button{padding:12px 20px;background:#2563eb;color:#fff;border:none;border-radius
 </div>
 
 <script>
-const API = https://script.google.com/macros/s/AKfycbz62cKRMdms7sOzG0du70DXJL5mO5-qorLNqYBnotzJM5QrJbsK-Ss1s6bSpKB1aRdJ6w/exec';
+const API = 'https://script.google.com/macros/s/AKfycbz62cKRMdms7sOzG0du70DXJL5mO5-qorLNqYBnotzJM5QrJbsK-Ss1s6bSpKB1aRdJ6w/exec';
+
 let currentNIK = '', currentNIP = '';
 
 fetch(API,{
   method:'POST',
+  headers:{'Content-Type':'application/json'},
   body:JSON.stringify({action:'list'})
 })
 .then(r=>r.json())
 .then(res=>{
   const tb = document.querySelector('#tbl tbody');
+  if(!res.data || res.data.length===0){
+    tb.innerHTML = '<tr><td colspan="7">Belum ada data</td></tr>';
+    return;
+  }
+
   res.data.forEach(r=>{
     tb.innerHTML += `
       <tr>
@@ -92,25 +99,37 @@ fetch(API,{
         </td>
       </tr>`;
   });
+})
+.catch(err=>{
+  console.error(err);
+  document.querySelector('#tbl tbody').innerHTML =
+    '<tr><td colspan="7">Gagal memuat data</td></tr>';
 });
 
-function openLogin(){ document.getElementById('loginModal').style.display='flex'; }
-function closeLogin(){ document.getElementById('loginModal').style.display='none'; }
+function openLogin(){
+  document.getElementById('loginModal').style.display='flex';
+}
+function closeLogin(){
+  document.getElementById('loginModal').style.display='none';
+}
 
 function login(){
-  currentNIK = document.getElementById('nik').value;
-  currentNIP = document.getElementById('nip').value;
+  const nik = document.getElementById('nik').value;
+  const nip = document.getElementById('nip').value;
 
   fetch(API,{
     method:'POST',
-    body:JSON.stringify({action:'login', nik:currentNIK, nip:currentNIP})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'login', nik, nip})
   })
   .then(r=>r.json())
   .then(res=>{
     if(res.status==='OK'){
       showDetail(res.detail);
       closeLogin();
-    } else alert('Login gagal');
+    } else {
+      alert('NIK / NIP tidak sesuai');
+    }
   });
 }
 
@@ -134,7 +153,10 @@ function showDetail(d){
     'https://drive.google.com/uc?export=view&id='+d.foto;
   document.getElementById('detailModal').style.display='flex';
 }
-function closeDetail(){ document.getElementById('detailModal').style.display='none'; }
+function closeDetail(){
+  document.getElementById('detailModal').style.display='none';
+}
 </script>
+
 </body>
 </html>
