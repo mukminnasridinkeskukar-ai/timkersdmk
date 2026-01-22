@@ -72,52 +72,62 @@ button:disabled{opacity:.6}
 
 <div class="status success" id="successMsg">✅ Absensi berhasil disimpan</div>
 <div class="status error" id="errorMsg"></div>
+  
+<div id="timer" style="
+  text-align:center;
+  font-weight:700;
+  margin-bottom:15px;
+  padding:12px;
+  border-radius:10px;
+  background:#eef2ff;
+">
+Memuat waktu absensi...
+</div>
 
 </form>
 </div>
 
 <script>
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxuu7a0WeL-SGOVMvd4Jy5deEPvN2MB_37Zjm1D8IevFwqvSG_HK0caSgCM-KrrF9_S/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyIZMt9dn-1C-pdOyoonbiipqnNgpwiua50MFJfQlcVYVSdJZGZjjW6rr9i7W98a0At/exec";
 
-const form = document.getElementById("form");
-const submitBtn = document.getElementById("submitBtn");
-const successMsg = document.getElementById("successMsg");
-const errorMsg = document.getElementById("errorMsg");
+// ===== CEK LOGIN =====
+if(!sessionStorage.getItem("login")){
+  location.href="login.html";
+}
 
-form.addEventListener("submit", function(e){
-  e.preventDefault();
+// ===== LOAD TIMER =====
+fetch(SCRIPT_URL)
+.then(r=>r.json())
+.then(cfg=>{
+  const buka = new Date(cfg.buka);
+  const tutup = new Date(cfg.tutup);
 
-  submitBtn.disabled = true;
-  submitBtn.innerText = "Mengirim...";
-  successMsg.style.display = "none";
-  errorMsg.style.display = "none";
+  setInterval(()=>{
+    const now = new Date();
+    let msg = "";
 
-  const data = new URLSearchParams();
-  data.append("nama", nama.value);
-  data.append("nip", nip.value);
-  data.append("platform", platform.value);
-  data.append("evalPenyelenggara", evalPenyelenggara.value);
-  data.append("evalNarasumber", evalNarasumber.value);
-  data.append("evalSarana", evalSarana.value);
-  data.append("komentar", komentar.value);
+    if(now < buka){
+      msg = "⏳ Absensi dibuka dalam " + countdown(buka-now);
+    }else if(now > tutup){
+      msg = "❌ Absensi telah ditutup";
+      document.getElementById("submitBtn").disabled = true;
+    }else{
+      msg = "🟢 Absensi ditutup dalam " + countdown(tutup-now);
+    }
 
-  fetch(SCRIPT_URL, { method:"POST", body:data })
-    .then(r => r.json())
-    .then(out => {
-      if(!out.success) throw out.message;
-      successMsg.style.display = "block";
-      form.reset();
-    })
-    .catch(err => {
-      errorMsg.innerText = "❌ " + err;
-      errorMsg.style.display = "block";
-    })
-    .finally(() => {
-      submitBtn.disabled = false;
-      submitBtn.innerText = "KIRIM ABSENSI";
-    });
+    document.getElementById("timer").innerText = msg;
+  },1000);
 });
+
+function countdown(ms){
+  const d = Math.floor(ms/86400000);
+  const h = Math.floor(ms%86400000/3600000);
+  const m = Math.floor(ms%3600000/60000);
+  const s = Math.floor(ms%60000/1000);
+  return `${d}h ${h}j ${m}m ${s}d`;
+}
 </script>
+
 
 </body>
 </html>
