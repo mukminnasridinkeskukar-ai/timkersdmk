@@ -4,70 +4,137 @@
 <meta charset="UTF-8">
 <title>Dashboard UKOM JFK</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
 <style>
-body{background:#f4f6f9}
-.hidden{display:none}
-.avatar{width:42px;height:42px;border-radius:50%;object-fit:cover}
+/* ===== GLOBAL ===== */
+body{
+  background:#f4f6f9;
+}
+.hidden{
+  display:none !important;
+}
+.avatar{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  object-fit:cover;
+}
+
+/* ===== LOGIN OVERLAY ===== */
+#login{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+}
+.login-overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.4);
+}
+.login-box{
+  position:relative;
+  z-index:2;
+  width:360px;
+  margin:auto;
+  border-radius:14px;
+}
+
+/* ===== PROFIL FULLSCREEN ===== */
 .fullscreen{
-  position:fixed;top:0;left:0;
-  width:100%;height:100%;
-  background:#fff;z-index:9999;
+  position:fixed;
+  inset:0;
+  background:#fff;
+  z-index:9998;
   overflow:auto;
 }
 </style>
 </head>
+
 <body>
 
-<!-- DASHBOARD -->
-<div id="dashboard" class="container py-4">
-<h3>📊 Dashboard UKOM JFK</h3>
-<table class="table table-hover bg-white">
-<thead>
-<tr>
-<th>Foto</th><th>Nama</th><th>Unit</th><th>Jenis</th>
-<th>Jenjang</th><th>Kategori</th><th>JF</th><th>Jenjang Tujuan</th>
-</tr>
-</thead>
-<tbody id="tbl"></tbody>
-</table>
-</div>
+<!-- ================= DASHBOARD ================= -->
+<section id="dashboard" class="container py-4">
+  <h3 class="mb-3">📊 Dashboard UKOM JFK</h3>
 
-<!-- LOGIN -->
-<div id="login" class="hidden d-flex justify-content-center align-items-center vh-100">
-<div class="card p-4" style="width:350px">
-<h5>🔐 Login Akses Profil</h5>
-<input id="user" class="form-control mb-2" placeholder="Username">
-<input id="pass" type="password" class="form-control mb-3" placeholder="Password">
-<button class="btn btn-primary w-100" onclick="doLogin()">Masuk</button>
-<button class="btn btn-link" onclick="show('dashboard')">Batal</button>
-</div>
-</div>
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 bg-white">
+        <thead class="table-light">
+          <tr>
+            <th>Foto</th>
+            <th>Nama</th>
+            <th>Unit</th>
+            <th>Jenis</th>
+            <th>Jenjang</th>
+            <th>Kategori</th>
+            <th>JF</th>
+            <th>Jenjang Tujuan</th>
+          </tr>
+        </thead>
+        <tbody id="tbl"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
-<!-- PROFIL -->
-<div id="profil" class="fullscreen hidden p-4">
-<button class="btn btn-secondary mb-3" onclick="show('dashboard')">← Kembali</button>
-<div class="row">
-<div class="col-md-8">
-<h4 id="nama"></h4>
-<ul class="list-group" id="detail"></ul>
-</div>
-<div class="col-md-4 text-center">
-<img id="foto" class="img-fluid rounded">
-</div>
-</div>
-</div>
+<!-- ================= LOGIN ================= -->
+<section id="login" class="hidden d-flex justify-content-center align-items-center">
+  <div class="login-overlay" onclick="closeLogin()"></div>
+
+  <div class="card p-4 login-box shadow">
+    <h5 class="text-center mb-3">🔐 Login Akses Profil</h5>
+
+    <input id="user" class="form-control mb-2" placeholder="Username">
+    <input id="pass" type="password" class="form-control mb-3" placeholder="Password">
+
+    <button class="btn btn-primary w-100" onclick="doLogin()">Masuk</button>
+    <button class="btn btn-link w-100 mt-2" onclick="closeLogin()">Batal</button>
+  </div>
+</section>
+
+<!-- ================= PROFIL ================= -->
+<section id="profil" class="fullscreen hidden p-4">
+  <button class="btn btn-secondary mb-3" onclick="show('dashboard')">← Kembali</button>
+
+  <div class="row">
+    <div class="col-md-8">
+      <h4 id="nama"></h4>
+      <ul class="list-group" id="detail"></ul>
+    </div>
+
+    <div class="col-md-4 text-center">
+      <img id="foto" class="img-fluid rounded shadow">
+    </div>
+  </div>
+</section>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbz4ZjK2jvbYZdzTyqNsS0SllhUcMoZBVK2qx0SRL_ONVGcm8JFJ6Z3n_FcKo64MifuFhQ/exec";
-let nipDipilih=null;
+/* ================= CONFIG ================= */
+const API_URL = "https://script.google.com/macros/s/AKfycbwJCVO24A4fHM0JLmNDVct04xvSw9V0Fh4XzqoterdZ9KndBo-SPA5eDCH4LdO6vi2Rlw/exec";
+let nipDipilih = null;
 
-/* ===== LOAD DASHBOARD ===== */
-fetch(API_URL+"?action=dashboard")
-.then(r=>r.json())
-.then(data=>{
-  tbl.innerHTML="";
-  data.forEach(r=>{
-    tbl.innerHTML+=`
+/* ================= NAV ================= */
+function show(id){
+  ["dashboard","login","profil"].forEach(x=>{
+    document.getElementById(x).classList.add("hidden");
+  });
+  document.getElementById(id).classList.remove("hidden");
+}
+
+function closeLogin(){
+  nipDipilih = null;
+  show("dashboard");
+}
+
+/* ================= LOAD DASHBOARD ================= */
+fetch(API_URL + "?action=dashboard")
+.then(r => r.json())
+.then(data => {
+  const tbody = document.getElementById("tbl");
+  tbody.innerHTML = "";
+
+  data.forEach(r => {
+    tbody.innerHTML += `
       <tr onclick="bukaLogin('${r[3]}')">
         <td><img src="${r[0]}" class="avatar"></td>
         <td>${r[1]}</td>
@@ -77,31 +144,24 @@ fetch(API_URL+"?action=dashboard")
         <td>${r[11]}</td>
         <td>${r[12]}</td>
         <td>${r[13]}</td>
-      </tr>`;
+      </tr>
+    `;
   });
 });
 
-/* ===== NAV ===== */
-function show(id){
-  ["dashboard","login","profil"].forEach(x=>{
-    document.getElementById(x).classList.add("hidden");
-  });
-  document.getElementById(id).classList.remove("hidden");
-}
-
+/* ================= LOGIN FLOW ================= */
 function bukaLogin(nip){
-  nipDipilih=nip;
+  nipDipilih = nip;
   show("login");
 }
 
-/* ===== LOGIN ===== */
 function doLogin(){
   fetch(API_URL,{
     method:"POST",
     body:JSON.stringify({
       action:"login",
-      username:user.value.trim(),
-      password:pass.value.trim()
+      username: user.value.trim(),
+      password: pass.value.trim()
     })
   })
   .then(r=>r.json())
@@ -109,22 +169,20 @@ function doLogin(){
     if(res.status){
       loadProfil();
     }else{
-      alert("Username / Password salah");
+      alert("Username atau Password salah");
     }
   });
 }
 
-/* ===== LOAD PROFIL ===== */
+/* ================= LOAD PROFIL ================= */
 function loadProfil(){
-  fetch(API_URL+"?action=profil&nip="+nipDipilih)
+  fetch(API_URL + "?action=profil&nip=" + nipDipilih)
   .then(r=>r.json())
   .then(r=>{
-    // Nama & Foto
     nama.innerText = r[1];
     foto.src = r[0];
 
-    // Label PROFIL (URUT SESUAI SHEET)
-    const field = [
+    const fields = [
       ["NIK", r[2]],
       ["NIP", r[3]],
       ["Nomor Telp / WA", r[4]],
@@ -141,16 +199,22 @@ function loadProfil(){
     ];
 
     detail.innerHTML = "";
-    field.forEach(f=>{
+    fields.forEach(f=>{
       detail.innerHTML += `
         <li class="list-group-item">
           <b>${f[0]}</b> : ${f[1] || "-"}
-        </li>`;
+        </li>
+      `;
     });
 
     show("profil");
   });
 }
+
+/* ================= INIT ================= */
+document.addEventListener("DOMContentLoaded",()=>{
+  show("dashboard");
+});
 </script>
 
 </body>
