@@ -7,45 +7,37 @@
 
 <style>
 /* ===== GLOBAL ===== */
-body{
-  background:#f4f6f9;
-}
-.hidden{
-  display:none !important;
-}
+body{background:#f4f6f9}
+.hidden{display:none!important}
 .avatar{
-  width:42px;
-  height:42px;
-  border-radius:50%;
-  object-fit:cover;
+  width:42px;height:42px;
+  border-radius:50%;object-fit:cover;
+  cursor:pointer;
 }
 
 /* ===== LOGIN OVERLAY ===== */
-#login{
-  position:fixed;
-  inset:0;
-  z-index:9999;
-}
-.login-overlay{
-  position:absolute;
-  inset:0;
-  background:rgba(0,0,0,.4);
-}
+#login{position:fixed;inset:0;z-index:9999}
+.login-overlay{position:absolute;inset:0;background:rgba(0,0,0,.4)}
 .login-box{
-  position:relative;
-  z-index:2;
-  width:360px;
-  margin:auto;
-  border-radius:14px;
+  position:relative;z-index:2;
+  width:360px;margin:auto;border-radius:14px;
 }
 
 /* ===== PROFIL FULLSCREEN ===== */
 .fullscreen{
-  position:fixed;
-  inset:0;
-  background:#fff;
-  z-index:9998;
-  overflow:auto;
+  position:fixed;inset:0;
+  background:#fff;z-index:9998;overflow:auto;
+}
+
+/* ===== LIGHTBOX ===== */
+#lightbox{position:fixed;inset:0;z-index:10000}
+.lightbox-overlay{position:absolute;inset:0;background:rgba(0,0,0,.85)}
+#lightbox img{
+  position:relative;
+  max-width:90%;max-height:90%;
+  margin:auto;display:block;
+  top:50%;transform:translateY(-50%);
+  border-radius:12px;
 }
 </style>
 </head>
@@ -54,89 +46,88 @@ body{
 
 <!-- ================= DASHBOARD ================= -->
 <section id="dashboard" class="container py-4">
-  <h3 class="mb-3">📊 Dashboard UKOM JFK</h3>
+<h3 class="mb-3">📊 Dashboard UKOM JFK</h3>
 
-  <div class="card shadow-sm">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0 bg-white">
-        <thead class="table-light">
-          <tr>
-            <th>Foto</th>
-            <th>Nama</th>
-            <th>Unit</th>
-            <th>Jenis</th>
-            <th>Jenjang</th>
-            <th>Kategori</th>
-            <th>JF</th>
-            <th>Jenjang Tujuan</th>
-          </tr>
-        </thead>
-        <tbody id="tbl"></tbody>
-      </table>
-    </div>
-  </div>
+<div class="card shadow-sm">
+<div class="table-responsive">
+<table class="table table-hover align-middle mb-0 bg-white">
+<thead class="table-light">
+<tr>
+<th>Foto</th><th>Nama</th><th>Unit</th><th>Jenis</th>
+<th>Jenjang</th><th>Kategori</th><th>JF</th><th>Jenjang Tujuan</th>
+</tr>
+</thead>
+<tbody id="tbl"></tbody>
+</table>
+</div>
+</div>
 </section>
 
 <!-- ================= LOGIN ================= -->
 <section id="login" class="hidden d-flex justify-content-center align-items-center">
-  <div class="login-overlay" onclick="closeLogin()"></div>
-
-  <div class="card p-4 login-box shadow">
-    <h5 class="text-center mb-3">🔐 Login Akses Profil</h5>
-
-    <input id="user" class="form-control mb-2" placeholder="Username">
-    <input id="pass" type="password" class="form-control mb-3" placeholder="Password">
-
-    <button class="btn btn-primary w-100" onclick="doLogin()">Masuk</button>
-    <button class="btn btn-link w-100 mt-2" onclick="closeLogin()">Batal</button>
-  </div>
+<div class="login-overlay" onclick="closeLogin()"></div>
+<div class="card p-4 login-box shadow">
+<h5 class="text-center mb-3">🔐 Login Akses Profil</h5>
+<input id="user" class="form-control mb-2" placeholder="Username">
+<input id="pass" type="password" class="form-control mb-3" placeholder="Password">
+<button class="btn btn-primary w-100" onclick="doLogin()">Masuk</button>
+<button class="btn btn-link w-100 mt-2" onclick="closeLogin()">Batal</button>
+</div>
 </section>
 
 <!-- ================= PROFIL ================= -->
 <section id="profil" class="fullscreen hidden p-4">
-  <button class="btn btn-secondary mb-3" onclick="show('dashboard')">← Kembali</button>
-
-  <div class="row">
-    <div class="col-md-8">
-      <h4 id="nama"></h4>
-      <ul class="list-group" id="detail"></ul>
-    </div>
-
-    <div class="col-md-4 text-center">
-      <img id="foto" class="img-fluid rounded shadow">
-    </div>
-  </div>
+<button class="btn btn-secondary mb-3" onclick="show('dashboard')">← Kembali</button>
+<div class="row">
+<div class="col-md-8">
+<h4 id="nama"></h4>
+<ul class="list-group" id="detail"></ul>
+</div>
+<div class="col-md-4 text-center">
+<img id="foto" class="img-fluid rounded shadow"
+     loading="lazy"
+     onclick="openLightbox(this.src)"
+     onerror="this.src=DEFAULT_AVATAR">
+</div>
+</div>
 </section>
+
+<!-- ================= LIGHTBOX ================= -->
+<div id="lightbox" class="hidden">
+<div class="lightbox-overlay" onclick="closeLightbox()"></div>
+<img id="lightboxImg">
+</div>
 
 <script>
 /* ================= CONFIG ================= */
 const API_URL = "https://script.google.com/macros/s/AKfycbwJCVO24A4fHM0JLmNDVct04xvSw9V0Fh4XzqoterdZ9KndBo-SPA5eDCH4LdO6vi2Rlw/exec";
-let nipDipilih = null;
+const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=User&background=0D6EFD&color=fff";
+let nipDipilih=null;
 
 /* ================= NAV ================= */
 function show(id){
-  ["dashboard","login","profil"].forEach(x=>{
-    document.getElementById(x).classList.add("hidden");
-  });
-  document.getElementById(id).classList.remove("hidden");
+["dashboard","login","profil"].forEach(x=>{
+  document.getElementById(x).classList.add("hidden");
+});
+document.getElementById(id).classList.remove("hidden");
 }
+function closeLogin(){nipDipilih=null;show("dashboard")}
 
-function closeLogin(){
-  nipDipilih = null;
-  show("dashboard");
-}
-
-/* ================= LOAD DASHBOARD ================= */
-fetch(API_URL + "?action=dashboard")
-.then(r => r.json())
-.then(data => {
-  const tbody = document.getElementById("tbl");
-  tbody.innerHTML = "";
-
-  data.forEach(r => {
-    tbody.innerHTML += `
+/* ================= DASHBOARD ================= */
+fetch(API_URL+"?action=dashboard")
+.then(r=>r.json())
+.then(data=>{
+  tbl.innerHTML="";
+  data.forEach(r=>{
+    const foto = r[0] || DEFAULT_AVATAR;
+    tbl.innerHTML+=`
       <tr onclick="bukaLogin('${r[3]}')">
-        <td><img src="${r[0]}" class="avatar"></td>
+        <td>
+          <img src="${foto}" class="avatar"
+               loading="lazy"
+               onerror="this.src='${DEFAULT_AVATAR}'"
+               onclick="event.stopPropagation();openLightbox('${foto}')">
+        </td>
         <td>${r[1]}</td>
         <td>${r[5]}</td>
         <td>${r[6]}</td>
@@ -144,77 +135,62 @@ fetch(API_URL + "?action=dashboard")
         <td>${r[11]}</td>
         <td>${r[12]}</td>
         <td>${r[13]}</td>
-      </tr>
-    `;
+      </tr>`;
   });
 });
 
-/* ================= LOGIN FLOW ================= */
-function bukaLogin(nip){
-  nipDipilih = nip;
-  show("login");
-}
-
+/* ================= LOGIN ================= */
+function bukaLogin(nip){nipDipilih=nip;show("login")}
 function doLogin(){
-  fetch(API_URL,{
-    method:"POST",
-    body:JSON.stringify({
-      action:"login",
-      username: user.value.trim(),
-      password: pass.value.trim()
-    })
+fetch(API_URL,{
+  method:"POST",
+  body:JSON.stringify({
+    action:"login",
+    username:user.value.trim(),
+    password:pass.value.trim()
   })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.status){
-      loadProfil();
-    }else{
-      alert("Username atau Password salah");
-    }
-  });
+})
+.then(r=>r.json())
+.then(res=>{
+  if(res.status){loadProfil()}
+  else alert("Username atau Password salah");
+});
 }
 
-/* ================= LOAD PROFIL ================= */
+/* ================= PROFIL ================= */
 function loadProfil(){
-  fetch(API_URL + "?action=profil&nip=" + nipDipilih)
-  .then(r=>r.json())
-  .then(r=>{
-    nama.innerText = r[1];
-    foto.src = r[0];
-
-    const fields = [
-      ["NIK", r[2]],
-      ["NIP", r[3]],
-      ["Nomor Telp / WA", r[4]],
-      ["Unit Kerja", r[5]],
-      ["Jenis Jabatan", r[6]],
-      ["Jenjang Jabatan", r[7]],
-      ["Pangkat dan Golongan", r[8]],
-      ["Nilai PAK Terakhir", r[9]],
-      ["Nomor STR", r[10]],
-      ["Kategori Penjenjangan Jabatan", r[11]],
-      ["Nama Jabatan Fungsional Yang Dituju", r[12]],
-      ["Jenjang Jabatan Tujuan", r[13]],
-      ["Keputusan Tim Pengelola UKOM JFK", r[14]]
-    ];
-
-    detail.innerHTML = "";
-    fields.forEach(f=>{
-      detail.innerHTML += `
-        <li class="list-group-item">
-          <b>${f[0]}</b> : ${f[1] || "-"}
-        </li>
-      `;
-    });
-
-    show("profil");
+fetch(API_URL+"?action=profil&nip="+nipDipilih)
+.then(r=>r.json())
+.then(r=>{
+  nama.innerText=r[1];
+  foto.src=r[0]||DEFAULT_AVATAR;
+  const f=[
+    ["NIK",r[2]],["NIP",r[3]],["Telp / WA",r[4]],["Unit Kerja",r[5]],
+    ["Jenis Jabatan",r[6]],["Jenjang Jabatan",r[7]],
+    ["Pangkat & Gol",r[8]],["Nilai PAK",r[9]],
+    ["Nomor STR",r[10]],["Kategori",r[11]],
+    ["JF Dituju",r[12]],["Jenjang Tujuan",r[13]],
+    ["Keputusan Tim UKOM",r[14]]
+  ];
+  detail.innerHTML="";
+  f.forEach(x=>{
+    detail.innerHTML+=`<li class="list-group-item"><b>${x[0]}</b> : ${x[1]||"-"}</li>`;
   });
+  show("profil");
+});
+}
+
+/* ================= LIGHTBOX ================= */
+function openLightbox(src){
+  lightboxImg.src=src;
+  document.getElementById("lightbox").classList.remove("hidden");
+}
+function closeLightbox(){
+  document.getElementById("lightbox").classList.add("hidden");
 }
 
 /* ================= INIT ================= */
-document.addEventListener("DOMContentLoaded",()=>{
-  show("dashboard");
-});
+document.addEventListener("DOMContentLoaded",()=>show("dashboard"));
 </script>
 
 </body>
