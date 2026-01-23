@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Persetujuan JF</title>
+
+<style>
+:root{
+  --primary:#0f172a;
+  --accent:#2563eb;
+  --bg:#f8fafc;
+  --card:#ffffff;
+  --border:#e5e7eb;
+}
+body{
+  margin:0;
+  font-family:Inter,Segoe UI,Arial,sans-serif;
+  background:var(--bg);
+  color:#0f172a;
+}
+header{
+  background:linear-gradient(135deg,#0f172a,#1e40af);
+  color:#fff;
+  padding:26px;
+}
+header h1{margin:0;font-size:24px}
+header p{margin:6px 0 0;opacity:.9}
+
+.container{
+  max-width:1200px;
+  margin:auto;
+  padding:20px;
+}
+
+.controls{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:16px;
+}
+.controls input,
+.controls select{
+  padding:10px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  font-size:14px;
+}
+.controls input{flex:1;min-width:260px}
+
+.card{
+  background:var(--card);
+  border-radius:16px;
+  box-shadow:0 15px 40px rgba(0,0,0,.08);
+  overflow:hidden;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+thead{
+  background:#f1f5f9;
+}
+th,td{
+  padding:14px;
+  border-bottom:1px solid var(--border);
+  font-size:14px;
+}
+th{font-weight:600;color:#334155;text-align:left}
+tbody tr:hover{background:#f8fafc}
+
+.badge-yes{
+  background:#dcfce7;
+  color:#166534;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+}
+.badge-no{
+  background:#fee2e2;
+  color:#991b1b;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+}
+
+footer{
+  text-align:center;
+  font-size:13px;
+  color:#64748b;
+  margin-top:18px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Dashboard Persetujuan Kebutuhan Jabatan Fungsional Kesehatan Tahun 2026</h1>
+  <p>SK Kemenpan RB No: B/267/M.SM.01.00/2026 tanggal 15 Januari 2026</p>
+</header>
+
+<div class="container">
+
+  <div class="controls">
+    <input type="text" id="search" placeholder="🔍 Cari nama atau jenjang jabatan">
+    <select id="jenjangFilter">
+      <option value="">Semua Jenjang</option>
+    </select>
+    <select id="statusFilter">
+      <option value="">Semua Status</option>
+      <option value="Ya">Disetujui</option>
+      <option value="Tidak">Belum Disetujui</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Nama Jabatan</th>
+          <th>Jenjang Jabatan</th>
+          <th>Persetujuan Kemenpan</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="4">Memuat data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    © 2026 Simandakes SDMK
+  </footer>
+
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbz6ju7a0knya_2Dik536ArBKTnZkLnyz1lLAIAl62lcK8evGclprt5FiFddAH5XnU62xg/exec";
+
+let data = [];
+
+fetch(API_URL)
+.then(res => res.json())
+.then(json => {
+  data = json;
+  initFilter();
+  render();
+});
+
+function initFilter(){
+  const jenjangSet = [...new Set(data.map(d => d.jenjang))];
+  const jf = document.getElementById("jenjangFilter");
+  jenjangSet.forEach(j => {
+    let o = document.createElement("option");
+    o.value = j;
+    o.textContent = j;
+    jf.appendChild(o);
+  });
+}
+
+function render(){
+  const q = document.getElementById("search").value.toLowerCase();
+  const jf = document.getElementById("jenjangFilter").value;
+  const sf = document.getElementById("statusFilter").value;
+  const tb = document.getElementById("tbody");
+  tb.innerHTML = "";
+
+  const filtered = data.filter(d =>
+    (!q || d.nama.toLowerCase().includes(q) || d.jenjang.toLowerCase().includes(q)) &&
+    (!jf || d.jenjang === jf) &&
+    (!sf || d.persetujuan === sf)
+  );
+
+  if(!filtered.length){
+    tb.innerHTML = `<tr><td colspan="4">Data tidak ditemukan</td></tr>`;
+    return;
+  }
+
+  filtered.forEach((d,i) => {
+    tb.innerHTML += `
+      <tr>
+        <td>${i+1}</td>
+        <td>${d.nama}</td>
+        <td>${d.jenjang}</td>
+        <td>
+          <span class="${d.persetujuan === 'Ya' ? 'badge-yes' : 'badge-no'}">
+            ${d.persetujuan}
+          </span>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+["search","jenjangFilter","statusFilter"]
+.forEach(id => document.getElementById(id).addEventListener("input", render));
+</script>
+
+</body>
+</html>

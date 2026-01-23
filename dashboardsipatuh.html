@@ -1,0 +1,165 @@
+<!-- ================= DASHBOARD ================= -->
+<div id="dashboard-wrap" style="max-width:1400px;margin:auto">
+  <h2 style="margin:20px 0;text-align:center">
+    📊 Dashboard Keselamatan Pasien Puskesmas
+  </h2>
+
+  <div style="
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:20px">
+
+    <!-- SKALA -->
+    <div style="background:#f8fafc;padding:18px;border-radius:16px;text-align:center">
+      <h3>Distribusi Skala Penilaian (1–5)</h3>
+      <canvas id="skalaChart" onclick="openLB('skala')"></canvas>
+    </div>
+
+    <!-- RISIKO -->
+    <div style="background:#f8fafc;padding:18px;border-radius:16px;text-align:center">
+      <h3>Distribusi Kategori Risiko</h3>
+      <canvas id="risikoChart" onclick="openLB('risiko')"></canvas>
+    </div>
+
+    <!-- REKOMENDASI -->
+    <div style="background:#f8fafc;padding:18px;border-radius:16px;text-align:center">
+      <h3>Distribusi Rekomendasi Tindak Lanjut</h3>
+      <canvas id="rekomChart" onclick="openLB('rekom')"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= LIGHTBOX ================= -->
+<style>
+.lb-overlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.65);
+  z-index:9999;
+  align-items:center;
+  justify-content:center;
+}
+.lb-box{
+  background:#fff;
+  width:95%;
+  max-width:820px;
+  padding:24px;
+  border-radius:18px;
+  position:relative;
+}
+.lb-close{
+  position:absolute;
+  top:12px;
+  right:14px;
+  font-size:22px;
+  cursor:pointer;
+  font-weight:800;
+}
+.lb-title{
+  text-align:center;
+  font-size:18px;
+  margin-bottom:14px;
+}
+</style>
+
+<div class="lb-overlay" id="lightbox" onclick="closeLB(event)">
+  <div class="lb-box">
+    <div class="lb-close" onclick="closeLB()">✖</div>
+    <div class="lb-title" id="lbTitle"></div>
+    <canvas id="lbChart"></canvas>
+  </div>
+</div>
+
+<!-- ================= SCRIPT ================= -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbzv9rQbQPVOZy6N6LQVj_Y8CF_i1jeQtFn1DyUVChyxOvN9jLUK8T77e3abUh6coVJLXg/exec";
+let chartCache = {};
+let lbInstance = null;
+
+fetch(API)
+.then(r=>r.json())
+.then(d=>{
+
+  // === SKALA ===
+  chartCache.skala = {
+    title:"Distribusi Skala Penilaian (1–5)",
+    config:{
+      type:"doughnut",
+      data:{
+        labels:["Skor 1","Skor 2","Skor 3","Skor 4","Skor 5"],
+        datasets:[{
+          data:[d.skala.s1,d.skala.s2,d.skala.s3,d.skala.s4,d.skala.s5],
+          backgroundColor:["#ef4444","#fb923c","#eab308","#22c55e","#16a34a"]
+        }]
+      },
+      options:{cutout:"60%"}
+    }
+  };
+  new Chart(skalaChart, chartCache.skala.config);
+
+  // === RISIKO ===
+  chartCache.risiko = {
+    title:"Distribusi Kategori Risiko",
+    config:{
+      type:"doughnut",
+      data:{
+        labels:["Rendah","Sedang","Tinggi","Sangat Tinggi"],
+        datasets:[{
+          data:[
+            d.risiko.rendah,
+            d.risiko.sedang,
+            d.risiko.tinggi,
+            d.risiko.sangattinggi
+          ],
+          backgroundColor:["#22c55e","#eab308","#fb923c","#ef4444"]
+        }]
+      },
+      options:{cutout:"60%"}
+    }
+  };
+  new Chart(risikoChart, chartCache.risiko.config);
+
+  // === REKOMENDASI ===
+  chartCache.rekom = {
+    title:"Distribusi Rekomendasi Tindak Lanjut",
+    config:{
+      type:"doughnut",
+      data:{
+        labels:["Monitoring","Perbaikan SOP","Rapat Mutu","Audit Internal"],
+        datasets:[{
+          data:[
+            d.rekom.monitoring,
+            d.rekom.perbaikan,
+            d.rekom.rapat,
+            d.rekom.audit
+          ],
+          backgroundColor:["#38bdf8","#a855f7","#f97316","#dc2626"]
+        }]
+      },
+      options:{cutout:"60%"}
+    }
+  };
+  new Chart(rekomChart, chartCache.rekom.config);
+
+});
+
+// === LIGHTBOX FUNCTION ===
+function openLB(type){
+  document.getElementById("lightbox").style.display="flex";
+  document.getElementById("lbTitle").innerText = chartCache[type].title;
+  const ctx = document.getElementById("lbChart").getContext("2d");
+  if(lbInstance) lbInstance.destroy();
+  lbInstance = new Chart(ctx, chartCache[type].config);
+}
+
+function closeLB(e){
+  if(!e || e.target.id==="lightbox"){
+    document.getElementById("lightbox").style.display="none";
+    if(lbInstance) lbInstance.destroy();
+  }
+}
+</script>

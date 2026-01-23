@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Profil UKOM JFK</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<style>
+body{
+  font-family:Segoe UI,Arial,sans-serif;
+  background:#f4f6fb;
+  margin:0;
+  padding:20px;
+}
+
+/* ===== CARD ===== */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+  gap:16px;
+}
+.card{
+  background:#fff;
+  border-radius:18px;
+  padding:16px;
+  display:flex;
+  gap:14px;
+  cursor:pointer;
+  box-shadow:0 10px 25px rgba(0,0,0,.08);
+}
+.card img{
+  width:70px;height:70px;
+  border-radius:50%;
+  object-fit:cover;
+}
+.card h3{margin:0;font-size:16px}
+.card small{color:#64748b}
+
+/* ===== MODAL (LIGHTBOX) ===== */
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.75);
+  backdrop-filter:blur(6px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  opacity:0;
+  pointer-events:none;
+  transition:.25s;
+  z-index:9999;
+}
+.modal.show{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.modal-box{
+  background:#fff;
+  border-radius:22px;
+  padding:32px;
+  width:95%;
+  max-width:1100px;
+  display:grid;
+  grid-template-columns:1.4fr .6fr;
+  gap:32px;
+  max-height:92vh;
+  overflow:auto;
+  position:relative;
+  animation:pop .3s ease;
+}
+
+@keyframes pop{
+  from{transform:scale(.94);opacity:0}
+  to{transform:scale(1);opacity:1}
+}
+
+.modal-close{
+  position:absolute;
+  top:14px;
+  right:18px;
+  font-size:26px;
+  border:none;
+  background:none;
+  cursor:pointer;
+}
+
+/* ===== FOTO ===== */
+#foto{
+  width:100%;
+  max-width:320px;
+  margin-left:auto;
+  border-radius:18px;
+  box-shadow:0 16px 35px rgba(0,0,0,.25);
+}
+
+/* ===== LOGIN ===== */
+#loginModal .modal-box{
+  max-width:420px;
+  grid-template-columns:1fr;
+}
+input{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  margin-bottom:12px;
+  font-size:15px;
+  border:1px solid #cbd5e1;
+}
+
+/* LOGIN BUTTON + LOADING */
+.login-btn{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  background:#2563eb;
+  color:#fff;
+  border:none;
+  font-weight:600;
+  font-size:15px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.login-btn.loading{
+  opacity:.7;
+  pointer-events:none;
+}
+
+/* SPINNER */
+.spinner{
+  width:18px;
+  height:18px;
+  border:3px solid rgba(255,255,255,.4);
+  border-top:3px solid #fff;
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#msg{
+  color:#dc2626;
+  text-align:center;
+  margin-top:8px;
+}
+
+/* ===== PROFIL ===== */
+#profil h2{
+  font-size:28px;
+  margin-bottom:18px;
+  color:#0f172a;
+}
+#profil div{
+  font-size:17px;
+  margin-bottom:10px;
+  line-height:1.55;
+}
+#profil b{
+  display:inline-block;
+  min-width:200px;
+  font-weight:600;
+  color:#334155;
+}
+#profil hr{
+  border:none;
+  border-top:1px solid #e5e7eb;
+  margin:18px 0;
+}
+
+@media(max-width:900px){
+  .modal-box{grid-template-columns:1fr}
+  #foto{margin:0 auto}
+}
+</style>
+</head>
+
+<body>
+
+<h2>📊 Dashboard Profil UKOM JFK</h2>
+<div class="grid" id="grid"></div>
+
+<!-- LOGIN LIGHTBOX -->
+<div class="modal" id="loginModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeLogin()">×</button>
+    <h3 style="text-align:center;margin-bottom:16px">🔐 Login</h3>
+
+    <input id="u" placeholder="Username">
+    <input id="p" type="password" placeholder="Password">
+
+    <button id="loginBtn" class="login-btn" onclick="login()">
+      <span id="btnText">Login</span>
+    </button>
+
+    <div id="msg"></div>
+  </div>
+</div>
+
+<!-- PROFIL -->
+<div class="modal" id="profilModal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeProfil()">×</button>
+    <div id="profil"></div>
+    <div><img id="foto"></div>
+  </div>
+</div>
+
+<script>
+const URL = "https://script.google.com/macros/s/AKfycbx4DMlwjPRK7L_yCjzBeUtP6zNmfaUFDoIfCCXNGqJuXBHA_biB0-RqjqCMnIBEBu7H_g/exec";
+
+const grid = document.getElementById("grid");
+const loginModal = document.getElementById("loginModal");
+const profilModal = document.getElementById("profilModal");
+const loginBtn = document.getElementById("loginBtn");
+const btnText = document.getElementById("btnText");
+
+/* LOAD DASHBOARD */
+fetch(URL).then(r=>r.json()).then(d=>{
+  d.forEach(x=>{
+    grid.innerHTML += `
+      <div class="card" onclick="openLogin()">
+        <img src="https://lh3.googleusercontent.com/d/${x.idFotoDrive}">
+        <div>
+          <h3>${x.namaLengkap}</h3>
+          <small>${x.unitKerja}</small><br>
+          <small>${x.kategoriPenjenjangan}</small><br>
+          <small>${x.jabatanTujuan} – ${x.jenjangTujuan}</small>
+        </div>
+      </div>
+    `;
+  });
+});
+
+/* LOGIN */
+function openLogin(){
+  loginModal.classList.add("show");
+  u.focus();
+}
+function closeLogin(){
+  loginModal.classList.remove("show");
+  msg.textContent="";
+  resetButton();
+}
+
+function login(){
+  // LOADING ON
+  loginBtn.classList.add("loading");
+  btnText.innerHTML = `<div class="spinner"></div> Memverifikasi...`;
+
+  fetch(URL,{
+    method:"POST",
+    body:JSON.stringify({
+      action:"login",
+      username:u.value,
+      password:p.value
+    })
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.status==="success"){
+      closeLogin();
+      showProfil(res.profil);
+    }else{
+      msg.textContent = res.message;
+      resetButton();
+    }
+  })
+  .catch(()=>{
+    msg.textContent = "Gagal terhubung ke server";
+    resetButton();
+  });
+}
+
+function resetButton(){
+  loginBtn.classList.remove("loading");
+  btnText.textContent = "Login";
+}
+
+/* PROFIL */
+function showProfil(d){
+  profilModal.classList.add("show");
+  foto.src = `https://lh3.googleusercontent.com/d/${d.idFotoDrive}`;
+
+  profil.innerHTML = `
+    <h2>${d.namaLengkap}</h2>
+
+    <div><b>NIK</b>: ${d.nik}</div>
+    <div><b>NIP</b>: ${d.nip}</div>
+    <div><b>WhatsApp</b>: ${d.wa}</div>
+    <div><b>Unit Kerja</b>: ${d.unitKerja}</div>
+
+    <hr>
+
+    <div><b>Jenis Jabatan</b>: ${d.jenisJabatan}</div>
+    <div><b>Jenjang Jabatan</b>: ${d.jenjangJabatan}</div>
+    <div><b>Pangkat / Gol</b>: ${d.pangkatGol}</div>
+    <div><b>Nilai PAK</b>: ${d.nilaiPAK}</div>
+    <div><b>Nomor STR</b>: ${d.nomorSTR}</div>
+
+    <hr>
+
+    <div><b>Kategori Penjenjangan</b>: ${d.kategoriPenjenjangan}</div>
+    <div><b>Jabatan Fungsional Tujuan</b>: ${d.jabatanTujuan}</div>
+    <div><b>Jenjang Jabatan Tujuan</b>: ${d.jenjangTujuan}</div>
+
+    <hr>
+
+    <div><b>Keputusan Tim UKOM</b>: ${d.keputusanTim || "-"}</div>
+  `;
+}
+
+function closeProfil(){
+  profilModal.classList.remove("show");
+}
+
+/* ESC & KLIK LUAR */
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){
+    closeLogin();
+    closeProfil();
+  }
+});
+loginModal.onclick = e=>{if(e.target===loginModal)closeLogin()};
+profilModal.onclick = e=>{if(e.target===profilModal)closeProfil()};
+</script>
+
+</body>
+</html>
