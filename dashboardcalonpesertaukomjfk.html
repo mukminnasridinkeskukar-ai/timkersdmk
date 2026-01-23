@@ -67,72 +67,111 @@ body{background:#f4f6f9}
 </div>
 
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbwPTe0wmVpwFV_rZZSgoFMZhtd4vs0g7NAQZT5Y1RCTyhGcFmaWGLYNqgzkC8iAZR0u7w/exec";
-const DEFAULT_AVATAR="https://ui-avatars.com/api/?name=User&background=0D6EFD&color=fff";
-let nipDipilih=null;
+const API_URL = "https://script.google.com/macros/s/AKfycbxDVFDzkRsc4gr0d7pqu8zt3yl6vvPccZ8e5Ywnh5t-JxwwOCYlxAnTJdbr8HX4Wkkh/exec";
+const DEFAULT_AVATAR = "https://ui-avatars.com/api/?name=User&background=0D6EFD&color=fff";
+let nipDipilih = null;
 
-function show(id){["dashboard","login","profil"].forEach(x=>document.getElementById(x).classList.add("hidden"));document.getElementById(id).classList.remove("hidden")}
-function closeLogin(){nipDipilih=null;show("dashboard")}
+/* ===== NAV ===== */
+function show(id){
+  ["dashboard","login","profil"].forEach(x=>{
+    document.getElementById(x).classList.add("hidden");
+  });
+  document.getElementById(id).classList.remove("hidden");
+}
+function closeLogin(){ nipDipilih=null; show("dashboard"); }
 
-fetch(API_URL+"?action=dashboard").then(r=>r.json()).then(rows=>{
+/* ===== DASHBOARD ===== */
+fetch(API_URL+"?action=dashboard")
+.then(r=>r.json())
+.then(rows=>{
   tbl.innerHTML="";
   rows.forEach(r=>{
-  const foto = r.foto || DEFAULT_AVATAR;
-  tbl.innerHTML += `
-    <tr onclick="bukaLogin('${r.nip}')">
-      <td>
-        <img src="${foto}" class="avatar"
-          loading="lazy"
-          onerror="this.src='${DEFAULT_AVATAR}'"
-          onclick="event.stopPropagation();openLightbox('${foto}')">
-      </td>
-      <td>${r.nama}</td>
-      <td>${r.unit}</td>
-      <td>${r.jenis}</td>
-      <td>${r.jenjang}</td>
-      <td>${r.kategori}</td>
-      <td>${r.jf}</td>
-      <td>${r.jenjangTujuan}</td>
-    </tr>`;
-});
+    const foto = r.foto || DEFAULT_AVATAR;
+    tbl.innerHTML += `
+      <tr onclick="bukaLogin('${r.nip}')">
+        <td>
+          <img src="${foto}" class="avatar"
+            loading="lazy"
+            onerror="this.src='${DEFAULT_AVATAR}'"
+            onclick="event.stopPropagation();openLightbox('${foto}')">
+        </td>
+        <td>${r.nama}</td>
+        <td>${r.unit}</td>
+        <td>${r.jenis}</td>
+        <td>${r.jenjang}</td>
+        <td>${r.kategori}</td>
+        <td>${r.jf}</td>
+        <td>${r.jenjangTujuan}</td>
+      </tr>`;
+  });
 });
 
-function bukaLogin(nip){nipDipilih=nip;show("login")}
-function doLogin(){
-  fetch(API_URL,{method:"POST",body:JSON.stringify({action:"login",username:user.value.trim(),password:pass.value.trim()})})
-  .then(r=>r.json()).then(res=>{ if(res.status) loadProfil(); else alert("Username / Password salah"); });
+/* ===== LOGIN ===== */
+function bukaLogin(nip){
+  nipDipilih = nip;
+  show("login");
 }
 
-function loadProfil(){
-  fetch(API_URL+"?action=profil&nip="+nipDipilih).then(r=>r.json()).then(r=>{
-   nama.innerText = r.nama;
-foto.src = r.foto || DEFAULT_AVATAR;
+function doLogin(){
+  fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      action:"login",
+      username:user.value.trim(),
+      password:pass.value.trim()
+    })
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.status) loadProfil();
+    else alert("Username / Password salah");
+  });
+}
 
-const map = [
-  ["NIK", r.nik],
-  ["NIP", r.nip],
-  ["Telp / WA", r.telp],
-  ["Unit Kerja", r.unit],
-  ["Jenis Jabatan", r.jenis],
-  ["Jenjang Jabatan", r.jenjang],
-  ["Pangkat & Gol", r.pangkat],
-  ["Nilai PAK", r.pak],
-  ["Nomor STR", r.str],
-  ["Kategori", r.kategori],
-  ["JF Dituju", r.jf],
-  ["Jenjang Tujuan", r.jenjangTujuan],
-  ["Keputusan", r.keputusan]
-];
+/* ===== PROFIL ===== */
+function loadProfil(){
+  fetch(API_URL+"?action=profil&nip="+nipDipilih)
+  .then(r=>r.json())
+  .then(r=>{
+    if(!r || !r.nip){
+      alert("Data profil tidak ditemukan");
+      show("dashboard");
+      return;
+    }
+
+    nama.innerText = r.nama;
+    foto.src = r.foto || DEFAULT_AVATAR;
+
+    const map = [
+      ["NIK", r.nik],
+      ["NIP", r.nip],
+      ["Telp / WA", r.telp],
+      ["Unit Kerja", r.unit],
+      ["Jenis Jabatan", r.jenis],
+      ["Jenjang Jabatan", r.jenjang],
+      ["Pangkat & Gol", r.pangkat],
+      ["Nilai PAK", r.pak],
+      ["Nomor STR", r.str],
+      ["Kategori", r.kategori],
+      ["JF Dituju", r.jf],
+      ["Jenjang Tujuan", r.jenjangTujuan],
+      ["Keputusan", r.keputusan]
+    ];
 
     detail.innerHTML="";
-    map.forEach(x=>detail.innerHTML+=`<li class="list-group-item"><b>${x[0]}</b>: ${x[1]||"-"}</li>`);
+    map.forEach(x=>{
+      detail.innerHTML+=`<li class="list-group-item"><b>${x[0]}</b> : ${x[1]||"-"}</li>`;
+    });
+
     show("profil");
   });
 }
 
-function openLightbox(src){lightboxImg.src=src;document.getElementById("lightbox").classList.remove("hidden")}
-function closeLightbox(){document.getElementById("lightbox").classList.add("hidden")}
+/* ===== INIT ===== */
 document.addEventListener("DOMContentLoaded",()=>show("dashboard"));
 </script>
+
+
+     
 </body>
 </html>
