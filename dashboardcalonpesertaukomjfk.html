@@ -13,7 +13,7 @@ body{
   padding:20px;
 }
 
-/* ===== CARD LIST ===== */
+/* ===== GRID CARD ===== */
 .grid{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
@@ -35,63 +35,74 @@ body{
   width:70px;height:70px;
   border-radius:50%;
   object-fit:cover;
-  flex-shrink:0;
 }
 .card h3{margin:0;font-size:17px}
 .card small{color:#64748b}
 
-/* ===== MODAL ===== */
-/* ===== LOGIN MODAL ===== */
-#loginModal{
+/* ===== MODAL UMUM ===== */
+.modal{
   position:fixed;
   inset:0;
-  background:rgba(15,23,42,.75);
-  backdrop-filter:blur(6px);
+  background:rgba(0,0,0,.75);
   display:flex;
   align-items:center;
   justify-content:center;
   opacity:0;
   pointer-events:none;
-  transition:.3s ease;
-  z-index:99999;
+  transition:.3s;
+  z-index:9999;
 }
-
-#loginModal.show{
+.modal.show{
   opacity:1;
   pointer-events:auto;
 }
-
-#loginModal .modal-box{
-  width:420px;
-  background:#ffffff;
-  border-radius:18px;
-  padding:28px 26px 24px;
-  box-shadow:0 25px 70px rgba(0,0,0,.35);
+.modal-box{
+  background:#fff;
+  border-radius:22px;
+  padding:30px;
+  width:95%;
+  max-width:1200px;
+  max-height:92vh;
+  overflow:auto;
   position:relative;
-  animation:pop .35s ease;
+  display:grid;
+  grid-template-columns:1.2fr .8fr;
+  gap:30px;
+}
+.modal-close{
+  position:absolute;
+  top:12px;
+  right:16px;
+  font-size:26px;
+  border:none;
+  background:none;
+  cursor:pointer;
+}
+.modal img{
+  width:100%;
+  border-radius:20px;
+  box-shadow:0 20px 40px rgba(0,0,0,.25);
+}
+@media(max-width:900px){
+  .modal-box{grid-template-columns:1fr}
 }
 
-@keyframes pop{
-  from{opacity:0;transform:scale(.92)}
-  to{opacity:1;transform:scale(1)}
+/* ===== LOGIN MODAL ===== */
+#loginModal{
+  backdrop-filter:blur(6px);
+  z-index:10000;
 }
-
-#loginModal h3{
-  margin:0 0 16px;
-  font-size:20px;
-  text-align:center;
-  color:#0f172a;
+#loginModal .modal-box{
+  max-width:420px;
+  grid-template-columns:1fr;
 }
-
 #loginModal input{
   width:100%;
-  padding:12px 14px;
+  padding:12px;
   border-radius:12px;
   border:1px solid #cbd5e1;
-  font-size:15px;
   margin-bottom:12px;
 }
-
 #loginModal button{
   width:100%;
   padding:12px;
@@ -100,84 +111,51 @@ body{
   background:linear-gradient(135deg,#2563eb,#1d4ed8);
   color:#fff;
   font-weight:600;
-  font-size:15px;
-  cursor:pointer;
 }
+#loginMsg{color:#dc2626;text-align:center;margin-top:8px}
 
-#loginModal button:hover{
-  opacity:.9;
-}
-
-#loginModal .modal-close{
-  position:absolute;
-  top:10px;
-  right:14px;
-  font-size:26px;
-  border:none;
-  background:none;
-  cursor:pointer;
-  color:#64748b;
-}
-
-#loginModal .modal-close:hover{
-  color:#ef4444;
-}
-
-#loginMsg{
-  text-align:center;
-  color:#dc2626;
-  margin-top:10px;
-  font-size:14px;
-}
-
-/* ===== PROFIL DATA ===== */
-.profil h2{margin-top:0}
-.profil div{
-  margin-bottom:10px;
-}
+/* ===== PROFIL ===== */
 .profil b{
   display:inline-block;
   width:260px;
   color:#334155;
 }
-@media(max-width:900px){
-  .modal-box{grid-template-columns:1fr}
-}
+.profil div{margin-bottom:8px}
 </style>
 </head>
+
+<body>
+
+<h2>📊 Dashboard Profil UKOM JFK</h2>
+<div class="grid" id="grid"></div>
+
 <!-- LOGIN MODAL -->
 <div class="modal" id="loginModal">
   <div class="modal-box">
     <button class="modal-close" onclick="closeLogin()">&times;</button>
     <h3>🔐 Login untuk Melihat Profil</h3>
-
     <input id="u" placeholder="Username">
     <input id="p" type="password" placeholder="Password">
-
     <button onclick="login()">Login</button>
     <div id="loginMsg"></div>
   </div>
 </div>
-<body>
 
-<h2>📊 Dashboard Profil UKOM JFK</h2>
-
-<div class="grid" id="grid"></div>
-
-<!-- MODAL -->
-<div class="modal" id="modal">
+<!-- PROFIL MODAL -->
+<div class="modal" id="profilModal">
   <div class="modal-box">
-    <button class="modal-close">&times;</button>
+    <button class="modal-close" onclick="closeProfil()">&times;</button>
     <div class="profil" id="profil"></div>
-    <div>
-      <img id="fotoProfil">
-    </div>
+    <div><img id="fotoProfil"></div>
   </div>
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyv_6fw9igGcQfOymvvRXzmwMfES8CtOvLAeeW-3eG5rM4cormaq_cqUGoPgpEb1s_G2w/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwWGaFEEA6o0LqhQFzNvBT8iFkr_ZFqc2xWXmCjul3HHmvv6mdyYJ5Q4J4FTnXQqK5bmA/exec";
 const grid = document.getElementById("grid");
+
+let userLogin = null;
+let pendingData = null;
 
 /* ===== LOAD DATA ===== */
 fetch(WEB_APP_URL)
@@ -185,7 +163,7 @@ fetch(WEB_APP_URL)
   .then(data=>{
     data.forEach(d=>{
       grid.innerHTML += `
-        <div class="card" onclick='openProfil(${JSON.stringify(d)})'>
+        <div class="card" onclick='handleCard(${JSON.stringify(d)})'>
           <img src="https://lh3.googleusercontent.com/d/${d.idFotoDrive}">
           <div>
             <h3>${d.namaLengkap}</h3>
@@ -198,46 +176,25 @@ fetch(WEB_APP_URL)
     });
   });
 
-/* ===== MODAL PROFIL ===== */
-const modal=document.getElementById("modal");
-function openProfil(d){
-  modal.classList.add("show");
-  fotoProfil.src=`https://lh3.googleusercontent.com/d/${d.idFotoDrive}`;
-
-  profil.innerHTML = `
-    <h2>${d.namaLengkap}</h2>
-    <div><b>NIK</b>: ${d.nik}</div>
-    <div><b>NIP</b>: ${d.nip}</div>
-    <div><b>Nomor Telp / WA</b>: ${d.wa}</div>
-    <div><b>Unit Kerja</b>: ${d.unitKerja}</div>
-    <div><b>Jenis Jabatan</b>: ${d.jenisJabatan}</div>
-    <div><b>Jenjang Jabatan</b>: ${d.jenjangJabatan}</div>
-    <div><b>Pangkat & Golongan</b>: ${d.pangkatGol}</div>
-    <div><b>Nilai PAK Terakhir</b>: ${d.nilaiPAK}</div>
-    <div><b>Nomor STR</b>: ${d.nomorSTR}</div>
-    <div><b>Kategori Penjenjangan</b>: ${d.kategoriPenjenjangan}</div>
-    <div><b>Jabatan Fungsional Tujuan</b>: ${d.jabatanTujuan}</div>
-    <div><b>Jenjang Jabatan Tujuan</b>: ${d.jenjangTujuan}</div>
-    <div><b>Keputusan Tim UKOM</b>: ${d.keputusanTim}</div>
-  `;
-}
-document.querySelector(".modal-close").onclick=()=>modal.classList.remove("show");
-modal.onclick=e=>{if(e.target===modal)modal.classList.remove("show")};
-
-let userLogin = null;
-let pendingData = null;
-
-/* override klik kartu */
-function openProfil(data){
+/* ===== CARD CLICK ===== */
+function handleCard(data){
   if(!userLogin){
     pendingData = data;
-    openLogin();   // ⬅️ INI PENTING
-    return;
+    openLogin();
+  }else{
+    showProfil(data);
   }
-  showProfil(data);
 }
 
-/* LOGIN */
+/* ===== LOGIN ===== */
+function openLogin(){
+  loginModal.classList.add("show");
+  u.focus();
+}
+function closeLogin(){
+  loginModal.classList.remove("show");
+  loginMsg.textContent="";
+}
 function login(){
   fetch(WEB_APP_URL,{
     method:"POST",
@@ -259,71 +216,41 @@ function login(){
   });
 }
 
-function closeLogin(){
-  document.getElementById("loginModal").classList.remove("show");
-  loginMsg.textContent="";
-}
-
-/* ================= LOGIN MODAL CONTROL ================= */
-
-const loginModal = document.getElementById("loginModal");
-
-/* BUKA MODAL LOGIN */
-function openLogin(){
-  loginModal.classList.add("show");
-  document.getElementById("u").focus();
-}
-
-/* TUTUP MODAL LOGIN */
-function closeLogin(){
-  loginModal.classList.remove("show");
-  document.getElementById("loginMsg").textContent="";
-}
-
-/* ESC KEY = TUTUP MODAL */
-document.addEventListener("keydown", function(e){
-  if(e.key === "Escape" && loginModal.classList.contains("show")){
-    closeLogin();
-  }
+/* ESC & KLIK LUAR LOGIN */
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape") closeLogin();
 });
+loginModal.onclick=e=>{if(e.target===loginModal)closeLogin()};
 
-/* KLIK AREA GELAP = TUTUP MODAL */
-loginModal.addEventListener("click", function(e){
-  if(e.target === loginModal){
-    closeLogin();
-  }
-});
-
-  
-/* TAMPILKAN PROFIL */
+/* ===== PROFIL ===== */
 function showProfil(d){
-  modal.classList.add("show");
+  profilModal.classList.add("show");
   fotoProfil.src=`https://lh3.googleusercontent.com/d/${d.idFotoDrive}`;
 
   profil.innerHTML = `
     <h2>${d.namaLengkap}</h2>
     <div><b>NIK</b>: ${d.nik}</div>
     <div><b>NIP</b>: ${d.nip}</div>
-    <div><b>Nomor WA</b>: ${d.wa}</div>
+    <div><b>WA</b>: ${d.wa}</div>
     <div><b>Unit Kerja</b>: ${d.unitKerja}</div>
     <div><b>Jenis Jabatan</b>: ${d.jenisJabatan}</div>
     <div><b>Jenjang Jabatan</b>: ${d.jenjangJabatan}</div>
     <div><b>Pangkat/Gol</b>: ${d.pangkatGol}</div>
     <div><b>Nilai PAK</b>: ${d.nilaiPAK}</div>
-    <div><b>Nomor STR</b>: ${d.nomorSTR}</div>
-    <div><b>Kategori Penjenjangan</b>: ${d.kategoriPenjenjangan}</div>
+    <div><b>STR</b>: ${d.nomorSTR}</div>
+    <div><b>Kategori</b>: ${d.kategoriPenjenjangan}</div>
     <div><b>Jabatan Tujuan</b>: ${d.jabatanTujuan}</div>
     <div><b>Jenjang Tujuan</b>: ${d.jenjangTujuan}</div>
     <div><b>Keputusan Tim</b>: ${d.keputusanTim}</div>
     <hr>
-    <small>Login sebagai: <b>${userLogin.nama}</b> (${userLogin.role})</small>
+    <small>Login: <b>${userLogin.nama}</b> (${userLogin.role})</small>
   `;
 }
-  
+function closeProfil(){
+  profilModal.classList.remove("show");
+}
+profilModal.onclick=e=>{if(e.target===profilModal)closeProfil()};
 </script>
 
 </body>
 </html>
-
-
-
