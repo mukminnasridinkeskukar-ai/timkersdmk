@@ -5,142 +5,255 @@
 <title>Dashboard UKOM JFK</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-body{
-  font-family:Segoe UI,Arial,sans-serif;
-  background:#f4f6fb;
-  margin:0
+/* ===== LOGIN ===== */
+.login-wrap{
+  position:fixed; inset:0;
+  background:linear-gradient(135deg,#020617,#0f172a,#1e293b);
+  display:flex; align-items:center; justify-content:center;
+  z-index:10000;
 }
-header{
-  background:#1e293b;
-  color:#fff;
-  padding:15px 25px
-}
-.container{
-  padding:20px
-}
-.card{
-  background:#fff;
-  border-radius:12px;
-  padding:20px;
-  box-shadow:0 10px 25px rgba(0,0,0,.08)
-}
-input,select{
-  padding:10px;
-  border-radius:8px;
-  border:1px solid #ccc
-}
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:15px
-}
-th,td{
-  padding:10px;
-  border-bottom:1px solid #eee
-}
-th{
-  background:#f1f5f9;
-  text-align:left
-}
-.badge{
-  padding:5px 10px;
+.login-card{
+  width:360px;
+  padding:28px;
   border-radius:20px;
-  font-size:12px;
-  color:#fff
+  background:rgba(255,255,255,.12);
+  backdrop-filter:blur(16px);
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  color:#fff;
+}
+.login-header{text-align:center;margin-bottom:20px}
+.login-header .logo{font-size:42px}
+.login-field{
+  display:flex;align-items:center;
+  background:rgba(255,255,255,.18);
+  border-radius:12px;
+  padding:10px 12px;
+  margin-bottom:12px;
+}
+.login-field input{
+  flex:1;border:none;background:none;
+  color:#fff;font-size:15px;outline:none;
+}
+.login-btn{
+  width:100%;padding:12px;
+  border:none;border-radius:12px;
+  background:linear-gradient(135deg,#3b82f6,#2563eb);
+  color:#fff;font-weight:600;
+  cursor:pointer;
+}
+.login-error{text-align:center;color:#fecaca;margin-top:8px}
+
+/* ===== DASHBOARD ===== */
+.hidden{display:none}
+.dash{font-family:Segoe UI,Arial,sans-serif;padding:12px}
+.dash-top{display:flex;justify-content:space-between;align-items:center}
+.logout{
+  background:#ef4444;color:#fff;
+  border:none;padding:6px 12px;
+  border-radius:8px;cursor:pointer;
+}
+#search{width:100%;padding:10px;margin:12px 0}
+
+.filters{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:10px;margin-bottom:16px;
+}
+.filters select{padding:8px}
+
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ddd;padding:8px}
+th{background:#f1f5f9}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#f9fafb}
+table img{width:42px;height:42px;border-radius:50%}
+
+/* ===== BADGE ===== */
+.badge{
+  padding:4px 10px;
+  border-radius:14px;
+  color:#fff;font-size:12px
 }
 .approve{background:#16a34a}
 .reject{background:#dc2626}
 .pending{background:#f59e0b}
+
+/* ===== MODAL ===== */
+.modal{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.75);
+  display:flex;align-items:center;justify-content:center;
+  visibility:hidden;opacity:0;
+}
+.modal.show{visibility:visible;opacity:1}
+.modal-box{
+  background:#fff;
+  width:95%;max-width:1100px;
+  padding:30px;border-radius:20px;
+  max-height:92vh;overflow:auto;
+  position:relative;
+}
+.modal-close{
+  position:absolute;top:12px;right:14px;
+  border:none;background:none;font-size:26px;cursor:pointer;
+}
 </style>
 </head>
 
 <body>
 
-<header>
-  <h2>📊 Dashboard UKOM JFK</h2>
-</header>
-
-<div class="container">
-  <div class="card">
-
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <input type="text" id="search" placeholder="🔍 Cari nama / NIK">
-      <select id="filterJenjang">
-        <option value="">Semua Jenjang</option>
-      </select>
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo">🔐</div>
+      <h2>Admin Panel</h2>
+      <p>Dashboard UKOM JFK</p>
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Nama</th>
-          <th>NIK</th>
-          <th>Unit Kerja</th>
-          <th>Jenjang</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="dataBody"></tbody>
-    </table>
+    <div class="login-field">
+      <input id="loginUser" placeholder="Username">
+    </div>
+    <div class="login-field">
+      <input id="loginPass" type="password" placeholder="Password">
+    </div>
 
+    <button class="login-btn" onclick="login()">Masuk</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dash hidden" id="dashWrap">
+  <div class="dash-top">
+    <h2>📊 Dashboard UKOM JFK</h2>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+
+  <input id="search" placeholder="🔍 Cari Nama / NIK">
+
+  <div class="filters">
+    <select id="fJenjang"><option value="">Semua Jenjang</option></select>
+    <select id="fJenis"><option value="">Semua Jenis Jabatan</option></select>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Foto</th>
+        <th>Nama</th>
+        <th>Unit Kerja</th>
+        <th>Jenjang</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- MODAL -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <button class="modal-close">&times;</button>
+    <div style="text-align:center;margin-bottom:16px">
+      <img id="modalPhoto" style="max-width:200px;border-radius:16px">
+    </div>
+    <div id="modalContent"></div>
   </div>
 </div>
 
 <script>
-let dataGlobal = [];
+/* ===== LOGIN (sementara hardcode, bisa ganti Sheet USER) ===== */
+const ADMIN_USER="rsudami";
+const ADMIN_PASS="muarabadak";
 
-fetch("https://script.google.com/macros/s/AKfycbwimsDA5vAxPSmikhKjIIcK9cLmJ5yJUNr02CFMBYvwmR2kiY4Of8uuy-M3RSH4Iths5w/execL?action=profil&callback=loadData");
+function login(){
+  if(loginUser.value===ADMIN_USER && loginPass.value===ADMIN_PASS){
+    localStorage.setItem("login","1");
+    showDash();
+  }else loginError.textContent="Login salah";
+}
+function logout(){
+  localStorage.clear();location.reload();
+}
+function showDash(){
+  loginWrap.style.display="none";
+  dashWrap.classList.remove("hidden");
+  loadData();
+}
+if(localStorage.getItem("login")==="1") showDash();
 
-function loadData(res){
-  dataGlobal = res;
-  render(res);
-  isiFilter(res);
+/* ===== DATA ===== */
+const URL="https://script.google.com/macros/s/AKfycbwimsDA5vAxPSmikhKjIIcK9cLmJ5yJUNr02CFMBYvwmR2kiY4Of8uuy-M3RSH4Iths5w/exec";
+let allData=[];
+
+function loadData(){
+  fetch(URL+"?action=profil")
+    .then(r=>r.json())
+    .then(d=>{
+      allData=d;
+      fillFilter();
+      render();
+    });
 }
 
-function isiFilter(data){
-  const set = new Set(data.map(d=>d.jenjangJabatan));
-  const sel = document.getElementById("filterJenjang");
-  set.forEach(j=>{
-    const o = document.createElement("option");
-    o.value=j; o.textContent=j;
-    sel.appendChild(o);
-  });
+function fillFilter(){
+  fill("fJenjang","jenjangJabatan");
+  fill("fJenis","jenisJabatan");
+}
+function fill(id,key){
+  const el=document.getElementById(id);
+  [...new Set(allData.map(x=>x[key]).filter(Boolean))]
+    .forEach(v=>el.innerHTML+=`<option>${v}</option>`);
 }
 
-function render(data){
-  const tb = document.getElementById("dataBody");
-  tb.innerHTML="";
-  data.forEach(d=>{
+["search","fJenjang","fJenis"]
+.forEach(id=>document.getElementById(id).oninput=render);
+
+function render(){
+  const q=search.value.toLowerCase();
+  const d=allData.filter(r=>
+    (!fJenjang.value||r.jenjangJabatan===fJenjang.value)&&
+    (!fJenis.value||r.jenisJabatan===fJenis.value)&&
+    (r.namaLengkap.toLowerCase().includes(q)||r.nik.includes(q))
+  );
+
+  tbody.innerHTML=d.map(r=>{
     let cls="pending";
-    if(d.keputusanTim=="Disetujui") cls="approve";
-    if(d.keputusanTim=="Ditolak") cls="reject";
+    if(r.keputusanTim==="Disetujui")cls="approve";
+    if(r.keputusanTim==="Ditolak")cls="reject";
 
-    tb.innerHTML += `
-      <tr>
-        <td>${d.namaLengkap}</td>
-        <td>${d.nik}</td>
-        <td>${d.unitKerja}</td>
-        <td>${d.jenjangJabatan}</td>
-        <td><span class="badge ${cls}">${d.keputusanTim}</span></td>
-      </tr>`;
-  });
+    return `
+    <tr onclick='openModal(${JSON.stringify(r)})'>
+      <td><img src="https://lh3.googleusercontent.com/d/${r.idFotoDrive}"></td>
+      <td>${r.namaLengkap}</td>
+      <td>${r.unitKerja}</td>
+      <td>${r.jenjangJabatan}</td>
+      <td><span class="badge ${cls}">${r.keputusanTim}</span></td>
+    </tr>`;
+  }).join("");
 }
 
-document.getElementById("search").oninput = function(){
-  const v=this.value.toLowerCase();
-  render(dataGlobal.filter(d =>
-    d.namaLengkap.toLowerCase().includes(v) ||
-    d.nik.includes(v)
-  ));
-};
-
-document.getElementById("filterJenjang").onchange = function(){
-  const v=this.value;
-  render(v?dataGlobal.filter(d=>d.jenjangJabatan==v):dataGlobal);
-};
+/* ===== MODAL ===== */
+const modal=document.getElementById("modal");
+function openModal(r){
+  modal.classList.add("show");
+  modalPhoto.src=`https://lh3.googleusercontent.com/d/${r.idFotoDrive}`;
+  modalContent.innerHTML=`
+    <h3>${r.namaLengkap}</h3>
+    ${Object.entries(r)
+      .filter(([k])=>k!=="idFotoDrive")
+      .map(([k,v])=>`<div><b>${k}</b>: ${v||"-"}</div>`).join("")}
+  `;
+}
+document.querySelector(".modal-close").onclick=()=>modal.classList.remove("show");
+modal.onclick=e=>{if(e.target===modal)modal.classList.remove("show")};
 </script>
 
 </body>
 </html>
+
 
