@@ -5,238 +5,66 @@
 <title>Dashboard UKOM JFK</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
 
 <style>
-body{background:#f4f6f9;font-family:"Segoe UI",Arial,sans-serif}
-.header{
-  background:linear-gradient(135deg,#0d6efd,#084298);
-  color:#fff;padding:20px 24px;border-radius:16px;margin-bottom:20px
-}
-.table-hover tbody tr:hover{background:#eef4ff;cursor:pointer}
-.badge-kategori{background:#0d6efd}
-.avatar-lg{
-  width:120px;height:120px;border-radius:50%;object-fit:cover;
-  border:4px solid #e9ecef
+body{background:#f4f6f9}
+.avatar{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  object-fit:cover;
 }
 </style>
 </head>
 
 <body>
 <div class="container py-4">
+  <h4 class="mb-3">Dashboard UKOM JFK</h4>
 
-  <!-- HEADER -->
-  <div class="header d-flex justify-content-between align-items-center">
-    <div>
-      <h4 class="mb-1">Dashboard UKOM JFK</h4>
-      <small>Monitoring Peserta Uji Kompetensi Jabatan Fungsional</small>
-    </div>
-    <i class="bi bi-clipboard-data fs-1 opacity-50"></i>
-  </div>
-
-  <!-- TABLE -->
-  <div class="card shadow-sm border-0 rounded-4">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Nama</th>
-            <th>Unit Kerja</th>
-            <th>Jenis Jabatan</th>
-            <th>Jenjang</th>
-            <th>Kategori</th>
-            <th>JF Dituju</th>
-            <th>Jenjang Tujuan</th>
-          </tr>
-        </thead>
-        <tbody id="tbl"></tbody>
-      </table>
-    </div>
-  </div>
-
+  <table class="table table-bordered bg-white">
+    <thead>
+      <tr>
+        <th>Foto</th>
+        <th>Nama</th>
+        <th>Unit</th>
+        <th>Jenis</th>
+        <th>Jenjang</th>
+      </tr>
+    </thead>
+    <tbody id="tbl"></tbody>
+  </table>
 </div>
-
-<!-- ===== MODAL PROFIL ===== -->
-<div class="modal fade" id="profilModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content rounded-4">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="bi bi-person-badge"></i> Profil Peserta</h5>
-        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="row g-4 align-items-start">
-          <div class="col-md-4 text-center">
-            <img id="p_foto" class="avatar-lg mb-2"
-                 src="https://ui-avatars.com/api/?name=User&background=0D6EFD&color=fff"
-                 loading="lazy"
-                 onerror="this.src=this.dataset.fallback">
-          </div>
-          <div class="col-md-8">
-            <h5 id="p_nama" class="mb-3"></h5>
-            <div class="row g-3">
-              <div class="col-md-6"><b>NIP</b><div id="p_nip"></div></div>
-              <div class="col-md-6"><b>NIK</b><div id="p_nik"></div></div>
-              <div class="col-md-6"><b>Unit Kerja</b><div id="p_unit"></div></div>
-              <div class="col-md-6"><b>Jenis Jabatan</b><div id="p_jenis"></div></div>
-              <div class="col-md-6"><b>Jenjang Jabatan</b><div id="p_jenjang"></div></div>
-              <div class="col-md-6"><b>Pangkat & Gol</b><div id="p_pangkat"></div></div>
-              <div class="col-md-6"><b>Nilai PAK</b><div id="p_pak"></div></div>
-              <div class="col-md-6"><b>Nomor STR</b><div id="p_str"></div></div>
-              <div class="col-md-12"><b>Keputusan</b><div id="p_keputusan"></div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== MODAL LOGIN ===== -->
-<div class="modal fade" id="loginModal" tabindex="-1">
-  <div class="modal-dialog modal-sm modal-dialog-centered">
-    <div class="modal-content rounded-4">
-      <div class="modal-header">
-        <h6 class="modal-title">Login Akses Profil</h6>
-        <button class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input id="lg_user" class="form-control mb-2" placeholder="Username">
-        <input id="lg_pass" type="password" class="form-control" placeholder="Password">
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary w-100" onclick="doLogin()">Masuk</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-const API_URL = "PASTE_URL_WEBAPP_KAMU";
-let loggedIn = false;
-let nipBuffer = null;
-
-/* ===== LOAD DASHBOARD ===== */
-fetch(API_URL+"?action=dashboard")
-.then(r=>r.json())
-.then(data=>{
-  const tbl=document.getElementById("tbl");
-  tbl.innerHTML="";
-  data.forEach(r=>{
-    tbl.innerHTML+=`
-      <tr onclick="openProfil('${r.nip}')">
-        <td><b>${r.nama}</b></td>
-        <td>${r.unit}</td>
-        <td>${r.jenis}</td>
-        <td>${r.jenjang}</td>
-        <td><span class="badge badge-kategori">${r.kategori}</span></td>
-        <td>${r.jf}</td>
-        <td>${r.jenjangTujuan}</td>
-      </tr>`;
-  });
-});
-
-/* ===== LOGIN FLOW ===== */
-function openProfil(nip){
-  nipBuffer = nip;
-  if(!loggedIn){
-    new bootstrap.Modal(document.getElementById("loginModal")).show();
-    return;
-  }
-  loadProfil(nip);
-}
-
-function doLogin(){
-  fetch(API_URL,{
-    method:"POST",
-    body:JSON.stringify({
-      action:"login",
-      username:lg_user.value.trim(),
-      password:lg_pass.value.trim()
-    })
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.status){
-      loggedIn = true;
-      bootstrap.Modal.getInstance(document.getElementById("loginModal")).hide();
-      loadProfil(nipBuffer);
-    }else{
-      alert("Username / Password salah");
-    }
-  });
-}
-
-/* ===== LOAD PROFIL ===== */
-function loadProfil(nip){
-  fetch(API_URL+"?action=profil&nip="+nip)
-  .then(r=>r.json())
-  .then(r=>{
-    if(!r.nip){ alert("Data tidak ditemukan"); return; }
+const API_URL = "https://script.google.com/macros/s/AKfycbw_7lHkWsLet6CkTMETro8KK5T6AujziNzzo2HlMBpDjGmaKWsgFNdlBpG3aQGsTSQF/exec";
 
 fetch(API_URL + "?action=dashboard")
-  .then(res => {
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
-  })
+  .then(r => r.json())
   .then(data => {
-    console.log("DATA DASHBOARD:", data);
-
+    console.log("DATA:", data);
     const tbl = document.getElementById("tbl");
     tbl.innerHTML = "";
 
-    if (!Array.isArray(data)) {
-      alert("Data bukan array. Cek Apps Script.");
-      return;
-    }
-
     data.forEach(r => {
+      const foto = r.foto
+        ? r.foto
+        : "https://ui-avatars.com/api/?name="+encodeURIComponent(r.nama);
+
       tbl.innerHTML += `
-        <tr onclick="openProfil('${r.nip}')">
-          <td><b>${r.nama}</b></td>
+        <tr>
+          <td><img src="${foto}" class="avatar"></td>
+          <td>${r.nama}</td>
           <td>${r.unit}</td>
           <td>${r.jenis}</td>
           <td>${r.jenjang}</td>
-          <td><span class="badge badge-kategori">${r.kategori}</span></td>
-          <td>${r.jf}</td>
-          <td>${r.jenjangTujuan}</td>
         </tr>
       `;
     });
   })
   .catch(err => {
-    console.error("GAGAL LOAD DASHBOARD:", err);
-    alert("Dashboard gagal dimuat. API tidak terbaca.");
+    console.error(err);
+    alert("Gagal load data");
   });
-
-    
-    const fallback =
-      "https://ui-avatars.com/api/?name="+encodeURIComponent(r.nama||"User")+
-      "&background=0D6EFD&color=fff";
-
-    const img=document.getElementById("p_foto");
-    img.dataset.fallback=fallback;
-    img.src=r.foto || fallback;
-
-    p_nama.innerText=r.nama;
-    p_nip.innerText=r.nip;
-    p_nik.innerText=r.nik;
-    p_unit.innerText=r.unit;
-    p_jenis.innerText=r.jenis;
-    p_jenjang.innerText=r.jenjang;
-    p_pangkat.innerText=r.pangkat;
-    p_pak.innerText=r.pak;
-    p_str.innerText=r.str;
-    p_keputusan.innerText=r.keputusan;
-
-    new bootstrap.Modal(document.getElementById("profilModal")).show();
-  });
-}
 </script>
 </body>
 </html>
