@@ -22,8 +22,13 @@ body{
   border-radius:20px;
   padding:30px;
   width:100%;
-  max-width:720px;
+  max-width:760px;
   color:white;
+  animation:fadeUp .7s ease;
+}
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(30px)}
+  to{opacity:1;transform:none}
 }
 input,select,textarea{
   width:100%;
@@ -52,7 +57,6 @@ button{
 }
 button:disabled{
   background:#94a3b8;
-  cursor:not-allowed;
 }
 .info{
   font-size:14px;
@@ -76,6 +80,15 @@ button:disabled{
     📍 <span id="lokasi">Mendeteksi lokasi...</span>
   </p>
 
+  <label>Tanggal Kegiatan</label>
+  <input type="date" id="tgl_kegiatan" required>
+
+  <label>Jam Kegiatan</label>
+  <input type="time" id="jam_kegiatan" required>
+
+  <label>Agenda Kegiatan</label>
+  <input type="text" id="agenda" placeholder="Contoh: Rapat Koordinasi SDMK" required>
+
   <input id="nama" placeholder="Nama Lengkap" required>
   <input id="unit" placeholder="Unit Kerja" required>
 
@@ -89,7 +102,7 @@ button:disabled{
   <input id="jabatan" placeholder="Jabatan">
   <textarea id="komentar" rows="3" placeholder="Komentar (opsional)"></textarea>
 
-  <label style="margin-top:10px;display:block">Tanda Tangan</label>
+  <label>Tanda Tangan</label>
   <canvas id="signature"></canvas>
   <button type="button" onclick="clearSign()" style="background:#ef4444">Hapus Tanda Tangan</button>
 
@@ -97,26 +110,26 @@ button:disabled{
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUAj6YdYajR6F0fU7M406ULgO6NwqdTTfa8KdaKlpjZ8TuQ5NAnlj7CM6ZoAlR4lsoYA/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxL54_6L_Ox6p7-L0yVSUXhMJXxNn0piy41Y40ATkNoQnDpGbkcRQGKT-uwX6Zq5EnD2g/exec";
 
-/* ========== TANGGAL & JAM ========== */
+/* ===== TANGGAL & JAM ===== */
 function updateTime(){
-  const now=new Date();
-  tgl.innerText=now.toLocaleDateString("id-ID",{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  jam.innerText=now.toLocaleTimeString("id-ID");
+  const n=new Date();
+  tgl.innerText=n.toLocaleDateString("id-ID",{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  jam.innerText=n.toLocaleTimeString("id-ID");
 }
 setInterval(updateTime,1000);updateTime();
 
-/* ========== LOKASI & ALAMAT (FIX) ========== */
-let lat="", lng="", alamat="";
+/* ===== LOKASI & ALAMAT (FIX) ===== */
+let lat="",lng="",alamat="";
 navigator.geolocation.getCurrentPosition(
-  async pos=>{
-    lat=pos.coords.latitude;
-    lng=pos.coords.longitude;
+  async p=>{
+    lat=p.coords.latitude;
+    lng=p.coords.longitude;
     try{
-      const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-      const d=await res.json();
-      alamat=d.display_name || "Alamat tidak terbaca";
+      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const d=await r.json();
+      alamat=d.display_name||"Alamat tidak terbaca";
       lokasi.innerText=alamat;
     }catch{
       alamat="Alamat tidak terbaca";
@@ -129,7 +142,7 @@ navigator.geolocation.getCurrentPosition(
   }
 );
 
-/* ========== SIGNATURE ========== */
+/* ===== SIGNATURE ===== */
 const canvas=document.getElementById("signature");
 const ctx=canvas.getContext("2d");
 function resize(){canvas.width=canvas.offsetWidth;canvas.height=canvas.offsetHeight}
@@ -146,7 +159,7 @@ canvas.onmousemove=e=>{
 };
 function clearSign(){ctx.clearRect(0,0,canvas.width,canvas.height)}
 
-/* ========== KIRIM & AUTO TUTUP ========== */
+/* ===== KIRIM & AUTO TUTUP ===== */
 function kirim(){
   const btn=document.getElementById("btnKirim");
   btn.disabled=true;
@@ -155,6 +168,9 @@ function kirim(){
   fetch(WEB_APP_URL,{
     method:"POST",
     body:JSON.stringify({
+      tgl_kegiatan:tgl_kegiatan.value,
+      jam_kegiatan:jam_kegiatan.value,
+      agenda:agenda.value,
       nama:nama.value,
       unit:unit.value,
       status:status.value,
@@ -164,13 +180,13 @@ function kirim(){
       signature:canvas.toDataURL("image/png")
     })
   })
-  .then(res=>res.json())
-  .then(r=>{
-    if(r.status==="success"){
-      document.getElementById("formBox").innerHTML=
-        `<div class="success">✅ Absensi berhasil<br><br>Terima kasih 🙏</div>`;
+  .then(r=>r.json())
+  .then(d=>{
+    if(d.status==="success"){
+      formBox.innerHTML=
+        `<div class="success">✅ Absensi berhasil disimpan<br><br>Terima kasih 🙏</div>`;
     }else{
-      throw "gagal";
+      throw "error";
     }
   })
   .catch(()=>{
