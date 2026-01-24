@@ -3,126 +3,181 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard Rekap Absensi</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<title>Absensi Digital</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 
 <style>
 body{
   margin:0;
   font-family:Poppins,sans-serif;
-  background:#f1f5f9;
-}
-header{
   background:linear-gradient(135deg,#1e3a8a,#2563eb);
-  color:white;
-  padding:25px;
-  text-align:center;
-  animation:slideDown .8s ease;
-}
-@keyframes slideDown{
-  from{transform:translateY(-40px);opacity:0}
-  to{transform:none;opacity:1}
-}
-h1{margin:0;font-size:32px}
-.container{
-  padding:25px;
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 .card{
-  background:white;
-  border-radius:18px;
-  padding:20px;
-  box-shadow:0 10px 30px rgba(0,0,0,.08);
-  animation:fadeUp .8s ease;
-}
-@keyframes fadeUp{
-  from{opacity:0;transform:translateY(30px)}
-  to{opacity:1;transform:none}
-}
-table{
+  background:rgba(255,255,255,.12);
+  backdrop-filter:blur(18px);
+  border-radius:20px;
+  padding:30px;
   width:100%;
-  border-collapse:collapse;
-  font-size:16px;
-}
-th{
-  background:#2563eb;
+  max-width:720px;
   color:white;
+}
+input,select,textarea{
+  width:100%;
+  padding:12px;
+  margin-top:6px;
+  border:none;
+  border-radius:12px;
+}
+canvas{
+  width:100%;
+  height:180px;
+  background:white;
+  border-radius:12px;
+}
+button{
+  margin-top:18px;
+  width:100%;
   padding:14px;
-  font-size:17px;
+  border:none;
+  border-radius:14px;
+  background:#22c55e;
+  color:white;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
 }
-td{
-  padding:14px;
-  border-bottom:1px solid #e5e7eb;
+button:disabled{
+  background:#94a3b8;
+  cursor:not-allowed;
 }
-tr{
-  transition:.25s;
+.info{
+  font-size:14px;
+  opacity:.9;
 }
-tr:hover{
-  background:#f8fafc;
-  transform:scale(1.01);
-}
-img{
-  max-height:60px;
-}
-.footer{
+.success{
   text-align:center;
-  margin-top:15px;
-  font-size:13px;
-  opacity:.7;
+  font-size:18px;
+  font-weight:600;
+  padding:30px;
 }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>📊 Dashboard Rekap Absensi</h1>
-  <p>Data kehadiran real-time</p>
-</header>
+<div class="card" id="formBox">
+  <h2>📋 Absensi Digital</h2>
 
-<div class="container">
-  <div class="card">
-    <table>
-      <thead>
-        <tr>
-          <th>Waktu</th>
-          <th>Nama</th>
-          <th>Unit</th>
-          <th>Status</th>
-          <th>Jabatan</th>
-          <th>Lokasi</th>
-          <th>Tanda Tangan</th>
-        </tr>
-      </thead>
-      <tbody id="data"></tbody>
-    </table>
-  </div>
+  <p class="info">
+    📅 <span id="tgl"></span> | ⏰ <span id="jam"></span><br>
+    📍 <span id="lokasi">Mendeteksi lokasi...</span>
+  </p>
 
-  <div class="footer">
-    Sistem Absensi Digital • Dashboard Profesional
-  </div>
+  <input id="nama" placeholder="Nama Lengkap" required>
+  <input id="unit" placeholder="Unit Kerja" required>
+
+  <select id="status" required>
+    <option value="">Status Kepegawaian</option>
+    <option>PNS</option>
+    <option>PPPK</option>
+    <option>Non ASN</option>
+  </select>
+
+  <input id="jabatan" placeholder="Jabatan">
+  <textarea id="komentar" rows="3" placeholder="Komentar (opsional)"></textarea>
+
+  <label style="margin-top:10px;display:block">Tanda Tangan</label>
+  <canvas id="signature"></canvas>
+  <button type="button" onclick="clearSign()" style="background:#ef4444">Hapus Tanda Tangan</button>
+
+  <button id="btnKirim" onclick="kirim()">✅ Kirim Absensi</button>
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyGvoRcenZ7IycB4mTkTE4NRRk1odTkk_hGP6an2JhqyDtwNpmKjQT-xoxJAGRmUVuChg/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUAj6YdYajR6F0fU7M406ULgO6NwqdTTfa8KdaKlpjZ8TuQ5NAnlj7CM6ZoAlR4lsoYA/exec";
 
-fetch(WEB_APP_URL)
+/* ========== TANGGAL & JAM ========== */
+function updateTime(){
+  const now=new Date();
+  tgl.innerText=now.toLocaleDateString("id-ID",{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  jam.innerText=now.toLocaleTimeString("id-ID");
+}
+setInterval(updateTime,1000);updateTime();
+
+/* ========== LOKASI & ALAMAT (FIX) ========== */
+let lat="", lng="", alamat="";
+navigator.geolocation.getCurrentPosition(
+  async pos=>{
+    lat=pos.coords.latitude;
+    lng=pos.coords.longitude;
+    try{
+      const res=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const d=await res.json();
+      alamat=d.display_name || "Alamat tidak terbaca";
+      lokasi.innerText=alamat;
+    }catch{
+      alamat="Alamat tidak terbaca";
+      lokasi.innerText=alamat;
+    }
+  },
+  ()=>{
+    alamat="Lokasi tidak diizinkan";
+    lokasi.innerText=alamat;
+  }
+);
+
+/* ========== SIGNATURE ========== */
+const canvas=document.getElementById("signature");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=canvas.offsetWidth;canvas.height=canvas.offsetHeight}
+resize();window.addEventListener("resize",resize);
+
+let draw=false;
+canvas.onmousedown=()=>draw=true;
+canvas.onmouseup=()=>{draw=false;ctx.beginPath()};
+canvas.onmousemove=e=>{
+  if(!draw)return;
+  ctx.lineWidth=2;ctx.lineCap="round";ctx.strokeStyle="#000";
+  ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);
+};
+function clearSign(){ctx.clearRect(0,0,canvas.width,canvas.height)}
+
+/* ========== KIRIM & AUTO TUTUP ========== */
+function kirim(){
+  const btn=document.getElementById("btnKirim");
+  btn.disabled=true;
+  btn.innerText="⏳ Mengirim...";
+
+  fetch(WEB_APP_URL,{
+    method:"POST",
+    body:JSON.stringify({
+      nama:nama.value,
+      unit:unit.value,
+      status:status.value,
+      jabatan:jabatan.value,
+      komentar:komentar.value,
+      lat,lng,alamat,
+      signature:canvas.toDataURL("image/png")
+    })
+  })
   .then(res=>res.json())
-  .then(data=>{
-    const tbody=document.getElementById("data");
-    data.reverse().forEach(d=>{
-      const tr=document.createElement("tr");
-      tr.innerHTML=`
-        <td>${new Date(d.waktu).toLocaleString("id-ID")}</td>
-        <td><b>${d.nama}</b></td>
-        <td>${d.unit}</td>
-        <td>${d.status}</td>
-        <td>${d.jabatan}</td>
-        <td style="font-size:14px">${d.alamat||""}</td>
-        <td>${d.ttd ? `<img src="${d.ttd}">` : "-"}</td>
-      `;
-      tbody.appendChild(tr);
-    });
+  .then(r=>{
+    if(r.status==="success"){
+      document.getElementById("formBox").innerHTML=
+        `<div class="success">✅ Absensi berhasil<br><br>Terima kasih 🙏</div>`;
+    }else{
+      throw "gagal";
+    }
+  })
+  .catch(()=>{
+    btn.disabled=false;
+    btn.innerText="❌ Gagal, Kirim Ulang";
   });
+}
 </script>
 
 </body>
