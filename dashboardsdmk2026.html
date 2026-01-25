@@ -67,31 +67,50 @@ canvas{max-height:520px}
 const API_URL = "https://script.google.com/macros/s/AKfycbxwqMys-l6d4jrPaU-WmUruuAKL47s2PEmjQybUzybf-Yc5DkT8ojUblozBhFciO4A3/exec?page=api";
 const PENDUDUK = 780000;
 
+// Rasio = 1 tenaga per X penduduk
+const RASIO = {
+  "Dokter": 1000,
+  "Dokter Gigi": 5000,
+  "Perawat": 417,
+  "Bidan": 500,
+  "Apoteker": 1099,
+  "Nutrisionis": 2857,
+  "Tenaga Sanitasi Lingkungan": 4762
+};
+
+const TV_MODE = new URLSearchParams(location.search).get("tv") === "1";
+const SLIDE_INTERVAL = 10000;
+
+/* ================= VAR ================= */
 let RAW = [];
 let chartObj = null;
+let slideIndex = 0;
+let unitList = [];
+let jenisList = [];
 
 /* ================= LOAD DATA ================= */
 fetch(API_URL)
   .then(r => r.json())
   .then(data => {
-    console.log("DATA API:", data);   // 🔍 DEBUG
     RAW = data;
+    unitList = [...new Set(RAW.map(d => d.Unit))];
+    jenisList = [...new Set(RAW.map(d => d.Jenis))];
     initFilter();
     render();
-  })
-  .catch(err => {
-    console.error("Gagal load data:", err);
+    if (TV_MODE) startTV();
   });
 
-/* ================= INIT FILTER ================= */
+/* ================= FILTER ================= */
 function initFilter(){
   fill(fUnit, "Unit", "Semua Unit");
   fill(fBulan, "Bulan", "Semua Bulan");
   fill(fJenis, "Jenis", "Semua Jenis SDM");
 
-  fUnit.onchange =
-  fBulan.onchange =
-  fJenis.onchange = render;
+  if (!TV_MODE) {
+    fUnit.onchange =
+    fBulan.onchange =
+    fJenis.onchange = render;
+  }
 }
 
 function fill(el, key, label){
@@ -113,7 +132,7 @@ function render(){
     (!j || d.Jenis === j)
   );
 
-  /* KPI */
+  // ===== KPI =====
   const sum = {};
   data.forEach(d => {
     sum[d.Jenis] = (sum[d.Jenis] || 0) + Number(d.Jumlah);
@@ -129,18 +148,27 @@ function render(){
     </div>
   `;
 
-  entries.slice(0,5).forEach(e=>{
+  entries.slice(0,5).forEach(([jenis,jumlah])=>{
+    let statusHTML = "";
+    if (RASIO[jenis]) {
+      const ideal = Math.ceil(PENDUDUK / RASIO[jenis]);
+      const defisit = ideal - jumlah;
+      statusHTML = defisit > 0
+        ? `<div style="color:#ef4444;font-size:18px">Defisit ${defisit}</div>`
+        : `<div style="color:#22c55e;font-size:18px">Surplus</div>`;
+    }
+
     kpi.innerHTML += `
       <div class="card">
-        <h4>${e[0].toUpperCase()}</h4>
-        <div class="v">${e[1]}</div>
+        <h4>${jenis.toUpperCase()}</h4>
+        <div class="v">${jumlah}</div>
+        ${statusHTML}
       </div>
     `;
   });
 
-  /* CHART */
+  // ===== CHART =====
   if(chartObj) chartObj.destroy();
-
   chartObj = new Chart(chart,{
     type:"doughnut",
     data:{
@@ -163,8 +191,34 @@ function render(){
     }
   });
 }
-</script>
 
+/* ================= TV WALL ================= */
+function startTV(){
+  setInterval(()=>{
+    slideIndex++;
+
+    // Slide 1: Semua data
+    if (slideIndex % 3 === 0) {
+      fUnit.value = "";
+      fJenis.value = "";
+    }
+
+    // Slide 2: Rotasi Unit
+    if (slideIndex % 3 === 1) {
+      fUnit.value = unitList[slideIndex % unitList.length];
+      fJenis.value = "";
+    }
+
+    // Slide 3: Rotasi Jenis SDM
+    if (slideIndex % 3 === 2) {
+      fJenis.value = jenisList[slideIndex % jenisList.length];
+      fUnit.value = "";
+    }
+
+    render();
+  }, SLIDE_INTERVAL);
+}
+</script>
 
 </body>
 </html>
