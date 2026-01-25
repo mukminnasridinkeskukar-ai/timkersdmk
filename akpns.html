@@ -233,29 +233,56 @@ function toBase64(input,name){
   r.onload=()=>{files[name]=r.result;checkReady()};
   r.readAsDataURL(input.files[0]);
 }
-function checkReady(){
-  const ok=form.checkValidity() && Object.keys(files).length===6 && !alreadySubmitted;
-  btn.classList.toggle("active",ok);
-  btn.disabled=!ok;
+function checkReady() {
+  const isFormValid = form.checkValidity();
+  const isFileComplete = Object.keys(files).length === 6;
+  const isReady = isFormValid && isFileComplete && !alreadySubmitted;
+
+  btn.classList.toggle("active", isReady);
+  btn.disabled = !isReady;
 }
-form.addEventListener("input",checkReady);
-form.onsubmit=e=>{
+
+form.addEventListener("input", checkReady);
+
+form.addEventListener("submit", (e) => {
   e.preventDefault();
-  if(alreadySubmitted) return;
-  alreadySubmitted=true;
-  btn.disabled=true;
-  btn.innerText="⏳ SEDANG MENGIRIM...";
-  const fd=new FormData(form);
-  for(let k in files) fd.append(k,files[k]);
-  fetch(SCRIPT_URL,{method:"POST",body:fd})
-  .then(r=>r.json())
-  .then(()=>{
-    btn.innerText="✅ PENGAJUAN TERKIRIM";
-    alert("Pengajuan berhasil dikirim. Silakan cek email Anda.");
-    form.reset();
+  if (alreadySubmitted) return;
+
+  alreadySubmitted = true;
+  btn.disabled = true;
+  btn.innerText = "⏳ SEDANG MENGIRIM...";
+
+  const formData = new FormData(form);
+  Object.keys(files).forEach(key => {
+    formData.append(key, files[key]);
+  });
+
+  fetch(SCRIPT_URL, {
+    method: "POST",
+    body: formData
   })
-  .catch(()=>btn.innerText="❌ GAGAL MENGIRIM");
-};
+    .then(res => res.json())
+    .then(() => {
+      btn.innerText = "✅ PENGAJUAN TERKIRIM";
+
+      alert(
+        "Pengajuan berhasil dikirim. Silakan cek email Anda.\n\n" +
+        "📄 Download PAK Integrasi 2022 di sini:\n" +
+        "prosespakpns.html"
+      );
+
+      // buka link otomatis (opsional)
+      window.open("prosespakpns.html", "_blank");
+
+      form.reset();
+    })
+    .catch(() => {
+      btn.innerText = "❌ GAGAL MENGIRIM";
+      alreadySubmitted = false;
+      checkReady();
+    });
+});
+
 </script>
 
 </body>
