@@ -88,44 +88,103 @@ const STANDAR={
 };
 
 /* ================= DATA ================= */
-fetch(API_URL).then(r=>r.json()).then(data=>{
-  const sum={};
-  data.forEach(d=>{
-    sum[d.Jenis]=(sum[d.Jenis]||0)+Number(d.Jumlah);
+let RAW = [];
+let chartObj = null;
+
+fetch(API_URL)
+  .then(r => r.json())
+  .then(data => {
+    RAW = data;
+    initFilter();
+    render();
   });
 
-  const entries=Object.entries(sum).sort((a,b)=>b[1]-a[1]);
+/* ================= INIT FILTER ================= */
+function initFilter(){
+  const tahun = [...new Set(RAW.map(d => d.Tahun))].sort();
+  const bulan = [...new Set(RAW.map(d => d.Bulan))];
+  const unit  = [...new Set(RAW.map(d => d.Unit))].sort();
 
-  /* KPI TOP 6 */
-  const kpi=document.getElementById("kpi");
-  const total=entries.reduce((a,b)=>a+b[1],0);
-  kpi.innerHTML=`<div class="card"><h4>Total SDM</h4><div class="v">${total}</div></div>`;
+  fTahun.innerHTML =
+    `<option value="">Semua Tahun</option>` +
+    tahun.map(x => `<option value="${x}">${x}</option>`).join("");
+
+  fBulan.innerHTML =
+    `<option value="">Semua Bulan</option>` +
+    bulan.map(x => `<option value="${x}">${x}</option>`).join("");
+
+  fUnit.innerHTML =
+    `<option value="">Semua Unit</option>` +
+    unit.map(x => `<option value="${x}">${x}</option>`).join("");
+
+  // 🔑 KUNCI FILTER HIDUP
+  fTahun.onchange =
+  fBulan.onchange =
+  fUnit.onchange = render;
+}
+
+/* ================= RENDER (PAKAI DATA TERFILTER) ================= */
+function render(){
+  const t = fTahun.value;
+  const b = fBulan.value;
+  const u = fUnit.value;
+
+  // FILTER BULAN & UNIT DI SINI
+  const data = RAW.filter(d =>
+    (!t || d.Tahun == t) &&
+    (!b || d.Bulan == b) &&
+    (!u || d.Unit  == u)
+  );
+
+  /* ================= REKAP ================= */
+  const sum = {};
+  data.forEach(d => {
+    sum[d.Jenis] = (sum[d.Jenis] || 0) + Number(d.Jumlah);
+  });
+
+  const entries = Object.entries(sum).sort((a,b)=>b[1]-a[1]);
+
+  /* ================= KPI TOP 6 ================= */
+  const kpi = document.getElementById("kpi");
+  const total = entries.reduce((a,b)=>a+b[1],0);
+
+  kpi.innerHTML =
+    `<div class="card">
+      <h4>Total SDM</h4>
+      <div class="v">${total}</div>
+    </div>`;
+
   entries.slice(0,6).forEach(e=>{
-    kpi.innerHTML+=`
+    kpi.innerHTML += `
       <div class="card">
         <h4>${e[0]}</h4>
         <div class="v">${e[1]}</div>
       </div>`;
   });
 
-  /* STATUS SURPLUS / DEFISIT */
-  const s=document.getElementById("status");
+  /* ================= STATUS SURPLUS / DEFISIT ================= */
+  const s = document.getElementById("status");
+  s.innerHTML = "";
+
   Object.keys(STANDAR).forEach(j=>{
-    const ideal=Math.ceil(PENDUDUK/STANDAR[j]);
-    const aktual=sum[j]||0;
-    const ok=aktual>=ideal;
-    s.innerHTML+=`
+    const ideal = Math.ceil(PENDUDUK / STANDAR[j]);
+    const aktual = sum[j] || 0;
+    const ok = aktual >= ideal;
+
+    s.innerHTML += `
       <p>
         <b>${j}</b> :
         ${aktual} / ideal ${ideal}
-        <span class="badge ${ok?'ok':'bad'}">
-          ${ok?'Surplus':'Defisit'}
+        <span class="badge ${ok ? 'ok' : 'bad'}">
+          ${ok ? 'Surplus' : 'Defisit'}
         </span>
       </p>`;
   });
 
-  /* GRAFIK */
-  new Chart(donut,{
+  /* ================= GRAFIK ================= */
+  if(chartObj) chartObj.destroy();
+
+  chartObj = new Chart(donut,{
     type:"doughnut",
     data:{
       labels:entries.map(e=>e[0]),
@@ -136,7 +195,7 @@ fetch(API_URL).then(r=>r.json()).then(data=>{
     },
     options:{plugins:{legend:{position:"bottom"}}}
   });
-});
+}
 
 /* ================= PDF ================= */
 function exportPDF(){
@@ -145,6 +204,7 @@ function exportPDF(){
   window.print();
 }
 </script>
+
 
 </body>
 </html>
