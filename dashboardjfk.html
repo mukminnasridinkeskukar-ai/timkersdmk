@@ -6,6 +6,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
+*{box-sizing:border-box}
 body{
   margin:0;
   font-family:Inter,Segoe UI,Arial;
@@ -27,7 +28,9 @@ body{
   border:none;
 }
 button{background:#38bdf8;font-weight:800;cursor:pointer}
+
 #dash{display:none;padding:24px}
+.tv-title{font-size:22px;font-weight:900;margin-bottom:12px}
 
 .cards{
   display:grid;
@@ -55,21 +58,21 @@ th,td{
   border-bottom:1px solid rgba(255,255,255,.1);
 }
 th{background:rgba(56,189,248,.25)}
-
-.tv-title{font-size:22px;font-weight:900;margin-bottom:12px}
 </style>
 </head>
 
 <body>
 
+<!-- LOGIN -->
 <div class="login" id="loginBox">
   <h2>🔐 Login</h2>
   <input id="u" placeholder="Username">
-  <input id="p" type="password">
+  <input id="p" type="password" placeholder="Password">
   <button onclick="login()">MASUK</button>
   <div id="msg"></div>
 </div>
 
+<!-- DASHBOARD -->
 <div id="dash">
   <div class="tv-title" id="tvTitle"></div>
 
@@ -91,9 +94,14 @@ th{background:rgba(56,189,248,.25)}
   <table id="tbl">
     <thead>
       <tr>
-        <th>Instansi</th><th>Jabfung</th><th>Jenjang</th>
-        <th>Kebutuhan</th><th>Pemangku</th><th>Lowongan</th>
-        <th>Status</th><th>Keterangan</th>
+        <th>Instansi</th>
+        <th>Jabfung</th>
+        <th>Jenjang</th>
+        <th>Kebutuhan</th>
+        <th>Pemangku</th>
+        <th>Lowongan</th>
+        <th>Status</th>
+        <th>Keterangan</th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
@@ -101,92 +109,121 @@ th{background:rgba(56,189,248,.25)}
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbwZuBhBXlWUH5MenwtgLL70I4yiiJnwUIHruc4yAXlwtHPyH9yd6VH06e_TiFK1mBRi/exec";
+/* ================== KONFIG ================== */
+const API_URL = "https://script.google.com/macros/s/AKfycbzMddo4-cTOoC3kUDUXdf35n-5XYjtBM8RSqJ0IvVIqJMnd7d2QI5q-5YfzwgxkErMG/exec";
+/* ============================================ */
 
 let raw=[], chart, slide=0;
 const titles=[
- "📊 RINGKASAN NASIONAL",
- "🏥 PER INSTANSI",
- "👨‍⚕️ PER JABATAN FUNGSIONAL",
- "📋 DATA DETAIL"
+  "📊 RINGKASAN NASIONAL",
+  "🏥 DEFISIT / SURPLUS PER INSTANSI",
+  "👨‍⚕️ DEFISIT / SURPLUS PER JABATAN FUNGSIONAL",
+  "📋 DATA DETAIL"
 ];
 
+// LOGIN
 function login(){
-  fetch(`${API}?action=login&u=${u.value}&p=${p.value}`)
+  fetch(`${API_URL}?action=login&u=${u.value}&p=${p.value}`)
   .then(r=>r.json())
   .then(j=>{
     if(!j.status){msg.innerText="Login gagal";return;}
     loginBox.style.display="none";
     dash.style.display="block";
-    load();
-  });
+    loadData();
+  })
+  .catch(e=>msg.innerText="API error");
 }
 
-function load(){
-  fetch(`${API}?action=data`)
+// LOAD DATA
+function loadData(){
+  fetch(`${API_URL}?action=data`)
   .then(r=>r.json())
   .then(d=>{
-    raw=d;
+    raw=d||[];
     initFilter();
     render();
-    tv();
+    startTV();
   });
 }
 
+// FILTER
 function initFilter(){
   fill(fI,"instansi");
   fill(fJ,"jabfung");
   fill(fN,"jenjang");
   document.querySelectorAll("select").forEach(s=>s.onchange=render);
 }
-
-function fill(sel,k){
+function fill(sel,key){
   sel.innerHTML="<option value=''>SEMUA</option>";
-  [...new Set(raw.map(x=>x[k]))].forEach(v=>sel.innerHTML+=`<option>${v}</option>`);
+  [...new Set(raw.map(x=>x[key]))].forEach(v=>{
+    if(v) sel.innerHTML+=`<option>${v}</option>`;
+  });
 }
 
+// RENDER
 function render(){
-  let d=raw.filter(x=>
-    (!fI.value||x.instansi===fI.value)&&
-    (!fJ.value||x.jabfung===fJ.value)&&
+  const d = raw.filter(x =>
+    (!fI.value||x.instansi===fI.value) &&
+    (!fJ.value||x.jabfung===fJ.value) &&
     (!fN.value||x.jenjang===fN.value)
   );
 
   let Kt=0,Pt=0,Lt=0,St=0;
   tbody.innerHTML="";
   d.forEach(x=>{
-    Kt+=x.kebutuhan;Pt+=x.pemangku;Lt+=x.lowongan;St+=x.sisa;
+    Kt+=x.kebutuhan; Pt+=x.pemangku; Lt+=x.lowongan; St+=x.sisa;
     tbody.innerHTML+=`
-    <tr>
-      <td>${x.instansi}</td>
-      <td>${x.jabfung}</td>
-      <td>${x.jenjang}</td>
-      <td>${x.kebutuhan}</td>
-      <td>${x.pemangku}</td>
-      <td>${x.lowongan}</td>
-      <td style="color:${x.sisa>0?'#fb7185':'#4ade80'}">
-        ${x.sisa>0?'DEFISIT':'SURPLUS'} (${x.sisa})
-      </td>
-      <td>${x.ket||''}</td>
-    </tr>`;
+      <tr>
+        <td>${x.instansi}</td>
+        <td>${x.jabfung}</td>
+        <td>${x.jenjang}</td>
+        <td>${x.kebutuhan}</td>
+        <td>${x.pemangku}</td>
+        <td>${x.lowongan}</td>
+        <td style="color:${x.sisa>0?'#fb7185':'#4ade80'}">
+          ${x.sisa>0?'DEFISIT':'SURPLUS'} (${x.sisa})
+        </td>
+        <td>${x.ket}</td>
+      </tr>`;
   });
 
-  K.innerText=Kt;P.innerText=Pt;L.innerText=Lt;
-  S.innerText=St>0?"🔴 DEFISIT NASIONAL":"🟢 SURPLUS NASIONAL";
-  S.style.color=St>0?"#fb7185":"#4ade80";
+  K.innerText=Kt; P.innerText=Pt; L.innerText=Lt;
+  S.innerText = St>0?"🔴 DEFISIT NASIONAL":"🟢 SURPLUS NASIONAL";
+  S.style.color = St>0?"#fb7185":"#4ade80";
+
+  drawNasional(Kt,Pt,Lt,St);
 }
 
-function group(k){
-  const m={}; raw.forEach(x=>m[x[k]]=(m[x[k]]||0)+x.sisa); return m;
-}
-
-function draw(k,title){
-  const o=group(k);
+// GRAFIK
+function drawNasional(K,P,L,S){
   if(chart) chart.destroy();
-  chart=new Chart(chart,{
+  chart=new Chart(document.getElementById("chart"),{
     type:"bar",
-    data:{labels:Object.keys(o),
-      datasets:[{data:Object.values(o),
+    data:{
+      labels:["Kebutuhan","Pemangku","Lowongan","Sisa"],
+      datasets:[{
+        data:[K,P,L,S],
+        backgroundColor:["#38bdf8","#4ade80","#facc15",S>0?"#fb7185":"#4ade80"]
+      }]
+    },
+    options:{plugins:{legend:{display:false}}}
+  });
+}
+
+function groupSum(key){
+  const m={};
+  raw.forEach(x=>m[x[key]]=(m[x[key]]||0)+x.sisa);
+  return m;
+}
+function drawGroup(key,title){
+  const o=groupSum(key);
+  if(chart) chart.destroy();
+  chart=new Chart(document.getElementById("chart"),{
+    type:"bar",
+    data:{
+      labels:Object.keys(o),
+      datasets:[{
+        data:Object.values(o),
         backgroundColor:Object.values(o).map(v=>v>0?"#fb7185":"#4ade80")
       }]
     },
@@ -194,18 +231,19 @@ function draw(k,title){
   });
 }
 
-function tv(){
+// TV WALL
+function startTV(){
   setInterval(()=>{
     slide=(slide+1)%4;
     tvTitle.innerText=titles[slide];
     document.body.requestFullscreen?.();
 
-    cards.style.display=slide===0?"grid":"none";
-    filters.style.display=slide===3?"flex":"none";
-    tbl.style.display=slide===3?"table":"none";
+    cards.style.display = slide===0?"grid":"none";
+    filters.style.display = slide===3?"flex":"none";
+    tbl.style.display = slide===3?"table":"none";
 
-    if(slide===1) draw("instansi","Defisit / Surplus per Instansi");
-    if(slide===2) draw("jabfung","Defisit / Surplus per Jabfung");
+    if(slide===1) drawGroup("instansi","Defisit / Surplus per Instansi");
+    if(slide===2) drawGroup("jabfung","Defisit / Surplus per Jabfung");
   },12000);
 }
 </script>
