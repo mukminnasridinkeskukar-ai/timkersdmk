@@ -224,93 +224,113 @@ body{
 
 <script>
 /* ================= CONFIG API ================= */
-// 🔗 GANTI SAAT SUDAH ADA BACKEND
 const API_URL = "https://script.google.com/macros/s/AKfycbzLkub439BcqgqYQagagiJfzpAhOYutbcycpraMZ5krrmIr7FnMN4ksD26UplL0hQ27/exec";
 
-/* ================= KPI DATA (DUMMY) ================= */
-async function loadKPI(){
-  const res = await fetch(`${API_URL}?action=summary`);
-  const data = await res.json();
+/* ================= KPI TEMPLATE ================= */
+const KPI_TEMPLATE = [
+  { key:"puskesmas", title:"Jumlah Puskesmas", icon:"🏥", unit:"" },
+  { key:"sdm", title:"SDM Kesehatan", icon:"👩‍⚕️", unit:"" },
+  { key:"mutu", title:"Capaian Mutu", icon:"📈", unit:"%" },
+  { key:"inovasi", title:"Inovasi Aktif", icon:"🚀", unit:"" }
+];
 
-  document.querySelectorAll(".kpi-card")[0].querySelector(".kpi-value").innerText = data.puskesmas;
-  document.querySelectorAll(".kpi-card")[1].querySelector(".kpi-value").innerText = data.sdm.toLocaleString("id-ID");
-  document.querySelectorAll(".kpi-card")[2].querySelector(".kpi-value").innerText = data.mutu + "%";
-  document.querySelectorAll(".kpi-card")[3].querySelector(".kpi-value").innerText = data.inovasi;
+const grid = document.getElementById("kpiGrid");
+
+/* ================= RENDER KPI CARD ================= */
+function renderKPICards(){
+  grid.innerHTML = "";
+  KPI_TEMPLATE.forEach(k=>{
+    const card = document.createElement("div");
+    card.className = "kpi-card";
+    card.innerHTML = `
+      <div class="kpi-header">
+        <div class="kpi-title">${k.title}</div>
+        <div>${k.icon}</div>
+      </div>
+      <div class="kpi-value" id="kpi-${k.key}">0</div>
+      <div class="kpi-footer">–</div>
+    `;
+    card.onclick = () => openInsight(k.title);
+    grid.appendChild(card);
+  });
+}
+
+/* ================= LOAD KPI FROM API ================= */
+async function loadKPI(){
+  try{
+    const res = await fetch(`${API_URL}?action=summary`);
+    const data = await res.json();
+
+    KPI_TEMPLATE.forEach(k=>{
+      const el = document.getElementById(`kpi-${k.key}`);
+      if(!el) return;
+      let val = data[k.key] ?? 0;
+      el.innerText = k.unit ? val + k.unit : val.toLocaleString("id-ID");
+    });
+
+  }catch(err){
+    console.error("Gagal load KPI", err);
+  }
 }
 
 /* ================= SIDEBAR ================= */
 function activate(el){
- document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
- el.classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(x=>x.classList.remove("active"));
+  el.classList.add("active");
 }
 function toggleSub(el){
- activate(el);
- const sub=el.nextElementSibling;
- if(sub && sub.classList.contains("sub")) sub.classList.toggle("open");
+  activate(el);
+  const sub = el.nextElementSibling;
+  if(sub && sub.classList.contains("sub")) sub.classList.toggle("open");
 }
 
-/* ================= KPI RENDER ================= */
-const grid=document.getElementById("kpiGrid");
-KPI.forEach(k=>{
- const card=document.createElement("div");
- card.className="kpi-card";
- card.innerHTML=`
-  <div class="kpi-header">
-    <div class="kpi-title">${k.title}</div>
-    <div>${k.icon}</div>
-  </div>
-  <div class="kpi-value">0</div>
-  <div class="kpi-footer ${k.trend.includes('-')?'down':'up'}">${k.trend}</div>
- `;
- card.onclick=()=>openModal(k);
- grid.appendChild(card);
-
- let cur=0,target=k.value;
- const el=card.querySelector(".kpi-value");
- const step=Math.ceil(target/40);
- const int=setInterval(()=>{
-   cur+=step;
-   if(cur>=target){cur=target;clearInterval(int);}
-   el.innerText=cur.toLocaleString("id-ID");
- },25);
-});
-
-/* ================= INSIGHT ================= */
+/* ================= INSIGHT / MODAL ================= */
 let chart;
-function openModal(k){
- modalTitle.innerText=k.title;
- dTotal.innerText=k.value;
- dStatus.innerText=k.status;
- dDelta.innerText=k.trend;
- modal.classList.add("show");
-
- if(chart) chart.destroy();
- chart=new Chart(detailChart,{
-  type:"line",
-  data:{
-   labels:["Jan","Feb","Mar","Apr","Mei","Jun"],
-   datasets:[{data:[70,75,80,85,90,92],borderColor:"#38bdf8",tension:.4}]
-  },
-  options:{plugins:{legend:{display:false}}}
- });
-}
 function openInsight(title){
- openModal({title,value:"–",status:"Informasi",trend:""});
+  modalTitle.innerText = title;
+  dTotal.innerText = "-";
+  dStatus.innerText = "Informasi";
+  dDelta.innerText = "-";
+  modal.classList.add("show");
+
+  if(chart) chart.destroy();
+  chart = new Chart(detailChart,{
+    type:"line",
+    data:{
+      labels:["Jan","Feb","Mar","Apr","Mei","Jun"],
+      datasets:[{
+        data:[70,75,80,85,90,92],
+        borderColor:"#38bdf8",
+        tension:.4
+      }]
+    },
+    options:{plugins:{legend:{display:false}}}
+  });
 }
-function closeModal(){modal.classList.remove("show");}
+
+function closeModal(){
+  modal.classList.remove("show");
+  if(chart){ chart.destroy(); chart=null; }
+}
 
 /* ================= TV WALL ================= */
 let tvInt=null;
 function startTVWall(){
- document.documentElement.requestFullscreen();
- let i=0;
- if(tvInt) clearInterval(tvInt);
- tvInt=setInterval(()=>{
-   openModal(KPI[i]);
-   i=(i+1)%KPI.length;
- },8000);
+  document.documentElement.requestFullscreen();
+  const titles = KPI_TEMPLATE.map(k=>k.title);
+  let i=0;
+  if(tvInt) clearInterval(tvInt);
+  tvInt = setInterval(()=>{
+    openInsight(titles[i]);
+    i = (i+1) % titles.length;
+  },8000);
 }
+
+/* ================= INIT ================= */
+renderKPICards();
+loadKPI();
 </script>
+
 
 </body>
 </html>
