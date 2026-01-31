@@ -116,7 +116,18 @@ body{
 </div>
 
 <!-- PLACEHOLDER PANEL -->
-<div id="mutu" class="panel"><h2>Mutu & Kinerja</h2></div>
+<div id="mutu" class="panel">
+  <h2>Mutu & Kinerja</h2>
+  <p>Evaluasi capaian mutu SDM Kesehatan</p>
+
+  <div class="kpi-grid" id="mutuKPI"></div>
+
+  <div style="margin-top:30px;background:#0f172a;padding:20px;border-radius:16px">
+    <h3>Tren Capaian Mutu</h3>
+    <canvas id="mutuChart"></canvas>
+  </div>
+</div>
+
 <div id="inovasi" class="panel"><h2>Inovasi</h2></div>
 <div id="monitoring" class="panel"><h2>Monitoring</h2></div>
 <div id="laporan" class="panel"><h2>Laporan</h2></div>
@@ -136,7 +147,7 @@ body{
 
 <script>
 /* ===== CONFIG ===== */
-const API_URL = "https://script.google.com/macros/s/AKfycbycyKFg2NX-PmI8d9ZU5L6Z7LYDgEmKfU1emporEVjgDKSW9BslMdQ4HkNG61Rr3xmR/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwDJp-q_EhKEZbFc258ScEYhjpZObp2NpCkXG6O2Zu8xBd9RXCmWNxYutSfqWQmlZA7/exec";
 
 /* ===== PANEL ===== */
 function showPanel(id,el){
@@ -210,7 +221,11 @@ function closeModal(){
 }
 
 /* ===== INIT ===== */
-loadSDM().then(loadDashboard);
+loadSDM().then(()=>{
+  loadDashboard();
+  loadMutu();
+});
+
 
 function renderSDM(){
   const grid = document.getElementById("kpiGrid");
@@ -275,6 +290,63 @@ function renderSDM(){
 }
 
 loadAllData();
+  
+/* ===== MUTU & KINERJA ===== */
+async function loadMutu(){
+  // ambil summary (mutu & target)
+  const mutu = {
+    capaian: apiData.mutu_sdmk || 0,
+    target: apiData.target_mutu || 0
+  };
+
+  const grid = document.getElementById("mutuKPI");
+  grid.innerHTML = "";
+
+  const status = mutu.capaian >= mutu.target ? "Tercapai" : "Belum Tercapai";
+  const statusColor = mutu.capaian >= mutu.target ? "#22c55e" : "#ef4444";
+
+  [
+    { title:"Capaian Mutu (%)", value: mutu.capaian + "%" },
+    { title:"Target Mutu (%)", value: mutu.target + "%" },
+    { title:"Status", value: status, color: statusColor }
+  ].forEach(it=>{
+    const c=document.createElement("div");
+    c.className="kpi-card";
+    c.innerHTML=`
+      <div class="kpi-title">${it.title}</div>
+      <div class="kpi-value" style="color:${it.color||'#38bdf8'}">
+        ${it.value}
+      </div>
+    `;
+    grid.appendChild(c);
+  });
+
+  // grafik tren mutu
+  const res = await fetch(`${API_URL}?action=mutu`);
+  const trend = await res.json();
+
+  if(window.mutuChartObj) window.mutuChartObj.destroy();
+
+  window.mutuChartObj = new Chart(
+    document.getElementById("mutuChart"),{
+      type:"line",
+      data:{
+        labels: trend.labels,
+        datasets:[{
+          data: trend.values,
+          borderColor:"#38bdf8",
+          backgroundColor:"rgba(56,189,248,.2)",
+          tension:.4,
+          fill:true
+        }]
+      },
+      options:{
+        plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true,max:100}}
+      }
+    }
+  );
+}
 
 </script>
 
