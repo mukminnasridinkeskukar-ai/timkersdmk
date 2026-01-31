@@ -224,15 +224,24 @@ body{
 
 <script>
 /* ================= CONFIG API ================= */
-const API_URL = "https://script.google.com/macros/s/AKfycbzLkub439BcqgqYQagagiJfzpAhOYutbcycpraMZ5krrmIr7FnMN4ksD26UplL0hQ27/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyWpLGn1Cwr-0zeS9iMU3B6E4T5FuZka4-bV9s9oP2ADDvVOKootTzsZMstbru94CDS/exec";
 
 /* ================= KPI TEMPLATE ================= */
 const KPI_TEMPLATE = [
-  { key:"puskesmas", title:"Jumlah Puskesmas", icon:"🏥", unit:"32" },
-  { key:"sdm", title:"SDM Kesehatan 2026", icon:"👩‍⚕️", orang:"5312" },
-  { key:"mutu sdmk", title:"Capaian Mutu", icon:"📈", persentase:"100%" },
-  { key:"fasyankes", title:"Jumlah Fasyankes", icon:"🚀", unit:"235" }
+  { key:"jumlah_sdmk_2026", icon:"👩‍⚕️" },
+  { key:"sdmk_puskesmas", icon:"🏥" },
+  { key:"sdmk_rs", icon:"🏥" },
+  { key:"sdmk_klinik", icon:"🏨" },
+  { key:"sdmk_tpm_named_nakes", icon:"🧪" },
+  { key:"sdmk_faskes_lain", icon:"🏥" },
+  { key:"dokter_7_spesialis_dasar", icon:"🩺" },
+  { key:"dokter_puskesmas", icon:"🩺" },
+  { key:"dokter_gigi_puskesmas", icon:"🦷" },
+  { key:"perawat_puskesmas", icon:"👨‍⚕️" },
+  { key:"bidan_puskesmas", icon:"🤰" },
+  { key:"tenaga_lain_puskesmas", icon:"👥" }
 ];
+
 
 const grid = document.getElementById("kpiGrid");
 
@@ -257,20 +266,41 @@ function renderKPICards(){
 
 /* ================= LOAD KPI FROM API ================= */
 async function loadKPI(){
-  try{
-    const res = await fetch(`${API_URL}?action=summary`);
-    const data = await res.json();
+  const res = await fetch(`${API_URL}?action=sdmk`);
+  const data = await res.json();
 
-    KPI_TEMPLATE.forEach(k=>{
-      const el = document.getElementById(`kpi-${k.key}`);
-      if(!el) return;
-      let val = data[k.key] ?? 0;
-      el.innerText = k.unit ? val + k.unit : val.toLocaleString("id-ID");
-    });
+  grid.innerHTML = "";
 
-  }catch(err){
-    console.error("Gagal load KPI", err);
-  }
+  KPI_TEMPLATE.forEach(k=>{
+    const d = data[k.key];
+    if(!d) return;
+
+    const card = document.createElement("div");
+    card.className = "kpi-card";
+    card.innerHTML = `
+      <div class="kpi-header">
+        <div class="kpi-title">${d.label}</div>
+        <div>${k.icon}</div>
+      </div>
+      <div class="kpi-value">0</div>
+    `;
+    grid.appendChild(card);
+
+    // animasi angka
+    let cur = 0;
+    const target = Number(d.value);
+    const el = card.querySelector(".kpi-value");
+    const step = Math.ceil(target / 40);
+
+    const int = setInterval(()=>{
+      cur += step;
+      if(cur >= target){
+        cur = target;
+        clearInterval(int);
+      }
+      el.innerText = cur.toLocaleString("id-ID");
+    },25);
+  });
 }
 
 /* ================= SIDEBAR ================= */
