@@ -4,116 +4,175 @@
 <meta charset="UTF-8">
 <title>Dashboard Jabatan Fungsional</title>
 
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<!-- LIBRARY -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <style>
-body{font-family:Arial;background:#f1f5f9;margin:0}
+body{margin:0;font-family:Arial;background:#f1f5f9}
 header{background:#1e3a8a;color:#fff;padding:15px}
-.login,.content{max-width:1300px;margin:auto;padding:20px}
+.login,.wrap{max-width:1400px;margin:auto;padding:20px}
+input,button,select{padding:8px;margin:4px}
+button{background:#2563eb;color:#fff;border:none;cursor:pointer}
 img{width:45px;height:45px;border-radius:50%;object-fit:cover}
-button{padding:8px;background:#2563eb;color:#fff;border:none}
+@media (fullscreen){body{cursor:none}table{font-size:20px}}
 </style>
 </head>
 
 <body>
 
-<header><h2>📊 Dashboard Jabatan Fungsional</h2></header>
+<header>
+<h2 id="title">📊 Dashboard Jabatan Fungsional</h2>
+<select id="unitSelect" style="display:none" onchange="changeUnit()"></select>
+<button onclick="tvWall()">📺 TV WALL</button>
+<button onclick="exportPDF()">🖨️ PDF</button>
+</header>
 
-<div class="login" id="login">
+<div class="login" id="loginBox">
+  <h3>🔐 Login</h3>
   <input id="user" placeholder="Username">
   <input id="pass" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
 </div>
 
-<div class="content" id="content" style="display:none">
-  <h3 id="unit"></h3>
+<div class="wrap" id="content" style="display:none">
+<table id="tbl" class="display">
+<thead>
+<tr>
+<th>Foto</th><th>Nama</th><th>NIK</th><th>NIP</th><th>WA</th>
+<th>Unit</th><th>Jenis</th><th>Jenjang</th><th>Pangkat</th>
+<th>PAK</th><th>STR</th><th>Kategori</th>
+<th>Jabatan Tujuan</th><th>Jenjang Tujuan</th><th>Keputusan</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
 
-  <table id="tbl" class="display">
-    <thead>
-      <tr>
-        <th>Foto</th><th>Nama</th><th>NIK</th><th>NIP</th><th>WA</th>
-        <th>Unit</th><th>Jenis</th><th>Jenjang</th><th>Pangkat</th>
-        <th>PAK</th><th>STR</th><th>Kategori</th>
-        <th>Jabatan Tujuan</th><th>Jenjang Tujuan</th><th>Keputusan</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <canvas id="chart1"></canvas>
-  <canvas id="chart2"></canvas>
-
-  <button onclick="exportPDF()">🖨️ PDF</button>
-  <button onclick="tv()">📺 TV Wall</button>
+<br>
+<canvas id="chart1"></canvas>
+<canvas id="chart2"></canvas>
 </div>
 
 <script>
-const API="https://script.google.com/macros/s/AKfycbzfX9xoOZ-_PPLQ7-IvT2FO-laeL8qcAMJH7Lp97o4BuBNkceEuk-AhWLdrKvng4h0QmQ/exec";
-let UNIT="";
+/* =========================
+   CONFIG
+========================= */
+const API = "https://script.google.com/macros/s/AKfycbyovp560REtCFo0-G4dH11lwTgPk1ozUSixGDfUy2Z5eZMQon-jhP7yJNJ-IyVP14bsKg/exec";
+let UNIT = "";
+let table;
 
+/* =========================
+   LOGIN
+========================= */
 function login(){
  fetch(`${API}?action=login&username=${user.value}&password=${pass.value}`)
-  .then(r=>r.json())
-  .then(d=>{
-    if(d.status==="ok"){
-      UNIT=d.unit;
-      login.style.display="none";
-      content.style.display="block";
-      unit.innerText="Unit Kerja: "+UNIT;
-      loadData();
-    } else alert("Login gagal");
-  });
+ .then(r=>r.json())
+ .then(d=>{
+   if(d.status==="ok"){
+     UNIT=d.unit;
+     loginBox.style.display="none";
+     content.style.display="block";
+     title.innerText="📊 Unit Kerja: "+UNIT;
+     if(UNIT==="ADMIN") loadUnits();
+     loadData();
+   } else alert("Login gagal");
+ });
 }
 
+/* =========================
+   LOAD DATA
+========================= */
 function loadData(){
  fetch(`${API}?action=getData&unit=${UNIT}`)
-  .then(r=>r.json())
-  .then(data=>{
-    const tb=document.querySelector("#tbl tbody");
-    tb.innerHTML="";
-    data.forEach(r=>{
-      tb.innerHTML+=`
-      <tr>
-        <td><img src="${r.foto}"></td>
-        <td>${r.nama}</td><td>${r.nik}</td><td>${r.nip}</td>
-        <td>${r.wa}</td><td>${r.unit}</td>
-        <td>${r.jenis}</td><td>${r.jenjang}</td>
-        <td>${r.pangkat}</td><td>${r.pak}</td>
-        <td>${r.str}</td><td>${r.kategori}</td>
-        <td>${r.jabatan_tujuan}</td>
-        <td>${r.jenjang_tujuan}</td>
-        <td>${r.keputusan}</td>
-      </tr>`;
-    });
-    $('#tbl').DataTable();
-    chart(data);
-  });
+ .then(r=>r.json())
+ .then(data=>{
+   const tb=document.querySelector("#tbl tbody");
+   tb.innerHTML="";
+   data.forEach(r=>{
+     tb.innerHTML+=`
+     <tr>
+      <td><img src="${r.foto}"></td>
+      <td>${r.nama}</td><td>${r.nik}</td><td>${r.nip}</td>
+      <td>${r.wa}</td><td>${r.unit}</td>
+      <td>${r.jenis}</td><td>${r.jenjang}</td>
+      <td>${r.pangkat}</td><td>${r.pak}</td>
+      <td>${r.str}</td><td>${r.kategori}</td>
+      <td>${r.jabatan_tujuan}</td>
+      <td>${r.jenjang_tujuan}</td>
+      <td>${r.keputusan}</td>
+     </tr>`;
+   });
+   if(table) table.destroy();
+   table = $('#tbl').DataTable();
+   renderChart(data);
+ });
 }
 
-function chart(data){
+/* =========================
+   ADMIN UNIT SWITCH
+========================= */
+function loadUnits(){
+ fetch(`${API}?action=getUnits`)
+ .then(r=>r.json())
+ .then(u=>{
+   unitSelect.style.display="inline";
+   unitSelect.innerHTML=u.map(x=>`<option>${x}</option>`).join("");
+   UNIT=u[0];
+ });
+}
+
+function changeUnit(){
+ UNIT=unitSelect.value;
+ title.innerText="📊 Unit Kerja: "+UNIT;
+ loadData();
+}
+
+/* =========================
+   CHART
+========================= */
+function renderChart(data){
  const j={},k={};
  data.forEach(d=>{
-  j[d.jenjang]=(j[d.jenjang]||0)+1;
-  k[d.keputusan]=(k[d.keputusan]||0)+1;
+   j[d.jenjang]=(j[d.jenjang]||0)+1;
+   k[d.keputusan]=(k[d.keputusan]||0)+1;
  });
 
- new Chart(chart1,{type:"bar",data:{labels:Object.keys(j),datasets:[{data:Object.values(j)}]}});
- new Chart(chart2,{type:"pie",data:{labels:Object.keys(k),datasets:[{data:Object.values(k)}]}});
+ new Chart(chart1,{type:"bar",
+ data:{labels:Object.keys(j),datasets:[{data:Object.values(j)}]}});
+
+ new Chart(chart2,{type:"pie",
+ data:{labels:Object.keys(k),datasets:[{data:Object.values(k)}]}});
 }
 
+/* =========================
+   PDF
+========================= */
 function exportPDF(){
- html2pdf().from(document.querySelector(".content"))
+ html2pdf().from(content)
  .set({filename:`Laporan_${UNIT}.pdf`,jsPDF:{orientation:"landscape"}})
  .save();
 }
 
-function tv(){
- document.documentElement.requestFullscreen();
- setInterval(()=>window.scrollTo(0,document.body.scrollHeight),8000);
+/* =========================
+   TV WALL
+========================= */
+function tvWall(){
+ if(UNIT!=="ADMIN"){alert("Khusus ADMIN");return;}
+ fetch(`${API}?action=getUnits`)
+ .then(r=>r.json())
+ .then(units=>{
+   let i=0;
+   document.documentElement.requestFullscreen();
+   setInterval(()=>{
+     UNIT=units[i];
+     title.innerText="📺 TV WALL – "+UNIT;
+     loadData();
+     i=(i+1)%units.length;
+   },10000);
+ });
 }
 </script>
 
