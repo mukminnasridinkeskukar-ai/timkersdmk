@@ -14,14 +14,16 @@ body{
   display:flex;
   height:100vh;
 }
+
+/* SIDEBAR */
 .sidebar{
   width:260px;
   background:#020617;
   padding:20px;
 }
 .brand{
-  font-weight:bold;
   font-size:18px;
+  font-weight:bold;
   color:#38bdf8;
   margin-bottom:24px;
 }
@@ -30,6 +32,7 @@ body{
   border-radius:12px;
   cursor:pointer;
   margin-bottom:6px;
+  transition:.25s;
 }
 .menu:hover{background:#0f172a}
 .menu.active{
@@ -37,6 +40,7 @@ body{
   border-left:4px solid #38bdf8;
 }
 
+/* MAIN */
 .main{
   flex:1;
   padding:24px;
@@ -56,17 +60,21 @@ body{
   padding:20px;
   border-radius:16px;
   cursor:pointer;
+  transition:.25s;
 }
+.kpi-card:hover{transform:scale(1.03)}
 .kpi-title{color:#94a3b8;font-size:14px}
 .kpi-value{font-size:34px;color:#38bdf8;font-weight:bold}
 
 /* MODAL */
 .modal{
-  position:fixed;inset:0;
+  position:fixed;
+  inset:0;
   background:rgba(0,0,0,.7);
   display:none;
   align-items:center;
   justify-content:center;
+  z-index:999;
 }
 .modal.show{display:flex}
 .modal-box{
@@ -75,7 +83,7 @@ body{
   border-radius:16px;
   width:60%;
 }
-.close{cursor:pointer}
+.close{cursor:pointer;font-size:20px}
 </style>
 </head>
 
@@ -98,34 +106,23 @@ body{
 <!-- DASHBOARD -->
 <div id="dashboard" class="panel active">
   <h2>Dashboard Utama</h2>
-  <p>Ringkasan Kondisi SDM Kesehatan Daerah</p>
-
   <div class="kpi-grid" id="dashboardKPI"></div>
-
-  <div style="margin-top:30px;background:#0f172a;padding:20px;border-radius:16px">
-    <h3>Distribusi SDMK</h3>
-    <canvas id="dashboardChart"></canvas>
-  </div>
+  <br>
+  <canvas id="dashboardChart"></canvas>
 </div>
 
-
-<!-- SDM KESEHATAN -->
+<!-- SDM -->
 <div id="sdm" class="panel">
   <h2>SDM Kesehatan</h2>
-  <div class="kpi-grid" id="kpiGrid"></div>
+  <div class="kpi-grid" id="sdmKPI"></div>
 </div>
 
-<!-- PLACEHOLDER PANEL -->
+<!-- MUTU -->
 <div id="mutu" class="panel">
   <h2>Mutu & Kinerja</h2>
-  <p>Evaluasi capaian mutu SDM Kesehatan</p>
-
   <div class="kpi-grid" id="mutuKPI"></div>
-
-  <div style="margin-top:30px;background:#0f172a;padding:20px;border-radius:16px">
-    <h3>Tren Capaian Mutu</h3>
-    <canvas id="mutuChart"></canvas>
-  </div>
+  <br>
+  <canvas id="mutuChart"></canvas>
 </div>
 
 <div id="inovasi" class="panel"><h2>Inovasi</h2></div>
@@ -141,66 +138,135 @@ body{
       <h3 id="modalTitle"></h3>
       <span class="close" onclick="closeModal()">✕</span>
     </div>
-    <canvas id="chart"></canvas>
+    <canvas id="modalChart"></canvas>
   </div>
 </div>
 
 <script>
-/* ===== CONFIG ===== */
+/* ================= CONFIG ================= */
 const API_URL = "https://script.google.com/macros/s/AKfycbwDJp-q_EhKEZbFc258ScEYhjpZObp2NpCkXG6O2Zu8xBd9RXCmWNxYutSfqWQmlZA7/exec";
 
-/* ===== PANEL ===== */
-function showPanel(id,el){
+let apiData = {};
+let dashboardChart = null;
+let mutuChart = null;
+let modalChart = null;
+
+/* ================= PANEL ================= */
+function showPanel(id, el){
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   document.querySelectorAll(".menu").forEach(m=>m.classList.remove("active"));
   el.classList.add("active");
 }
 
-/* ===== KPI SDMK ===== */
-const KPI = [
-  {key:"jumlah_sdmk_2026",title:"Jumlah SDMK 2026"},
-  {key:"sdmk_puskesmas",title:"SDMK Puskesmas"},
-  {key:"sdmk_rs",title:"SDMK Rumah Sakit"},
-  {key:"sdmk_klinik",title:"SDMK Klinik"},
-  {key:"sdmk_tpm_named_nakes",title:"SDMK TPM Named Nakes"},
-  {key:"sdmk_faskes_lain",title:"SDMK Faskes Lainnya"},
-  {key:"dokter_puskesmas",title:"Dokter Puskesmas"},
-  {key:"dokter_gigi_puskesmas",title:"Dokter Gigi Puskesmas"},
-  {key:"perawat_puskesmas",title:"Perawat Puskesmas"},
-  {key:"bidan_puskesmas",title:"Bidan Puskesmas"},
-  {key:"tenaga_lain_puskesmas",title:"Nakes Lainnya"}
-];
-
-let apiData={};
-let chart=null;
-
-async function loadSDM(){
+/* ================= LOAD ALL ================= */
+async function loadAll(){
   const res = await fetch(`${API_URL}?action=summary`);
   apiData = await res.json();
+  renderDashboard();
+  renderSDM();
+  renderMutu();
+}
 
-  const grid=document.getElementById("kpiGrid");
-  grid.innerHTML="";
+/* ================= DASHBOARD ================= */
+function renderDashboard(){
+  const grid = document.getElementById("dashboardKPI");
+  grid.innerHTML = "";
 
-  KPI.forEach(k=>{
-    const val=apiData[k.key];
-    const c=document.createElement("div");
-    c.className="kpi-card";
-    c.innerHTML=`
-      <div class="kpi-title">${k.title}</div>
-      <div class="kpi-value">${(val||0).toLocaleString("id-ID")}</div>
+  const items = [
+    ["Total SDMK 2026", apiData.jumlah_sdmk_2026],
+    ["SDMK Puskesmas", apiData.sdmk_puskesmas],
+    ["SDMK Rumah Sakit", apiData.sdmk_rs],
+    ["SDMK Klinik", apiData.sdmk_klinik]
+  ];
+
+  items.forEach(i=>{
+    const c = document.createElement("div");
+    c.className = "kpi-card";
+    c.innerHTML = `
+      <div class="kpi-title">${i[0]}</div>
+      <div class="kpi-value">${(i[1]||0).toLocaleString("id-ID")}</div>
     `;
-    c.onclick=()=>openDetail(k.title);
+    c.onclick = ()=>openModal(i[0]);
+    grid.appendChild(c);
+  });
+
+  if(dashboardChart) dashboardChart.destroy();
+  dashboardChart = new Chart(document.getElementById("dashboardChart"),{
+    type:"bar",
+    data:{
+      labels:["Puskesmas","RS","Klinik","Lainnya"],
+      datasets:[{
+        data:[
+          apiData.sdmk_puskesmas||0,
+          apiData.sdmk_rs||0,
+          apiData.sdmk_klinik||0,
+          apiData.sdmk_faskes_lain||0
+        ]
+      }]
+    }
+  });
+}
+
+/* ================= SDM ================= */
+function renderSDM(){
+  const grid = document.getElementById("sdmKPI");
+  grid.innerHTML = "";
+
+  Object.keys(apiData).forEach(k=>{
+    const c = document.createElement("div");
+    c.className = "kpi-card";
+    c.innerHTML = `
+      <div class="kpi-title">${k}</div>
+      <div class="kpi-value">${(apiData[k]||0).toLocaleString("id-ID")}</div>
+    `;
     grid.appendChild(c);
   });
 }
 
-/* ===== MODAL ===== */
-function openDetail(title){
-  modalTitle.innerText=title;
-  modal.classList.add("show");
-  if(chart)chart.destroy();
-  chart=new Chart(document.getElementById("chart"),{
+/* ================= MUTU ================= */
+async function renderMutu(){
+  const grid = document.getElementById("mutuKPI");
+  grid.innerHTML = "";
+
+  const capaian = apiData.mutu_sdmk || 0;
+  const target = apiData.target_mutu || 0;
+  const status = capaian >= target ? "Tercapai" : "Belum";
+
+  [
+    ["Capaian Mutu (%)", capaian + "%"],
+    ["Target Mutu (%)", target + "%"],
+    ["Status", status]
+  ].forEach(i=>{
+    const c = document.createElement("div");
+    c.className = "kpi-card";
+    c.innerHTML = `
+      <div class="kpi-title">${i[0]}</div>
+      <div class="kpi-value">${i[1]}</div>
+    `;
+    grid.appendChild(c);
+  });
+
+  const res = await fetch(`${API_URL}?action=mutu`);
+  const trend = await res.json();
+
+  if(mutuChart) mutuChart.destroy();
+  mutuChart = new Chart(document.getElementById("mutuChart"),{
+    type:"line",
+    data:{
+      labels:trend.labels,
+      datasets:[{data:trend.values}]
+    }
+  });
+}
+
+/* ================= MODAL ================= */
+function openModal(title){
+  document.getElementById("modalTitle").innerText = title;
+  document.getElementById("modal").classList.add("show");
+
+  if(modalChart) modalChart.destroy();
+  modalChart = new Chart(document.getElementById("modalChart"),{
     type:"pie",
     data:{
       labels:["Puskesmas","RS","Klinik","Lainnya"],
@@ -216,138 +282,12 @@ function openDetail(title){
   });
 }
 function closeModal(){
-  modal.classList.remove("show");
-  if(chart)chart.destroy();
+  document.getElementById("modal").classList.remove("show");
+  if(modalChart) modalChart.destroy();
 }
 
-/* ===== INIT ===== */
-loadSDM().then(()=>{
-  loadDashboard();
-  loadMutu();
-});
-
-
-function renderSDM(){
-  const grid = document.getElementById("kpiGrid");
-  grid.innerHTML = "";
-
-  const KPI = [
-    {key:"jumlah_sdmk_2026", title:"Jumlah SDMK 2026"},
-    {key:"sdmk_puskesmas", title:"SDMK Puskesmas"},
-    {key:"sdmk_rs", title:"SDMK Rumah Sakit"},
-    {key:"sdmk_klinik", title:"SDMK Klinik"},
-    {key:"sdmk_tpm_named_nakes", title:"SDMK TPM / Named Nakes"},
-    {key:"sdmk_faskes_lain", title:"SDMK Faskes Lainnya"},
-    {key:"dokter_puskesmas", title:"Dokter Puskesmas"},
-    {key:"dokter_gigi_puskesmas", title:"Dokter Gigi Puskesmas"},
-    {key:"perawat_puskesmas", title:"Perawat Puskesmas"},
-    {key:"bidan_puskesmas", title:"Bidan Puskesmas"},
-    {key:"tenaga_lain_puskesmas", title:"Nakes Lainnya"}
-  ];
-
-  KPI.forEach(k=>{
-    const val = apiData[k.key];
-
-    const card = document.createElement("div");
-    card.className = "kpi-card";
-    card.innerHTML = `
-      <div class="kpi-title">${k.title}</div>
-      <div class="kpi-value">${Number(val||0).toLocaleString("id-ID")}</div>
-    `;
-    grid.appendChild(card);
-  });
-}
-
-  /* ===== GRAFIK DASHBOARD ===== */
-  if(window.dashboardChartObj) window.dashboardChartObj.destroy();
-
-  const ctx = document.getElementById("dashboardChart");
-  window.dashboardChartObj = new Chart(ctx,{
-    type:"bar",
-    data:{
-      labels:["Puskesmas","Rumah Sakit","Klinik","Faskes Lain"],
-      datasets:[{
-        data:[
-          apiData.sdmk_puskesmas || 0,
-          apiData.sdmk_rs || 0,
-          apiData.sdmk_klinik || 0,
-          apiData.sdmk_faskes_lain || 0
-        ],
-        backgroundColor:[
-          "#38bdf8",
-          "#22c55e",
-          "#facc15",
-          "#f97316"
-        ]
-      }]
-    },
-    options:{
-      responsive:true,
-      plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true}}
-    }
-  });
-}
-
-loadAllData();
-  
-/* ===== MUTU & KINERJA ===== */
-async function loadMutu(){
-  // ambil summary (mutu & target)
-  const mutu = {
-    capaian: apiData.mutu_sdmk || 0,
-    target: apiData.target_mutu || 0
-  };
-
-  const grid = document.getElementById("mutuKPI");
-  grid.innerHTML = "";
-
-  const status = mutu.capaian >= mutu.target ? "Tercapai" : "Belum Tercapai";
-  const statusColor = mutu.capaian >= mutu.target ? "#22c55e" : "#ef4444";
-
-  [
-    { title:"Capaian Mutu (%)", value: mutu.capaian + "%" },
-    { title:"Target Mutu (%)", value: mutu.target + "%" },
-    { title:"Status", value: status, color: statusColor }
-  ].forEach(it=>{
-    const c=document.createElement("div");
-    c.className="kpi-card";
-    c.innerHTML=`
-      <div class="kpi-title">${it.title}</div>
-      <div class="kpi-value" style="color:${it.color||'#38bdf8'}">
-        ${it.value}
-      </div>
-    `;
-    grid.appendChild(c);
-  });
-
-  // grafik tren mutu
-  const res = await fetch(`${API_URL}?action=mutu`);
-  const trend = await res.json();
-
-  if(window.mutuChartObj) window.mutuChartObj.destroy();
-
-  window.mutuChartObj = new Chart(
-    document.getElementById("mutuChart"),{
-      type:"line",
-      data:{
-        labels: trend.labels,
-        datasets:[{
-          data: trend.values,
-          borderColor:"#38bdf8",
-          backgroundColor:"rgba(56,189,248,.2)",
-          tension:.4,
-          fill:true
-        }]
-      },
-      options:{
-        plugins:{legend:{display:false}},
-        scales:{y:{beginAtZero:true,max:100}}
-      }
-    }
-  );
-}
-
+/* ================= INIT ================= */
+loadAll();
 </script>
 
 </body>
