@@ -98,8 +98,16 @@ body{
 <!-- DASHBOARD -->
 <div id="dashboard" class="panel active">
   <h2>Dashboard Utama</h2>
-  <p>Ringkasan SIMANDAKES</p>
+  <p>Ringkasan Kondisi SDM Kesehatan Daerah</p>
+
+  <div class="kpi-grid" id="dashboardKPI"></div>
+
+  <div style="margin-top:30px;background:#0f172a;padding:20px;border-radius:16px">
+    <h3>Distribusi SDMK</h3>
+    <canvas id="dashboardChart"></canvas>
+  </div>
 </div>
+
 
 <!-- SDM KESEHATAN -->
 <div id="sdm" class="panel">
@@ -202,7 +210,72 @@ function closeModal(){
 }
 
 /* ===== INIT ===== */
-loadSDM();
+loadSDM().then(loadDashboard);
+
+function renderSDM(){
+  const grid = document.getElementById("kpiGrid");
+  grid.innerHTML = "";
+
+  const KPI = [
+    {key:"jumlah_sdmk_2026", title:"Jumlah SDMK 2026"},
+    {key:"sdmk_puskesmas", title:"SDMK Puskesmas"},
+    {key:"sdmk_rs", title:"SDMK Rumah Sakit"},
+    {key:"sdmk_klinik", title:"SDMK Klinik"},
+    {key:"sdmk_tpm_named_nakes", title:"SDMK TPM / Named Nakes"},
+    {key:"sdmk_faskes_lain", title:"SDMK Faskes Lainnya"},
+    {key:"dokter_puskesmas", title:"Dokter Puskesmas"},
+    {key:"dokter_gigi_puskesmas", title:"Dokter Gigi Puskesmas"},
+    {key:"perawat_puskesmas", title:"Perawat Puskesmas"},
+    {key:"bidan_puskesmas", title:"Bidan Puskesmas"},
+    {key:"tenaga_lain_puskesmas", title:"Nakes Lainnya"}
+  ];
+
+  KPI.forEach(k=>{
+    const val = apiData[k.key];
+
+    const card = document.createElement("div");
+    card.className = "kpi-card";
+    card.innerHTML = `
+      <div class="kpi-title">${k.title}</div>
+      <div class="kpi-value">${Number(val||0).toLocaleString("id-ID")}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+  /* ===== GRAFIK DASHBOARD ===== */
+  if(window.dashboardChartObj) window.dashboardChartObj.destroy();
+
+  const ctx = document.getElementById("dashboardChart");
+  window.dashboardChartObj = new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels:["Puskesmas","Rumah Sakit","Klinik","Faskes Lain"],
+      datasets:[{
+        data:[
+          apiData.sdmk_puskesmas || 0,
+          apiData.sdmk_rs || 0,
+          apiData.sdmk_klinik || 0,
+          apiData.sdmk_faskes_lain || 0
+        ],
+        backgroundColor:[
+          "#38bdf8",
+          "#22c55e",
+          "#facc15",
+          "#f97316"
+        ]
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true}}
+    }
+  });
+}
+
+loadAllData();
+
 </script>
 
 </body>
