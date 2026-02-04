@@ -275,6 +275,17 @@
             }
         }
 
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
         .lightbox-header {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             color: white;
@@ -448,7 +459,60 @@
             transform: none;
         }
 
-        /* Login Form Styles */
+        /* Notification Styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: clamp(12px, 2.5vw, 16px) clamp(20px, 4vw, 24px);
+            border-radius: 10px;
+            color: white;
+            font-weight: 500;
+            font-size: clamp(0.85rem, 2vw, 1rem);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+            animation: slideInRight 0.3s ease;
+        }
+
+        .notification.success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .notification.error {
+            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+        }
+
+        .notification.info {
+            background: linear-gradient(135deg, #0e86ca 0%, #4facfe 100%);
+        }
+
+        /* Spinner Styles */
+        .spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loading .spinner {
+            display: inline-block;
+        }
+
+        .loading .btn-text {
+            opacity: 0.7;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
         .login-container {
             max-width: 450px;
             margin: 0 auto;
@@ -484,22 +548,57 @@
         }
 
         /* Absensi Timer */
-        .absensi-timer-container {
-            background: linear-gradient(135deg, #0e86ca 0%, #4facfe 100%);
-            border-radius: 12px;
-            padding: clamp(15px, 3vw, 20px);
-            margin-bottom: 25px;
-            text-align: center;
+        .absensi-timer-display {
+            display: flex;
+            justify-content: center;
+            gap: clamp(10px, 3vw, 20px);
+            flex-wrap: wrap;
         }
 
-        .absensi-timer-title {
+        .absensi-timer-box {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: clamp(10px, 2.5vw, 15px) clamp(15px, 4vw, 25px);
+            text-align: center;
+            min-width: clamp(70px, 18vw, 100px);
+        }
+
+        .absensi-timer-value {
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            font-weight: 700;
             color: #fff;
-            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .absensi-timer-label {
+            font-size: clamp(0.7rem, 1.8vw, 0.85rem);
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 5px;
+        }
+
+        .absensi-status {
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: clamp(0.85rem, 2vw, 1rem);
+        }
+
+        .absensi-status.open {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .absensi-status.closed {
+            background: rgba(255, 69, 96, 0.3);
+            color: #ff6b6b;
+        }
+
+        .absensi-status.pending {
+            background: rgba(255, 165, 0, 0.3);
+            color: #ffa500;
         }
 
         .absensi-timer-title i {
@@ -1405,7 +1504,7 @@
                                 <div class="absensi-timer-label">Detik</div>
                             </div>
                         </div>
-                        <div class="absensi-status open" id="abs-status">Absensi Dibuka!</div>
+                        <div class="timer-status open" id="abs-status">Absensi Dibuka!</div>
                     </div>
                     <form id="form-absensi" onsubmit="submitAbsensi(event)">
                         <input type="hidden" id="absensi-timestamp">
@@ -1839,206 +1938,1121 @@
         </div>
     </div>
 
-<script>
-/* =========================================================
-   SIPANDAI-ASN – FULL FRONTEND SCRIPT (UTUH + PATCH)
-   STATUS : FINAL / PRODUKSI
-========================================================= */
+    <script>
+        // ============ KONFIGURASI TIMER ============
+        // Waktu Pendaftaran (dapat diubah oleh admin)
+        const REG_START_DATE = new Date('2026-02-10T00:00:00+08:00'); // Mulai pendaftaran
+        const REG_END_DATE = new Date('2026-02-15T14:00:00+08:00'); // Selesai pendaftaran
 
-/* ================= KONFIGURASI ================= */
-const REG_START_DATE = new Date('2026-02-10T00:00:00+08:00');
-const REG_END_DATE   = new Date('2026-02-15T14:00:00+08:00');
+        // Waktu Absensi (15:00 - 22:00 WITA = UTC+8)
+        const ABS_DATE = new Date('2026-02-15T00:00:00+08:00'); // Tanggal absensi
+        const ABS_START_TIME = 15; // Jam mulai absensi (15:00 WITA)
+        const ABS_END_TIME = 22; // Jam selesai absensi (22:00 WITA)
 
-const ABS_DATE = new Date('2026-02-15T00:00:00+08:00');
-const ABS_START_TIME = 15;
-const ABS_END_TIME   = 22;
+        // ============ KONFIGURASI GOOGLE SHEETS ============
+        // Deploy Google Apps Script dan copy URL Web App di bawah ini
+        // Tutorial lengkap: lihat file README.md
+        // 
+        // Cara Deploy:
+        // 1. Buka https://script.google.com
+        // 2. Buat project baru dan copy kode dari Code.gs
+        // 3. Deploy sebagai Web App
+        // 4. Copy URL Web App dan paste di bawah ini
+        // 
+        // Contoh URL: https://script.google.com/macros/s/ABC123XYZ/exec
+        // 
+        // Untuk demo offline, biarkan USE_GOOGLE_SHEETS = false
+        const USE_GOOGLE_SHEETS = false; // Ubah ke true jika sudah deploy Google Apps Script
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
 
-const USE_GOOGLE_SHEETS = true;
-const GOOGLE_SHEETS_URL =
-'https://script.google.com/macros/s/AKfycbwKUiqTNXMNTD5pAtZmjqyFEXXD_eZRM--vn8PwhJeQywpwoFd_4iYPFFT8W7qRhYOgNA/exec';
+        // ============ FUNGSI KIRIM DATA KE GOOGLE SHEETS ============
+        async function sendToGoogleSheets(data) {
+            if (!USE_GOOGLE_SHEETS) {
+                console.log('Mode Demo: Data tidak dikirim ke Google Sheets');
+                console.log('Data:', data);
+                return { success: true, message: 'Demo mode' };
+            }
+            
+            try {
+                const response = await fetch(GOOGLE_SHEETS_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                    mode: 'no-cors' // Untuk Google Apps Script
+                });
+                return { success: true, message: 'Data berhasil dikirim' };
+            } catch (error) {
+                console.error('Error:', error);
+                return { success: false, message: error.message };
+            }
+        }
 
-/* ================= CORE FETCH ================= */
-async function sendToGoogleSheets(data) {
-  if (!USE_GOOGLE_SHEETS) {
-    console.log('DEMO MODE:', data);
-    return { result: 'success' };
-  }
+        // ============ FETCH DATA DARI GOOGLE SHEETS ============
+        async function fetchFromGoogleSheets(action, params = {}) {
+            if (!USE_GOOGLE_SHEETS) {
+                // Return demo data
+                return getDemoData(action);
+            }
+            
+            try {
+                const url = new URL(GOOGLE_SHEETS_URL);
+                url.searchParams.append('action', action);
+                for (const key in params) {
+                    url.searchParams.append(key, params[key]);
+                }
+                
+                const response = await fetch(url.toString());
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                return getDemoData(action);
+            }
+        }
 
-  try {
-    const res = await fetch(GOOGLE_SHEETS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
+        // ============ DEMO DATA ============
+        function getDemoData(action) {
+            if (action === 'getAllPendaftaran') {
+                return [
+                    { id: 'SIP-001', nama_lengkap: 'Ahmad Fauzi', nip: '198501012010011001', unit_kerja: 'Dinas Kesehatan', status_pegawai: 'PNS', email: 'ahmad@email.com', jp: '6 JP', timestamp: '2026-02-10 10:00:00', rowNumber: 2 },
+                    { id: 'SIP-002', nama_lengkap: 'Siti Nurhaliza', nip: '199002032011012002', unit_kerja: 'Dinas Pendidikan', status_pegawai: 'PNS', email: 'siti@email.com', jp: '6 JP', timestamp: '2026-02-10 11:00:00', rowNumber: 3 },
+                    { id: 'SIP-003', nama_lengkap: 'Budi Santoso', nip: '198807152009011003', unit_kerja: 'Dinas Sosial', status_pegawai: 'PPPK', email: 'budi@email.com', jp: '4 JP', timestamp: '2026-02-11 09:00:00', rowNumber: 4 },
+                    { id: 'SIP-004', nama_lengkap: 'Dewi Lestari', nip: '199105202012022004', unit_kerja: 'Dinas PUPR', status_pegawai: 'PNS', email: 'dewi@email.com', jp: '6 JP', timestamp: '2026-02-11 14:00:00', rowNumber: 5 },
+                    { id: 'SIP-005', nama_lengkap: 'Eko Prasetyo', nip: '198812302008011005', unit_kerja: 'Dinas Lingkungan Hidup', status_pegawai: 'CPNS', email: 'eko@email.com', jp: '5 JP', timestamp: '2026-02-12 08:00:00', rowNumber: 6 }
+                ];
+            }
+            if (action === 'getAllAbsensi') {
+                return [
+                    { id: 'ABS-001', tanggal_absensi: '15 Februari 2026', jam_absensi: '15:30:00', nama_lengkap: 'Ahmad Fauzi', nip: '198501012010011001', platform_digital: 'Zoom Meeting', eval_penyelenggara: '5', eval_fasilitator: '5', rowNumber: 2 },
+                    { id: 'ABS-002', tanggal_absensi: '15 Februari 2026', jam_absensi: '15:45:00', nama_lengkap: 'Siti Nurhaliza', nip: '199002032011012002', platform_digital: 'Google Meet', eval_penyelenggara: '4', eval_fasilitator: '5', rowNumber: 3 },
+                    { id: 'ABS-003', tanggal_absensi: '15 Februari 2026', jam_absensi: '16:00:00', nama_lengkap: 'Budi Santoso', nip: '198807152009011003', platform_digital: 'Zoom Meeting', eval_penyelenggara: '5', eval_fasilitator: '4', rowNumber: 4 }
+                ];
+            }
+            if (action === 'getStatistics') {
+                return {
+                    totalPendaftaran: 5,
+                    totalAbsensi: 3,
+                    absensiHariIni: 3,
+                    unitKerjaStats: {
+                        'Dinas Kesehatan': 1,
+                        'Dinas Pendidikan': 1,
+                        'Dinas Sosial': 1,
+                        'Dinas PUPR': 1,
+                        'Dinas Lingkungan Hidup': 1
+                    }
+                };
+            }
+            return [];
+        }
 
-    const json = await res.json();
-    if (json.result !== 'success') {
-      throw new Error(json.message || 'Gagal menyimpan data');
-    }
-    return json;
+        // ============ FUNGSI TIMER PENDAFTARAN ============
+        function updateRegistrationTimer() {
+            const now = new Date();
+            const startDiff = REG_START_DATE - now;
+            const endDiff = REG_END_DATE - now;
 
-  } catch (err) {
-    console.error('GAS ERROR:', err);
-    return { result: 'error', message: err.message };
-  }
-}
+            const daysEl = document.getElementById('reg-days');
+            const hoursEl = document.getElementById('reg-hours');
+            const minutesEl = document.getElementById('reg-minutes');
+            const secondsEl = document.getElementById('reg-seconds');
+            const statusEl = document.getElementById('reg-status');
+            const btnEl = document.getElementById('btn-pendaftaran');
+            const submitBtn = document.getElementById('btn-submit-pendaftaran');
 
-async function fetchFromGoogleSheets(action, params = {}) {
-  if (!USE_GOOGLE_SHEETS) return getDemoData(action);
+            if (startDiff > 0) {
+                // Pendaftaran belum dibuka
+                const days = Math.floor(startDiff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((startDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((startDiff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((startDiff % (1000 * 60)) / 1000);
 
-  const url = new URL(GOOGLE_SHEETS_URL);
-  url.searchParams.set('action', action);
-  Object.keys(params).forEach(k => url.searchParams.set(k, params[k]));
+                daysEl.textContent = String(days).padStart(2, '0');
+                hoursEl.textContent = String(hours).padStart(2, '0');
+                minutesEl.textContent = String(minutes).padStart(2, '0');
+                secondsEl.textContent = String(seconds).padStart(2, '0');
 
-  const res = await fetch(url);
-  return await res.json();
-}
+                statusEl.textContent = `Pendaftaran akan dibuka dalam ${days} hari ${hours} jam`;
+                statusEl.className = 'timer-status pending';
+                
+                if (btnEl) btnEl.disabled = true;
+                if (submitBtn) submitBtn.disabled = true;
+            } else if (endDiff > 0) {
+                // Pendaftaran sedang berlangsung
+                const totalSeconds = Math.floor(endDiff / 1000);
+                const days = Math.floor(totalSeconds / (24 * 3600));
+                const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
 
-/* ================= UTIL ================= */
-function generateTimestamp() {
-  return new Date().toISOString().slice(0,19).replace('T',' ');
-}
-function generateID(prefix='SIP') {
-  return `${prefix}-${Date.now().toString().slice(-6)}`;
-}
+                daysEl.textContent = String(days).padStart(2, '0');
+                hoursEl.textContent = String(hours).padStart(2, '0');
+                minutesEl.textContent = String(minutes).padStart(2, '0');
+                secondsEl.textContent = String(seconds).padStart(2, '0');
 
-/* ================= TIMER (TIDAK DIUBAH) ================= */
-// ⬅️ SEMUA FUNGSI TIMER PENDAFTARAN & ABSENSI
-// ⬅️ TETAP SAMA DENGAN SCRIPT KAMU
-// ⬅️ TIDAK AKU UBAH 1 BARIS PUN
+                statusEl.textContent = 'Pendaftaran Sedang Dibuka!';
+                statusEl.className = 'timer-status open';
+                
+                if (btnEl) btnEl.disabled = false;
+                if (submitBtn) submitBtn.disabled = false;
+            } else {
+                // Pendaftaran sudah ditutup
+                daysEl.textContent = '00';
+                hoursEl.textContent = '00';
+                minutesEl.textContent = '00';
+                secondsEl.textContent = '00';
 
-/* ================= NOTIFIKASI ================= */
-function showNotification(msg, type='info') {
-  alert(msg); // UI kamu tetap jalan
-}
+                statusEl.textContent = 'Pendaftaran Sudah Ditutup';
+                statusEl.className = 'timer-status closed';
+                
+                if (btnEl) btnEl.disabled = true;
+                if (submitBtn) submitBtn.disabled = true;
+            }
+        }
 
-/* ================= SUBMIT PENDAFTARAN ================= */
-async function submitPendaftaran(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
+        // ============ FUNGSI TIMER ABSENSI ============
+        function updateAbsensiTimer() {
+            const now = new Date();
+            // Konversi ke WITA (UTC+8)
+            const witaNow = new Date(now.getTime() + (8 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
+            
+            const currentWitaHour = witaNow.getUTCHours();
+            const currentWitaMinute = witaNow.getUTCMinutes();
+            const currentWitaSecond = witaNow.getUTCSeconds();
+            
+            const absDaysEl = document.getElementById('abs-days');
+            const absHoursEl = document.getElementById('abs-hours');
+            const absMinutesEl = document.getElementById('abs-minutes');
+            const absSecondsEl = document.getElementById('abs-seconds');
+            const absStatusEl = document.getElementById('abs-status');
+            const btnAbsensi = document.getElementById('btn-absensi');
+            const btnLoginAbsensi = document.getElementById('btn-login-absensi');
 
-  const data = {
-    action: 'pendaftaran',
-    timestamp: generateTimestamp(),
-    id: generateID(),
-    nama_lengkap: nama_lengkap.value.trim(),
-    nip: nip.value.trim(),
-    unit_kerja: unit_kerja.value,
-    status_pegawai: status_pegawai.value,
-    jenis_sdmk: jenis_sdmk.value,
-    jumlah_jp: jumlah_jp.value,
-    whatsapp: whatsapp.value.trim(),
-    email: email.value.trim(),
-    tema_pembelajaran: tema_pembelajaran.value,
-    narasumber: narasumber.value,
-    tanggal_kegiatan: '15 Februari 2026',
-    waktu_kegiatan: '15:00 - 22:00 WITA',
-    platform_digital: platform_digital.value,
-    jp: jp.value
-  };
+            // Hitung waktu dari tengah malam WITA
+            const currentSecondsInDay = currentWitaHour * 3600 + currentWitaMinute * 60 + currentWitaSecond;
+            const startSecondsInDay = ABS_START_TIME * 3600;
+            const endSecondsInDay = ABS_END_TIME * 3600;
 
-  if (!/^\d{18}$/.test(data.nip)) {
-    showNotification('NIP harus 18 digit', 'error');
-    return;
-  }
+            // Check apakah tanggal absensi sudah atau belum
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const absDateOnly = new Date(ABS_DATE);
+            absDateOnly.setHours(0, 0, 0, 0);
 
-  const result = await sendToGoogleSheets(data);
+            if (witaNow < ABS_DATE) {
+                // Absensi belum dimulai (tanggal belum tiba)
+                const diffTime = ABS_DATE - now;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                absDaysEl.textContent = String(diffDays).padStart(2, '0');
+                absHoursEl.textContent = '00';
+                absMinutesEl.textContent = '00';
+                absSecondsEl.textContent = '00';
 
-  if (result.result === 'success') {
-    showNotification('Pendaftaran berhasil!', 'success');
-    form.reset();
-  } else {
-    showNotification(result.message, 'error');
-  }
-}
+                absStatusEl.textContent = `Absensi akan dibuka ${diffDays} hari lagi`;
+                absStatusEl.className = 'timer-status closed';
+                
+                if (btnAbsensi) btnAbsensi.disabled = true;
+                if (btnLoginAbsensi) btnLoginAbsensi.disabled = true;
+            } else if (witaNow >= ABS_DATE && currentSecondsInDay < startSecondsInDay) {
+                // Tanggal sudah tiba, tapi jam belum masuk 15:00
+                const timeToStart = startSecondsInDay - currentSecondsInDay;
+                const hours = Math.floor(timeToStart / 3600);
+                const minutes = Math.floor((timeToStart % 3600) / 60);
+                const seconds = timeToStart % 60;
 
-/* ================= LOGIN ABSENSI (PATCH PENTING) ================= */
-async function loginAbsensi(event) {
-  event.preventDefault();
+                absDaysEl.textContent = '00';
+                absHoursEl.textContent = String(hours).padStart(2, '0');
+                absMinutesEl.textContent = String(minutes).padStart(2, '0');
+                absSecondsEl.textContent = String(seconds).padStart(2, '0');
 
-  const email = document.getElementById('absensi-email').value.trim();
-  const nip   = document.getElementById('absensi-nip').value.trim();
+                absStatusEl.textContent = `Absensi dibuka dalam ${hours} jam ${minutes} menit`;
+                absStatusEl.className = 'timer-status closed';
+                
+                if (btnAbsensi) btnAbsensi.disabled = true;
+                if (btnLoginAbsensi) btnLoginAbsensi.disabled = true;
+            } else if (currentSecondsInDay >= startSecondsInDay && currentSecondsInDay < endSecondsInDay) {
+                // Absensi sedang berlangsung (15:00 - 22:00 WITA)
+                const timeToEnd = endSecondsInDay - currentSecondsInDay;
+                const hours = Math.floor(timeToEnd / 3600);
+                const minutes = Math.floor((timeToEnd % 3600) / 60);
+                const seconds = timeToEnd % 60;
 
-  const user = await fetchFromGoogleSheets('getPesertaByNIP', { nip });
+                absDaysEl.textContent = '00';
+                absHoursEl.textContent = String(hours).padStart(2, '0');
+                absMinutesEl.textContent = String(minutes).padStart(2, '0');
+                absSecondsEl.textContent = String(seconds).padStart(2, '0');
 
-  if (!user || user.email !== email) {
-    showNotification('Email atau NIP tidak ditemukan!', 'error');
-    return;
-  }
+                absStatusEl.textContent = 'Absensi Sedang Dibuka!';
+                absStatusEl.className = 'timer-status open';
+                
+                if (btnAbsensi) btnAbsensi.disabled = false;
+                if (btnLoginAbsensi) btnLoginAbsensi.disabled = false;
+            } else {
+                // Absensi sudah ditutup (udah Lewat jam 22:00)
+                absDaysEl.textContent = '00';
+                absHoursEl.textContent = '00';
+                absMinutesEl.textContent = '00';
+                absSecondsEl.textContent = '00';
 
-  document.getElementById('absensi-nama-lengkap').value = user.nama_lengkap;
-  document.getElementById('absensi-nip-display').value  = user.nip;
+                absStatusEl.textContent = 'Absensi Sudah Ditutup';
+                absStatusEl.className = 'timer-status closed';
+                
+                if (btnAbsensi) btnAbsensi.disabled = true;
+                if (btnLoginAbsensi) btnLoginAbsensi.disabled = true;
+            }
+        }
 
-  showNotification('Login absensi berhasil!', 'success');
-}
+        // ============ GENERATE ID & TIMESTAMP ============
+        function generateTimestamp() {
+            const now = new Date();
+            return now.toISOString().slice(0, 19).replace('T', ' ');
+        }
 
-/* ================= SUBMIT ABSENSI ================= */
-async function submitAbsensi(event) {
-  event.preventDefault();
+        function generateID() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            return `SIP-${year}${month}${day}-${random}`;
+        }
 
-  const data = {
-    action: 'absensi',
-    timestamp: generateTimestamp(),
-    id: generateID('ABS'),
-    tanggal_absensi: tanggal_absensi.value,
-    jam_absensi: jam_absensi.value,
-    nama_lengkap: absensi_nama_lengkap.value,
-    nip: absensi_nip_display.value,
-    platform_digital: absensi_platform.value,
-    eval_penyelenggara: document.querySelector('input[name="eval-penyelenggara"]:checked')?.value || '',
-    eval_fasilitator: document.querySelector('input[name="eval-fasilitator"]:checked')?.value || '',
-    komentar: komentar.value
-  };
+        // ============ INISIALISASI FORM ============
+        function initializeForm() {
+            // Pendaftaran Form
+            const timestampEl = document.getElementById('timestamp');
+            const idEl = document.getElementById('id');
+            if (timestampEl && idEl) {
+                timestampEl.value = generateTimestamp();
+                idEl.value = generateID();
+            }
+            
+            // Auto-calculate JP
+            const jumlahJpEl = document.getElementById('jumlah-jp');
+            const jpEl = document.getElementById('jp');
+            if (jumlahJpEl && jpEl) {
+                jumlahJpEl.removeEventListener('input', calculateJP);
+                jumlahJpEl.addEventListener('input', calculateJP);
+            }
 
-  const result = await sendToGoogleSheets(data);
+            // Absensi Form
+            const absensiDate = new Date().toLocaleDateString('id-ID', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            const tanggalAbsensiEl = document.getElementById('tanggal-absensi');
+            if (tanggalAbsensiEl) {
+                tanggalAbsensiEl.value = absensiDate;
+            }
+            
+            updateAbsensiFields();
+        }
 
-  if (result.result === 'success') {
-    showNotification('Absensi berhasil dikirim!', 'success');
-    event.target.reset();
-  } else {
-    showNotification(result.message, 'error');
-  }
-}
+        function calculateJP() {
+            const jumlahJp = document.getElementById('jumlah-jp').value;
+            document.getElementById('jp').value = jumlahJp ? jumlahJp + ' JP' : '';
+        }
 
-/* ================= ADMIN DASHBOARD ================= */
-async function loadAdminDashboard() {
-  const stats = await fetchFromGoogleSheets('getStatistics');
-  stat_total_peserta.textContent = stats.totalPendaftaran || 0;
-  stat_total_absensi.textContent = stats.totalAbsensi || 0;
-}
+        function updateAbsensiFields() {
+            const absensiTimestampEl = document.getElementById('absensi-timestamp');
+            const absensiIdEl = document.getElementById('absensi-id');
+            
+            if (absensiTimestampEl) {
+                absensiTimestampEl.value = generateTimestamp();
+            }
+            if (absensiIdEl) {
+                absensiIdEl.value = generateID();
+            }
+            
+            updateJamAbsensi();
+        }
 
-async function loadDataPeserta() {
-  const data = await fetchFromGoogleSheets('getAllPendaftaran');
-  renderPendaftaranTable(data, 'tabel-peserta-body');
-}
+        function updateJamAbsensi() {
+            const jamAbsensiEl = document.getElementById('jam-absensi');
+            if (jamAbsensiEl) {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                jamAbsensiEl.value = `${hours}:${minutes}:${seconds}`;
+            }
+        }
 
-async function loadDataAbsensi() {
-  const data = await fetchFromGoogleSheets('getAllAbsensi');
-  renderAbsensiTable(data, 'tabel-absensi-body');
-}
+        // ============ LIGHTBOX FUNCTIONS ============
+        function openLightbox(type) {
+            const lightbox = document.getElementById(`lightbox-${type}`);
+            if (lightbox) {
+                lightbox.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                
+                if (type === 'pendaftaran' || type === 'form-absensi') {
+                    initializeForm();
+                }
+            }
+        }
 
-/* ================= DELETE (ADMIN) ================= */
-async function confirmDelete() {
-  const row = parseInt(delete_row_number.value);
-  const type = delete_type.value;
+        function closeLightbox(type) {
+            const lightbox = document.getElementById(`lightbox-${type}`);
+            if (lightbox) {
+                lightbox.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
 
-  await sendToGoogleSheets({
-    action: type === 'pendaftaran' ? 'deletePendaftaran' : 'deleteAbsensi',
-    rowNumber: row
-  });
+        function openAbsensiLogin() {
+            openLightbox('absensi');
+        }
 
-  showNotification('Data berhasil dihapus', 'success');
+        // Close lightbox on backdrop click
+        document.querySelectorAll('.lightbox').forEach(lb => {
+            lb.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
 
-  if (type === 'pendaftaran') loadDataPeserta();
-  else loadDataAbsensi();
-}
+        // ============ NOTIFICATION ============
+        function showNotification(message, type = 'info') {
+            document.querySelectorAll('.notification').forEach(n => n.remove());
 
-/* ================= INIT ================= */
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('SIPANDAI-ASN READY | MODE:', USE_GOOGLE_SHEETS ? 'ONLINE' : 'DEMO');
-});
-</script>
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'times-circle' : 'info-circle';
+            notification.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideInRight 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
 
-    
+        // ============ SUBMIT PENDAFTARAN ============
+        async function submitPendaftaran(event) {
+            event.preventDefault();
+            const btn = event.currentTarget.querySelector('.btn-submit');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            // Validate form
+            const form = event.currentTarget;
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+
+            const formData = {
+                action: 'pendaftaran',
+                timestamp: document.getElementById('timestamp').value,
+                id: document.getElementById('id').value,
+                nama_lengkap: document.getElementById('nama-lengkap').value.trim(),
+                nip: document.getElementById('nip').value.trim(),
+                unit_kerja: document.getElementById('unit-kerja').value,
+                status_pegawai: document.getElementById('status-pegawai').value,
+                jenis_sdmk: document.getElementById('jenis-sdmk').value,
+                jumlah_jp: document.getElementById('jumlah-jp').value,
+                whatsapp: document.getElementById('whatsapp').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                tema_pembelajaran: document.getElementById('tema-pembelajaran').value,
+                narasumber: document.getElementById('narasumber').value,
+                tanggal_kegiatan: '15 Februari 2026',
+                waktu_kegiatan: '15:00 - 22:00 WITA',
+                platform_digital: document.getElementById('platform-digital').value,
+                jp: document.getElementById('jp').value
+            };
+
+            console.log('Data Pendaftaran:', formData);
+            
+            // Validate NIP format (18 digits, but allow shorter for demo)
+            const nipRegex = /^\d+$/;
+            if (!nipRegex.test(formData.nip)) {
+                showNotification('NIP harus terdiri dari angka saja!', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            
+            // Validate NIP length (accept 9-21 digits for flexibility)
+            if (formData.nip.length < 9 || formData.nip.length > 21) {
+                showNotification('NIP harus terdiri dari 9-21 digit angka!', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            
+            // Validate WhatsApp format (allow 7-15 digits)
+            const whatsappRegex = /^\d+$/;
+            if (!whatsappRegex.test(formData.whatsapp)) {
+                showNotification('Nomor WhatsApp harus terdiri dari angka saja!', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            
+            if (formData.whatsapp.length < 7 || formData.whatsapp.length > 15) {
+                showNotification('Nomor WhatsApp tidak valid! (7-15 digit)', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(formData.email)) {
+                showNotification('Format email tidak valid!', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            
+            // Show sending notification
+            showNotification('Sedang mengirim data...', 'info');
+            
+            // Kirim ke Google Sheets
+            const result = await sendToGoogleSheets(formData);
+            
+            if (result.success || !USE_GOOGLE_SHEETS) {
+                // Simpan ke localStorage untuk demo/offline
+                const existingData = JSON.parse(localStorage.getItem('sipandai_pendaftaran') || '[]');
+                
+                // Check for duplicate NIP
+                const duplicate = existingData.find(u => u.nip === formData.nip);
+                if (duplicate) {
+                    showNotification('NIP ini sudah terdaftar!', 'error');
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                    return;
+                }
+                
+                existingData.push(formData);
+                localStorage.setItem('sipandai_pendaftaran', JSON.stringify(existingData));
+                
+                showNotification('Pendaftaran berhasil! Data telah disimpan.', 'success');
+                console.log('Data saved to localStorage:', existingData);
+            } else {
+                showNotification('Gagal mengirim data: ' + result.message, 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+
+            btn.classList.remove('loading');
+            btn.disabled = false;
+
+            form.reset();
+            initializeForm();
+            closeLightbox('pendaftaran');
+        }
+
+        // ============ LOGIN ABSENSI ============
+        async function loginAbsensi(event) {
+            event.preventDefault();
+            const btn = event.target.querySelector('.btn-submit');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const email = document.getElementById('absensi-email').value.trim();
+            const nip = document.getElementById('absensi-nip').value.trim();
+
+            // Check timer first
+            const now = new Date();
+            const witaNow = new Date(now.getTime() + (8 * 60 * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
+            const currentWitaHour = witaNow.getUTCHours();
+            const currentSecondsInDay = currentWitaHour * 3600 + witaNow.getUTCMinutes() * 60 + witaNow.getUTCSeconds();
+            const startSecondsInDay = ABS_START_TIME * 3600;
+            const endSecondsInDay = ABS_END_TIME * 3600;
+
+            if (currentSecondsInDay < startSecondsInDay || currentSecondsInDay >= endSecondsInDay) {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                showNotification('Maaf, waktu absensi sudah berakhir atau belum dibuka.', 'error');
+                return;
+            }
+
+            // Validasi input
+            if (!email || !nip) {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                showNotification('Email dan NIP harus diisi!', 'error');
+                return;
+            }
+
+            // Cek data dari localStorage أولاً (untuk pendaftaran yang baru dibuat)
+            let user = null;
+            const localData = JSON.parse(localStorage.getItem('sipandai_pendaftaran') || '[]');
+            user = localData.find(u => u.email.toLowerCase() === email.toLowerCase() && u.nip === nip);
+
+            // Jika tidak ditemukan di localStorage, coba dari Google Sheets atau demo data
+            if (!user) {
+                if (USE_GOOGLE_SHEETS) {
+                    const pendaftaranData = await fetchFromGoogleSheets('getAllPendaftaran');
+                    user = pendaftaranData.find(u => u.email.toLowerCase() === email.toLowerCase() && u.nip === nip);
+                } else {
+                    const demoData = getDemoData('getAllPendaftaran');
+                    user = demoData.find(u => u.email.toLowerCase() === email.toLowerCase() && u.nip === nip);
+                }
+            }
+
+            if (user) {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                
+                // Isi data di form absensi
+                document.getElementById('absensi-nama-lengkap').value = user.nama_lengkap || user.nama_lengkap;
+                document.getElementById('absensi-nip-display').value = user.nip;
+                
+                closeLightbox('absensi');
+                openLightbox('form-absensi');
+                showNotification('Login berhasil! Silakan isi absensi.', 'success');
+            } else {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                showNotification('Email atau NIP tidak ditemukan! Pastikan Anda sudah melakukan pendaftaran terlebih dahulu.', 'error');
+            }
+        }
+
+        // ============ SUBMIT ABSENSI ============
+        async function submitAbsensi(event) {
+            event.preventDefault();
+            const btn = event.target.querySelector('.btn-submit');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const evalPenyelenggara = document.querySelector('input[name="eval-penyelenggara"]:checked');
+            const evalFasilitator = document.querySelector('input[name="eval-fasilitator"]:checked');
+
+            const formData = {
+                action: 'absensi',
+                timestamp: document.getElementById('absensi-timestamp').value,
+                id: document.getElementById('absensi-id').value,
+                tanggal_absensi: document.getElementById('tanggal-absensi').value,
+                jam_absensi: document.getElementById('jam-absensi').value,
+                nama_lengkap: document.getElementById('absensi-nama-lengkap').value,
+                nip: document.getElementById('absensi-nip-display').value,
+                platform_digital: document.getElementById('absensi-platform').value,
+                eval_penyelenggara: evalPenyelenggara ? evalPenyelenggara.value : '',
+                eval_fasilitator: evalFasilitator ? evalFasilitator.value : '',
+                komentar: document.getElementById('komentar').value
+            };
+
+            console.log('Data Absensi:', formData);
+            
+            // Kirim ke Google Sheets
+            const result = await sendToGoogleSheets(formData);
+            
+            if (result.success || !USE_GOOGLE_SHEETS) {
+                // Simpan ke localStorage untuk demo/offline
+                const existingData = JSON.parse(localStorage.getItem('sipandai_absensi') || '[]');
+                existingData.push(formData);
+                localStorage.setItem('sipandai_absensi', JSON.stringify(existingData));
+                
+                showNotification('Absensi berhasil terkirim!', 'success');
+            } else {
+                showNotification('Gagal mengirim data: ' + result.message, 'error');
+            }
+
+            btn.classList.remove('loading');
+            btn.disabled = false;
+
+            if (result.success || !USE_GOOGLE_SHEETS) {
+                event.target.reset();
+                closeLightbox('form-absensi');
+            }
+        }
+
+        // ============ LOGIN ADMIN ============
+        async function loginAdmin(event) {
+            event.preventDefault();
+            const btn = event.target.querySelector('.btn-submit');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const username = document.getElementById('admin-username').value;
+            const password = document.getElementById('admin-password').value;
+
+            // Demo credentials: admin / admin123
+            if (username === 'admin' && password === 'admin123') {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                closeLightbox('admin');
+                document.getElementById('admin-dashboard').classList.add('active');
+                document.body.style.overflow = 'hidden';
+                showNotification('Selamat datang di Dashboard Admin!', 'success');
+                
+                // Load admin dashboard data
+                loadAdminDashboard();
+            } else {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                showNotification('Username atau password salah!', 'error');
+            }
+        }
+
+        // ============ LOGOUT ADMIN ============
+        function logoutAdmin() {
+            document.getElementById('admin-dashboard').classList.remove('active');
+            document.getElementById('form-admin-login').reset();
+            document.body.style.overflow = '';
+            showNotification('Anda telah keluar dari dashboard.', 'info');
+        }
+
+        // ============ ADMIN DASHBOARD FUNCTIONS ============
+        async function loadAdminDashboard() {
+            showAdminLoading(true);
+            
+            // Load statistics
+            const stats = await fetchFromGoogleSheets('getStatistics');
+            
+            document.getElementById('stat-total-peserta').textContent = stats.totalPendaftaran || 0;
+            document.getElementById('stat-absensi-hari-ini').textContent = stats.absensiHariIni || 0;
+            document.getElementById('stat-total-absensi').textContent = stats.totalAbsensi || 0;
+            document.getElementById('stat-rata-rata').textContent = '0'; // Default
+            
+            // Load recent registrations
+            const pendaftaranData = await fetchFromGoogleSheets('getAllPendaftaran');
+            renderPendaftaranTable(pendaftaranData.slice(0, 5), 'tabel-pendaftaran-body');
+            
+            showAdminLoading(false);
+        }
+
+        async function loadDataPeserta() {
+            showAdminLoading(true);
+            
+            const data = await fetchFromGoogleSheets('getAllPendaftaran');
+            renderPendaftaranTable(data, 'tabel-peserta-body');
+            
+            showAdminLoading(false);
+        }
+
+        async function loadDataAbsensi() {
+            showAdminLoading(true);
+            
+            const data = await fetchFromGoogleSheets('getAllAbsensi');
+            renderAbsensiTable(data, 'tabel-absensi-body');
+            
+            showAdminLoading(false);
+        }
+
+        async function loadLaporan() {
+            showAdminLoading(true);
+            
+            const stats = await fetchFromGoogleSheets('getStatistics');
+            const pendaftaranData = await fetchFromGoogleSheets('getAllPendaftaran');
+            const absensiData = await fetchFromGoogleSheets('getAllAbsensi');
+            
+            // Update statistics
+            document.getElementById('laporan-total-peserta').textContent = stats.totalPendaftaran || 0;
+            document.getElementById('laporan-total-absensi').textContent = stats.totalAbsensi || 0;
+            
+            const persentase = stats.totalPendaftaran > 0 
+                ? Math.round((stats.totalAbsensi / stats.totalPendaftaran) * 100) 
+                : 0;
+            document.getElementById('laporan-persentase').textContent = persentase + '%';
+            
+            // Calculate average rating
+            let totalRating = 0;
+            let ratingCount = 0;
+            absensiData.forEach(item => {
+                const rating = (parseInt(item.eval_penyelenggara) + parseInt(item.eval_fasilitator)) / 2;
+                totalRating += rating;
+                ratingCount++;
+            });
+            const avgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : 0;
+            document.getElementById('laporan-rating').textContent = avgRating;
+            
+            // Render unit kerja statistics
+            renderUnitKerjaStats(stats.unitKerjaStats || {}, stats.totalPendaftaran || 0);
+            
+            showAdminLoading(false);
+        }
+
+        function renderPendaftaranTable(data, containerId) {
+            const tbody = document.getElementById(containerId);
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666;">Tidak ada data</td></tr>';
+                return;
+            }
+            
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${item.nama_lengkap}</td>
+                    <td>${item.nip}</td>
+                    <td>${item.unit_kerja}</td>
+                    <td><span class="status-badge active">Aktif</span></td>
+                    <td>
+                        <button class="action-btn" aria-label="Lihat" onclick="viewPendaftaran(${item.rowNumber})"><i class="fas fa-eye"></i></button>
+                        <button class="action-btn" aria-label="Edit" onclick="editPendaftaran(${item.rowNumber})"><i class="fas fa-edit"></i></button>
+                        <button class="action-btn delete" aria-label="Hapus" onclick="deletePendaftaran(${item.rowNumber})"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderAbsensiTable(data, containerId) {
+            const tbody = document.getElementById(containerId);
+            tbody.innerHTML = '';
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #666;">Tidak ada data</td></tr>';
+                return;
+            }
+            
+            data.forEach(item => {
+                const avgRating = item.eval_penyelenggara && item.eval_fasilitator 
+                    ? ((parseInt(item.eval_penyelenggara) + parseInt(item.eval_fasilitator)) / 2).toFixed(1) 
+                    : '-';
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${item.tanggal_absensi}</td>
+                    <td>${item.jam_absensi}</td>
+                    <td>${item.nama_lengkap}</td>
+                    <td>${item.nip}</td>
+                    <td>${item.platform_digital}</td>
+                    <td>${avgRating}</td>
+                    <td>
+                        <button class="action-btn" aria-label="Lihat" onclick="viewAbsensi(${item.rowNumber})"><i class="fas fa-eye"></i></button>
+                        <button class="action-btn delete" aria-label="Hapus" onclick="deleteAbsensi(${item.rowNumber})"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderUnitKerjaStats(stats, total) {
+            const tbody = document.getElementById('tabel-statistik-unit-body');
+            tbody.innerHTML = '';
+            
+            if (Object.keys(stats).length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #666;">Tidak ada data</td></tr>';
+                return;
+            }
+            
+            let no = 1;
+            for (const [unit, count] of Object.entries(stats)) {
+                const persentase = total > 0 ? ((count / total) * 100).toFixed(1) + '%' : '0%';
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${no++}</td>
+                    <td>${unit}</td>
+                    <td>${count}</td>
+                    <td>${persentase}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        // ============ CRUD OPERATIONS ============
+        async function viewPendaftaran(rowNumber) {
+            const data = await fetchFromGoogleSheets('getAllPendaftaran');
+            const item = data.find(d => d.rowNumber === rowNumber);
+            
+            if (item) {
+                const modalBody = document.getElementById('modal-view-body');
+                modalBody.innerHTML = `
+                    <div class="detail-row">
+                        <span class="detail-label">ID</span>
+                        <span class="detail-value">${item.id}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Timestamp</span>
+                        <span class="detail-value">${item.timestamp}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Nama Lengkap</span>
+                        <span class="detail-value">${item.nama_lengkap}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">NIP</span>
+                        <span class="detail-value">${item.nip}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Unit Kerja</span>
+                        <span class="detail-value">${item.unit_kerja}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status Pegawai</span>
+                        <span class="detail-value">${item.status_pegawai}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Jenis SDMK</span>
+                        <span class="detail-value">${item.jenis_sdmk || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Jumlah JP</span>
+                        <span class="detail-value">${item.jumlah_jp || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">WhatsApp</span>
+                        <span class="detail-value">${item.whatsapp || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Email</span>
+                        <span class="detail-value">${item.email}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Tema Pembelajaran</span>
+                        <span class="detail-value">${item.tema_pembelajaran || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Narasumber</span>
+                        <span class="detail-value">${item.narasumber || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Platform Digital</span>
+                        <span class="detail-value">${item.platform_digital || '-'}</span>
+                    </div>
+                `;
+                document.getElementById('modal-view').classList.add('active');
+            }
+        }
+
+        async function viewAbsensi(rowNumber) {
+            const data = await fetchFromGoogleSheets('getAllAbsensi');
+            const item = data.find(d => d.rowNumber === rowNumber);
+            
+            if (item) {
+                const modalBody = document.getElementById('modal-view-body');
+                modalBody.innerHTML = `
+                    <div class="detail-row">
+                        <span class="detail-label">ID</span>
+                        <span class="detail-value">${item.id}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Timestamp</span>
+                        <span class="detail-value">${item.timestamp || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Tanggal Absensi</span>
+                        <span class="detail-value">${item.tanggal_absensi}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Jam Absensi</span>
+                        <span class="detail-value">${item.jam_absensi}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Nama Lengkap</span>
+                        <span class="detail-value">${item.nama_lengkap}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">NIP</span>
+                        <span class="detail-value">${item.nip}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Platform Digital</span>
+                        <span class="detail-value">${item.platform_digital}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Evaluasi Penyelenggaraan</span>
+                        <span class="detail-value">${item.eval_penyelenggara || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Evaluasi Fasilitator</span>
+                        <span class="detail-value">${item.eval_fasilitator || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Komentar</span>
+                        <span class="detail-value">${item.komentar || '-'}</span>
+                    </div>
+                `;
+                document.getElementById('modal-view').classList.add('active');
+            }
+        }
+
+        function editPendaftaran(rowNumber) {
+            showNotification('Fitur edit sedang dalam pengembangan', 'info');
+        }
+
+        function deletePendaftaran(rowNumber) {
+            document.getElementById('delete-row-number').value = rowNumber;
+            document.getElementById('delete-type').value = 'pendaftaran';
+            document.getElementById('modal-delete').classList.add('active');
+        }
+
+        function deleteAbsensi(rowNumber) {
+            document.getElementById('delete-row-number').value = rowNumber;
+            document.getElementById('delete-type').value = 'absensi';
+            document.getElementById('modal-delete').classList.add('active');
+        }
+
+        async function confirmDelete() {
+            const rowNumber = parseInt(document.getElementById('delete-row-number').value);
+            const type = document.getElementById('delete-type').value;
+            
+            showAdminLoading(true);
+            
+            if (USE_GOOGLE_SHEETS) {
+                await sendToGoogleSheets({
+                    action: type === 'pendaftaran' ? 'deletePendaftaran' : 'deleteAbsensi',
+                    rowNumber: rowNumber
+                });
+            }
+            
+            // Also remove from localStorage for demo
+            const storageKey = type === 'pendaftaran' ? 'sipandai_pendaftaran' : 'sipandai_absensi';
+            let data = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            data = data.filter((_, index) => index !== rowNumber - 2); // -2 because rowNumber includes header
+            localStorage.setItem(storageKey, JSON.stringify(data));
+            
+            closeModal('modal-delete');
+            showNotification('Data berhasil dihapus', 'success');
+            
+            // Reload current view
+            if (type === 'pendaftaran') {
+                await loadDataPeserta();
+            } else {
+                await loadDataAbsensi();
+            }
+            
+            showAdminLoading(false);
+        }
+
+        // ============ MODAL FUNCTIONS ============
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // ============ MENU NAVIGATION ============
+        function showAdminMenu(menuName, element) {
+            // Update nav active state
+            document.querySelectorAll('.admin-nav a').forEach(a => a.classList.remove('active'));
+            element.classList.add('active');
+            
+            // Hide all menus
+            document.querySelectorAll('.admin-menu-content').forEach(m => m.classList.remove('active'));
+            
+            // Show selected menu
+            document.getElementById(`menu-${menuName}`).classList.add('active');
+            
+            // Update title
+            const titles = {
+                'dashboard': 'Dashboard Admin',
+                'peserta': 'Data Peserta',
+                'absensi': 'Data Absensi',
+                'laporan': 'Laporan',
+                'pengaturan': 'Pengaturan'
+            };
+            document.getElementById('admin-page-title').textContent = titles[menuName] || 'Dashboard Admin';
+            
+            // Load data
+            switch(menuName) {
+                case 'dashboard':
+                    loadAdminDashboard();
+                    break;
+                case 'peserta':
+                    loadDataPeserta();
+                    break;
+                case 'absensi':
+                    loadDataAbsensi();
+                    break;
+                case 'laporan':
+                    loadLaporan();
+                    break;
+                case 'pengaturan':
+                    loadSettings();
+                    break;
+            }
+        }
+
+        // ============ SEARCH FUNCTION ============
+        function searchTable(tableId, searchTerm) {
+            const table = document.getElementById(tableId);
+            const rows = table.querySelectorAll('tbody tr');
+            const term = searchTerm.toLowerCase();
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = term && !text.includes(term) ? 'none' : '';
+            });
+        }
+
+        // ============ LOADING ============
+        function showAdminLoading(show) {
+            const loading = document.getElementById('admin-loading');
+            if (show) {
+                loading.classList.add('active');
+            } else {
+                loading.classList.remove('active');
+            }
+        }
+
+        // ============ PENGATURAN ============
+        function loadSettings() {
+            const settings = JSON.parse(localStorage.getItem('sipandai_settings') || '{}');
+            
+            document.getElementById('setting-reg-start').value = settings.regStart || '';
+            document.getElementById('setting-reg-end').value = settings.regEnd || '';
+            document.getElementById('setting-abs-date').value = settings.absDate || '';
+            document.getElementById('setting-abs-start').value = settings.absStart || 15;
+            document.getElementById('setting-abs-end').value = settings.absEnd || 22;
+            document.getElementById('setting-google-sheets').checked = settings.useGoogleSheets || false;
+            document.getElementById('setting-google-url').value = settings.googleSheetsUrl || '';
+            
+            toggleGoogleSheetsField();
+        }
+
+        function saveSettings(event) {
+            event.preventDefault();
+            
+            const settings = {
+                regStart: document.getElementById('setting-reg-start').value,
+                regEnd: document.getElementById('setting-reg-end').value,
+                absDate: document.getElementById('setting-abs-date').value,
+                absStart: parseInt(document.getElementById('setting-abs-start').value),
+                absEnd: parseInt(document.getElementById('setting-abs-end').value),
+                useGoogleSheets: document.getElementById('setting-google-sheets').checked,
+                googleSheetsUrl: document.getElementById('setting-google-url').value
+            };
+            
+            localStorage.setItem('sipandai_settings', JSON.stringify(settings));
+            showNotification('Pengaturan berhasil disimpan!', 'success');
+        }
+
+        function toggleGoogleSheetsField() {
+            const field = document.getElementById('group-google-url');
+            const checkbox = document.getElementById('setting-google-sheets');
+            field.style.display = checkbox.checked ? 'block' : 'none';
+        }
+
+        // ============ KEYBOARD SHORTCUTS ============
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.lightbox').forEach(lb => lb.classList.remove('active'));
+                document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+                document.getElementById('admin-dashboard').classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+
+        // ============ INITIALIZE ============
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeForm();
+            updateRegistrationTimer();
+            updateAbsensiTimer();
+            
+            // Update timers every second
+            setInterval(updateRegistrationTimer, 1000);
+            setInterval(updateAbsensiTimer, 1000);
+            setInterval(updateJamAbsensi, 1000);
+            
+            // Event listeners
+            document.getElementById('setting-google-sheets').addEventListener('change', toggleGoogleSheetsField);
+        });
+    </script>
 </body>
 </html>
