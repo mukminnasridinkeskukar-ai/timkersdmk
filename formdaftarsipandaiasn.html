@@ -263,10 +263,15 @@ input,select{
 </div>
 
 <script>
+/* ================= CONFIG ================= */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwno35Pgl7De0aa_IqAAbBtJYiNDdrbDyzxBmYE9ABdzskM-Cm9TBYGBYqutto6UDMDAg/exec";
 const KUOTA_TOTAL = 1000;
-const BATAS = "2026-02-11T23:59:00+08:00";
 
+// WITA (UTC +8)
+const WAKTU_BUKA  = "2026-02-04T08:00:00+08:00";
+const WAKTU_TUTUP = "2026-02-11T23:59:00+08:00";
+
+/* ================= ELEMENT ================= */
 const form = document.getElementById("form");
 const timer = document.getElementById("timer");
 const modal = document.getElementById("modal");
@@ -277,8 +282,9 @@ const progressBar = document.getElementById("progressBar");
 const inputs = form.querySelectorAll("input,select,button");
 
 let sending = false;
+let locked = false;
 
-/* OPTION BOX */
+/* ================= OPTION BOX ================= */
 document.querySelectorAll(".option-group").forEach(group=>{
   const target = document.getElementById(group.dataset.target);
   group.querySelectorAll(".option-box").forEach(box=>{
@@ -290,37 +296,67 @@ document.querySelectorAll(".option-group").forEach(group=>{
   });
 });
 
-/* LOAD TOTAL */
+/* ================= LOCK FORM ================= */
+function lockForm(msg){
+  if(locked) return;
+  locked = true;
+  timer.innerText = msg;
+  inputs.forEach(el=>el.disabled = true);
+}
+
+/* ================= LOAD TOTAL ================= */
 async function loadTotal(){
-  const r = await fetch(SCRIPT_URL);
-  const d = await r.json();
-  total.innerText = d.total;
-  progressBar.style.width = Math.min(d.total/KUOTA_TOTAL*100,100)+"%";
-  if(d.total>=KUOTA_TOTAL) lockForm("❌ Kuota Penuh");
+  try{
+    const r = await fetch(SCRIPT_URL);
+    const d = await r.json();
+
+    total.innerText = d.total || 0;
+    progressBar.style.width =
+      Math.min((d.total / KUOTA_TOTAL) * 100, 100) + "%";
+
+    if(d.total >= KUOTA_TOTAL){
+      lockForm("❌ Kuota Pendaftaran Telah Penuh");
+    }
+
+  }catch(e){
+    console.error(e);
+    lockForm("⚠️ Sistem pendaftaran bermasalah");
+  }
 }
 loadTotal();
 
-/* TIMER */
-function lockForm(msg){
-  timer.innerText = msg;
-  inputs.forEach(el=>el.disabled=true);
-}
+/* ================= TIMER ================= */
 setInterval(()=>{
-  const diff = new Date(BATAS) - Date.now();
-  if(diff<=0) lockForm("❌ Pendaftaran Ditutup");
-  else timer.innerText = "⏳ Pendaftaran masih dibuka";
+  const now   = Date.now();
+  const buka  = new Date(WAKTU_BUKA).getTime();
+  const tutup = new Date(WAKTU_TUTUP).getTime();
+
+  if(now < buka){
+    lockForm("⏳ Pendaftaran belum dibuka");
+  }else if(now > tutup){
+    lockForm("❌ Pendaftaran telah ditutup");
+  }else if(!locked){
+    timer.innerText = "✅ Pendaftaran sedang dibuka";
+  }
 },1000);
 
-/* MODAL */
-openModal.onclick=()=>{
-  if(!form.checkValidity()) return form.reportValidity();
-  modal.style.display="flex";
-};
-function closeModal(){modal.style.display="none";}
+/* ================= CEGAH SUBMIT ENTER ================= */
+form.addEventListener("submit", e => e.preventDefault());
 
-/* SUBMIT */
-confirmBtn.onclick=async()=>{
-  if(sending) return;
+/* ================= MODAL ================= */
+openModal.onclick = ()=>{
+  if(locked) return;
+  if(!form.checkValidity()) return form.reportValidity();
+  modal.style.display = "flex";
+};
+function closeModal(){
+  modal.style.display = "none";
+}
+
+/* ================= SUBMIT ================= */
+confirmBtn.onclick = async ()=>{
+  if(sending || locked) return;
+
   sending = true;
   confirmBtn.disabled = true;
   confirmBtn.innerText = "Mengirim...";
@@ -340,24 +376,28 @@ confirmBtn.onclick=async()=>{
     email: email.value
   };
 
-  const res = await fetch(SCRIPT_URL,{
-    method:"POST",
-    body: JSON.stringify(payload)
-  });
-  const out = await res.json();
+  try{
+    const res = await fetch(SCRIPT_URL,{
+      method:"POST",
+      body: JSON.stringify(payload)
+    });
 
-  if(!out.success){
-    alert(out.message);
-    sending=false;
-    confirmBtn.disabled=false;
-    confirmBtn.innerText="YA, DAFTAR";
-    return;
+    const out = await res.json();
+
+    if(!out.success) throw out.message;
+
+    alert("✅ Pendaftaran berhasil");
+    location.reload();
+
+  }catch(err){
+    alert("❌ " + err);
+    sending = false;
+    confirmBtn.disabled = false;
+    confirmBtn.innerText = "YA, DAFTAR";
   }
-
-  alert("✅ Pendaftaran berhasil");
-  location.reload();
 };
 </script>
+
 
 </body>
 </html>
