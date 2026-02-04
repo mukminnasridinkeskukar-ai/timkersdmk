@@ -246,63 +246,150 @@ input,select{
 </div>
 
 <script>
-/* CONFIG */
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwELCbtz4IjmnLuv2MK_ZbLYbsgznT0zWNM6FIljzB8C17ncfQt2ObhkMTfL-9MwcJudg/exec";
+/* ================= KONFIG ================= */
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZDL7dUdQyoI6B11bQVytCnLOQl4lKKSqg7hgEsKxZQV8DfJl2fNI_F6JeJUJarObRJg/exec";
 const KUOTA_TOTAL = 1000;
-const WAKTU_BUKA  = "2026-02-04T08:00:00+08:00";
-const WAKTU_TUTUP = "2026-02-11T23:59:00+08:00";
 
-/* ELEMENT */
+// WITA
+const WAKTU_BUKA  = new Date("2026-02-05T00:00:00+08:00");
+const WAKTU_TUTUP = new Date("2026-02-11T23:59:00+08:00");
+
+/* ================= ELEMENT ================= */
 const form = document.getElementById("form");
 const timer = document.getElementById("timer");
 const countdown = document.getElementById("countdown");
-const total = document.getElementById("total");
+const openModal = document.getElementById("openModal");
+const confirmBtn = document.getElementById("confirmBtn");
+const modal = document.getElementById("modal");
+const totalEl = document.getElementById("total");
 const progressBar = document.getElementById("progressBar");
 
 let locked = false;
+let sending = false;
 
-/* LOCK FORM */
-function lockForm(msg){
-  if(locked) return;
-  locked = true;
-  timer.innerText = msg;
-  countdown.innerText = "";
-  form.querySelectorAll("input,button").forEach(e=>e.disabled=true);
-}
-
-/* LOAD TOTAL */
-fetch(SCRIPT_URL).then(r=>r.json()).then(d=>{
-  const j = d.total || 0;
-  total.innerText = j;
-  progressBar.style.width = Math.min(j/KUOTA_TOTAL*100,100)+"%";
+/* ================= OPTION BOX ================= */
+document.querySelectorAll(".option-group").forEach(group => {
+  const target = document.getElementById(group.dataset.target);
+  group.querySelectorAll(".option-box").forEach(box => {
+    box.addEventListener("click", () => {
+      if (locked) return;
+      group.querySelectorAll(".option-box").forEach(b => b.classList.remove("active"));
+      box.classList.add("active");
+      target.value = box.dataset.value;
+    });
+  });
 });
 
-/* TIMER + COUNTDOWN */
+/* ================= LOAD TOTAL ================= */
+async function loadTotal(){
+  try{
+    const r = await fetch(SCRIPT_URL);
+    const d = await r.json();
+    const total = d.total || 0;
+
+    totalEl.innerText = total;
+    progressBar.style.width = Math.min(total / KUOTA_TOTAL * 100, 100) + "%";
+
+    if(total >= KUOTA_TOTAL){
+      lockForm("❌ Kuota pendaftaran penuh");
+    }
+  }catch(e){
+    lockForm("⚠️ Sistem pendaftaran bermasalah");
+  }
+}
+loadTotal();
+
+/* ================= LOCK ================= */
+function lockForm(msg){
+  locked = true;
+  timer.innerText = msg;
+  if(countdown) countdown.innerText = "";
+  form.querySelectorAll("input,select,button").forEach(el => el.disabled = true);
+}
+
+/* ================= TIMER (JANGAN DIHILANGKAN) ================= */
 setInterval(()=>{
   if(locked) return;
 
-  const now   = Date.now();
-  const buka  = new Date(WAKTU_BUKA).getTime();
-  const tutup = new Date(WAKTU_TUTUP).getTime();
+  const now = Date.now();
+  const buka = WAKTU_BUKA.getTime();
+  const tutup = WAKTU_TUTUP.getTime();
 
-  // BELUM DIBUKA (JANGAN LOCK)
   if(now < buka){
     timer.innerText = "⏳ Pendaftaran belum dibuka";
     return;
   }
 
-  // SUDAH DITUTUP (LOCK)
   if(now >= tutup){
     lockForm("❌ Pendaftaran telah ditutup");
     return;
   }
 
-  // SEDANG DIBUKA
+  const sisa = tutup - now;
+  const h = Math.floor(sisa / 3600000);
+  const m = Math.floor((sisa % 3600000) / 60000);
+  const s = Math.floor((sisa % 60000) / 1000);
+
   timer.innerText = "✅ Pendaftaran sedang dibuka";
+  if(countdown){
+    countdown.innerText = `⏰ Ditutup dalam ${h}j ${m}m ${s}d`;
+  }
+},1000);
 
-}, 1000);
+/* ================= MODAL ================= */
+openModal.onclick = () => {
+  if(locked) return;
+  if(!form.checkValidity()) return form.reportValidity();
+  modal.style.display = "flex";
+};
+function closeModal(){
+  modal.style.display = "none";
+}
 
+/* ================= SUBMIT ================= */
+confirmBtn.onclick = async () => {
+  if(sending || locked) return;
+
+  sending = true;
+  confirmBtn.disabled = true;
+  confirmBtn.innerText = "Mengirim...";
+
+  const payload = {
+    nama: nama.value,
+    nip: nip.value,
+    unit: unit.value,
+    status: status.value,
+    jenis: jenis.value,
+    jpTerakhir: jpTerakhir.value,
+    tema: tema.value,
+    tanggal: tanggal.value,
+    jpKegiatan: jpKegiatan.value,
+    platform: platform.value,
+    wa: wa.value,
+    email: email.value
+  };
+
+  try{
+    const res = await fetch(SCRIPT_URL,{
+      method:"POST",
+      body: JSON.stringify(payload)
+    });
+    const out = await res.json();
+
+    if(!out.success) throw out.message;
+
+    alert("✅ Pendaftaran berhasil");
+    location.reload();
+
+  }catch(err){
+    alert("❌ " + err);
+    confirmBtn.disabled = false;
+    confirmBtn.innerText = "YA, DAFTAR";
+    sending = false;
+  }
+};
 </script>
+
 
 </body>
 </html>
