@@ -2237,31 +2237,68 @@
         // ============ SUBMIT PENDAFTARAN ============
         async function submitPendaftaran(event) {
             event.preventDefault();
-            const btn = event.target.querySelector('.btn-submit');
+            const btn = event.currentTarget.querySelector('.btn-submit');
             btn.classList.add('loading');
             btn.disabled = true;
+
+            // Validate form
+            const form = event.currentTarget;
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
 
             const formData = {
                 action: 'pendaftaran',
                 timestamp: document.getElementById('timestamp').value,
                 id: document.getElementById('id').value,
-                nama_lengkap: document.getElementById('nama-lengkap').value,
-                nip: document.getElementById('nip').value,
+                nama_lengkap: document.getElementById('nama-lengkap').value.trim(),
+                nip: document.getElementById('nip').value.trim(),
                 unit_kerja: document.getElementById('unit-kerja').value,
                 status_pegawai: document.getElementById('status-pegawai').value,
                 jenis_sdmk: document.getElementById('jenis-sdmk').value,
                 jumlah_jp: document.getElementById('jumlah-jp').value,
-                whatsapp: document.getElementById('whatsapp').value,
-                email: document.getElementById('email').value,
+                whatsapp: document.getElementById('whatsapp').value.trim(),
+                email: document.getElementById('email').value.trim(),
                 tema_pembelajaran: document.getElementById('tema-pembelajaran').value,
                 narasumber: document.getElementById('narasumber').value,
-                tanggal_kegiatan: document.getElementById('tanggal-kegiatan') ? document.getElementById('tanggal-kegiatan').value : '15 Februari 2026',
-                waktu_kegiatan: document.getElementById('waktu-kegiatan') ? document.getElementById('waktu-kegiatan').value : '15:00 - 22:00 WITA',
+                tanggal_kegiatan: '15 Februari 2026',
+                waktu_kegiatan: '15:00 - 22:00 WITA',
                 platform_digital: document.getElementById('platform-digital').value,
                 jp: document.getElementById('jp').value
             };
 
             console.log('Data Pendaftaran:', formData);
+            
+            // Validate NIP format (18 digits)
+            if (formData.nip.length !== 18 || !/^\d+$/.test(formData.nip)) {
+                showNotification('NIP harus terdiri dari 18 digit angka!', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            
+            // Validate WhatsApp format
+            if (formData.whatsapp.length < 9 || !/^\d+$/.test(formData.whatsapp)) {
+                showNotification('Nomor WhatsApp tidak valid!', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(formData.email)) {
+                showNotification('Format email tidak valid!', 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            
+            // Show sending notification
+            showNotification('Sedang mengirim data...', 'info');
             
             // Kirim ke Google Sheets
             const result = await sendToGoogleSheets(formData);
@@ -2269,22 +2306,34 @@
             if (result.success || !USE_GOOGLE_SHEETS) {
                 // Simpan ke localStorage untuk demo/offline
                 const existingData = JSON.parse(localStorage.getItem('sipandai_pendaftaran') || '[]');
+                
+                // Check for duplicate NIP
+                const duplicate = existingData.find(u => u.nip === formData.nip);
+                if (duplicate) {
+                    showNotification('NIP ini sudah terdaftar!', 'error');
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                    return;
+                }
+                
                 existingData.push(formData);
                 localStorage.setItem('sipandai_pendaftaran', JSON.stringify(existingData));
                 
                 showNotification('Pendaftaran berhasil! Data telah disimpan.', 'success');
+                console.log('Data saved to localStorage:', existingData);
             } else {
                 showNotification('Gagal mengirim data: ' + result.message, 'error');
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
             }
 
             btn.classList.remove('loading');
             btn.disabled = false;
 
-            if (result.success || !USE_GOOGLE_SHEETS) {
-                event.target.reset();
-                initializeForm();
-                closeLightbox('pendaftaran');
-            }
+            form.reset();
+            initializeForm();
+            closeLightbox('pendaftaran');
         }
 
         // ============ LOGIN ABSENSI ============
