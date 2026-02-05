@@ -878,7 +878,7 @@
             </div>
             
             <div class="card">
-                <form id="registrasiForm" onsubmit="submitRegistrasi(event)">
+                <form id="registrasiForm" onsubmit="submitRegistrasi(event)" enctype="multipart/form-data">
                     <div class="form-group">
                         <label for="nama_kegiatan">Nama Kegiatan *</label>
                         <input type="text" id="nama_kegiatan" required placeholder="Contoh: Pengabdian Masyarakat Desa Sukamaju">
@@ -915,9 +915,9 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="surat_pemberitahuan">Surat Pemberitahuan Kegiatan</label>
-                        <input type="file" id="surat_pemberitahuan" accept=".pdf,.doc,.docx" placeholder="Upload surat pemberitahuan kegiatan">
-                        <small style="color: #666; font-size: 12px;">Format yang diizinkan: PDF, DOC, DOCX (Max. 5MB)</small>
+                        <label for="surat_pemberitahuan">Surat Pemberitahuan Kegiatan (PDF)</label>
+                        <input type="file" id="surat_pemberitahuan" accept=".pdf" required>
+                        <small style="color: #666; font-size: 12px;">Format: PDF (akan diupload ke Google Drive)</small>
                     </div>
                     
                     <button type="submit" class="btn btn-primary">📤 Submit Registrasi</button>
@@ -1469,7 +1469,7 @@
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Surat Pemberitahuan</div>
-                    <div class="detail-value">${item.surat_pemberitahuan ? '<a href="#" onclick="downloadSurat(' + "'" + item.surat_pemberitahuan + "'" + '); return false;">📄 ' + item.surat_pemberitahuan + '</a>' : 'Tidak ada file'}</div>
+                    <div class="detail-value">${item.surat_pemberitahuan ? '📄 ' + item.surat_pemberitahuan : 'Tidak ada file'}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Deskripsi</div>
@@ -1533,9 +1533,9 @@
 
         // ===== KONFIGURASI GOOGLE SHEETS & DRIVE =====
         // Ganti dengan konfigurasi Anda
-        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxSGt8W4A_7diSVLjRsucDGU03F54EP3jDr9ZXR0xA94scJUBvRoeKOVq-OIDefOuL-SA/exec';
-        const GOOGLE_DRIVE_FOLDER_ID = '1YPuYn7m5JEbF6UgiBmWCQ7dkPZNtpYQzXNXiSD5WkdS764hMfcPt3yhaajvqw0OKhYniYhok';
-        const GOOGLE_SHEETS_PUBLISHED_URL = 'YOUR_PUBLISHED_SHEETS_JSON_URL';
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzNQmcRVEc7jhQnt_ak3GXkrR-LO1f-GmQ84L203WqvCvGaUHBR_qQ9dRAqLYvG7n-WSg/exec';
+        const GOOGLE_DRIVE_FOLDER_ID = '1xEKy95gjMjQ_IkjVAmxqCCS1KAT1NfNa';
+        const GOOGLE_SHEETS_PUBLISHED_URL = '1N_gpqZr6EBdoTkBp3uZMYtVY17-S5hmAFJ5ZP9NdMic';
         
         // ===== REGISTRATION DATA FUNCTIONS =====
         
@@ -1549,39 +1549,84 @@
             const deskripsi = document.getElementById('deskripsi').value;
             const penanggungJawab = document.getElementById('penanggung_jawab').value;
             const kontak = document.getElementById('kontak').value;
-            const suratPemberitahuan = document.getElementById('surat_pemberitahuan').files[0];
+            const fileInput = document.getElementById('surat_pemberitahuan');
             
             if (!namaKegiatan || !tanggal || !lokasi || !jumlahPeserta || !penanggungJawab || !kontak) {
                 showNotification('Mohon lengkapi semua field yang wajib diisi!', 'error');
                 return;
             }
             
-            // Data untuk disimpan dan dikirim
-            const formData = {
-                nama_kegiatan: namaKegiatan,
-                tanggal_pelaksanaan: tanggal,
-                lokasi: lokasi,
-                jumlah_peserta: jumlahPeserta,
-                deskripsi: deskripsi,
-                penanggung_jawab: penanggungJawab,
-                kontak: kontak,
-                surat_pemberitahuan: suratPemberitahuan ? suratPemberitahuan.name : null,
-                tanggal_daftar: new Date().toISOString().split('T')[0],
-                status: 'Pending',
-                id: Date.now()
-            };
+            // Show loading
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '⏳ Mengupload...';
+            submitBtn.disabled = true;
             
-            // Simpan ke localStorage
-            saveRegistrationToLocal(formData);
+            // Create FormData
+            const formData = new FormData();
+            formData.append('nama_kegiatan', namaKegiatan);
+            formData.append('tanggal_pelaksanaan', tanggal);
+            formData.append('lokasi', lokasi);
+            formData.append('jumlah_peserta', jumlahPeserta);
+            formData.append('deskripsi', deskripsi);
+            formData.append('penanggung_jawab', penanggungJawab);
+            formData.append('kontak', kontak);
+            if (fileInput.files.length > 0) {
+                formData.append('surat_pemberitahuan', fileInput.files[0]);
+            }
             
-            // Kirim ke Google Sheets
-            sendToGoogleSheets(formData);
-            
-            showNotification('Registrasi kegiatan berhasil submitted! Menunggu persetujuan admin.');
-            document.getElementById('registrasiForm').reset();
-            
-            // Refresh admin data
-            loadAdminData();
+            // Kirim ke Google Apps Script dengan file upload
+            fetch(GOOGLE_SHEETS_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: formData
+            })
+            .then(response => {
+                // Data berhasil dikirim
+                const localData = {
+                    nama_kegiatan: namaKegiatan,
+                    tanggal_pelaksanaan: tanggal,
+                    lokasi: lokasi,
+                    jumlah_peserta: jumlahPeserta,
+                    deskripsi: deskripsi,
+                    penanggung_jawab: penanggungJawab,
+                    kontak: kontak,
+                    surat_pemberitahuan: fileInput.files[0] ? fileInput.files[0].name : null,
+                    status: 'Pending',
+                    id: Date.now()
+                };
+                
+                // Simpan ke localStorage
+                saveRegistrationToLocal(localData);
+                
+                showNotification('Registrasi kegiatan berhasil! File diupload ke Google Drive.');
+                document.getElementById('registrasiForm').reset();
+                loadAdminData();
+            })
+            .catch(error => {
+                // Simpan ke localStorage sebagai fallback
+                const localData = {
+                    nama_kegiatan: namaKegiatan,
+                    tanggal_pelaksanaan: tanggal,
+                    lokasi: lokasi,
+                    jumlah_peserta: jumlahPeserta,
+                    deskripsi: deskripsi,
+                    penanggung_jawab: penanggungJawab,
+                    kontak: kontak,
+                    surat_pemberitahuan: fileInput.files[0] ? fileInput.files[0].name : null,
+                    status: 'Pending',
+                    id: Date.now()
+                };
+                
+                saveRegistrationToLocal(localData);
+                showNotification('Registrasi disimpan lokal. File akan diupload nanti.');
+                document.getElementById('registrasiForm').reset();
+                loadAdminData();
+            })
+            .finally(() => {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            });
         }
         
         function saveRegistrationToLocal(data) {
@@ -1666,7 +1711,7 @@
         
         // Default gallery photos - Konfigurasi foto dari Google Drive
         const galleryPhotosConfig = [
-            { id: 1, drive_id: '1zSPmvDmzD23x39DaojTgjg3qQn8IQwRe', judul: 'Bakti Sosial Desa Sukamaju', tanggal: '2025-01-15', peserta: 25, year: '2025' },
+            { id: 1, drive_id: '1ABC123DEF456GHI789JKL012MNO345PQ', judul: 'Bakti Sosial Desa Sukamaju', tanggal: '2025-01-15', peserta: 25, year: '2025' },
             { id: 2, drive_id: '2DEF456GHI789JKL012MNO345PQR678', judul: 'Penyuluhan Kesehatan', tanggal: '2025-02-20', peserta: 40, year: '2025' },
             { id: 3, drive_id: '3GHI789JKL012MNO345PQR678STU901', judul: 'Pelatihan Digital Marketing', tanggal: '2025-03-10', peserta: 30, year: '2025' },
             { id: 4, drive_id: '4IJKL012MNO345PQR678STU901VWX234', judul: 'Program Literasi Digital', tanggal: '2025-04-05', peserta: 35, year: '2025' },
