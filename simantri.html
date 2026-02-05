@@ -624,6 +624,7 @@
                     </a>
                     <div class="submenu">
                         <a href="#" class="nav-link" data-page="profil-nakes"><i class="fas fa-id-card"></i> Profil Tenaga Medis & Nakes</a>
+                        <a href="#" class="nav-link" data-page="profil-medis-kesehatan"><i class="fas fa-users-medical"></i> Profil Tenaga Medis & Kesehatan</a>
                         <a href="#" class="nav-link" data-page="jenis-nakes"><i class="fas fa-notes-medical"></i> Jenis Tenaga Kesehatan</a>
                         <a href="#" class="nav-link" data-page="pendidikan-kompetensi"><i class="fas fa-graduation-cap"></i> Pendidikan & Kompetensi</a>
                         <a href="#" class="nav-link" data-page="str-management"><i class="fas fa-id-badge"></i> STR (Status & Masa Berlaku)</a>
@@ -1134,6 +1135,88 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profil Tenaga Medis & Kesehatan Page (Google Sheets) -->
+            <div class="page-section" id="page-profil-medis-kesehatan">
+                <div class="page-title">
+                    <h2><i class="fas fa-users-medical text-primary"></i> Profil Tenaga Medis & Kesehatan</h2>
+                    <div class="breadcrumb">
+                        <a href="#" onclick="showPage('beranda')">Beranda</a>
+                        <span>/</span>
+                        <span>Data Tenaga Medis & Nakes</span>
+                        <span>/</span>
+                        <span>Profil Medis & Kesehatan</span>
+                    </div>
+                </div>
+                
+                <div class="form-card mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5><i class="fas fa-table text-primary"></i> Data dari Google Sheets</h5>
+                        <div>
+                            <button class="btn btn-success" onclick="loadGoogleSheetData()">
+                                <i class="fas fa-sync-alt"></i> Refresh Data
+                            </button>
+                            <button class="btn btn-primary" onclick="showConfigModal()">
+                                <i class="fas fa-cog"></i> Konfigurasi
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="google-sheet-config" class="alert alert-info mb-3" style="display: none;">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Konfigurasi Google Sheets:</strong>
+                        <p class="mb-2">Masukkan URL Google Sheets yang telah dipublikasikan (Publish to web > CSV)</p>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="google-sheet-url" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv">
+                            <button class="btn btn-primary" onclick="saveSheetConfig()">Simpan</button>
+                        </div>
+                    </div>
+                    
+                    <div id="sheet-loading" class="loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p class="mt-2">Memuat data dari Google Sheets...</p>
+                    </div>
+                    
+                    <div id="sheet-error" class="alert alert-danger" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="sheet-error-message">Gagal memuat data dari Google Sheets.</span>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="data-table" id="sheet-data-table">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>Nama</th>
+                                    <th>Jenis Profesi</th>
+                                    <th>Jenis Kelamin</th>
+                                    <th>Pendidikan</th>
+                                    <th>Status Pegawai</th>
+                                    <th>Tempat Praktik Utama</th>
+                                    <th>Jumlah Tempat Praktik</th>
+                                    <th>Status Praktik</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sheet-data-body">
+                                <!-- Data will be loaded from Google Sheets -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="no-data-message" class="empty-state" style="display: none;">
+                        <i class="fas fa-database"></i>
+                        <h5>Belum Ada Data</h5>
+                        <p>Silakan konfigurasi URL Google Sheets untuk memuat data.</p>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Data diambil dari Google Sheets. Pastikan sheet dipublikasikan (File > Share > Publish to web > CSV)
+                        </small>
                     </div>
                 </div>
             </div>
@@ -2802,6 +2885,154 @@
                         }
                     });
                 }
+            }
+        });
+        
+        // Google Sheets Integration Functions
+        let googleSheetURL = localStorage.getItem('googleSheetURL') || '';
+        
+        function showConfigModal() {
+            const configPanel = document.getElementById('google-sheet-config');
+            if (configPanel.style.display === 'none') {
+                configPanel.style.display = 'block';
+                document.getElementById('google-sheet-url').value = googleSheetURL || '';
+            } else {
+                configPanel.style.display = 'none';
+            }
+        }
+        
+        function saveSheetConfig() {
+            const url = document.getElementById('google-sheet-url').value.trim();
+            if (url) {
+                googleSheetURL = url;
+                localStorage.setItem('googleSheetURL', url);
+                showNotification('URL Google Sheets berhasil disimpan!', 'success');
+                document.getElementById('google-sheet-config').style.display = 'none';
+                loadGoogleSheetData();
+            } else {
+                showNotification('Mohon masukkan URL yang valid!', 'danger');
+            }
+        }
+        
+        function loadGoogleSheetData() {
+            if (!googleSheetURL) {
+                document.getElementById('no-data-message').style.display = 'block';
+                document.getElementById('sheet-error').style.display = 'none';
+                document.getElementById('google-sheet-config').style.display = 'block';
+                return;
+            }
+            
+            document.getElementById('sheet-loading').style.display = 'flex';
+            document.getElementById('sheet-error').style.display = 'none';
+            document.getElementById('no-data-message').style.display = 'none';
+            
+            fetch(googleSheetURL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(csvData => {
+                    parseAndDisplayCSV(csvData);
+                    document.getElementById('sheet-loading').style.display = 'none';
+                    showNotification('Data berhasil dimuat dari Google Sheets!', 'success');
+                })
+                .catch(error => {
+                    console.error('Error fetching Google Sheet:', error);
+                    document.getElementById('sheet-loading').style.display = 'none';
+                    document.getElementById('sheet-error').style.display = 'block';
+                    document.getElementById('sheet-error-message').textContent = 
+                        'Gagal memuat data dari Google Sheets. Pastikan URL benar dan sheet telah dipublikasikan.';
+                    showNotification('Gagal memuat data dari Google Sheets!', 'danger');
+                });
+        }
+        
+        function parseAndDisplayCSV(csvData) {
+            const tbody = document.getElementById('sheet-data-body');
+            tbody.innerHTML = '';
+            
+            // Parse CSV
+            const rows = csvData.split('\n').filter(row => row.trim());
+            
+            if (rows.length <= 1) {
+                document.getElementById('no-data-message').style.display = 'block';
+                return;
+            }
+            
+            // Skip header row if it matches expected headers
+            let dataRows = rows.slice(1);
+            
+            // Check if first row is header (contains expected column names)
+            const firstRow = rows[0].toLowerCase();
+            if (firstRow.includes('no') && firstRow.includes('nama') && firstRow.includes('jenis profesi')) {
+                dataRows = rows.slice(1);
+            }
+            
+            dataRows.forEach((row, index) => {
+                const cols = parseCSVRow(row);
+                const tr = document.createElement('tr');
+                
+                // Map columns based on expected structure
+                // Expected: No, Nama, Jenis Profesi, Jenis Kelamin, Pendidikan, Status Pegawai, Tempat Praktik Utama, Jumlah Tempat Praktik, Status Praktik
+                
+                // Add row number
+                const tdNo = document.createElement('td');
+                tdNo.textContent = index + 1;
+                tr.appendChild(tdNo);
+                
+                // Add other columns
+                for (let i = 0; i < Math.min(cols.length, 8); i++) {
+                    const td = document.createElement('td');
+                    td.textContent = cols[i].trim();
+                    tr.appendChild(td);
+                }
+                
+                tbody.appendChild(tr);
+            });
+            
+            if (tbody.children.length === 0) {
+                document.getElementById('no-data-message').style.display = 'block';
+            } else {
+                document.getElementById('no-data-message').style.display = 'none';
+            }
+        }
+        
+        function parseCSVRow(row) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < row.length; i++) {
+                const char = row[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            result.push(current);
+            return result;
+        }
+        
+        // Auto-load data when page is shown
+        const originalShowPage = showPage;
+        showPage = function(pageId) {
+            originalShowPage(pageId);
+            if (pageId === 'profil-medis-kesehatan' && googleSheetURL) {
+                setTimeout(loadGoogleSheetData, 100);
+            }
+        };
+        
+        // Load saved URL on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (googleSheetURL) {
+                document.getElementById('google-sheet-url').value = googleSheetURL;
             }
         });
     </script>
