@@ -1374,6 +1374,10 @@
             document.getElementById('totalKegiatan').textContent = 24 + approvedActivities.length;
         }
 
+        // ===== KONFIGURASI GOOGLE SHEETS =====
+        // Ganti URL ini dengan Google Apps Script Web App URL Anda
+        const GOOGLE_SHEETS_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
+        
         function submitRegistrasi(event) {
             event.preventDefault();
             
@@ -1391,7 +1395,20 @@
                 return;
             }
             
-            // Add to pending registrations
+            // Data untuk dikirim ke Google Sheets
+            const formData = {
+                nama_kegiatan: namaKegiatan,
+                tanggal_pelaksanaan: tanggal,
+                lokasi: lokasi,
+                jumlah_peserta: jumlahPeserta,
+                deskripsi: deskripsi,
+                penanggung_jawab: penanggungJawab,
+                kontak: kontak,
+                tanggal_daftar: new Date().toISOString().split('T')[0],
+                status: 'Pending'
+            };
+            
+            // Add to pending registrations (untuk tampilan lokal)
             const newId = Date.now();
             pendingRegistrations.push({
                 id: newId,
@@ -1407,12 +1424,70 @@
                 tanggal_daftar: new Date().toISOString().split('T')[0]
             });
             
+            // Kirim ke Google Sheets
+            sendToGoogleSheets(formData);
+            
             showNotification('Registrasi kegiatan berhasil submitted! Menunggu persetujuan admin.');
             document.getElementById('registrasiForm').reset();
             
             // Update pending count
             document.getElementById('pendingCount').textContent = pendingRegistrations.length;
         }
+        
+        function sendToGoogleSheets(data) {
+            // Jika menggunakan Google Apps Script Web App
+            if (GOOGLE_SHEETS_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
+                fetch(GOOGLE_SHEETS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    console.log('Data berhasil dikirim ke Google Sheets');
+                })
+                .catch(error => {
+                    console.error('Error mengirim data:', error);
+                });
+            } else {
+                console.log('Data yang akan dikirim ke Google Sheets:', data);
+                // Simpan ke localStorage sebagai backup
+                let localData = JSON.parse(localStorage.getItem('abdimas_registrations') || '[]');
+                localData.push(data);
+                localStorage.setItem('abdimas_registrations', JSON.stringify(localData));
+            }
+        }
+        
+        // Fungsi untuk mengambil data dari Google Sheets (simulasi)
+        function loadDataFromGoogleSheets() {
+            // Coba ambil dari localStorage terlebih dahulu
+            const localData = localStorage.getItem('abdimas_registrations');
+            if (localData) {
+                const data = JSON.parse(localData);
+                data.forEach((item, index) => {
+                    if (!pendingRegistrations.find(p => p.nama_k === item.nama_k)) {
+                        pendingRegistrations.push({
+                            id: Date.now() + index,
+                            nama_kegiatan: item.nama_k,
+                            tanggal_pelaksanaan: item.tanggal_pelaksanaan,
+                            lokasi: item.lokasi,
+                            jumlah_peserta: item.jumlah_peserta,
+                            deskripsi: item.deskripsi,
+                            penanggung_jawab: item.penanggung_jawab,
+                            kontak: item.kontak,
+                            status: 'pending',
+                            tanggal_daftar: item.tanggal_daftar
+                        });
+                    }
+                });
+                document.getElementById('pendingCount').textContent = pendingRegistrations.length;
+            }
+        }
+        
+        // Load data saat halaman dimuat
+        loadDataFromGoogleSheets();
 
         function formatDate(dateString) {
             const options = { day: '2-digit', month: 'short', year: 'numeric' };
