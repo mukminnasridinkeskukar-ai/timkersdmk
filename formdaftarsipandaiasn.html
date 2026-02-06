@@ -1961,26 +1961,42 @@
         // Contoh URL: https://script.google.com/macros/s/ABC123XYZ/exec
         // 
         // Untuk demo offline, biarkan USE_GOOGLE_SHEETS = false
-        const USE_GOOGLE_SHEETS = true; // Ubah ke true jika sudah deploy Google Apps Script
-        const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbxbvSvaj1zy6H6R40fAiJs-LUa0FEO130Gli9EOKulm_I1QV2U64ZljCVXT2tdiIGLctw/exec";
+        // Google Sheets URL akan digunakan jika USE_GOOGLE_SHEETS = true
+        const USE_GOOGLE_SHEETS = false; // Ubah ke true jika sudah deploy Google Apps Script
+        let GOOGLE_SHEETS_URL = ""; // URL akan diisi dari localStorage atau dikosongkan
 
         // ============ FUNGSI KIRIM DATA KE GOOGLE SHEETS ============
         async function sendToGoogleSheets(data) {
-            if (!USE_GOOGLE_SHEETS) {
+            // Load Google Sheets URL from settings
+            const settings = JSON.parse(localStorage.getItem('sipandai_settings') || '{}');
+            const gsUrl = settings.googleSheetsUrl || '';
+            
+            if (!USE_GOOGLE_SHEETS || !gsUrl) {
                 console.log('Mode Demo: Data tidak dikirim ke Google Sheets');
                 console.log('Data:', data);
-                return { success: true, message: 'Demo mode' };
+                // Simpan ke localStorage untuk demo
+                const storageKey = data.action === 'submitAbsensi' ? 'sipandai_absensi' : 'sipandai_pendaftaran';
+                let existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                existing.push(data);
+                localStorage.setItem(storageKey, JSON.stringify(existing));
+                return { success: true, message: 'Demo mode - data disimpan lokal' };
             }
             
             try {
-                const response = await fetch(GOOGLE_SHEETS_URL, {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await fetch(gsUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify(data),
-                    mode: 'no-cors' // Untuk Google Apps Script
+                    mode: 'no-cors', // Untuk Google Apps Script
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
                 return { success: true, message: 'Data berhasil dikirim' };
             } catch (error) {
                 console.error('Error:', error);
@@ -1990,23 +2006,36 @@
 
         // ============ FETCH DATA DARI GOOGLE SHEETS ============
         async function fetchFromGoogleSheets(action, params = {}) {
-            if (!USE_GOOGLE_SHEETS) {
+            // Load Google Sheets URL from settings if available
+            const settings = JSON.parse(localStorage.getItem('sipandai_settings') || '{}');
+            const gsUrl = settings.googleSheetsUrl || '';
+            
+            if (!USE_GOOGLE_SHEETS || !gsUrl) {
                 // Return demo data
                 return getDemoData(action);
             }
             
             try {
-                const url = new URL(GOOGLE_SHEETS_URL);
+                const url = new URL(gsUrl);
                 url.searchParams.append('action', action);
                 for (const key in params) {
                     url.searchParams.append(key, params[key]);
                 }
                 
-                const response = await fetch(url.toString());
+                // Use timeout to prevent hanging
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+                
+                const response = await fetch(url.toString(), {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
                 const data = await response.json();
                 return data;
             } catch (error) {
                 console.error('Error fetching data:', error);
+                showNotification('Gagal mengambil data, menggunakan data demo', 'info');
                 return getDemoData(action);
             }
         }
@@ -2570,7 +2599,7 @@
         // ============ LOGIN ADMIN ============
         async function loginAdmin(event) {
             event.preventDefault();
-            const btn = event.target.querySelector('.btn-submit');
+            const btn = event.currentTarget.querySelector('.btn-submit');
             btn.classList.add('loading');
             btn.disabled = true;
 
@@ -2582,12 +2611,14 @@
                 btn.classList.remove('loading');
                 btn.disabled = false;
                 closeLightbox('admin');
-                document.getElementById('admin-dashboard').classList.add('active');
                 document.body.style.overflow = 'hidden';
+                document.getElementById('admin-dashboard').classList.add('active');
                 showNotification('Selamat datang di Dashboard Admin!', 'success');
                 
-                // Load admin dashboard data
-                loadAdminDashboard();
+                // Load admin dashboard data after a small delay to ensure UI is ready
+                setTimeout(() => {
+                    loadAdminDashboard();
+                }, 100);
             } else {
                 btn.classList.remove('loading');
                 btn.disabled = false;
@@ -2607,70 +2638,115 @@
         async function loadAdminDashboard() {
             showAdminLoading(true);
             
-            // Load statistics
-            const stats = await fetchFromGoogleSheets('getStatistics');
+            // Safety timeout to prevent hanging
+            const timeoutId = setTimeout(() => {
+                showAdminLoading(false);
+                showNotification('Loading data timeout, coba refresh', 'error');
+            }, 10000); // 10 second safety timeout
             
-            document.getElementById('stat-total-peserta').textContent = stats.totalPendaftaran || 0;
-            document.getElementById('stat-absensi-hari-ini').textContent = stats.absensiHariIni || 0;
-            document.getElementById('stat-total-absensi').textContent = stats.totalAbsensi || 0;
-            document.getElementById('stat-rata-rata').textContent = '0'; // Default
-            
-            // Load recent registrations
-            const pendaftaranData = await fetchFromGoogleSheets('getAllPendaftaran');
-            renderPendaftaranTable(pendaftaranData.slice(0, 5), 'tabel-pendaftaran-body');
-            
-            showAdminLoading(false);
+            try {
+                // Load statistics
+                const stats = await fetchFromGoogleSheets('getStatistics');
+                
+                document.getElementById('stat-total-peserta').textContent = stats.totalPendaftaran || 0;
+                document.getElementById('stat-absensi-hari-ini').textContent = stats.absensiHariIni || 0;
+                document.getElementById('stat-total-absensi').textContent = stats.totalAbsensi || 0;
+                document.getElementById('stat-rata-rata').textContent = '0'; // Default
+                
+                // Load recent registrations
+                const pendaftaranData = await fetchFromGoogleSheets('getAllPendaftaran');
+                renderPendaftaranTable(pendaftaranData.slice(0, 5), 'tabel-pendaftaran-body');
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                showNotification('Gagal memuat data dashboard', 'error');
+            } finally {
+                clearTimeout(timeoutId);
+                showAdminLoading(false);
+            }
         }
 
         async function loadDataPeserta() {
             showAdminLoading(true);
             
-            const data = await fetchFromGoogleSheets('getAllPendaftaran');
-            renderPendaftaranTable(data, 'tabel-peserta-body');
+            // Safety timeout
+            const timeoutId = setTimeout(() => {
+                showAdminLoading(false);
+                showNotification('Loading timeout, coba refresh', 'error');
+            }, 10000);
             
-            showAdminLoading(false);
+            try {
+                const data = await fetchFromGoogleSheets('getAllPendaftaran');
+                renderPendaftaranTable(data, 'tabel-peserta-body');
+            } catch (error) {
+                console.error('Error loading peserta:', error);
+            } finally {
+                clearTimeout(timeoutId);
+                showAdminLoading(false);
+            }
         }
 
         async function loadDataAbsensi() {
             showAdminLoading(true);
             
-            const data = await fetchFromGoogleSheets('getAllAbsensi');
-            renderAbsensiTable(data, 'tabel-absensi-body');
+            // Safety timeout
+            const timeoutId = setTimeout(() => {
+                showAdminLoading(false);
+                showNotification('Loading timeout, coba refresh', 'error');
+            }, 10000);
             
-            showAdminLoading(false);
+            try {
+                const data = await fetchFromGoogleSheets('getAllAbsensi');
+                renderAbsensiTable(data, 'tabel-absensi-body');
+            } catch (error) {
+                console.error('Error loading absensi:', error);
+            } finally {
+                clearTimeout(timeoutId);
+                showAdminLoading(false);
+            }
         }
 
         async function loadLaporan() {
             showAdminLoading(true);
             
-            const stats = await fetchFromGoogleSheets('getStatistics');
-            const pendaftaranData = await fetchFromGoogleSheets('getAllPendaftaran');
-            const absensiData = await fetchFromGoogleSheets('getAllAbsensi');
+            // Safety timeout
+            const timeoutId = setTimeout(() => {
+                showAdminLoading(false);
+                showNotification('Loading timeout, coba refresh', 'error');
+            }, 10000);
             
-            // Update statistics
-            document.getElementById('laporan-total-peserta').textContent = stats.totalPendaftaran || 0;
-            document.getElementById('laporan-total-absensi').textContent = stats.totalAbsensi || 0;
-            
-            const persentase = stats.totalPendaftaran > 0 
-                ? Math.round((stats.totalAbsensi / stats.totalPendaftaran) * 100) 
-                : 0;
-            document.getElementById('laporan-persentase').textContent = persentase + '%';
-            
-            // Calculate average rating
-            let totalRating = 0;
-            let ratingCount = 0;
-            absensiData.forEach(item => {
-                const rating = (parseInt(item.eval_penyelenggara) + parseInt(item.eval_fasilitator)) / 2;
-                totalRating += rating;
-                ratingCount++;
-            });
-            const avgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : 0;
-            document.getElementById('laporan-rating').textContent = avgRating;
-            
-            // Render unit kerja statistics
-            renderUnitKerjaStats(stats.unitKerjaStats || {}, stats.totalPendaftaran || 0);
-            
-            showAdminLoading(false);
+            try {
+                const stats = await fetchFromGoogleSheets('getStatistics');
+                const pendaftaranData = await fetchFromGoogleSheets('getAllPendaftaran');
+                const absensiData = await fetchFromGoogleSheets('getAllAbsensi');
+                
+                // Update statistics
+                document.getElementById('laporan-total-peserta').textContent = stats.totalPendaftaran || 0;
+                document.getElementById('laporan-total-absensi').textContent = stats.totalAbsensi || 0;
+                
+                const persentase = stats.totalPendaftaran > 0 
+                    ? Math.round((stats.totalAbsensi / stats.totalPendaftaran) * 100) 
+                    : 0;
+                document.getElementById('laporan-persentase').textContent = persentase + '%';
+                
+                // Calculate average rating
+                let totalRating = 0;
+                let ratingCount = 0;
+                absensiData.forEach(item => {
+                    const rating = (parseInt(item.eval_penyelenggara) + parseInt(item.eval_fasilitator)) / 2;
+                    totalRating += rating;
+                    ratingCount++;
+                });
+                const avgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : 0;
+                document.getElementById('laporan-rating').textContent = avgRating;
+                
+                // Render unit kerja statistics
+                renderUnitKerjaStats(stats.unitKerjaStats || {}, stats.totalPendaftaran || 0);
+            } catch (error) {
+                console.error('Error loading laporan:', error);
+            } finally {
+                clearTimeout(timeoutId);
+                showAdminLoading(false);
+            }
         }
 
         function renderPendaftaranTable(data, containerId) {
