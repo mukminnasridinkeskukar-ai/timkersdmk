@@ -1164,6 +1164,43 @@
             animation: spin 0.8s linear infinite;
         }
 
+        /* Pagination styles */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .pagination-btn {
+            padding: 8px 16px;
+            background: #1a1a2e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: #e94560;
+        }
+
+        .pagination-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
         /* Responsive Admin Dashboard */
         @media (max-width: 768px) {
             .admin-sidebar {
@@ -1679,17 +1716,17 @@
                             <i class="fas fa-user-check"></i>
                         </div>
                         <div>
-                            <h3 id="stat-absensi-hari-ini">0</h3>
+                            <h3 id="stat-peserta-hadir">0</h3>
                             <p>Peserta Hadir Hari Ini</p>
                         </div>
                     </div>
                     <div class="admin-card">
                         <div class="admin-card-icon orange">
-                            <i class="fas fa-clipboard-list"></i>
+                            <i class="fas fa-clipboard-check"></i>
                         </div>
                         <div>
-                            <h3 id="stat-total-absensi">0</h3>
-                            <p>Total Absensi</p>
+                            <h3 id="stat-total-absen">0</h3>
+                            <p>Total Peserta Absen</p>
                         </div>
                     </div>
                     <div class="admin-card">
@@ -1697,23 +1734,19 @@
                             <i class="fas fa-star"></i>
                         </div>
                         <div>
-                            <h3 id="stat-rata-rata">0</h3>
+                            <h3 id="stat-rata-rata">0.0</h3>
                             <p>Rata-rata Rating</p>
                         </div>
                     </div>
                 </div>
                 <div class="admin-table-container">
                     <div class="admin-table-header">
-                        <h2>Pendaftaran Terbaru</h2>
-                        <div class="admin-search">
-                            <i class="fas fa-search"></i>
-                            <input type="text" placeholder="Cari peserta..." aria-label="Cari peserta" onkeyup="searchTable('tabel-pendaftaran-terbaru', this.value)">
-                        </div>
+                        <h2>5 Pendaftaran Terbaru</h2>
                     </div>
                     <table class="admin-table" id="tabel-pendaftaran-terbaru">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>No</th>
                                 <th>Nama Lengkap</th>
                                 <th>NIP</th>
                                 <th>Unit Kerja</th>
@@ -1735,13 +1768,13 @@
                         <h2>Data Peserta Pendaftaran</h2>
                         <div class="admin-search">
                             <i class="fas fa-search"></i>
-                            <input type="text" placeholder="Cari peserta..." aria-label="Cari peserta" onkeyup="searchTable('tabel-peserta', this.value)">
+                            <input type="text" placeholder="Cari peserta..." aria-label="Cari peserta" id="search-peserta" onkeyup="searchPeserta()">
                         </div>
                     </div>
                     <table class="admin-table" id="tabel-peserta">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>No</th>
                                 <th>Nama Lengkap</th>
                                 <th>NIP</th>
                                 <th>Unit Kerja</th>
@@ -1755,6 +1788,11 @@
                             <!-- Data akan dimuat melalui JavaScript -->
                         </tbody>
                     </table>
+                    <div class="pagination" id="pagination-peserta">
+                        <button class="pagination-btn" onclick="changePage('peserta', -1)" id="prev-peserta">« Prev</button>
+                        <span class="pagination-info" id="info-peserta">Halaman 1 dari 1</span>
+                        <button class="pagination-btn" onclick="changePage('peserta', 1)" id="next-peserta">Next »</button>
+                    </div>
                 </div>
             </div>
 
@@ -1765,13 +1803,13 @@
                         <h2>Data Absensi</h2>
                         <div class="admin-search">
                             <i class="fas fa-search"></i>
-                            <input type="text" placeholder="Cari absensi..." aria-label="Cari absensi" onkeyup="searchTable('tabel-absensi', this.value)">
+                            <input type="text" placeholder="Cari absensi..." aria-label="Cari absensi" id="search-absensi" onkeyup="searchAbsensi()">
                         </div>
                     </div>
                     <table class="admin-table" id="tabel-absensi">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>No</th>
                                 <th>Tanggal</th>
                                 <th>Jam</th>
                                 <th>Nama Lengkap</th>
@@ -1785,6 +1823,11 @@
                             <!-- Data akan dimuat melalui JavaScript -->
                         </tbody>
                     </table>
+                    <div class="pagination" id="pagination-absensi">
+                        <button class="pagination-btn" onclick="changePage('absensi', -1)" id="prev-absensi">« Prev</button>
+                        <span class="pagination-info" id="info-absensi">Halaman 1 dari 1</span>
+                        <button class="pagination-btn" onclick="changePage('absensi', 1)" id="next-absensi">Next »</button>
+                    </div>
                 </div>
             </div>
 
@@ -2044,31 +2087,52 @@
         function getDemoData(action) {
             if (action === 'getAllPendaftaran') {
                 return [
-                    { id: 'SIP-001', nama_lengkap: 'Ahmad Fauzi', nip: '198501012010011001', unit_kerja: 'Dinas Kesehatan', status_pegawai: 'PNS', email: 'ahmad@email.com', jp: '6 JP', timestamp: '2026-02-10 10:00:00', rowNumber: 2 },
-                    { id: 'SIP-002', nama_lengkap: 'Siti Nurhaliza', nip: '199002032011012002', unit_kerja: 'Dinas Pendidikan', status_pegawai: 'PNS', email: 'siti@email.com', jp: '6 JP', timestamp: '2026-02-10 11:00:00', rowNumber: 3 },
-                    { id: 'SIP-003', nama_lengkap: 'Budi Santoso', nip: '198807152009011003', unit_kerja: 'Dinas Sosial', status_pegawai: 'PPPK', email: 'budi@email.com', jp: '4 JP', timestamp: '2026-02-11 09:00:00', rowNumber: 4 },
-                    { id: 'SIP-004', nama_lengkap: 'Dewi Lestari', nip: '199105202012022004', unit_kerja: 'Dinas PUPR', status_pegawai: 'PNS', email: 'dewi@email.com', jp: '6 JP', timestamp: '2026-02-11 14:00:00', rowNumber: 5 },
-                    { id: 'SIP-005', nama_lengkap: 'Eko Prasetyo', nip: '198812302008011005', unit_kerja: 'Dinas Lingkungan Hidup', status_pegawai: 'CPNS', email: 'eko@email.com', jp: '5 JP', timestamp: '2026-02-12 08:00:00', rowNumber: 6 }
+                    { ID: 'SIP-001', 'Nama Lengkap': 'Ahmad Fauzi', NIP: '198501012010011001', 'Unit Kerja': 'Dinas Kesehatan', 'Status Pegawai': 'PNS', Email: 'ahmad@email.com', 'Jumlah JP': '6 JP', Timestamp: '2026-02-10 10:00:00', rowNumber: 2 },
+                    { ID: 'SIP-002', 'Nama Lengkap': 'Siti Nurhaliza', NIP: '199002032011012002', 'Unit Kerja': 'Dinas Pendidikan', 'Status Pegawai': 'PNS', Email: 'siti@email.com', 'Jumlah JP': '6 JP', Timestamp: '2026-02-10 11:00:00', rowNumber: 3 },
+                    { ID: 'SIP-003', 'Nama Lengkap': 'Budi Santoso', NIP: '198807152009011003', 'Unit Kerja': 'Dinas Sosial', 'Status Pegawai': 'PPPK', Email: 'budi@email.com', 'Jumlah JP': '4 JP', Timestamp: '2026-02-11 09:00:00', rowNumber: 4 },
+                    { ID: 'SIP-004', 'Nama Lengkap': 'Dewi Lestari', NIP: '199105202012022004', 'Unit Kerja': 'Dinas PUPR', 'Status Pegawai': 'PNS', Email: 'dewi@email.com', 'Jumlah JP': '6 JP', Timestamp: '2026-02-11 14:00:00', rowNumber: 5 },
+                    { ID: 'SIP-005', 'Nama Lengkap': 'Eko Prasetyo', NIP: '198812302008011005', 'Unit Kerja': 'Dinas Lingkungan Hidup', 'Status Pegawai': 'CPNS', Email: 'eko@email.com', 'Jumlah JP': '5 JP', Timestamp: '2026-02-12 08:00:00', rowNumber: 6 },
+                    { ID: 'SIP-006', 'Nama Lengkap': 'Fitriani', NIP: '199203152013022006', 'Unit Kerja': 'Dinas Ketenagakerjaan', 'Status Pegawai': 'PNS', Email: 'fitri@email.com', 'Jumlah JP': '8 JP', Timestamp: '2026-02-12 09:00:00', rowNumber: 7 },
+                    { ID: 'SIP-007', 'Nama Lengkap': 'Hendra Wijaya', NIP: '198704202007011007', 'Unit Kerja': 'Dinas Pertanian', 'Status Pegawai': 'PNS', Email: 'hendra@email.com', 'Jumlah JP': '6 JP', Timestamp: '2026-02-12 10:00:00', rowNumber: 8 },
+                    { ID: 'SIP-008', 'Nama Lengkap': 'Indah Permata', NIP: '199008252009022008', 'Unit Kerja': 'Dinas Perindustrian', 'Status Pegawai': 'PPPK', Email: 'indah@email.com', 'Jumlah JP': '4 JP', Timestamp: '2026-02-12 11:00:00', rowNumber: 9 },
+                    { ID: 'SIP-009', 'Nama Lengkap': 'Joko Susilo', NIP: '197905152006011009', 'Unit Kerja': 'Dinas Perdagangan', 'Status Pegawai': 'PNS', Email: 'joko@email.com', 'Jumlah JP': '6 JP', Timestamp: '2026-02-12 13:00:00', rowNumber: 10 },
+                    { ID: 'SIP-010', 'Nama Lengkap': 'Kartika Sari', NIP: '199112302012022010', 'Unit Kerja': 'Dinas Pariwisata', 'Status Pegawai': 'CPNS', Email: 'kartika@email.com', 'Jumlah JP': '5 JP', Timestamp: '2026-02-12 14:00:00', rowNumber: 11 },
+                    { ID: 'SIP-011', 'Nama Lengkap': 'Lukman Hakim', NIP: '198403122008011011', 'Unit Kerja': 'Dinas Komunikasi', 'Status Pegawai': 'PNS', Email: 'lukman@email.com', 'Jumlah JP': '6 JP', Timestamp: '2026-02-12 15:00:00', rowNumber: 12 }
                 ];
             }
             if (action === 'getAllAbsensi') {
                 return [
-                    { id: 'ABS-001', tanggal_absensi: '15 Februari 2026', jam_absensi: '15:30:00', nama_lengkap: 'Ahmad Fauzi', nip: '198501012010011001', platform_digital: 'Zoom Meeting', eval_penyelenggara: '5', eval_fasilitator: '5', rowNumber: 2 },
-                    { id: 'ABS-002', tanggal_absensi: '15 Februari 2026', jam_absensi: '15:45:00', nama_lengkap: 'Siti Nurhaliza', nip: '199002032011012002', platform_digital: 'Google Meet', eval_penyelenggara: '4', eval_fasilitator: '5', rowNumber: 3 },
-                    { id: 'ABS-003', tanggal_absensi: '15 Februari 2026', jam_absensi: '16:00:00', nama_lengkap: 'Budi Santoso', nip: '198807152009011003', platform_digital: 'Zoom Meeting', eval_penyelenggara: '5', eval_fasilitator: '4', rowNumber: 4 }
+                    { ID: 'ABS-001', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '15:30:00', 'Nama Lengkap': 'Ahmad Fauzi', NIP: '198501012010011001', 'Platform Digital': 'Zoom Meeting', 'Eval. Penyelenggara': '5', 'Eval. Fasilitator': '5', rowNumber: 2 },
+                    { ID: 'ABS-002', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '15:45:00', 'Nama Lengkap': 'Siti Nurhaliza', NIP: '199002032011012002', 'Platform Digital': 'Google Meet', 'Eval. Penyelenggara': '4', 'Eval. Fasilitator': '5', rowNumber: 3 },
+                    { ID: 'ABS-003', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '16:00:00', 'Nama Lengkap': 'Budi Santoso', NIP: '198807152009011003', 'Platform Digital': 'Zoom Meeting', 'Eval. Penyelenggara': '5', 'Eval. Fasilitator': '4', rowNumber: 4 },
+                    { ID: 'ABS-004', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '16:15:00', 'Nama Lengkap': 'Dewi Lestari', NIP: '199105202012022004', 'Platform Digital': 'Microsoft Teams', 'Eval. Penyelenggara': '4', 'Eval. Fasilitator': '4', rowNumber: 5 },
+                    { ID: 'ABS-005', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '16:30:00', 'Nama Lengkap': 'Eko Prasetyo', NIP: '198812302008011005', 'Platform Digital': 'Zoom Meeting', 'Eval. Penyelenggara': '5', 'Eval. Fasilitator': '4', rowNumber: 6 },
+                    { ID: 'ABS-006', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '16:45:00', 'Nama Lengkap': 'Fitriani', NIP: '199203152013022006', 'Platform Digital': 'Google Meet', 'Eval. Penyelenggara': '4', 'Eval. Fasilitator': '5', rowNumber: 7 },
+                    { ID: 'ABS-007', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '17:00:00', 'Nama Lengkap': 'Hendra Wijaya', NIP: '198704202007011007', 'Platform Digital': 'Zoom Meeting', 'Eval. Penyelenggara': '5', 'Eval. Fasilitator': '5', rowNumber: 8 },
+                    { ID: 'ABS-008', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '17:15:00', 'Nama Lengkap': 'Indah Permata', NIP: '199008252009022008', 'Platform Digital': 'Microsoft Teams', 'Eval. Penyelenggara': '4', 'Eval. Fasilitator': '4', rowNumber: 9 },
+                    { ID: 'ABS-009', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '17:30:00', 'Nama Lengkap': 'Joko Susilo', NIP: '197905152006011009', 'Platform Digital': 'Zoom Meeting', 'Eval. Penyelenggara': '5', 'Eval. Fasilitator': '4', rowNumber: 10 },
+                    { ID: 'ABS-010', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '17:45:00', 'Nama Lengkap': 'Kartika Sari', NIP: '199112302012022010', 'Platform Digital': 'Google Meet', 'Eval. Penyelenggara': '4', 'Eval. Fasilitator': '5', rowNumber: 11 },
+                    { ID: 'ABS-011', 'Tanggal Absensi': '15 Februari 2026', 'Jam Absensi': '18:00:00', 'Nama Lengkap': 'Lukman Hakim', NIP: '198403122008011011', 'Platform Digital': 'Zoom Meeting', 'Eval. Penyelenggara': '5', 'Eval. Fasilitator': '5', rowNumber: 12 }
                 ];
             }
             if (action === 'getStatistics') {
                 return {
-                    totalPendaftaran: 5,
-                    totalAbsensi: 3,
-                    absensiHariIni: 3,
+                    totalPendaftaran: 12,
+                    totalAbsensi: 11,
+                    absensiHariIni: 11,
+                    avgRating: '4.5',
                     unitKerjaStats: {
                         'Dinas Kesehatan': 1,
                         'Dinas Pendidikan': 1,
                         'Dinas Sosial': 1,
                         'Dinas PUPR': 1,
-                        'Dinas Lingkungan Hidup': 1
+                        'Dinas Lingkungan Hidup': 1,
+                        'Dinas Ketenagakerjaan': 1,
+                        'Dinas Pertanian': 1,
+                        'Dinas Perindustrian': 1,
+                        'Dinas Perdagangan': 1,
+                        'Dinas Pariwisata': 1,
+                        'Dinas Komunikasi': 1
                     }
                 };
             }
@@ -2635,6 +2699,13 @@
         }
 
         // ============ ADMIN DASHBOARD FUNCTIONS ============
+        // Pagination variables
+        let pesertaCurrentPage = 1;
+        let absensiCurrentPage = 1;
+        const ROWS_PER_PAGE = 10;
+        let allPesertaData = [];
+        let allAbsensiData = [];
+        
         async function loadAdminDashboard() {
             showAdminLoading(true);
             
@@ -2645,15 +2716,15 @@
             }, 10000); // 10 second safety timeout
             
             try {
-                // Load statistics
+                // Load statistics from Google Sheets
                 const stats = await fetchFromGoogleSheets('getStatistics');
                 
                 document.getElementById('stat-total-peserta').textContent = stats.totalPendaftaran || 0;
-                document.getElementById('stat-absensi-hari-ini').textContent = stats.absensiHariIni || 0;
-                document.getElementById('stat-total-absensi').textContent = stats.totalAbsensi || 0;
-                document.getElementById('stat-rata-rata').textContent = '0'; // Default
+                document.getElementById('stat-peserta-hadir').textContent = stats.absensiHariIni || 0;
+                document.getElementById('stat-total-absen').textContent = stats.totalAbsensi || 0;
+                document.getElementById('stat-rata-rata').textContent = stats.avgRating || '0.0';
                 
-                // Load recent registrations
+                // Load recent registrations (latest 5)
                 const pendaftaranData = await fetchFromGoogleSheets('getAllPendaftaran');
                 renderPendaftaranTable(pendaftaranData.slice(0, 5), 'tabel-pendaftaran-body');
             } catch (error) {
@@ -2675,8 +2746,9 @@
             }, 10000);
             
             try {
-                const data = await fetchFromGoogleSheets('getAllPendaftaran');
-                renderPendaftaranTable(data, 'tabel-peserta-body');
+                allPesertaData = await fetchFromGoogleSheets('getAllPendaftaran');
+                pesertaCurrentPage = 1;
+                renderPendaftaranTable(allPesertaData, 'tabel-peserta-body');
             } catch (error) {
                 console.error('Error loading peserta:', error);
             } finally {
@@ -2695,13 +2767,69 @@
             }, 10000);
             
             try {
-                const data = await fetchFromGoogleSheets('getAllAbsensi');
-                renderAbsensiTable(data, 'tabel-absensi-body');
+                allAbsensiData = await fetchFromGoogleSheets('getAllAbsensi');
+                absensiCurrentPage = 1;
+                renderAbsensiTable(allAbsensiData, 'tabel-absensi-body');
             } catch (error) {
                 console.error('Error loading absensi:', error);
             } finally {
                 clearTimeout(timeoutId);
                 showAdminLoading(false);
+            }
+        }
+        
+        // Pagination functions
+        function changePage(type, direction) {
+            if (type === 'peserta') {
+                const totalPages = Math.ceil(allPesertaData.length / ROWS_PER_PAGE);
+                const newPage = pesertaCurrentPage + direction;
+                if (newPage >= 1 && newPage <= totalPages) {
+                    pesertaCurrentPage = newPage;
+                    renderPendaftaranTable(allPesertaData, 'tabel-peserta-body');
+                }
+            } else if (type === 'absensi') {
+                const totalPages = Math.ceil(allAbsensiData.length / ROWS_PER_PAGE);
+                const newPage = absensiCurrentPage + direction;
+                if (newPage >= 1 && newPage <= totalPages) {
+                    absensiCurrentPage = newPage;
+                    renderAbsensiTable(allAbsensiData, 'tabel-absensi-body');
+                }
+            }
+        }
+        
+        function updatePaginationUI(type, totalItems) {
+            const totalPages = Math.ceil(totalItems / ROWS_PER_PAGE);
+            const currentPage = type === 'peserta' ? pesertaCurrentPage : absensiCurrentPage;
+            
+            document.getElementById(`info-${type}`).textContent = `Halaman ${currentPage} dari ${totalPages || 1}`;
+            document.getElementById(`prev-${type}`).disabled = currentPage <= 1;
+            document.getElementById(`next-${type}`).disabled = currentPage >= totalPages || totalPages === 0;
+        }
+        
+        function searchPeserta() {
+            const searchTerm = document.getElementById('search-peserta').value.toLowerCase();
+            if (searchTerm === '') {
+                renderPendaftaranTable(allPesertaData, 'tabel-peserta-body');
+            } else {
+                const filtered = allPesertaData.filter(item => 
+                    item['Nama Lengkap']?.toLowerCase().includes(searchTerm) ||
+                    item.NIP?.toLowerCase().includes(searchTerm) ||
+                    item['Unit Kerja']?.toLowerCase().includes(searchTerm)
+                );
+                renderPendaftaranTable(filtered, 'tabel-peserta-body');
+            }
+        }
+        
+        function searchAbsensi() {
+            const searchTerm = document.getElementById('search-absensi').value.toLowerCase();
+            if (searchTerm === '') {
+                renderAbsensiTable(allAbsensiData, 'tabel-absensi-body');
+            } else {
+                const filtered = allAbsensiData.filter(item => 
+                    item['Nama Lengkap']?.toLowerCase().includes(searchTerm) ||
+                    item.NIP?.toLowerCase().includes(searchTerm)
+                );
+                renderAbsensiTable(filtered, 'tabel-absensi-body');
             }
         }
 
@@ -2722,22 +2850,12 @@
                 // Update statistics
                 document.getElementById('laporan-total-peserta').textContent = stats.totalPendaftaran || 0;
                 document.getElementById('laporan-total-absensi').textContent = stats.totalAbsensi || 0;
+                document.getElementById('laporan-rating').textContent = stats.avgRating || '0.0';
                 
                 const persentase = stats.totalPendaftaran > 0 
                     ? Math.round((stats.totalAbsensi / stats.totalPendaftaran) * 100) 
                     : 0;
                 document.getElementById('laporan-persentase').textContent = persentase + '%';
-                
-                // Calculate average rating
-                let totalRating = 0;
-                let ratingCount = 0;
-                absensiData.forEach(item => {
-                    const rating = (parseInt(item.eval_penyelenggara) + parseInt(item.eval_fasilitator)) / 2;
-                    totalRating += rating;
-                    ratingCount++;
-                });
-                const avgRating = ratingCount > 0 ? (totalRating / ratingCount).toFixed(1) : 0;
-                document.getElementById('laporan-rating').textContent = avgRating;
                 
                 // Render unit kerja statistics
                 renderUnitKerjaStats(stats.unitKerjaStats || {}, stats.totalPendaftaran || 0);
@@ -2754,22 +2872,40 @@
             tbody.innerHTML = '';
             
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666;">Tidak ada data</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">Tidak ada data</td></tr>';
+                if (containerId === 'tabel-peserta-body') {
+                    updatePaginationUI('peserta', 0);
+                }
                 return;
             }
             
-            data.forEach(item => {
+            // Calculate pagination
+            let currentData = data;
+            let currentPage = 1;
+            let type = '';
+            
+            if (containerId === 'tabel-peserta-body') {
+                type = 'peserta';
+                currentPage = pesertaCurrentPage;
+                const start = (currentPage - 1) * ROWS_PER_PAGE;
+                const end = start + ROWS_PER_PAGE;
+                currentData = data.slice(start, end);
+                updatePaginationUI('peserta', data.length);
+            }
+            
+            currentData.forEach((item, index) => {
+                const rowNum = (currentPage - 1) * ROWS_PER_PAGE + index + 1;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${item.id}</td>
-                    <td>${item.nama_lengkap}</td>
-                    <td>${item.nip}</td>
-                    <td>${item.unit_kerja}</td>
-                    <td><span class="status-badge active">Aktif</span></td>
+                    <td>${rowNum}</td>
+                    <td>${item['Nama Lengkap'] || '-'}</td>
+                    <td>${item.NIP || '-'}</td>
+                    <td>${item['Unit Kerja'] || '-'}</td>
+                    <td><span class="status-badge active">${item['Status Pegawai'] || '-'}</span></td>
+                    <td>${item.Email || '-'}</td>
+                    <td>${item['Jumlah JP'] || '-'}</td>
                     <td>
                         <button class="action-btn" aria-label="Lihat" onclick="viewPendaftaran(${item.rowNumber})"><i class="fas fa-eye"></i></button>
-                        <button class="action-btn" aria-label="Edit" onclick="editPendaftaran(${item.rowNumber})"><i class="fas fa-edit"></i></button>
-                        <button class="action-btn delete" aria-label="Hapus" onclick="deletePendaftaran(${item.rowNumber})"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -2782,26 +2918,43 @@
             
             if (data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #666;">Tidak ada data</td></tr>';
+                if (containerId === 'tabel-absensi-body') {
+                    updatePaginationUI('absensi', 0);
+                }
                 return;
             }
             
-            data.forEach(item => {
-                const avgRating = item.eval_penyelenggara && item.eval_fasilitator 
-                    ? ((parseInt(item.eval_penyelenggara) + parseInt(item.eval_fasilitator)) / 2).toFixed(1) 
+            // Calculate pagination
+            let currentData = data;
+            let currentPage = 1;
+            let type = '';
+            
+            if (containerId === 'tabel-absensi-body') {
+                type = 'absensi';
+                currentPage = absensiCurrentPage;
+                const start = (currentPage - 1) * ROWS_PER_PAGE;
+                const end = start + ROWS_PER_PAGE;
+                currentData = data.slice(start, end);
+                updatePaginationUI('absensi', data.length);
+            }
+            
+            currentData.forEach((item, index) => {
+                const rowNum = (currentPage - 1) * ROWS_PER_PAGE + index + 1;
+                const avgRating = item['Eval. Penyelenggara'] && item['Eval. Fasilitator'] 
+                    ? ((parseInt(item['Eval. Penyelenggara']) + parseInt(item['Eval. Fasilitator'])) / 2).toFixed(1) 
                     : '-';
                 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${item.id}</td>
-                    <td>${item.tanggal_absensi}</td>
-                    <td>${item.jam_absensi}</td>
-                    <td>${item.nama_lengkap}</td>
-                    <td>${item.nip}</td>
-                    <td>${item.platform_digital}</td>
+                    <td>${rowNum}</td>
+                    <td>${item['Tanggal Absensi'] || '-'}</td>
+                    <td>${item['Jam Absensi'] || '-'}</td>
+                    <td>${item['Nama Lengkap'] || '-'}</td>
+                    <td>${item.NIP || '-'}</td>
+                    <td>${item['Platform Digital'] || '-'}</td>
                     <td>${avgRating}</td>
                     <td>
                         <button class="action-btn" aria-label="Lihat" onclick="viewAbsensi(${item.rowNumber})"><i class="fas fa-eye"></i></button>
-                        <button class="action-btn delete" aria-label="Hapus" onclick="deleteAbsensi(${item.rowNumber})"><i class="fas fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -2842,55 +2995,55 @@
                 modalBody.innerHTML = `
                     <div class="detail-row">
                         <span class="detail-label">ID</span>
-                        <span class="detail-value">${item.id}</span>
+                        <span class="detail-value">${item.ID || item.id || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Timestamp</span>
-                        <span class="detail-value">${item.timestamp}</span>
+                        <span class="detail-value">${item.Timestamp || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Nama Lengkap</span>
-                        <span class="detail-value">${item.nama_lengkap}</span>
+                        <span class="detail-value">${item['Nama Lengkap'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">NIP</span>
-                        <span class="detail-value">${item.nip}</span>
+                        <span class="detail-value">${item.NIP || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Unit Kerja</span>
-                        <span class="detail-value">${item.unit_kerja}</span>
+                        <span class="detail-value">${item['Unit Kerja'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Status Pegawai</span>
-                        <span class="detail-value">${item.status_pegawai}</span>
+                        <span class="detail-value">${item['Status Pegawai'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Jenis SDMK</span>
-                        <span class="detail-value">${item.jenis_sdmk || '-'}</span>
+                        <span class="detail-value">${item['Jenis SDMK'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Jumlah JP</span>
-                        <span class="detail-value">${item.jumlah_jp || '-'}</span>
+                        <span class="detail-value">${item['Jumlah JP'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">WhatsApp</span>
-                        <span class="detail-value">${item.whatsapp || '-'}</span>
+                        <span class="detail-value">${item.WhatsApp || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Email</span>
-                        <span class="detail-value">${item.email}</span>
+                        <span class="detail-value">${item.Email || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Tema Pembelajaran</span>
-                        <span class="detail-value">${item.tema_pembelajaran || '-'}</span>
+                        <span class="detail-value">${item['Tema Pembelajaran'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Narasumber</span>
-                        <span class="detail-value">${item.narasumber || '-'}</span>
+                        <span class="detail-value">${item.Narasumber || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Platform Digital</span>
-                        <span class="detail-value">${item.platform_digital || '-'}</span>
+                        <span class="detail-value">${item['Platform Digital'] || '-'}</span>
                     </div>
                 `;
                 document.getElementById('modal-view').classList.add('active');
@@ -2906,43 +3059,47 @@
                 modalBody.innerHTML = `
                     <div class="detail-row">
                         <span class="detail-label">ID</span>
-                        <span class="detail-value">${item.id}</span>
+                        <span class="detail-value">${item.ID || item.id || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Timestamp</span>
-                        <span class="detail-value">${item.timestamp || '-'}</span>
+                        <span class="detail-value">${item.Timestamp || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Tanggal Absensi</span>
-                        <span class="detail-value">${item.tanggal_absensi}</span>
+                        <span class="detail-value">${item['Tanggal Absensi'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Jam Absensi</span>
-                        <span class="detail-value">${item.jam_absensi}</span>
+                        <span class="detail-value">${item['Jam Absensi'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Nama Lengkap</span>
-                        <span class="detail-value">${item.nama_lengkap}</span>
+                        <span class="detail-value">${item['Nama Lengkap'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">NIP</span>
-                        <span class="detail-value">${item.nip}</span>
+                        <span class="detail-value">${item.NIP || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Platform Digital</span>
-                        <span class="detail-value">${item.platform_digital}</span>
+                        <span class="detail-value">${item['Platform Digital'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Evaluasi Penyelenggaraan</span>
-                        <span class="detail-value">${item.eval_penyelenggara || '-'}</span>
+                        <span class="detail-value">${item['Eval. Penyelenggara'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Evaluasi Fasilitator</span>
-                        <span class="detail-value">${item.eval_fasilitator || '-'}</span>
+                        <span class="detail-value">${item['Eval. Fasilitator'] || '-'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Evaluasi Sarana</span>
+                        <span class="detail-value">${item['Eval. Sarana'] || '-'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Komentar</span>
-                        <span class="detail-value">${item.komentar || '-'}</span>
+                        <span class="detail-value">${item.Komentar || '-'}</span>
                     </div>
                 `;
                 document.getElementById('modal-view').classList.add('active');
