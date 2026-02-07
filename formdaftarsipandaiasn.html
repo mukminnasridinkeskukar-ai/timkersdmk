@@ -2048,40 +2048,27 @@
         }
 
         // ============ FETCH DATA DARI GOOGLE SHEETS ============
-        async function fetchFromGoogleSheets(action, params = {}) {
-            // Load Google Sheets URL from settings if available
-            const settings = JSON.parse(localStorage.getItem('sipandai_settings') || '{}');
-            const gsUrl = settings.googleSheetsUrl || '';
-            
-            if (!USE_GOOGLE_SHEETS || !gsUrl) {
-                // Return demo data
-                return getDemoData(action);
-            }
-            
-            try {
-                const url = new URL(gsUrl);
-                url.searchParams.append('action', action);
-                for (const key in params) {
-                    url.searchParams.append(key, params[key]);
-                }
-                
-                // Use timeout to prevent hanging
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-                
-                const response = await fetch(url.toString(), {
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
-                const data = await response.json();
-                return data;
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                showNotification('Gagal mengambil data, menggunakan data demo', 'info');
-                return getDemoData(action);
-            }
-        }
+     async function fetchFromGoogleSheetsCSV(type) {
+    let csvUrl = "";
+
+    if (type === "data_peserta") csvUrl = https://docs.google.com/spreadsheets/d/e/2PACX-1vTDdhxvHHWLVpM4CiVwM6WxRyUlsqRCgXN-9N_g-jxGIxOUIf1JAt9h3NPJL9NUQKHQVYdNMpY_rxnz/pub?gid=783145160&single=true&output=csv;
+    if (type === "data_absensi") csvUrl = https://docs.google.com/spreadsheets/d/e/2PACX-1vTDdhxvHHWLVpM4CiVwM6WxRyUlsqRCgXN-9N_g-jxGIxOUIf1JAt9h3NPJL9NUQKHQVYdNMpY_rxnz/pub?gid=91863732&single=true&output=csv;
+
+    if (!USE_GOOGLE_SHEETS || !csvUrl) {
+        return getDemoData(type);
+    }
+
+    try {
+        const response = await fetch(csvUrl);
+        const csvText = await response.text();
+        return parseCSV(csvText);
+    } catch (err) {
+        console.error(err);
+        showNotification('Gagal ambil data CSV, pakai data demo', 'info');
+        return getDemoData(type);
+    }
+}
+
 
         // ============ DEMO DATA ============
         function getDemoData(action) {
