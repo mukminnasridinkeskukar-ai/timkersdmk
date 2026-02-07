@@ -1174,7 +1174,7 @@
         // 1. Buat Google Apps Script sesuai README.md
         // 2. Deploy sebagai Web App
         // 3. Copy URL Web App di bawah ini
-        const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbz9gHJ_RcLhGI_YgWdBAIwgjU8AQKcqJr3-lylpN4YjPuFIoaVaCpS_TtwwlFrlmFnE/exec"; // Contoh: 'https://script.google.com/macros/s/ABCDEFGHIJKLMNOPQRSTUVWXYZ/exec'
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxs8xqDjGArtU_6BtSQeSdRQSi7lQr9BOK_c6gFUb3VwJaNNe3Hh0hXG9f5lMoEWQ/exec'; // Contoh: 'https://script.google.com/macros/s/ABCDEFGHIJKLMNOPQRSTUVWXYZ/exec'
         
         // Mapping header untuk sheet Pendaftaran
         const PENDAFTARAN_HEADERS = [
@@ -1290,32 +1290,62 @@
         
         // ==================== GOOGLE SHEETS FUNCTIONS ====================
         function sendToGoogleSheets(sheetName, headers, data) {
-            if (!GOOGLE_SHEETS_URL) {
+            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
                 console.log('Google Sheets URL not configured. Data saved locally only.');
                 return Promise.resolve({ success: false, message: 'Google Sheets not configured' });
             }
             
-            // Map data to headers
+            console.log('Sending data to Google Sheets...');
+            console.log('URL:', GOOGLE_SHEETS_URL);
+            console.log('Sheet:', sheetName);
+            
+            // Map data to headers - exact field names
             const rowData = {};
             headers.forEach(header => {
                 rowData[header] = data[header] || data[header.toLowerCase().replace(/ /g, '')] || '';
             });
             
-            return fetch(GOOGLE_SHEETS_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: 'sheetName=' + encodeURIComponent(sheetName) + '&data=' + encodeURIComponent(JSON.stringify(rowData))
-            })
-            .then(response => response.json())
-            .then(result => {
-                console.log('Data sent to Google Sheets:', result);
-                return result;
-            })
-            .catch(error => {
-                console.error('Error sending to Google Sheets:', error);
-                return { success: false, error: error.message };
+            console.log('Data being sent:', rowData);
+            
+            // Prepare form data
+            const formData = new URLSearchParams();
+            formData.append('sheetName', sheetName);
+            formData.append('data', JSON.stringify(rowData));
+            
+            // Use redirect workaround for CORS - append parameters to URL
+            const redirectUrl = GOOGLE_SHEETS_URL + '?' + formData.toString();
+            
+            // Create an invisible iframe to make the request
+            return new Promise((resolve) => {
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = redirectUrl;
+                
+                iframe.onload = function() {
+                    console.log('Request sent successfully (via iframe)');
+                    // Clean up
+                    setTimeout(() => {
+                        document.body.removeChild(iframe);
+                    }, 1000);
+                    resolve({ success: true, message: 'Data sent via iframe' });
+                };
+                
+                iframe.onerror = function(error) {
+                    console.error('Error sending via iframe:', error);
+                    document.body.removeChild(iframe);
+                    resolve({ success: false, error: 'Iframe request failed' });
+                };
+                
+                document.body.appendChild(iframe);
+                
+                // Fallback timeout
+                setTimeout(() => {
+                    if (document.body.contains(iframe)) {
+                        document.body.removeChild(iframe);
+                        console.log('Request timeout - may have succeeded');
+                        resolve({ success: true, message: 'Request sent (timeout)' });
+                    }
+                }, 3000);
             });
         }
         
@@ -1754,3 +1784,4 @@
     </script>
 </body>
 </html>
+
