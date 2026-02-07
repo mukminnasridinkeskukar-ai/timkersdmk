@@ -962,6 +962,27 @@
     </div>
     
     <script>
+        // ==================== KONFIGURASI GOOGLE SHEETS ====================
+        // Untuk mengaktifkan integrasi Google Sheets:
+        // 1. Buat Google Apps Script sesuai README.md
+        // 2. Deploy sebagai Web App
+        // 3. Copy URL Web App di bawah ini
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzs0mS7J-kFqADAR3eUeg4ryo5vnLOzx_wclAO42aU0MTCA_KPT268w7dcwah33ZqjQKg/exec'; // Contoh: 'https://script.google.com/macros/s/ABCDEFGHIJKLMNOPQRSTUVWXYZ/exec'
+        
+        // Mapping header untuk sheet Pendaftaran
+        const PENDAFTARAN_HEADERS = [
+            'Timestamp', 'ID', 'Nama Lengkap', 'NIP', 'Unit Kerja', 'Status Pegawai',
+            'Jenis SDMK', 'Jumlah JP', 'WhatsApp', 'Email', 'Tema Pembelajaran',
+            'Narasumber', 'Tanggal Kegiatan', 'Waktu Kegiatan', 'Platform Digital', 'JP'
+        ];
+        
+        // Mapping header untuk sheet Absensi
+        const ABSENSI_HEADERS = [
+            'Timestamp', 'ID', 'Tanggal Absensi', 'Jam Absensi', 'Nama Lengkap',
+            'NIP', 'Platform Digital', 'Eval. Penyelenggara', 'Eval. Fasilitator',
+            'Eval. Sarana Prasarana', 'Komentar'
+        ];
+        
         // ==================== DATA STORAGE ====================
         const DB_KEYS = {
             PENDAFTARAN: 'sipandai_pendaftaran',
@@ -1060,6 +1081,37 @@
             return prefix + '-' + timestamp + '-' + random;
         }
         
+        // ==================== GOOGLE SHEETS FUNCTIONS ====================
+        function sendToGoogleSheets(sheetName, headers, data) {
+            if (!GOOGLE_SHEETS_URL) {
+                console.log('Google Sheets URL not configured. Data saved locally only.');
+                return Promise.resolve({ success: false, message: 'Google Sheets not configured' });
+            }
+            
+            // Map data to headers
+            const rowData = {};
+            headers.forEach(header => {
+                rowData[header] = data[header] || data[header.toLowerCase().replace(/ /g, '')] || '';
+            });
+            
+            return fetch(GOOGLE_SHEETS_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'sheetName=' + encodeURIComponent(sheetName) + '&data=' + encodeURIComponent(JSON.stringify(rowData))
+            })
+            .then(response => response.json())
+            .then(result => {
+                console.log('Data sent to Google Sheets:', result);
+                return result;
+            })
+            .catch(error => {
+                console.error('Error sending to Google Sheets:', error);
+                return { success: false, error: error.message };
+            });
+        }
+        
         // ==================== REGISTRATION FUNCTIONS ====================
         function submitPendaftaran(e) {
             e.preventDefault();
@@ -1096,6 +1148,9 @@
             
             existingData.push(data);
             saveData(DB_KEYS.PENDAFTARAN, existingData);
+            
+            // Send to Google Sheets
+            sendToGoogleSheets('Pendaftaran', PENDAFTARAN_HEADERS, data);
             
             showAlert('pendaftaranAlert', 'success', 'Pendaftaran berhasil disimpan! ID Pendaftaran: ' + data.id);
             resetForm('pendaftaranForm');
@@ -1166,6 +1221,9 @@
             const absensiData = getData(DB_KEYS.ABSENSI);
             absensiData.push(data);
             saveData(DB_KEYS.ABSENSI, absensiData);
+            
+            // Send to Google Sheets
+            sendToGoogleSheets('Absensi', ABSENSI_HEADERS, data);
             
             showAlert('absensiAlert', 'success', 'Absensi berhasil disimpan! ID Absensi: ' + data.id);
             resetAbsensiForm();
