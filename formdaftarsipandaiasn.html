@@ -884,9 +884,9 @@
                     <div class="card">
                         <h2>👥 Data Peserta Pendaftaran</h2>
                         <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                            <button class="btn btn-info" onclick="window.open('template_data_peserta.html', '_blank')">📄 Download Template</button>
-                            <button class="btn btn-success" onclick="document.getElementById('excelUpload').click()">📤 Upload Excel</button>
-                            <input type="file" id="excelUpload" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelUpload(this)">
+                            <button class="btn btn-info" onclick="downloadTemplateCSV()">📄 Download Template CSV</button>
+                            <button class="btn btn-success" onclick="document.getElementById('csvUpload').click()">📤 Upload CSV</button>
+                            <input type="file" id="csvUpload" accept=".csv" style="display: none;" onchange="handleCSVUpload(this)">
                             <button class="btn btn-danger" onclick="resetDataPeserta()">🗑️ Reset Semua Data Peserta</button>
                             <span id="pesertaCount" style="margin-left: auto; color: #666;"></span>
                         </div>
@@ -915,8 +915,8 @@
                     <div class="card">
                         <h2>📍 Data Absensi</h2>
                         <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-                            <button class="btn btn-success" onclick="document.getElementById('excelUploadAbsensi').click()">📤 Upload Excel</button>
-                            <input type="file" id="excelUploadAbsensi" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelUploadAbsensi(this)">
+                            <button class="btn btn-success" onclick="document.getElementById('csvUploadAbsensi').click()">📤 Upload CSV</button>
+                            <input type="file" id="csvUploadAbsensi" accept=".csv" style="display: none;" onchange="handleCSVAbsensi(this)">
                             <button class="btn btn-danger" onclick="resetDataAbsensi()">🗑️ Reset Semua Data Absensi</button>
                             <span id="absensiCount" style="margin-left: auto; color: #666;"></span>
                         </div>
@@ -1519,6 +1519,158 @@
             input.value = ''; // Reset input
         }
         
+        function handleCSVUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+                    
+                    if (lines.length < 2) {
+                        alert('File CSV kosong atau tidak memiliki data!');
+                        return;
+                    }
+                    
+                    // Parse CSV - handle quoted values
+                    const parseCSVLine = (line) => {
+                        const result = [];
+                        let current = '';
+                        let inQuotes = false;
+                        for (let i = 0; i < line.length; i++) {
+                            const char = line[i];
+                            if (char === '"') {
+                                inQuotes = !inQuotes;
+                            } else if (char === ',' && !inQuotes) {
+                                result.push(current.trim());
+                                current = '';
+                            } else {
+                                current += char;
+                            }
+                        }
+                        result.push(current.trim());
+                        return result;
+                    };
+                    
+                    const headers = parseCSVLine(lines[0]);
+                    
+                    // Get existing data
+                    const existingData = getData(DB_KEYS.PENDAFTARAN);
+                    let importedCount = 0;
+                    let skippedCount = 0;
+                    
+                    // Process data starting from row 2 (skip header)
+                    for (let i = 1; i < lines.length; i++) {
+                        const row = parseCSVLine(lines[i]);
+                        if (!row || row.length === 0) continue;
+                        
+                        // Map columns based on template structure
+                        const newItem = {
+                            timestamp: new Date().toISOString(),
+                            id: 'P-' + Date.now().toString(36).toUpperCase() + '-' + (i + importedCount + skippedCount),
+                            namaLengkap: String(row[0] || ''),
+                            nip: String(row[1] || ''),
+                            unitKerja: String(row[2] || ''),
+                            statusPegawai: String(row[3] || ''),
+                            jenisSDMK: String(row[4] || ''),
+                            jumlahJP: String(row[5] || ''),
+                            whatsapp: String(row[6] || ''),
+                            email: String(row[7] || ''),
+                            temaPembelajaran: String(row[8] || ''),
+                            narasumber: String(row[9] || ''),
+                            tanggalKegiatan: String(row[10] || ''),
+                            waktuMulai: String(row[11] || '').split('-')[0]?.trim() || '',
+                            waktuSelesai: String(row[11] || '').split('-')[1]?.trim() || '',
+                            platformDigital: String(row[12] || ''),
+                            jp: String(row[13] || '')
+                        };
+                        
+                        // Check if NIP already exists
+                        const existingNip = existingData.find(d => d.nip === newItem.nip);
+                        if (existingNip) {
+                            skippedCount++;
+                            continue;
+                        }
+                        
+                        // Validate required fields
+                        if (!newItem.namaLengkap || !newItem.nip) {
+                            skippedCount++;
+                            continue;
+                        }
+                        
+                        existingData.push(newItem);
+                        importedCount++;
+                    }
+                    
+                    // Save all data
+                    saveData(DB_KEYS.PENDAFTARAN, existingData);
+                    loadPesertaTable();
+                    
+                    alert(`Import CSV berhasil!\nBerhasil: ${importedCount} data\nDilewati (NIP duplikat/invalid): ${skippedCount}`);
+                    
+                } catch (err) {
+                    alert('Error membaca file CSV: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            input.value = ''; // Reset input
+        }
+        
+        function downloadTemplateCSV() {
+            const headers = ['Nama Lengkap', 'NIP', 'Unit Kerja', 'Status Pegawai', 'Jenis SDMK', 'Jumlah JP', 'WhatsApp', 'Email', 'Tema Pembelajaran', 'Narasumber', 'Tanggal Kegiatan', 'Waktu (Start-End)', 'Platform Digital', 'JP'];
+            const sampleData = [
+                'John Doe',
+                '123456789012345678',
+                'Dinas Kesehatan',
+                'PNS',
+                'Sarjana (S1)',
+                '4',
+                '081234567890',
+                'john@email.com',
+                'Pengembangan Kompetensi ASN',
+                'Dr. Ahmad Fauzi, M.Si',
+                '2025-02-15',
+                '08:00-16:00',
+                'Zoom Meeting',
+                '4'
+            ];
+            
+            // Create CSV content with proper quoting
+            const csvContent = [
+                headers.map(h => '"' + h + '"').join(','),
+                sampleData.map(d => '"' + d + '"').join(',')
+            ].join('\n');
+            
+            // Create download with BOM for Excel compatibility
+            const BOM = '\uFEFF';
+            const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+            
+            // Use download attribute with timestamp
+            const filename = 'template_data_peserta_' + new Date().toISOString().split('T')[0] + '.csv';
+            
+            // Create link and trigger download
+            if (navigator.msSaveBlob) {
+                // IE/Edge
+                navigator.msSaveBlob(blob, filename);
+            } else {
+                const link = document.createElement('a');
+                if (link.download !== undefined) {
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', filename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // Cleanup
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                }
+            }
+        }
+        
         function editPeserta(id) {
             const data = getData(DB_KEYS.PENDAFTARAN);
             const item = data.find(d => d.id === id);
@@ -1603,22 +1755,40 @@
             loadAbsensiTable();
         }
         
-        function handleExcelUploadAbsensi(input) {
+        function handleCSVAbsensi(input) {
             const file = input.files[0];
             if (!file) return;
             
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    const workbook = XLSX.read(e.target.result, { type: 'binary' });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    const text = e.target.result;
+                    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
                     
-                    if (jsonData.length < 2) {
-                        alert('File Excel kosong atau tidak memiliki data!');
+                    if (lines.length < 2) {
+                        alert('File CSV kosong atau tidak memiliki data!');
                         return;
                     }
+                    
+                    // Parse CSV - handle quoted values
+                    const parseCSVLine = (line) => {
+                        const result = [];
+                        let current = '';
+                        let inQuotes = false;
+                        for (let i = 0; i < line.length; i++) {
+                            const char = line[i];
+                            if (char === '"') {
+                                inQuotes = !inQuotes;
+                            } else if (char === ',' && !inQuotes) {
+                                result.push(current.trim());
+                                current = '';
+                            } else {
+                                current += char;
+                            }
+                        }
+                        result.push(current.trim());
+                        return result;
+                    };
                     
                     // Get existing data
                     const existingData = getData(DB_KEYS.ABSENSI);
@@ -1626,8 +1796,8 @@
                     let skippedCount = 0;
                     
                     // Process data starting from row 2 (skip header)
-                    for (let i = 1; i < jsonData.length; i++) {
-                        const row = jsonData[i];
+                    for (let i = 1; i < lines.length; i++) {
+                        const row = parseCSVLine(lines[i]);
                         if (!row || row.length === 0) continue;
                         
                         // Map columns for absensi
@@ -1662,10 +1832,10 @@
                     alert(`Import berhasil!\nBerhasil: ${importedCount} data\nDilewati (data invalid): ${skippedCount}`);
                     
                 } catch (err) {
-                    alert('Error membaca file Excel: ' + err.message);
+                    alert('Error membaca file CSV: ' + err.message);
                 }
             };
-            reader.readAsBinaryString(file);
+            reader.readAsText(file);
             input.value = ''; // Reset input
         }
         
@@ -1745,12 +1915,36 @@
                 });
                 csv.push(rowData.join(','));
             });
-            const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
+            
+            // Create download with BOM for Excel compatibility
+            const BOM = '\uFEFF';
+            const blob = new Blob([BOM + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            
+            // Use download attribute with timestamp
+            const timestamp = new Date().toISOString().split('T')[0];
+            const nameParts = filename.split('.');
+            const ext = nameParts.pop();
+            const newFilename = nameParts.join('.') + '_' + timestamp + '.' + ext;
+            
+            // Create link and trigger download
+            if (navigator.msSaveBlob) {
+                // IE/Edge
+                navigator.msSaveBlob(blob, newFilename);
+            } else {
+                const link = document.createElement('a');
+                if (link.download !== undefined) {
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', newFilename);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // Cleanup
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                }
+            }
         }
         
         function sendToGoogleSheets(sheetName, headers, data) {
