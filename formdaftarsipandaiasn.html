@@ -1452,7 +1452,8 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
                     const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
@@ -1563,23 +1564,38 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    const text = e.target.result;
-                    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+                    let text = e.target.result;
+                    
+                    // Remove BOM if present (Excel often adds BOM to UTF-8 CSV)
+                    if (text.charCodeAt(0) === 0xFEFF) {
+                        text = text.slice(1);
+                    }
+                    
+                    // Handle different line endings (Windows \r\n, Unix \n, Mac \r)
+                    const lines = text.split(/\r?\n/).filter(line => line.trim());
                     
                     if (lines.length < 2) {
                         alert('File CSV kosong atau tidak memiliki data!');
                         return;
                     }
                     
-                    // Parse CSV - handle quoted values
+                    // Parse CSV - handle quoted values and commas within quotes
                     const parseCSVLine = (line) => {
                         const result = [];
                         let current = '';
                         let inQuotes = false;
                         for (let i = 0; i < line.length; i++) {
                             const char = line[i];
+                            const nextChar = line[i + 1];
+                            
                             if (char === '"') {
-                                inQuotes = !inQuotes;
+                                if (inQuotes && nextChar === '"') {
+                                    // Escaped quote inside quotes
+                                    current += '"';
+                                    i++;
+                                } else {
+                                    inQuotes = !inQuotes;
+                                }
                             } else if (char === ',' && !inQuotes) {
                                 result.push(current.trim());
                                 current = '';
@@ -1597,36 +1613,62 @@
                     const existingData = getData(DB_KEYS.PENDAFTARAN);
                     let importedCount = 0;
                     let skippedCount = 0;
+                    const duplicateInFile = [];
+                    const duplicateExisting = [];
+                    const nipsInFile = new Set();
                     
                     // Process data starting from row 2 (skip header)
                     for (let i = 1; i < lines.length; i++) {
                         const row = parseCSVLine(lines[i]);
                         if (!row || row.length === 0) continue;
                         
+                        // Skip if row doesn't have minimum required columns
+                        if (row.length < 2) {
+                            skippedCount++;
+                            continue;
+                        }
+                        
                         // Map columns based on template structure
+                        const nipValue = String(row[1] || '').trim();
+                        const namaValue = String(row[0] || '').trim();
+                        
+                        // Skip if NIP is empty or invalid
+                        if (!nipValue || nipValue.length < 5) {
+                            skippedCount++;
+                            continue;
+                        }
+                        
                         const newItem = {
                             timestamp: new Date().toISOString(),
                             id: 'P-' + Date.now().toString(36).toUpperCase() + '-' + (i + importedCount + skippedCount),
-                            namaLengkap: String(row[0] || ''),
-                            nip: String(row[1] || ''),
-                            unitKerja: String(row[2] || ''),
-                            statusPegawai: String(row[3] || ''),
-                            jenisSDMK: String(row[4] || ''),
-                            jumlahJP: String(row[5] || ''),
-                            whatsapp: String(row[6] || ''),
-                            email: String(row[7] || ''),
-                            temaPembelajaran: String(row[8] || ''),
-                            narasumber: String(row[9] || ''),
-                            tanggalKegiatan: String(row[10] || ''),
+                            namaLengkap: namaValue,
+                            nip: nipValue,
+                            unitKerja: String(row[2] || '').trim(),
+                            statusPegawai: String(row[3] || '').trim(),
+                            jenisSDMK: String(row[4] || '').trim(),
+                            jumlahJP: String(row[5] || '').trim(),
+                            whatsapp: String(row[6] || '').trim(),
+                            email: String(row[7] || '').trim(),
+                            temaPembelajaran: String(row[8] || '').trim(),
+                            narasumber: String(row[9] || '').trim(),
+                            tanggalKegiatan: String(row[10] || '').trim(),
                             waktuMulai: String(row[11] || '').split('-')[0]?.trim() || '',
                             waktuSelesai: String(row[11] || '').split('-')[1]?.trim() || '',
-                            platformDigital: String(row[12] || ''),
-                            jp: String(row[13] || '')
+                            platformDigital: String(row[12] || '').trim(),
+                            jp: String(row[13] || '').trim()
                         };
                         
-                        // Check if NIP already exists
-                        const existingNip = existingData.find(d => d.nip === newItem.nip);
+                        // Check if NIP already exists in the file being uploaded
+                        if (nipsInFile.has(nipValue)) {
+                            duplicateInFile.push(nipValue);
+                            skippedCount++;
+                            continue;
+                        }
+                        
+                        // Check if NIP already exists in database
+                        const existingNip = existingData.find(d => d.nip === nipValue);
                         if (existingNip) {
+                            duplicateExisting.push(nipValue);
                             skippedCount++;
                             continue;
                         }
@@ -1637,6 +1679,7 @@
                             continue;
                         }
                         
+                        nipsInFile.add(nipValue);
                         existingData.push(newItem);
                         importedCount++;
                     }
@@ -1645,13 +1688,21 @@
                     saveData(DB_KEYS.PENDAFTARAN, existingData);
                     loadPesertaTable();
                     
-                    alert(`Import CSV berhasil!\nBerhasil: ${importedCount} data\nDilewati (NIP duplikat/invalid): ${skippedCount}`);
+                    // Build detailed message
+                    let message = `Import berhasil!\nBerhasil: ${importedCount} data\nDilewati: ${skippedCount} data`;
+                    if (duplicateInFile.length > 0) {
+                        message += `\n\nNIP duplikat dalam file (${duplicateInFile.length}): ${duplicateInFile.slice(0, 5).join(', ')}${duplicateInFile.length > 5 ? '...' : ''}`;
+                    }
+                    if (duplicateExisting.length > 0) {
+                        message += `\n\nNIP sudah ada di database (${duplicateExisting.length}): ${duplicateExisting.slice(0, 5).join(', ')}${duplicateExisting.length > 5 ? '...' : ''}`;
+                    }
+                    alert(message);
                     
                 } catch (err) {
-                    alert('Error membaca file CSV: ' + err.message);
+                    alert('Error membaca file CSV: ' + err.message + '\nStack: ' + err.stack);
                 }
             };
-            reader.readAsText(file);
+            reader.readAsText(file, 'UTF-8');
             input.value = ''; // Reset input
         }
         
