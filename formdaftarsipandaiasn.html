@@ -6,6 +6,7 @@
     <title>SIPANDAI-ASN - Sistem BangKom ASN Kesehatan</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -970,6 +971,36 @@
             font-size: clamp(1.1rem, 2.5vw, 1.3rem);
         }
 
+        .admin-header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-upload-excel {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-upload-excel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        .excel-file-input {
+            display: none;
+        }
+
         .admin-search {
             position: relative;
             min-width: 250px;
@@ -1766,9 +1797,20 @@
                 <div class="admin-table-container">
                     <div class="admin-table-header">
                         <h2>Data Peserta Pendaftaran</h2>
-                        <div class="admin-search">
-                            <i class="fas fa-search"></i>
-                            <input type="text" placeholder="Cari peserta..." aria-label="Cari peserta" id="search-peserta" onkeyup="searchPeserta()">
+                        <div class="admin-header-actions">
+                            <div class="admin-search">
+                                <i class="fas fa-search"></i>
+                                <input type="text" placeholder="Cari peserta..." aria-label="Cari peserta" id="search-peserta" onkeyup="searchPeserta()">
+                            </div>
+                            <button class="btn-upload-excel" onclick="downloadExcelTemplate()">
+                                <i class="fas fa-download"></i>
+                                <span>Template</span>
+                            </button>
+                            <label for="excel-file-input" class="btn-upload-excel">
+                                <i class="fas fa-file-excel"></i>
+                                <span>Upload Excel</span>
+                            </label>
+                            <input type="file" id="excel-file-input" class="excel-file-input" accept=".xlsx,.xls" onchange="handleExcelUpload(event)">
                         </div>
                     </div>
                     <table class="admin-table" id="tabel-peserta">
@@ -3301,6 +3343,144 @@ closeLightbox('pendaftaran');
             field.style.display = checkbox.checked ? 'block' : 'none';
         }
 
+        // ============ EXCEL UPLOAD FUNCTIONS ============
+        function downloadExcelTemplate() {
+            // Create template data
+            const templateData = [
+                {
+                    'Nama Lengkap': 'Contoh: Ahmad Fauzi',
+                    'NIP': 'Contoh: 198501012010011001',
+                    'Unit Kerja': 'Contoh: Dinas Kesehatan',
+                    'Status Pegawai': 'PNS/CPNS/PPPK',
+                    'Email': 'contoh@email.com',
+                    'Jumlah JP': '6 JP'
+                }
+            ];
+            
+            // Create workbook
+            const ws = XLSX.utils.json_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Data Peserta');
+            
+            // Download file
+            XLSX.writeFile(wb, 'Template_Peserta_SIPANDAI.xlsx');
+            showNotification('Template berhasil diunduh', 'success');
+        }
+        
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Get first sheet
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    
+                    // Convert to JSON
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    if (jsonData.length === 0) {
+                        showNotification('File Excel kosong atau tidak memiliki data yang valid', 'error');
+                        return;
+                    }
+                    
+                    // Process and upload data
+                    uploadExcelData(jsonData, file.name);
+                } catch (error) {
+                    console.error('Error reading Excel file:', error);
+                    showNotification('Gagal membaca file Excel: ' + error.message, 'error');
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        async function uploadExcelData(data, filename) {
+            showNotification('Memproses ' + data.length + ' data peserta...', 'info');
+            
+            // Expected columns: Nama Lengkap, NIP, Unit Kerja, Status Pegawai, Email, JP
+            const expectedColumns = ['Nama Lengkap', 'NIP', 'Unit Kerja', 'Status Pegawai', 'Email', 'Jumlah JP'];
+            
+            let successCount = 0;
+            let errorCount = 0;
+            let duplicateCount = 0;
+            
+            // Get existing data to check for duplicates
+            const existingData = await fetchFromGoogleSheets('getAllPendaftaran');
+            const existingNIPs = new Set(existingData.map(item => item.NIP));
+            const existingEmails = new Set(existingData.map(item => item.Email?.toLowerCase()));
+            
+            // Prepare data for upload
+            const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            
+            for (const row of data) {
+                try {
+                    // Validate required fields
+                    const nama = row['Nama Lengkap'] || row['Nama'] || row['nama'] || '';
+                    const nip = String(row['NIP'] || row['nip'] || '').trim();
+                    const email = row['Email'] || row['email'] || '';
+                    
+                    if (!nama || !nip) {
+                        errorCount++;
+                        continue;
+                    }
+                    
+                    // Check for duplicates
+                    if (existingNIPs.has(nip) || (email && existingEmails.has(email.toLowerCase()))) {
+                        duplicateCount++;
+                        continue;
+                    }
+                    
+                    // Prepare row data
+                    const rowData = {
+                        'ID': 'SIP-' + String(existingData.length + successCount + 1).padStart(3, '0'),
+                        'Nama Lengkap': nama,
+                        'NIP': nip,
+                        'Unit Kerja': row['Unit Kerja'] || row['Unit Kerja'] || row['unit_kerja'] || '',
+                        'Status Pegawai': row['Status Pegawai'] || row['Status'] || row['status_pegawai'] || 'PNS',
+                        'Email': email,
+                        'Jumlah JP': row['Jumlah JP'] || row['JP'] || row['jp'] || '6 JP',
+                        'Timestamp': timestamp
+                    };
+                    
+                    // Upload to Google Sheets
+                    const result = await fetchFromGoogleSheets('addPendaftaran', { data: JSON.stringify(rowData) });
+                    
+                    if (result && result.success) {
+                        successCount++;
+                        existingNIPs.add(nip);
+                        if (email) existingEmails.add(email.toLowerCase());
+                    } else {
+                        errorCount++;
+                    }
+                } catch (error) {
+                    console.error('Error uploading row:', error);
+                    errorCount++;
+                }
+            }
+            
+            // Show result notification
+            if (successCount > 0) {
+                showNotification('Berhasil mengupload ' + successCount + ' data peserta dari file "' + filename + '"', 'success');
+            }
+            if (duplicateCount > 0) {
+                showNotification(duplicateCount + ' data duplikat (NIP/Email sudah ada) dilewati', 'info');
+            }
+            if (errorCount > 0) {
+                showNotification('Gagal mengupload ' + errorCount + ' data', 'error');
+            }
+            
+            // Reload data
+            loadDataPeserta();
+        }
+        
         // ============ KEYBOARD SHORTCUTS ============
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
