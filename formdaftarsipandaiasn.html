@@ -1487,7 +1487,7 @@
                                 <label>Narasumber yang Dipilih <span class="required">*</span></label>
                                 <select id="narasumber" required aria-required="true">
                                     <option value="">Pilih Narasumber</option>
-                                    <option value="dr. Joelianus N.Adam & Pj. Mutu Puskesmas">dr. Joelianus N.Adam & Pj. Mutu Puskesmas</option>
+                                    <option value="dr. Joelianus N.Adam & dan dr. Maulinda Permatasari">dr. Joelianus N.Adam & dan dr. Maulinda Permatasari</option>
                                     
                                 </select>
                             </div>
@@ -2048,7 +2048,7 @@
         // Untuk demo offline, biarkan USE_GOOGLE_SHEETS = false
         // Google Sheets URL akan digunakan jika USE_GOOGLE_SHEETS = true
         const USE_GOOGLE_SHEETS = true; // Ubah ke true jika sudah deploy Google Apps Script
-        let GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbwGs0uYYNz5lhIZo3z9hqSbZv4dPZ-YPVmNt6YNC4YnBGOgoGinHS43unYwn_3OcaBNhg/exec"; // URL akan diisi dari localStorage atau dikosongkan
+        let GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzDiM2YCQ3hZwBWZV5B1aOrRGx8k4iS36HzY-AKKbQihV7TXP_0f4DwpcyxwY-4_FTQdw/exec"; // URL akan diisi dari localStorage atau dikosongkan
 
         // ============ FUNGSI KIRIM DATA KE GOOGLE SHEETS ============
         async function sendToGoogleSheets(data) {
@@ -2090,10 +2090,15 @@
         }
 
         // ============ FETCH DATA DARI GOOGLE SHEETS ============
-    async function fetchFromGoogleSheets(action, params = {}) {
+        async function fetchFromGoogleSheets(action, params = {}) {
             // Load Google Sheets URL from settings if available
             const settings = JSON.parse(localStorage.getItem('sipandai_settings') || '{}');
             const gsUrl = settings.googleSheetsUrl || '';
+            
+            // Handle addPendance action separately (for demo mode with localStorage)
+            if (action === 'addPendance') {
+                return addPendanceData(params);
+            }
             
             if (!USE_GOOGLE_SHEETS || !gsUrl) {
                 // Return demo data
@@ -2125,10 +2130,85 @@
             }
         }
 
+        // ============ ADD PENDAFTARAN DATA (for localStorage demo mode) ============
+        function addPendanceData(params) {
+            try {
+                const data = JSON.parse(params.data || '{}');
+                console.log('Adding data:', data);
+                
+                // Get existing data from localStorage
+                let existingData = JSON.parse(localStorage.getItem('sipandai_pendaftaran') || '[]');
+                
+                // If localStorage is empty, check if we should merge with demo data
+                if (existingData.length === 0) {
+                    const demoData = getDemoData('getAllPendaftaran');
+                    // Only use demo data if localStorage is truly empty
+                    existingData = demoData;
+                }
+                
+                // Add rowNumber
+                data.rowNumber = existingData.length + 2;
+                
+                // Add to existing data
+                existingData.push(data);
+                
+                // Save to localStorage (always backup)
+                localStorage.setItem('sipandai_pendaftaran', JSON.stringify(existingData));
+                console.log('Data saved to localStorage, total:', existingData.length);
+                
+                // Update global variable
+                if (typeof allPesertaData !== 'undefined') {
+                    allPesertaData = existingData;
+                }
+                
+                return { success: true, message: 'Data berhasil ditambahkan', localStorage: true };
+            } catch (error) {
+                console.error('Error adding data:', error);
+                return { success: false, message: error.message };
+            }
+        }
+        
+        // ============ SEND TO GOOGLE SHEETS (for add action) ============
+        async function sendToGoogleSheetsAdd(data) {
+            const settings = JSON.parse(localStorage.getItem('sipandai_settings') || '{}');
+            const gsUrl = settings.googleSheetsUrl || '';
+            
+            if (!gsUrl) {
+                return { success: false, message: 'Google Sheets URL not configured' };
+            }
+            
+            try {
+                const url = new URL(gsUrl);
+                url.searchParams.append('action', 'addPendance');
+                url.searchParams.append('data', JSON.stringify(data));
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch(url.toString(), {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Error sending to Google Sheets:', error);
+                return { success: false, message: error.message };
+            }
+        }
+
 
         // ============ DEMO DATA ============
         function getDemoData(action) {
+            // Check localStorage first for pendaftaran data
             if (action === 'getAllPendaftaran') {
+                const localData = localStorage.getItem('sipandai_pendaftaran');
+                if (localData) {
+                    return JSON.parse(localData);
+                }
+                
+                // Return demo data if no local data
                 return [
                     { ID: 'SIP-001', 'Nama Lengkap': 'Ahmad Fauzi', NIP: '198501012010011001', 'Unit Kerja': 'Dinas Kesehatan', 'Status Pegawai': 'PNS', Email: 'ahmad@email.com', 'Jumlah JP': '6 JP', Timestamp: '2026-02-10 10:00:00', rowNumber: 2 },
                     { ID: 'SIP-002', 'Nama Lengkap': 'Siti Nurhaliza', NIP: '199002032011012002', 'Unit Kerja': 'Dinas Pendidikan', 'Status Pegawai': 'PNS', Email: 'siti@email.com', 'Jumlah JP': '6 JP', Timestamp: '2026-02-10 11:00:00', rowNumber: 3 },
@@ -3412,8 +3492,14 @@ closeLightbox('pendaftaran');
             let errorCount = 0;
             let duplicateCount = 0;
             
-            // Get existing data to check for duplicates
-            const existingData = await fetchFromGoogleSheets('getAllPendaftaran');
+            // Get existing data from localStorage directly
+            let existingData = JSON.parse(localStorage.getItem('sipandai_pendaftaran') || '[]');
+            
+            // If localStorage is empty, get from demo data
+            if (existingData.length === 0) {
+                existingData = getDemoData('getAllPendaftaran');
+            }
+            
             const existingNIPs = new Set(existingData.map(item => item.NIP));
             const existingEmails = new Set(existingData.map(item => item.Email?.toLowerCase()));
             
@@ -3443,20 +3529,28 @@ closeLightbox('pendaftaran');
                         'ID': 'SIP-' + String(existingData.length + successCount + 1).padStart(3, '0'),
                         'Nama Lengkap': nama,
                         'NIP': nip,
-                        'Unit Kerja': row['Unit Kerja'] || row['Unit Kerja'] || row['unit_kerja'] || '',
+                        'Unit Kerja': row['Unit Kerja'] || row['unit_kerja'] || '',
                         'Status Pegawai': row['Status Pegawai'] || row['Status'] || row['status_pegawai'] || 'PNS',
                         'Email': email,
                         'Jumlah JP': row['Jumlah JP'] || row['JP'] || row['jp'] || '6 JP',
                         'Timestamp': timestamp
                     };
                     
-                    // Upload to Google Sheets
-                    const result = await fetchFromGoogleSheets('addPendaftaran', { data: JSON.stringify(rowData) });
+                    // Always save to localStorage first
+                    const localResult = await fetchFromGoogleSheets('addPendance', { data: JSON.stringify(rowData) });
                     
-                    if (result && result.success) {
+                    if (localResult && localResult.success) {
                         successCount++;
                         existingNIPs.add(nip);
                         if (email) existingEmails.add(email.toLowerCase());
+                        
+                        // Also try to send to Google Sheets if configured
+                        const gsResult = await sendToGoogleSheetsAdd(rowData);
+                        if (gsResult && gsResult.success) {
+                            console.log('Data also saved to Google Sheets');
+                        } else {
+                            console.log('Google Sheets save failed, data saved locally only');
+                        }
                     } else {
                         errorCount++;
                     }
