@@ -2472,9 +2472,9 @@
                 return;
             }
             
-            // Validate NIP length (accept 9-21 digits for flexibility)
-            if (formData.nip.length < 9 || formData.nip.length > 21) {
-                showNotification('NIP harus terdiri dari 9-21 digit angka!', 'error');
+            // Validate NIP length (accept 18 digits for flexibility)
+            if (formData.nip.length < 18 || formData.nip.length > 18) {
+                showNotification('NIP harus terdiri dari 18 digit angka!', 'error');
                 btn.classList.remove('loading');
                 btn.disabled = false;
                 return;
@@ -2511,38 +2511,39 @@
             // Kirim ke Google Sheets
             const result = await sendToGoogleSheets(formData);
             
-            if (result.success || !USE_GOOGLE_SHEETS) {
-                // Simpan ke localStorage untuk demo/offline
-                const existingData = JSON.parse(localStorage.getItem('sipandai_pendaftaran') || '[]');
-                
-                // Check for duplicate NIP
-                const duplicate = existingData.find(u => u.nip === formData.nip);
-                if (duplicate) {
-                    showNotification('NIP ini sudah terdaftar!', 'error');
-                    btn.classList.remove('loading');
-                    btn.disabled = false;
-                    return;
-                }
-                
-                existingData.push(formData);
-                localStorage.setItem('sipandai_pendaftaran', JSON.stringify(existingData));
-                
-                showNotification('Pendaftaran berhasil! Data telah disimpan.', 'success');
-                console.log('Data saved to localStorage:', existingData);
-            } else {
-                showNotification('Gagal mengirim data: ' + result.message, 'error');
-                btn.classList.remove('loading');
-                btn.disabled = false;
-                return;
-            }
+       // Kirim ke Google Sheets (BACKEND yang validasi NIP)
+let result;
+try {
+    result = await sendToGoogleSheets(formData);
+} catch (err) {
+    showNotification('Gagal terhubung ke server Google Sheet', 'error');
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    return;
+}
 
-            btn.classList.remove('loading');
-            btn.disabled = false;
+// ❌ Jika backend menolak (misalnya NIP duplikat)
+if (!result || result.status !== true) {
+    showNotification(result?.message || 'Gagal menyimpan data ke Google Sheet', 'error');
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    return;
+}
 
-            form.reset();
-            initializeForm();
-            closeLightbox('pendaftaran');
-        }
+// ✅ Jika backend menyatakan BERHASIL
+showNotification(
+    'Pendaftaran berhasil! Data telah disimpan di Google Sheet.',
+    'success'
+);
+
+// ====== RESET & CLEANUP UI ======
+btn.classList.remove('loading');
+btn.disabled = false;
+
+form.reset();
+initializeForm();
+closeLightbox('pendaftaran');
+
 
         // ============ LOGIN ABSENSI ============
         async function loginAbsensi(event) {
