@@ -1404,6 +1404,12 @@
             const countEl = document.getElementById('pesertaCount');
             const pageInfoEl = document.getElementById('pesertaPageInfo');
             
+            // Add null check for tbody element
+            if (!tbody) {
+                console.warn('pesertaTableBody element not found');
+                return;
+            }
+            
             tbody.innerHTML = '';
             
             // Update count
@@ -1460,6 +1466,11 @@
                     const existingData = getData(DB_KEYS.PENDAFTARAN);
                     let importedCount = 0;
                     let skippedCount = 0;
+                    let duplicateInFile = [];
+                    let duplicateExisting = [];
+                    
+                    // Track NIPs in the current file to detect duplicates within file
+                    const nipsInFile = new Set();
                     
                     // Process data starting from row 2 (skip header)
                     for (let i = 1; i < jsonData.length; i++) {
@@ -1468,11 +1479,20 @@
                         
                         // Map columns - adjust based on your Excel structure
                         // Expected columns: Nama Lengkap, NIP, Unit Kerja, Status Pegawai, Jenis SDMK, Jumlah JP, WhatsApp, Email, Tema Pembelajaran, Narasumber, Tanggal Kegiatan, Waktu, Platform, JP
+                        const nipValue = String(row[1] || '').trim();
+                        const namaValue = String(row[0] || '').trim();
+                        
+                        // Skip if NIP is empty or invalid
+                        if (!nipValue || nipValue.length < 5) {
+                            skippedCount++;
+                            continue;
+                        }
+                        
                         const newItem = {
                             timestamp: new Date().toISOString(),
                             id: 'P-' + Date.now().toString(36).toUpperCase() + '-' + (i + importedCount + skippedCount),
-                            namaLengkap: String(row[0] || ''),
-                            nip: String(row[1] || ''),
+                            namaLengkap: namaValue,
+                            nip: nipValue,
                             unitKerja: String(row[2] || ''),
                             statusPegawai: String(row[3] || ''),
                             jenisSDMK: String(row[4] || ''),
@@ -1488,9 +1508,17 @@
                             jp: String(row[13] || '')
                         };
                         
-                        // Check if NIP already exists
-                        const existingNip = existingData.find(d => d.nip === newItem.nip);
+                        // Check if NIP already exists in the file being uploaded
+                        if (nipsInFile.has(nipValue)) {
+                            duplicateInFile.push(nipValue);
+                            skippedCount++;
+                            continue;
+                        }
+                        
+                        // Check if NIP already exists in database
+                        const existingNip = existingData.find(d => d.nip === nipValue);
                         if (existingNip) {
+                            duplicateExisting.push(nipValue);
                             skippedCount++;
                             continue;
                         }
@@ -1501,6 +1529,7 @@
                             continue;
                         }
                         
+                        nipsInFile.add(nipValue);
                         existingData.push(newItem);
                         importedCount++;
                     }
@@ -1509,7 +1538,15 @@
                     saveData(DB_KEYS.PENDAFTARAN, existingData);
                     loadPesertaTable();
                     
-                    alert(`Import berhasil!\nBerhasil: ${importedCount} data\nDilewati (NIP duplikat/invalid): ${skippedCount}`);
+                    // Build detailed message
+                    let message = `Import berhasil!\nBerhasil: ${importedCount} data\nDilewati: ${skippedCount} data`;
+                    if (duplicateInFile.length > 0) {
+                        message += `\n\nNIP duplikat dalam file (${duplicateInFile.length}): ${duplicateInFile.slice(0, 5).join(', ')}${duplicateInFile.length > 5 ? '...' : ''}`;
+                    }
+                    if (duplicateExisting.length > 0) {
+                        message += `\n\nNIP sudah ada di database (${duplicateExisting.length}): ${duplicateExisting.slice(0, 5).join(', ')}${duplicateExisting.length > 5 ? '...' : ''}`;
+                    }
+                    alert(message);
                     
                 } catch (err) {
                     alert('Error membaca file Excel: ' + err.message);
@@ -1719,6 +1756,12 @@
             const countEl = document.getElementById('absensiCount');
             const pageInfoEl = document.getElementById('absensiPageInfo');
             
+            // Add null check for tbody element
+            if (!tbody) {
+                console.warn('absensiTableBody element not found');
+                return;
+            }
+            
             tbody.innerHTML = '';
             
             // Update count
@@ -1794,18 +1837,31 @@
                     const existingData = getData(DB_KEYS.ABSENSI);
                     let importedCount = 0;
                     let skippedCount = 0;
+                    let duplicateInFile = [];
+                    
+                    // Track NIPs in the current file to detect duplicates within file
+                    const nipsInFile = new Set();
                     
                     // Process data starting from row 2 (skip header)
                     for (let i = 1; i < lines.length; i++) {
                         const row = parseCSVLine(lines[i]);
                         if (!row || row.length === 0) continue;
                         
+                        // Get NIP value
+                        const nipValue = String(row[1] || '').trim();
+                        
+                        // Skip if NIP is empty
+                        if (!nipValue || nipValue.length < 5) {
+                            skippedCount++;
+                            continue;
+                        }
+                        
                         // Map columns for absensi
                         const newItem = {
                             timestamp: new Date().toISOString(),
                             id: 'A-' + Date.now().toString(36).toUpperCase() + '-' + (i + importedCount + skippedCount),
                             namaLengkap: String(row[0] || ''),
-                            nip: String(row[1] || ''),
+                            nip: nipValue,
                             tanggalAbsensi: String(row[2] || ''),
                             jamAbsensi: String(row[3] || ''),
                             platformDigital: String(row[4] || ''),
@@ -1815,12 +1871,20 @@
                             komentar: String(row[8] || '')
                         };
                         
+                        // Check if NIP already exists in the file being uploaded
+                        if (nipsInFile.has(nipValue)) {
+                            duplicateInFile.push(nipValue);
+                            skippedCount++;
+                            continue;
+                        }
+                        
                         // Validate required fields
                         if (!newItem.namaLengkap || !newItem.nip || !newItem.tanggalAbsensi) {
                             skippedCount++;
                             continue;
                         }
                         
+                        nipsInFile.add(nipValue);
                         existingData.push(newItem);
                         importedCount++;
                     }
@@ -1829,7 +1893,12 @@
                     saveData(DB_KEYS.ABSENSI, existingData);
                     loadAbsensiTable();
                     
-                    alert(`Import berhasil!\nBerhasil: ${importedCount} data\nDilewati (data invalid): ${skippedCount}`);
+                    // Build detailed message
+                    let message = `Import berhasil!\nBerhasil: ${importedCount} data\nDilewati: ${skippedCount} data`;
+                    if (duplicateInFile.length > 0) {
+                        message += `\n\nNIP duplikat dalam file (${duplicateInFile.length}): ${duplicateInFile.slice(0, 5).join(', ')}${duplicateInFile.length > 5 ? '...' : ''}`;
+                    }
+                    alert(message);
                     
                 } catch (err) {
                     alert('Error membaca file CSV: ' + err.message);
