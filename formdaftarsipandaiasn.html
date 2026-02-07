@@ -2510,32 +2510,69 @@
             
             // Kirim ke Google Sheets
             const result = await sendToGoogleSheets(formData);
-            
-       // Kirim ke Google Sheets (BACKEND yang validasi NIP)
-let result;
-try {
-    result = await sendToGoogleSheets(formData);
-} catch (err) {
-    showNotification('Gagal terhubung ke server Google Sheet', 'error');
+
+            if (result.success || !USE_GOOGLE_SHEETS) {
+
+    // ===============================
+    // SIMPAN KE LOCALSTORAGE (DEMO / OFFLINE)
+    // ===============================
+    const existingData = JSON.parse(
+        localStorage.getItem('sipandai_pendaftaran') || '[]'
+    );
+
+    // ===============================
+    // CEK DUPLIKASI NIP
+    // ===============================
+    const duplicate = existingData.find(u => u.nip === formData.nip);
+    if (duplicate) {
+        showNotification('NIP ini sudah terdaftar!', 'error');
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        return;
+    }
+
+    // ===============================
+    // SIMPAN DATA BARU
+    // ===============================
+    existingData.push(formData);
+    localStorage.setItem(
+        'sipandai_pendaftaran',
+        JSON.stringify(existingData)
+    );
+
+    showNotification(
+        'Pendaftaran berhasil! Data telah disimpan.',
+        'success'
+    );
+
+    console.log('Data saved to localStorage:', existingData);
+
+} else {
+
+    // ===============================
+    // GAGAL KIRIM KE GOOGLE SHEETS
+    // ===============================
+    showNotification(
+        'Gagal mengirim data: ' + result.message,
+        'error'
+    );
+
     btn.classList.remove('loading');
     btn.disabled = false;
     return;
 }
 
-// ❌ Jika backend menolak (misalnya NIP duplikat)
-if (!result || result.status !== true) {
-    showNotification(result?.message || 'Gagal menyimpan data ke Google Sheet', 'error');
-    btn.classList.remove('loading');
-    btn.disabled = false;
-    return;
-}
+// ===============================
+// RESET UI & FORM
+// ===============================
+btn.classList.remove('loading');
+btn.disabled = false;
 
-// ✅ Jika backend menyatakan BERHASIL
-showNotification(
-    'Pendaftaran berhasil! Data telah disimpan di Google Sheet.',
-    'success'
-);
+form.reset();
+initializeForm();
+closeLightbox('pendaftaran');
 
+  
 // ====== RESET & CLEANUP UI ======
 btn.classList.remove('loading');
 btn.disabled = false;
