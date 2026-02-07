@@ -1317,6 +1317,9 @@
         }
         
         let currentAbsensiUser = null;
+        // Aturan Absensi - Toleransi waktu dalam menit
+        const ABSENSI_TOLERANSI_SEBELUM = 30; // Boleh absen 30 menit sebelum mulai
+        const ABSENSI_TOLERANSI_SETELAH = 120; // Boleh absen 120 menit setelah selesai
         
         function absensiLogin(e) {
             e.preventDefault();
@@ -1327,18 +1330,269 @@
                 showAlert('absensiLoginAlert', 'error', 'Email atau NIP tidak ditemukan!');
                 return;
             }
+            // Tampilkan informasi kegiatan saat login
+            const infoKegiatan = `<div style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                <h4 style="margin: 0 0 10px 0;">📅 Informasi Kegiatan</h4>
+                <p style="margin: 5px 0;"><strong>Tanggal:</strong> ${formatTanggal(user.tanggalKegiatan)}</p>
+                <p style="margin: 5px 0;"><strong>Waktu:</strong> ${user.waktuMulai} - ${user.waktuSelesai}</p>
+                <p style="margin: 5px 0;"><strong>Tema:</strong> ${user.temaPembelajaran}</p>
+            </div>`;
+            
+            // Cek status absensi
+            const statusAbsensi = cekStatusAbsensi(user);
+            const statusHtml = `<div style="background: ${statusAbsensi.bgColor}; color: white; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                <h4 style="margin: 0 0 10px 0;">${statusAbsensi.icon} Status Absensi</h4>
+                <p style="margin: 5px 0;">${statusAbsensi.message}</p>
+                ${statusAbsensi.jamBuka ? `<p style="margin: 5px 0;"><strong>Jam Buka:</strong> ${statusAbsensi.jamBuka}</p>` : ''}
+                ${statusAbsensi.jamTutup ? `<p style="margin: 5px 0;"><strong>Jam Tutup:</strong> ${statusAbsensi.jamTutup}</p>` : ''}
+            </div>`;
+            
             currentAbsensiUser = user;
             document.getElementById('absensiNama').value = user.namaLengkap;
             document.getElementById('absensiNipDisplay').value = user.nip;
+            
+            // Set tanggal dan jam absensi sesuai jadwal kegiatan
+            document.getElementById('tanggalAbsensi').value = user.tanggalKegiatan;
+            document.getElementById('jamAbsensi').value = statusAbsensi.jamRekomendasi || user.waktuMulai;
+            
+            // Update timestamp
+            const now = new Date();
+            document.getElementById('absensiTimestamp').value = now.toISOString().replace('T', ' ').substring(0, 19);
+            document.getElementById('absensiId').value = 'A-' + Date.now().toString(36).toUpperCase();
+            
+            // Insert info sebelum form
+            const formSection = document.getElementById('absensiFormSection');
+            formSection.innerHTML = `
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2>📍 Formulir Absensi</h2>
+                        <button class="btn btn-danger" onclick="absensiLogout()">🚪 Logout</button>
+                    </div>
+                    ${infoKegiatan}
+                    ${statusHtml}
+                    <div id="absensiAlert"></div>
+                    <form id="absensiForm" onsubmit="submitAbsensi(event)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Timestamp</label>
+                                <input type="text" id="absensiTimestamp" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>ID Absensi</label>
+                                <input type="text" id="absensiId" readonly>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Tanggal Absensi *</label>
+                                <input type="date" id="tanggalAbsensi" required readonly style="background: #f0f0f0;">
+                            </div>
+                            <div class="form-group">
+                                <label>Jam Absensi *</label>
+                                <input type="time" id="jamAbsensi" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nama Lengkap</label>
+                                <input type="text" id="absensiNama" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>NIP</label>
+                                <input type="text" id="absensiNipDisplay" readonly>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Eval. Penyelenggara</label>
+                                <select id="evalPenyelenggara">
+                                    <option value="">Pilih Nilai</option>
+                                    <option value="1">⭐ - Sangat Kurang</option>
+                                    <option value="2">⭐⭐ - Kurang</option>
+                                    <option value="3">⭐⭐⭐ - Cukup</option>
+                                    <option value="4">⭐⭐⭐⭐ - Baik</option>
+                                    <option value="5">⭐⭐⭐⭐⭐ - Sangat Baik</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Eval. Fasilitator</label>
+                                <select id="evalFasilitator">
+                                    <option value="">Pilih Nilai</option>
+                                    <option value="1">⭐</option>
+                                    <option value="2">⭐⭐</option>
+                                    <option value="3">⭐⭐⭐</option>
+                                    <option value="4">⭐⭐⭐⭐</option>
+                                    <option value="5">⭐⭐⭐⭐⭐</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Eval. Sarana Prasarana</label>
+                                <select id="evalSarana">
+                                    <option value="">Pilih Nilai</option>
+                                    <option value="1">⭐</option>
+                                    <option value="2">⭐⭐</option>
+                                    <option value="3">⭐⭐⭐</option>
+                                    <option value="4">⭐⭐⭐⭐</option>
+                                    <option value="5">⭐⭐⭐⭐⭐</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Platform Digital</label>
+                                <select id="absensiPlatform">
+                                    <option value="">Pilih Platform</option>
+                                    <option value="zoom">Zoom Meeting</option>
+                                    <option value="google_meet">Google Meet</option>
+                                    <option value="luring">Luring</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Komentar dan Saran</label>
+                            <textarea id="komentar" rows="4" placeholder="Masukkan komentar..."></textarea>
+                        </div>
+                        <div style="margin-top: 25px; display: flex; gap: 15px;">
+                            <button type="submit" class="btn btn-success">💾 Simpan Absensi</button>
+                            <button type="button" class="btn btn-danger" onclick="resetAbsensiForm()">🔄 Reset</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
             document.getElementById('absensiLoginSection').style.display = 'none';
             document.getElementById('absensiFormSection').style.display = 'block';
         }
+
         
         function absensiLogout() {
             currentAbsensiUser = null;
-            document.getElementById('absensiLoginSection').style.display = 'block';
-            document.getElementById('absensiFormSection').style.display = 'none';
-            document.getElementById('absensiLoginForm').reset();
+             location.reload(); // Reload untuk reset form
+        }
+        
+        function formatTanggal(tanggal) {
+            if (!tanggal) return '-';
+            const date = new Date(tanggal);
+            return date.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        
+        function cekStatusAbsensi(user) {
+            if (!user || !user.tanggalKegiatan || !user.waktuMulai || !user.waktuSelesai) {
+                return {
+                    bolehAbsen: false,
+                    message: 'Data kegiatan tidak lengkap',
+                    bgColor: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+                    icon: '❌'
+                };
+            }
+            
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+            
+            const tanggalKegiatan = user.tanggalKegiatan;
+            const waktuMulai = user.waktuMulai;
+            const waktuSelesai = user.waktuSelesai;
+            
+            // Hitung batas waktu absensi
+            const [mulaiHour, mulaiMin] = waktuMulai.split(':').map(Number);
+            const mulaiTimestamp = new Date();
+            mulaiTimestamp.setHours(mulaiHour, mulaiMin - ABSENSI_TOLERANSI_SEBELUM, 0, 0);
+            
+            const [selesaiHour, selesaiMin] = waktuSelesai.split(':').map(Number);
+            const selesaiTimestamp = new Date();
+            selesaiTimestamp.setHours(selesaiHour, selesaiMin + ABSENSI_TOLERANSI_SETELAH, 0, 0);
+            
+            const jamBuka = `${String(mulaiTimestamp.getHours()).padStart(2, '0')}:${String(mulaiTimestamp.getMinutes()).padStart(2, '0')}`;
+            const jamTutup = `${String(selesaiTimestamp.getHours()).padStart(2, '0')}:${String(selesaiTimestamp.getMinutes()).padStart(2, '0')}`;
+            
+            // Cek apakah tanggal kegiatan adalah hari ini
+            if (tanggalKegiatan !== todayStr) {
+                const tanggalFormatted = new Date(tanggalKegiatan).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                return {
+                    bolehAbsen: false,
+                    message: `Absensi hanya dapat dilakukan pada tanggal ${tanggalFormatted}`,
+                    jamBuka: jamBuka,
+                    jamTutup: jamTutup,
+                    bgColor: 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)',
+                    icon: '⏰'
+                };
+            }
+            
+            // Cek apakah waktu sekarang masih dalam periode absensi
+            if (currentTime < jamBuka) {
+                return {
+                    bolehAbsen: false,
+                    message: `Absensi belum dibuka. Waktu absensi: ${jamBuka} - ${jamTutup}`,
+                    jamBuka: jamBuka,
+                    jamTutup: jamTutup,
+                    bgColor: 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)',
+                    icon: '🔒'
+                };
+            }
+            
+            if (currentTime > jamTutup) {
+                return {
+                    bolehAbsen: false,
+                    message: `Absensi sudah ditutup. Waktu absensi: ${jamBuka} - ${jamTutup}`,
+                    jamBuka: jamBuka,
+                    jamTutup: jamTutup,
+                    bgColor: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+                    icon: '🔒'
+                };
+            }
+            
+            return {
+                bolehAbsen: true,
+                message: `Absensi terbuka! Waktu absensi: ${jamBuka} - ${jamTutup}`,
+                jamBuka: jamBuka,
+                jamTutup: jamTutup,
+                jamRekomendasi: currentTime,
+                bgColor: 'linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)',
+                icon: '✅'
+            };
+        }
+        
+        function validateAbsensiTime(tanggalAbsensi, jamAbsensi, user) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            
+            // Cek apakah tanggal absensi sama dengan tanggal kegiatan
+            if (tanggalAbsensi !== user.tanggalKegiatan) {
+                const kegiatanFormatted = new Date(user.tanggalKegiatan).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+                return {
+                    valid: false,
+                    message: `Absensi hanya dapat dilakukan pada tanggal kegiatan (${kegiatanFormatted})`
+                };
+            }
+            
+            // Hitung batas waktu absensi
+            const [mulaiHour, mulaiMin] = user.waktuMulai.split(':').map(Number);
+            const mulaiTimestamp = new Date();
+            mulaiTimestamp.setHours(mulaiHour, mulaiMin - ABSENSI_TOLERANSI_SEBELUM, 0, 0);
+            
+            const [selesaiHour, selesaiMin] = user.waktuSelesai.split(':').map(Number);
+            const selesaiTimestamp = new Date();
+            selesaiTimestamp.setHours(selesaiHour, selesaiMin + ABSENSI_TOLERANSI_SETELAH, 0, 0);
+            
+            const jamBuka = `${String(mulaiTimestamp.getHours()).padStart(2, '0')}:${String(mulaiTimestamp.getMinutes()).padStart(2, '0')}`;
+            const jamTutup = `${String(selesaiTimestamp.getHours()).padStart(2, '0')}:${String(selesaiTimestamp.getMinutes()).padStart(2, '0')}`;
+            
+            // Validasi jam absensi
+            if (jamAbsensi < jamBuka) {
+                return {
+                    valid: false,
+                    message: `Jam absensi tidak valid. Absensi dibuka pukul ${jamBuka}`
+                };
+            }
+            
+            if (jamAbsensi > jamTutup) {
+                return {
+                    valid: false,
+                    message: `Jam absensi tidak valid. Absensi ditutup pukul ${jamTutup}`
+                };
+            }
+            
+            return { valid: true };
         }
         
         function submitAbsensi(e) {
@@ -1347,11 +1601,20 @@
                 showAlert('absensiAlert', 'error', 'Session tidak valid!');
                 return;
             }
+              const tanggalAbsensi = document.getElementById('tanggalAbsensi').value;
+            const jamAbsensi = document.getElementById('jamAbsensi').value;
+            
+            // Validasi waktu absensi
+            const validasi = validateAbsensiTime(tanggalAbsensi, jamAbsensi, currentAbsensiUser);
+            if (!validasi.valid) {
+                showAlert('absensiAlert', 'error', validasi.message);
+                return;
+            }
             const data = {
                 timestamp: document.getElementById('absensiTimestamp').value,
                 id: document.getElementById('absensiId').value,
-                tanggalAbsensi: document.getElementById('tanggalAbsensi').value,
-                jamAbsensi: document.getElementById('jamAbsensi').value,
+                tanggalAbsensi: tanggalAbsensi,
+                jamAbsensi: jamAbsensi,
                 namaLengkap: currentAbsensiUser.namaLengkap,
                 nip: currentAbsensiUser.nip,
                 platformDigital: document.getElementById('absensiPlatform').value,
@@ -1361,11 +1624,18 @@
                 komentar: document.getElementById('komentar').value.trim()
             };
             const absensiData = getData(DB_KEYS.ABSENSI);
+            // Cek apakah peserta sudah absen pada tanggal ini
+            const sudahAbsen = absensiData.find(a => a.nip === currentAbsensiUser.nip && a.tanggalAbsensi === tanggalAbsensi);
+            if (sudahAbsen) {
+                showAlert('absensiAlert', 'error', 'Anda sudah melakukan absensi pada tanggal ini!');
+                return;
+            }
+            
             absensiData.push(data);
             saveData(DB_KEYS.ABSENSI, absensiData);
             sendToGoogleSheets('Absensi', ABSENSI_HEADERS, data);
             showAlert('absensiAlert', 'success', 'Absensi berhasil disimpan!');
-            resetAbsensiForm();
+            setTimeout(() => absensiLogout(), 2000);
         }
         
         function resetAbsensiForm() {
