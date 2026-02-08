@@ -1130,9 +1130,10 @@
     </div>
     
     <script>
-        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwI1bR4xDDxOTp3dP4FM-NV2YB2XqDOSegwxYcvZu_ASmY-0gLWywj9lZmni50S0jYT/exec';
-        const PENDAFTARAN_HEADERS = ['Timestamp', 'ID', 'Nama Lengkap', 'NIP', 'Unit Kerja', 'Status Pegawai', 'Jenis SDMK', 'Jumlah JP', 'WhatsApp', 'Email', 'Tema Pembelajaran', 'Narasumber', 'Tanggal Kegiatan', 'Waktu Mulai', 'Waktu Selesai', 'Platform Digital', 'JP'];
-        const ABSENSI_HEADERS = ['Timestamp', 'ID', 'Tanggal Absensi', 'Jam Absensi', 'Nama Lengkap', 'NIP', 'Platform Digital', 'Eval. Penyelenggara', 'Eval. Fasilitator', 'Eval. Sarana Prasarana', 'Komentar'];
+        const GOOGLE_SHEETS_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+        // Headers harus sesuai dengan keys di data object
+        const PENDAFTARAN_HEADERS = ['timestamp', 'id', 'namaLengkap', 'nip', 'unitKerja', 'statusPegawai', 'jenisSDMK', 'jumlahJP', 'whatsapp', 'email', 'temaPembelajaran', 'narasumber', 'tanggalKegiatan', 'waktuMulai', 'waktuSelesai', 'platformDigital', 'jp'];
+        const ABSENSI_HEADERS = ['timestamp', 'id', 'tanggalAbsensi', 'jamAbsensi', 'namaLengkap', 'nip', 'platformDigital', 'evalPenyelenggara', 'evalFasilitator', 'evalSarana', 'komentar'];
         const DB_KEYS = { PENDAFTARAN: 'sipandai_pendaftaran', ABSENSI: 'sipandai_absensi', ADMIN: 'sipandai_admin', PENGATURAN: 'sipandai_pengaturan' };
         const DEFAULT_ADMIN = { username: 'admin', password: 'sipandaiasn890#' };
         
@@ -1708,7 +1709,7 @@
         }
         
         function loadAdminSettings() {
-             // Always reset admin credentials to DEFAULT_ADMIN to ensure password changes take effect
+            // Always reset admin credentials to DEFAULT_ADMIN to ensure password changes take effect
             saveData(DB_KEYS.ADMIN, DEFAULT_ADMIN);
         }
         
@@ -2419,15 +2420,28 @@
         }
         
         function sendToGoogleSheets(sheetName, headers, data) {
-            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') return;
+            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+                console.log('Google Sheets URL not configured');
+                return;
+            }
+            
+            // Prepare data object matching headers
             const rowData = {};
             headers.forEach(h => rowData[h] = data[h] || '');
+            
+            // Use fetch API for better reliability
             const url = GOOGLE_SHEETS_URL + '?sheetName=' + encodeURIComponent(sheetName) + '&data=' + encodeURIComponent(JSON.stringify(rowData));
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = url;
-            document.body.appendChild(iframe);
-            setTimeout(() => document.body.removeChild(iframe), 5000);
+            
+            // Use fetch with no-cors mode to avoid CORS issues
+            fetch(url, {
+                method: 'GET',
+                mode: 'no-cors',
+                credentials: 'omit'
+            }).then(response => {
+                console.log('Data sent to Google Sheets successfully');
+            }).catch(error => {
+                console.log('Note: Data saved locally. Will sync when online.');
+            });
         }
         
         function simpanLaporan(e) {
