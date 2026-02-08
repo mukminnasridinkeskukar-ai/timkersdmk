@@ -1578,41 +1578,38 @@
         function saveDataWithGoogleSheets(type, data, callback) {
             // Check if Google Sheets is configured
             if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
-                alert('⚠️ Google Sheets belum dikonfigurasi!\n\nData disimpan secara lokal di browser.\n\nUntuk mengaktifkan Google Sheets:\n1. Edit google-apps-script.gs dan ganti SPREADSHEET_ID\n2. Deploy sebagai Web App\n3. Copy URL dan paste ke GOOGLE_SHEETS_URL di sipandaiasn.html');
+                alert('⚠️ Google Sheets belum dikonfigurasi!
+
+Silakan:
+1. Edit google-apps-script.gs dan ganti SPREADSHEET_ID
+2. Deploy sebagai Web App
+3. Copy URL dan paste ke GOOGLE_SHEETS_URL di sipandaiasn.html');
+                return;
             }
             
-            // Save to localStorage first
-            let dbKey = '';
-            if (type === 'kegiatan') dbKey = DB_KEYS.KEGIATAN;
-            else if (type === 'narasumber') dbKey = DB_KEYS.NARASUMBER;
-            else if (type === 'peserta') dbKey = DB_KEYS.PESERTA;
-            else if (type === 'laporan') dbKey = DB_KEYS.LAPORAN;
-            
-            // Get existing data
-            const existingData = getData(dbKey);
-            
-            // Check if editing or adding new
-            const editId = data.id;
-            if (editId) {
-                const idx = existingData.findIndex(d => d.id === editId);
-                if (idx !== -1) existingData[idx] = data;
-            } else {
-                data.id = generateId(type === 'kegiatan' ? 'KEG' : type === 'narasumber' ? 'NAR' : type === 'peserta' ? 'PES' : 'LAP');
-                existingData.push(data);
-            }
-            
-            // Save to localStorage
-            saveData(dbKey, existingData);
-            
-            // Send to Google Sheets if configured
-            if (GOOGLE_SHEETS_URL && GOOGLE_SHEETS_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
-                const sheetName = SHEET_NAMES[type];
-                sendToGoogleSheets(sheetName, data, function(result) {
-                    if (callback) callback(result);
-                });
-            } else {
-                if (callback) callback({ success: false, message: 'Google Sheets not configured' });
-            }
+            // Send data to Google Sheets
+            const sheetName = SHEET_NAMES[type];
+            sendToGoogleSheets(sheetName, data, function(result) {
+                if (result.success) {
+                    // Also save to localStorage for display
+                    let dbKey = '';
+                    if (type === 'kegiatan') dbKey = DB_KEYS.KEGIATAN;
+                    else if (type === 'narasumber') dbKey = DB_KEYS.NARASUMBER;
+                    else if (type === 'peserta') dbKey = DB_KEYS.PESERTA;
+                    else if (type === 'laporan') dbKey = DB_KEYS.LAPORAN;
+                    
+                    const existingData = getData(dbKey);
+                    if (!data.id) {
+                        data.id = generateId(type === 'kegiatan' ? 'KEG' : type === 'narasumber' ? 'NAR' : type === 'peserta' ? 'PES' : 'LAP');
+                        existingData.push(data);
+                    } else {
+                        const idx = existingData.findIndex(d => d.id === data.id);
+                        if (idx !== -1) existingData[idx] = data;
+                    }
+                    saveData(dbKey, existingData);
+                }
+                if (callback) callback(result);
+            });
         }
         
         function generateId(prefix) {
