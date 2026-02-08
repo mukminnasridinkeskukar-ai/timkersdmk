@@ -1563,49 +1563,69 @@
             }
         }
         
-        // ========== DATABASE FUNCTIONS ==========
-        const DB_KEYS = {
-            KEGIATAN: 'sipandai_kegiatan',
-            NARASUMBER: 'sipandai_narasumber',
-            PESERTA: 'sipandai_peserta',
-            LAPORAN: 'sipandai_laporan'
-        };
+        // ========== DATA MANAGEMENT - GOOGLE SHEETS ONLY ==========
         
-        function getData(key) {
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : [];
+        // Fetch data from Google Sheets
+        async function fetchDataFromGoogleSheets(sheetName) {
+            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
+                console.log('Google Sheets URL not configured');
+                return [];
+            }
+            
+            try {
+                const url = GOOGLE_SHEETS_URL + '?sheetName=' + encodeURIComponent(sheetName) + '&action=read';
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    // Parse the response - it should be JSON
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.log('Response is not JSON:', text);
+                        return [];
+                    }
+                }
+                return [];
+            } catch (error) {
+                console.log('Failed to fetch data from Google Sheets:', error);
+                return [];
+            }
         }
         
-        function saveDataWithGoogleSheets(type, data, callback) {
-            // Check if Google Sheets is configured
-            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
+        // Save data to Google Sheets
+        async function saveDataToGoogleSheets(type, data, callback) {
+            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/AKfycbzZKh-L18tTQOR6BGWpbBm64Rrceu_1_KmgZZd6QdlXaNH44StwktJ3McHOUAQH2eLe/exec') {
                 alert('Google Sheets belum dikonfigurasi! Silakan: 1. Edit google-apps-script.gs dan ganti SPREADSHEET_ID 2. Deploy sebagai Web App 3. Copy URL dan paste ke GOOGLE_SHEETS_URL di sipandaiasn.html');
+                if (callback) callback({ success: false, message: 'URL not configured' });
                 return;
             }
             
-            // Send data to Google Sheets
             const sheetName = SHEET_NAMES[type];
-            sendToGoogleSheets(sheetName, data, function(result) {
-                if (result.success) {
-                    // Also save to localStorage for display
-                    let dbKey = '';
-                    if (type === 'kegiatan') dbKey = DB_KEYS.KEGIATAN;
-                    else if (type === 'narasumber') dbKey = DB_KEYS.NARASUMBER;
-                    else if (type === 'peserta') dbKey = DB_KEYS.PESERTA;
-                    else if (type === 'laporan') dbKey = DB_KEYS.LAPORAN;
-                    
-                    const existingData = getData(dbKey);
-                    if (!data.id) {
-                        data.id = generateId(type === 'kegiatan' ? 'KEG' : type === 'narasumber' ? 'NAR' : type === 'peserta' ? 'PES' : 'LAP');
-                        existingData.push(data);
-                    } else {
-                        const idx = existingData.findIndex(d => d.id === data.id);
-                        if (idx !== -1) existingData[idx] = data;
-                    }
-                    saveData(dbKey, existingData);
+            
+            try {
+                const formData = new FormData();
+                formData.append('sheetName', sheetName);
+                formData.append('data', JSON.stringify(data));
+                
+                const response = await fetch(GOOGLE_SHEETS_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    if (callback) callback({ success: true, message: 'Data saved' });
+                } else {
+                    if (callback) callback({ success: false, message: 'Failed to save' });
                 }
-                if (callback) callback(result);
-            });
+            } catch (error) {
+                console.log('Failed to save to Google Sheets:', error);
+                if (callback) callback({ success: false, message: error.toString() });
+            }
         }
         
         function generateId(prefix) {
@@ -1613,8 +1633,8 @@
         }
         
         // ========== KEGIATAN CRUD ==========
-        function loadKegiatanData() {
-            const data = getData(DB_KEYS.KEGIATAN);
+        async function loadKegiatanData() {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['kegiatan']);
             const tbody = document.getElementById('kegiatanTableBody');
             if (!tbody) return;
             
@@ -1652,8 +1672,8 @@
             return badges[status] || '<span class="badge bg-secondary">-</span>';
         }
         
-        function editKegiatan(id) {
-            const data = getData(DB_KEYS.KEGIATAN);
+        async function editKegiatan(id) {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['kegiatan']);
             const item = data.find(d => d.id === id);
             if (!item) return;
             
@@ -1668,19 +1688,19 @@
             modal.show();
         }
         
-        function deleteKegiatan(id) {
+        async function deleteKegiatan(id) {
             if (confirm('Yakin ingin menghapus kegiatan ini?')) {
-                const data = getData(DB_KEYS.KEGIATAN);
+                const data = await fetchDataFromGoogleSheets(SHEET_NAMES['kegiatan']);
                 const filtered = data.filter(d => d.id !== id);
-                saveData(DB_KEYS.KEGIATAN, filtered);
+                await saveDataToGoogleSheets('kegiatan', filtered);
                 loadKegiatanData();
                 alert('Kegiatan berhasil dihapus!');
             }
         }
         
         // ========== NARASUMBER CRUD ==========
-        function loadNarasumberData() {
-            const data = getData(DB_KEYS.NARASUMBER);
+        async function loadNarasumberData() {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['narasumber']);
             const tbody = document.getElementById('narasumberTableBody');
             if (!tbody) return;
             
@@ -1708,8 +1728,8 @@
             });
         }
         
-        function editNarasumber(id) {
-            const data = getData(DB_KEYS.NARASUMBER);
+        async function editNarasumber(id) {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['narasumber']);
             const item = data.find(d => d.id === id);
             if (!item) return;
             
@@ -1725,19 +1745,19 @@
             modal.show();
         }
         
-        function deleteNarasumber(id) {
+        async function deleteNarasumber(id) {
             if (confirm('Yakin ingin menghapus narasumber ini?')) {
-                const data = getData(DB_KEYS.NARASUMBER);
+                const data = await fetchDataFromGoogleSheets(SHEET_NAMES['narasumber']);
                 const filtered = data.filter(d => d.id !== id);
-                saveData(DB_KEYS.NARASUMBER, filtered);
+                await saveDataToGoogleSheets('narasumber', filtered);
                 loadNarasumberData();
                 alert('Narasumber berhasil dihapus!');
             }
         }
         
         // ========== PESERTA CRUD ==========
-        function loadPesertaData() {
-            const data = getData(DB_KEYS.PESERTA);
+        async function loadPesertaData() {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['peserta']);
             const tbody = document.getElementById('pesertaTableBody');
             if (!tbody) return;
             
@@ -1770,8 +1790,8 @@
             });
         }
         
-        function editPeserta(id) {
-            const data = getData(DB_KEYS.PESERTA);
+        async function editPeserta(id) {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['peserta']);
             const item = data.find(d => d.id === id);
             if (!item) return;
             
@@ -1788,19 +1808,19 @@
             modal.show();
         }
         
-        function deletePeserta(id) {
+        async function deletePeserta(id) {
             if (confirm('Yakin ingin menghapus peserta ini?')) {
-                const data = getData(DB_KEYS.PESERTA);
+                const data = await fetchDataFromGoogleSheets(SHEET_NAMES['peserta']);
                 const filtered = data.filter(d => d.id !== id);
-                saveData(DB_KEYS.PESERTA, filtered);
+                await saveDataToGoogleSheets('peserta', filtered);
                 loadPesertaData();
                 alert('Peserta berhasil dihapus!');
             }
         }
         
         // ========== LAPORAN CRUD ==========
-        function loadLaporanData() {
-            const data = getData(DB_KEYS.LAPORAN);
+        async function loadLaporanData() {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['laporan']);
             const tbody = document.getElementById('laporanTableBody');
             if (!tbody) return;
             
@@ -1832,26 +1852,26 @@
             });
         }
         
-        function viewLaporan(id) {
-            const data = getData(DB_KEYS.LAPORAN);
+        async function viewLaporan(id) {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['laporan']);
             const item = data.find(d => d.id === id);
             if (!item) return;
             
             alert('Detail Laporan:\n\nJudul: ' + item.judul + '\nJenis: ' + item.jenis + '\nTanggal: ' + item.tanggal + '\nStatus: ' + item.status);
         }
         
-        function deleteLaporan(id) {
+        async function deleteLaporan(id) {
             if (confirm('Yakin ingin menghapus laporan ini?')) {
-                const data = getData(DB_KEYS.LAPORAN);
+                const data = await fetchDataFromGoogleSheets(SHEET_NAMES['laporan']);
                 const filtered = data.filter(d => d.id !== id);
-                saveData(DB_KEYS.LAPORAN, filtered);
+                await saveDataToGoogleSheets('laporan', filtered);
                 loadLaporanData();
                 alert('Laporan berhasil dihapus!');
             }
         }
         
-        function downloadLaporan(id) {
-            const data = getData(DB_KEYS.LAPORAN);
+        async function downloadLaporan(id) {
+            const data = await fetchDataFromGoogleSheets(SHEET_NAMES['laporan']);
             const item = data.find(d => d.id === id);
             if (!item) return;
             
@@ -1875,21 +1895,17 @@ Generated by SIPANDAI-ASN`;
         }
         
         // ========== EXPORT DATA ==========
-        function exportData(type) {
-            let data = [];
+        async function exportData(type) {
+            let data = await fetchDataFromGoogleSheets(SHEET_NAMES[type]);
             let filename = '';
             
             if (type === 'peserta') {
-                data = getData(DB_KEYS.PESERTA);
                 filename = 'data_peserta_' + new Date().toISOString().slice(0,10) + '.csv';
             } else if (type === 'kegiatan') {
-                data = getData(DB_KEYS.KEGIATAN);
                 filename = 'data_kegiatan_' + new Date().toISOString().slice(0,10) + '.csv';
             } else if (type === 'narasumber') {
-                data = getData(DB_KEYS.NARASUMBER);
                 filename = 'data_narasumber_' + new Date().toISOString().slice(0,10) + '.csv';
             } else if (type === 'laporan') {
-                data = getData(DB_KEYS.LAPORAN);
                 filename = 'data_laporan_' + new Date().toISOString().slice(0,10) + '.csv';
             }
             
@@ -1920,12 +1936,12 @@ Generated by SIPANDAI-ASN`;
             document.getElementById('importFileInput').click();
         }
         
-        function handleImportFile(input) {
+        async function handleImportFile(input) {
             const file = input.files[0];
             if (!file) return;
             
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 const content = e.target.result;
                 const lines = content.split('\n');
                 const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
@@ -1944,14 +1960,14 @@ Generated by SIPANDAI-ASN`;
                 }
                 
                 if (importedData.length > 0) {
-                    const existingData = getData(DB_KEYS.PESERTA);
+                    const existingData = await fetchDataFromGoogleSheets(SHEET_NAMES['peserta']);
                     // Check for duplicates
                     importedData.forEach(newItem => {
                         if (!existingData.some(d => d.nip === newItem.nip)) {
                             existingData.push(newItem);
                         }
                     });
-                    saveData(DB_KEYS.PESERTA, existingData);
+                    await saveDataToGoogleSheets('peserta', existingData);
                     loadPesertaData();
                     alert('Berhasil import ' + importedData.length + ' data peserta!');
                 }
@@ -2006,12 +2022,12 @@ Generated by SIPANDAI-ASN`;
         }
         
         // Updated loadPesertaData with pagination, search & filter
-        function loadPesertaData() {
+        async function loadPesertaData() {
             const searchNIP = document.getElementById('searchNIP').value.toLowerCase();
             const filterUnit = document.getElementById('filterUnit').value;
             const filterStatus = document.getElementById('filterStatus').value;
             
-            let data = getData(DB_KEYS.PESERTA);
+            let data = await fetchDataFromGoogleSheets(SHEET_NAMES['peserta']);
             
             // Apply filters
             if (searchNIP) {
@@ -2063,11 +2079,11 @@ Generated by SIPANDAI-ASN`;
         }
         
         // Update loadDashboardStats to include dynamic stats
-        function loadDashboardStats() {
-            const peserta = getData(DB_KEYS.PESERTA);
-            const kegiatan = getData(DB_KEYS.KEGIATAN);
-            const narasumber = getData(DB_KEYS.NARASUMBER);
-            const laporan = getData(DB_KEYS.LAPORAN);
+        async function loadDashboardStats() {
+            const peserta = await fetchDataFromGoogleSheets(SHEET_NAMES['peserta']);
+            const kegiatan = await fetchDataFromGoogleSheets(SHEET_NAMES['kegiatan']);
+            const narasumber = await fetchDataFromGoogleSheets(SHEET_NAMES['narasumber']);
+            const laporan = await fetchDataFromGoogleSheets(SHEET_NAMES['laporan']);
             
             const pesertaAktif = peserta.filter(p => p.status === 'aktif').length;
             const pesertaProses = peserta.filter(p => p.status === 'proses').length;
@@ -2211,7 +2227,7 @@ Generated by SIPANDAI-ASN`;
             modal.show();
         }
         
-        function saveData() {
+        async function saveData() {
             const editId = document.getElementById('modalId').value;
             let dataToSend = null;
             let saveCallback = null;
@@ -2238,7 +2254,7 @@ Generated by SIPANDAI-ASN`;
             } else if (currentEditType === 'narasumber') {
                 const nip = document.getElementById('modalNIP').value;
                 const nipError = document.getElementById('nipError');
-                const allData = getData(DB_KEYS.NARASUMBER);
+                const allData = await fetchDataFromGoogleSheets(SHEET_NAMES['narasumber']);
                 
                 // Check duplicate NIP (only for new data)
                 if (!editId && allData.some(d => d.nip === nip)) {
@@ -2269,7 +2285,7 @@ Generated by SIPANDAI-ASN`;
             } else if (currentEditType === 'peserta') {
                 const nip = document.getElementById('modalNIP').value;
                 const nipError = document.getElementById('nipError');
-                const allData = getData(DB_KEYS.PESERTA);
+                const allData = await fetchDataFromGoogleSheets(SHEET_NAMES['peserta']);
                 
                 // Check duplicate NIP (only for new data)
                 if (!editId && allData.some(d => d.nip === nip)) {
@@ -2319,7 +2335,8 @@ Generated by SIPANDAI-ASN`;
             }
             
             if (dataToSend) {
-                saveDataWithGoogleSheets(currentEditType, dataToSend, saveCallback);
+                await saveDataToGoogleSheets(currentEditType, dataToSend);
+                if (saveCallback) saveCallback({ success: true });
             }
             
             const modal = bootstrap.Modal.getInstance(document.getElementById('addModal'));
