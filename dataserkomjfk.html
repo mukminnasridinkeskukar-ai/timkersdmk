@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Sertifikat Kompetensi (serkom) JF Kesehatan</title>
-    <script src="https://apis.google.com/js/api.js"></script>
+    <title>Data Sertifikasi Komputer JF Kesehatan</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -239,29 +238,29 @@
         // ============================================
         // GANTI DENGAN WEB APP URL ANDA
         // ============================================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxDpSVH2nNIm8LalW-fT_C3OLMw0O126woWRACtW-MfwU61Dwhn_GYGINKdlKnPhiic/exec';
+        var GAS_URL = 'https://script.google.com/macros/s/AKfycbxiPT7-BboN3YhT79qwnUn905liGCbPt86JeSyHGnd4je008OX6Fj2dCbpSTgPLtWwU/exec';
         
         // Timer 14 jam countdown
-        const TOTAL_SECONDS = 14 * 3600;
-        let remainingSeconds = TOTAL_SECONDS;
+        var TOTAL_SECONDS = 14 * 3600;
+        var remainingSeconds = TOTAL_SECONDS;
         
         function formatTime(s) {
-            const h = Math.floor(s / 3600);
-            const m = Math.floor((s % 3600) / 60);
-            const sec = s % 60;
+            var h = Math.floor(s / 3600);
+            var m = Math.floor((s % 3600) / 60);
+            var sec = s % 60;
             return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
         }
         
         function startTimer() {
-            const lastTime = localStorage.getItem('timerLastTime');
-            const now = Date.now();
+            var lastTime = localStorage.getItem('timerLastTime');
+            var now = Date.now();
             if (lastTime) {
-                const elapsed = Math.floor((now - parseInt(lastTime)) / 1000);
+                var elapsed = Math.floor((now - parseInt(lastTime)) / 1000);
                 remainingSeconds = Math.max(0, TOTAL_SECONDS - elapsed);
             }
             document.getElementById('timer').textContent = formatTime(remainingSeconds);
             
-            const timerInterval = setInterval(() => {
+            var timerInterval = setInterval(function() {
                 remainingSeconds--;
                 document.getElementById('timer').textContent = formatTime(remainingSeconds);
                 localStorage.setItem('timerLastTime', Date.now());
@@ -274,32 +273,31 @@
         }
         
         function showMessage(type, text) {
-            const el = document.getElementById('message');
+            var el = document.getElementById('message');
             el.className = 'message ' + type;
             el.textContent = text;
             el.style.display = 'block';
             if (type !== 'info') {
-                setTimeout(() => el.style.display = 'none', 5000);
+                setTimeout(function() { el.style.display = 'none'; }, 5000);
             }
         }
         
         function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
+            return new Promise(function(resolve, reject) {
+                var reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onload = function() { resolve(reader.result.split(',')[1]); };
                 reader.onerror = reject;
             });
         }
         
-        // Load count using JSONP to bypass CORS
+        // Load count menggunakan JSONP
         function loadDataCount() {
             document.getElementById('dataCount').textContent = '...';
             
-            // Use callback approach for GET requests
-            const callbackName = 'count_' + Date.now();
-            const script = document.createElement('script');
-            script.src = WEB_APP_URL + '?action=count&callback=' + callbackName;
+            var callbackName = 'jsonp_count_' + Date.now();
+            var script = document.createElement('script');
+            script.src = GAS_URL + '?action=count&callback=' + callbackName;
             
             window[callbackName] = function(data) {
                 if (data && data.count !== undefined) {
@@ -307,31 +305,31 @@
                 } else {
                     document.getElementById('dataCount').textContent = '?';
                 }
-                delete window[callbackName];
-                document.body.removeChild(script);
+                try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
+                try { document.body.removeChild(script); } catch(e) {}
             };
             
             script.onerror = function() {
                 document.getElementById('dataCount').textContent = '?';
-                delete window[callbackName];
+                try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
             };
             
             document.body.appendChild(script);
         }
         
-        // Form submission
-        document.getElementById('serkomForm').addEventListener('submit', async function(e) {
+        // Form submission menggunakan JSONP
+        document.getElementById('serkomForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const btn = document.getElementById('submitBtn');
-            const loading = document.getElementById('loading');
+            var btn = document.getElementById('submitBtn');
+            var loading = document.getElementById('loading');
             
-            const nip = document.getElementById('nip').value.trim();
-            const nama = document.getElementById('nama').value.trim();
-            const nik = document.getElementById('nik').value.trim();
-            const unitKerja = document.getElementById('unitKerja').value.trim();
-            const tanggalTerbit = document.getElementById('tanggalTerbit').value;
-            const fileInput = document.getElementById('fileSerkom');
+            var nip = document.getElementById('nip').value.trim();
+            var nama = document.getElementById('nama').value.trim();
+            var nik = document.getElementById('nik').value.trim();
+            var unitKerja = document.getElementById('unitKerja').value.trim();
+            var tanggalTerbit = document.getElementById('tanggalTerbit').value;
+            var fileInput = document.getElementById('fileSerkom');
             
             if (!nama || !nip || !nik || !unitKerja || !tanggalTerbit || !fileInput.files[0]) {
                 showMessage('error', 'Lengkapi data wajib terlebih dahulu!');
@@ -352,10 +350,13 @@
             loading.style.display = 'block';
             showMessage('info', 'Memproses data...');
             
-            try {
-                const base64File = await fileToBase64(fileInput.files[0]);
+            var base64File = '';
+            var fileName = fileInput.files[0].name;
+            
+            fileToBase64(fileInput.files[0]).then(function(result) {
+                base64File = result;
                 
-                const formData = {
+                var formData = {
                     nama: nama,
                     nip: nip,
                     nik: nik,
@@ -365,98 +366,65 @@
                     jenisJenjangSerkom: document.getElementById('jenisJenjangSerkom').value,
                     jabatanSerkom: document.getElementById('jabatanSerkom').value,
                     tanggalTerbit: tanggalTerbit,
-                    fileName: fileInput.files[0].name,
+                    fileName: fileName,
                     fileData: base64File
                 };
                 
                 showMessage('info', 'Menyimpan data...');
                 
-                // Use callback for POST
-                const callbackName = 'submit_' + Date.now();
-                const redirectUrl = WEB_APP_URL + '?callback=' + callbackName;
-                
-                // Create form and submit via iframe
-                const form = document.createElement('form');
+                // Submit menggunakan form dengan target iframe (tanpa CORS)
+                var callbackName = 'jsonp_submit_' + Date.now();
+                var form = document.createElement('form');
                 form.method = 'POST';
-                form.action = redirectUrl;
+                form.action = GAS_URL + '?callback=' + callbackName;
                 form.target = 'iframe_' + callbackName;
+                form.style.display = 'none';
                 
-                const input = document.createElement('input');
+                var input = document.createElement('input');
                 input.type = 'hidden';
                 input.name = 'data';
                 input.value = JSON.stringify(formData);
                 form.appendChild(input);
                 
-                // Create hidden iframe
-                const iframe = document.createElement('iframe');
+                var iframe = document.createElement('iframe');
                 iframe.name = 'iframe_' + callbackName;
                 iframe.style.display = 'none';
                 document.body.appendChild(iframe);
                 
                 window[callbackName] = function(result) {
                     if (result && result.success) {
-                        showMessage('success', '✅ BERHASIL! Data sudah tersimpan.');
+                        showMessage('success', 'BERHASIL! Data sudah tersimpan.');
                         document.getElementById('serkomForm').reset();
                         loadDataCount();
                     } else {
-                        showMessage('error', '❌ ' + (result && result.message ? result.message : 'Gagal disimpan!'));
+                        showMessage('error', (result && result.message) ? result.message : 'Gagal disimpan!');
                     }
                     
-                    delete window[callbackName];
-                    document.body.removeChild(form);
-                    document.body.removeChild(iframe);
+                    try { delete window[callbackName]; } catch(e) { window[callbackName] = undefined; }
                     btn.disabled = false;
                     loading.style.display = 'none';
                 };
                 
                 iframe.onload = function() {
-                    // Check if callback was called
                     setTimeout(function() {
                         if (window[callbackName]) {
-                            // If not called, try fetch
-                            fetchSubmit(formData);
+                            // Callback tidak dipanggil, coba lagi
+                            showMessage('error', 'Koneksi timeout. Coba lagi.');
+                            btn.disabled = false;
+                            loading.style.display = 'none';
                         }
-                    }, 2000);
+                    }, 5000);
                 };
                 
                 document.body.appendChild(form);
                 form.submit();
                 
-            } catch (error) {
-                console.error('Error:', error);
+            }).catch(function(error) {
                 showMessage('error', 'Error: ' + error.message);
                 btn.disabled = false;
                 loading.style.display = 'none';
-            }
+            });
         });
-        
-        // Fallback to fetch
-        async function fetchSubmit(formData) {
-            try {
-                const response = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(formData)
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showMessage('success', '✅ BERHASIL! Data sudah tersimpan.');
-                    document.getElementById('serkomForm').reset();
-                    loadDataCount();
-                } else {
-                    showMessage('error', '❌ ' + (result.message || 'Gagal disimpan!'));
-                }
-            } catch (error) {
-                showMessage('error', 'Error: ' + error.message + '. Coba refresh halaman.');
-            }
-            
-            const btn = document.getElementById('submitBtn');
-            const loading = document.getElementById('loading');
-            btn.disabled = false;
-            loading.style.display = 'none';
-        }
         
         document.addEventListener('DOMContentLoaded', function() {
             startTimer();
