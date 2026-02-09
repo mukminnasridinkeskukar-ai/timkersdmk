@@ -474,6 +474,11 @@
                     <span>Admin</span>
                     <span style="font-size: 0.9rem; opacity: 0.9;">Login untuk admin</span>
                 </button>
+                <button class="menu-btn menu-btn-admin" onclick="showSettingsPanel()">
+                    <span class="icon">⚙️</span>
+                    <span>Pengaturan</span>
+                    <span style="font-size: 0.9rem; opacity: 0.9;">Konfigurasi aplikasi</span>
+                </button>
             </div>
         </div>
 
@@ -509,8 +514,9 @@
                     <label for="category">Kategori Konsultasi *</label>
                     <select id="category" required>
                         <option value="">Pilih kategori konsultasi</option>
-                        <option value="inovasi">Informasi Inovasi</option>
+                        <option value="produk">Informasi Produk</option>
                         <option value="layanan">Layanan</option>
+                        <option value="harga">Informasi Harga</option>
                         <option value="keluhan">Keluhan</option>
                         <option value="saran">Saran</option>
                         <option value="kerjasama">Kerjasama</option>
@@ -532,7 +538,7 @@
             </form>
         </div>
 
-        <!-- Login Panel -->
+        <!-- Login Panel (Admin) -->
         <div class="card" id="loginPanel">
             <div class="nav-bar">
                 <button class="nav-btn back-btn" onclick="showMainMenu()">← Kembali</button>
@@ -554,6 +560,32 @@
                     </div>
                 </div>
                 <button type="submit" class="submit-btn">Login</button>
+            </form>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="card" id="settingsPanel">
+            <div class="nav-bar">
+                <button class="nav-btn back-btn" onclick="showMainMenu()">← Kembali</button>
+                <h2 class="section-title">Pengaturan</h2>
+                <div style="width: 80px;"></div>
+            </div>
+
+            <div class="success-message" id="settingsSuccess"></div>
+            <div class="error-message" id="settingsError"></div>
+
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label>Google Sheets Web App URL *</label>
+                    <input type="url" id="googleSheetsUrl" placeholder="https://script.google.com/macros/s/.../exec" required>
+                    <small style="color: #666;">Salin URL dari deployment Google Apps Script</small>
+                </div>
+                <div class="form-group">
+                    <label>Nama Sheet</label>
+                    <input type="text" id="sheetName" placeholder="BukuTamu" value="BukuTamu">
+                    <small style="color: #666;">Nama sheet di Google Sheets tempat data akan disimpan</small>
+                </div>
+                <button type="submit" class="submit-btn">💾 Simpan Pengaturan</button>
             </form>
         </div>
 
@@ -631,10 +663,17 @@
 
         // Data storage key
         const STORAGE_KEY = 'guestbook_data';
+        const SETTINGS_KEY = 'bukutamu_settings';
 
         // Initialize data from localStorage or empty array
-        let consultationData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        let consultationData = [];
         let isLoggedIn = false;
+
+        // Settings
+        let settings = {
+            googleSheetsUrl: localStorage.getItem('bukutamu_googleSheetsUrl') || '',
+            sheetName: localStorage.getItem('bukutamu_sheetName') || 'BukuTamu'
+        };
 
         // Check if already logged in
         if (localStorage.getItem('admin_logged_in') === 'true') {
@@ -642,11 +681,95 @@
             showAdminPanel();
         }
 
+        // Load data from Google Sheets or localStorage
+        async function loadData() {
+            if (settings.googleSheetsUrl) {
+                await fetchDataFromGoogleSheets();
+            } else {
+                consultationData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            }
+        }
+
+        // Fetch data from Google Sheets
+        async function fetchDataFromGoogleSheets() {
+            try {
+                const url = `${settings.googleSheetsUrl}?action=getAllBukuTamu`;
+                const response = await fetch(url);
+                const data = await response.json();
+                if (Array.isArray(data)) {
+                    consultationData = data.map(item => ({
+                        id: item['ID'] || item['id'] || Date.now(),
+                        name: item['Nama'] || item['name'] || '',
+                        email: item['Email'] || item['email'] || '',
+                        phone: item['Telepon'] || item['phone'] || item['WhatsApp'] || '',
+                        category: item['Kategori'] || item['category'] || '',
+                        subject: item['Subjek'] || item['subject'] || '',
+                        message: item['Pesan'] || item['message'] || '',
+                        status: item['Status'] || item['status'] || 'pending',
+                        createdAt: item['Timestamp'] || item['createdAt'] || new Date().toISOString()
+                    }));
+                }
+            } catch (error) {
+                console.log('Using localStorage data:', error);
+                consultationData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            }
+        }
+
+        // Submit data to Google Sheets
+        async function submitToGoogleSheets(data) {
+            if (!settings.googleSheetsUrl) {
+                return false;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'submitBukuTamu');
+                formData.append('sheetName', settings.sheetName);
+                formData.append('data', JSON.stringify(data));
+
+                const response = await fetch(settings.googleSheetsUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                return result.result === 'success';
+            } catch (error) {
+                console.error('Error submitting to Google Sheets:', error);
+                return false;
+            }
+        }
+
+        // Delete data from Google Sheets
+        async function deleteFromGoogleSheets(rowNumber) {
+            if (!settings.googleSheetsUrl) {
+                return false;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('action', 'deleteBukuTamu');
+                formData.append('rowNumber', rowNumber);
+
+                const response = await fetch(settings.googleSheetsUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                return result.result === 'success';
+            } catch (error) {
+                console.error('Error deleting from Google Sheets:', error);
+                return false;
+            }
+        }
+
         // Panel navigation functions
         function showMainMenu() {
             document.getElementById('mainMenu').style.display = 'block';
             document.getElementById('formPanel').classList.remove('active');
             document.getElementById('loginPanel').style.display = 'none';
+            document.getElementById('settingsPanel').style.display = 'none';
             document.getElementById('adminPanel').classList.remove('active');
         }
 
@@ -654,6 +777,7 @@
             document.getElementById('mainMenu').style.display = 'none';
             document.getElementById('formPanel').classList.add('active');
             document.getElementById('loginPanel').style.display = 'none';
+            document.getElementById('settingsPanel').style.display = 'none';
             document.getElementById('adminPanel').classList.remove('active');
         }
 
@@ -661,16 +785,32 @@
             document.getElementById('mainMenu').style.display = 'none';
             document.getElementById('formPanel').classList.remove('active');
             document.getElementById('loginPanel').style.display = 'block';
+            document.getElementById('settingsPanel').style.display = 'none';
             document.getElementById('adminPanel').classList.remove('active');
+        }
+
+        function showSettingsPanel() {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('formPanel').classList.remove('active');
+            document.getElementById('loginPanel').style.display = 'none';
+            document.getElementById('settingsPanel').style.display = 'block';
+            document.getElementById('adminPanel').classList.remove('active');
+            
+            // Load settings into form
+            document.getElementById('googleSheetsUrl').value = settings.googleSheetsUrl || '';
+            document.getElementById('sheetName').value = settings.sheetName || 'BukuTamu';
         }
 
         function showAdminPanel() {
             document.getElementById('mainMenu').style.display = 'none';
             document.getElementById('formPanel').classList.remove('active');
             document.getElementById('loginPanel').style.display = 'none';
+            document.getElementById('settingsPanel').style.display = 'none';
             document.getElementById('adminPanel').classList.add('active');
-            renderTable();
-            updateStats();
+            loadData().then(() => {
+                renderTable();
+                updateStats();
+            });
         }
 
         // Login form submission
@@ -689,8 +829,47 @@
             }
         });
 
+        // Settings form submission
+        document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const googleSheetsUrl = document.getElementById('googleSheetsUrl').value.trim();
+            const sheetName = document.getElementById('sheetName').value.trim();
+            
+            if (!googleSheetsUrl) {
+                showSettingsError('URL Google Sheets wajib diisi!');
+                return;
+            }
+
+            // Test connection
+            try {
+                const testUrl = `${googleSheetsUrl}?action=testConnection`;
+                const response = await fetch(testUrl);
+                const result = await response.json();
+                
+                if (result.result !== 'success' && result.status !== 'SIPANDAI Google Sheets API Ready') {
+                    showSettingsError('Koneksi ke Google Sheets gagal! Periksa URL Anda.');
+                    return;
+                }
+            } catch (error) {
+                // URL might not support testConnection, but still save it
+                console.log('Connection test failed, but saving anyway:', error);
+            }
+
+            settings.googleSheetsUrl = googleSheetsUrl;
+            settings.sheetName = sheetName;
+            
+            localStorage.setItem('bukutamu_googleSheetsUrl', googleSheetsUrl);
+            localStorage.setItem('bukutamu_sheetName', sheetName);
+            
+            showSettingsSuccess('Pengaturan berhasil disimpan!');
+            setTimeout(() => {
+                showMainMenu();
+            }, 2000);
+        });
+
         // Consultation form submission
-        document.getElementById('consultationForm').addEventListener('submit', function(e) {
+        document.getElementById('consultationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
             const newData = {
@@ -705,6 +884,14 @@
                 createdAt: new Date().toISOString()
             };
 
+            // Submit to Google Sheets if configured
+            if (settings.googleSheetsUrl) {
+                const success = await submitToGoogleSheets(newData);
+                if (!success) {
+                    alert('Gagal mengirim ke Google Sheets, data akan disimpan secara lokal.');
+                }
+            }
+
             consultationData.unshift(newData);
             saveData();
 
@@ -717,6 +904,24 @@
             const errorDiv = document.getElementById('loginError');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
+        }
+
+        function showSettingsError(message) {
+            const errorDiv = document.getElementById('settingsError');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSettingsSuccess(message) {
+            const successDiv = document.getElementById('settingsSuccess');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
         }
 
         function showSuccessMessage() {
@@ -749,18 +954,18 @@
 
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const filteredData = consultationData.filter(item =>
-                item.name.toLowerCase().includes(searchTerm) ||
-                item.email.toLowerCase().includes(searchTerm) ||
-                item.subject.toLowerCase().includes(searchTerm)
+                (item.name && item.name.toLowerCase().includes(searchTerm)) ||
+                (item.email && item.email.toLowerCase().includes(searchTerm)) ||
+                (item.subject && item.subject.toLowerCase().includes(searchTerm))
             );
 
             tbody.innerHTML = filteredData.map((item, index) => `
                 <tr>
                     <td>${index + 1}</td>
-                    <td>${escapeHtml(item.name)}</td>
-                    <td>${escapeHtml(item.email)}</td>
+                    <td>${escapeHtml(item.name || '')}</td>
+                    <td>${escapeHtml(item.email || '')}</td>
                     <td>${getCategoryLabel(item.category)}</td>
-                    <td>${escapeHtml(item.subject)}</td>
+                    <td>${escapeHtml(item.subject || '')}</td>
                     <td><span class="status-badge status-${item.status}">${getStatusLabel(item.status)}</span></td>
                     <td>${formatDate(item.createdAt)}</td>
                     <td>
@@ -791,15 +996,15 @@
                 </div>
                 <div class="detail-row">
                     <label>Nama Lengkap</label>
-                    <p>${escapeHtml(item.name)}</p>
+                    <p>${escapeHtml(item.name || '')}</p>
                 </div>
                 <div class="detail-row">
                     <label>Email</label>
-                    <p>${escapeHtml(item.email)}</p>
+                    <p>${escapeHtml(item.email || '')}</p>
                 </div>
                 <div class="detail-row">
                     <label>Nomor Telepon</label>
-                    <p>${escapeHtml(item.phone)}</p>
+                    <p>${escapeHtml(item.phone || '')}</p>
                 </div>
                 <div class="detail-row">
                     <label>Kategori</label>
@@ -807,11 +1012,11 @@
                 </div>
                 <div class="detail-row">
                     <label>Subjek</label>
-                    <p>${escapeHtml(item.subject)}</p>
+                    <p>${escapeHtml(item.subject || '')}</p>
                 </div>
                 <div class="detail-row">
                     <label>Detail Pesan</label>
-                    <p>${escapeHtml(item.message)}</p>
+                    <p>${escapeHtml(item.message || '')}</p>
                 </div>
                 <div class="detail-row">
                     <label>Status</label>
@@ -830,13 +1035,20 @@
             document.getElementById('detailModal').classList.remove('active');
         }
 
-        function deleteData(id) {
-            if (confirm('Apakah Anda yakin ingin menghapus data konsultasi ini?')) {
-                consultationData = consultationData.filter(d => d.id !== id);
-                saveData();
-                renderTable();
-                updateStats();
+        async function deleteData(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus data konsultasi ini?')) {
+                return;
             }
+            
+            const item = consultationData.find(d => d.id === id);
+            if (item && item.rowNumber && settings.googleSheetsUrl) {
+                await deleteFromGoogleSheets(item.rowNumber);
+            }
+            
+            consultationData = consultationData.filter(d => d.id !== id);
+            saveData();
+            renderTable();
+            updateStats();
         }
 
         function filterData() {
@@ -855,9 +1067,9 @@
                 return;
             }
 
-            let csv = 'No,Nama,Email,Telepon,Kategori,Subjek,Pesan,Status,Tanggal\n';
+            let csv = 'No,Nama,Email,Telepon,Kategori,Subjek,Pesan,Status,Tanggal' + '\n';
             consultationData.forEach((item, index) => {
-                csv += `${index + 1},"${item.name}","${item.email}","${item.phone}","${getCategoryLabel(item.category)}","${item.subject}","${item.message.replace(/"/g, '""')}","${getStatusLabel(item.status)}","${formatDateTime(item.createdAt)}"\n`;
+                csv += `${index + 1},"${item.name || ''}","${item.email || ''}","${item.phone || ''}","${getCategoryLabel(item.category)}","${(item.subject || '').replace(/"/g, '""')}","${(item.message || '').replace(/"/g, '""')}","${getStatusLabel(item.status)}","${formatDateTime(item.createdAt)}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -873,7 +1085,19 @@
 
         function togglePassword() {
             const passwordInput = document.getElementById('password');
-            const toggleBtn = document.querySelector('.toggle-password');
+            const toggleBtn = document.querySelector('#loginPanel .toggle-password');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleBtn.textContent = '🔒';
+            } else {
+                passwordInput.type = 'password';
+                toggleBtn.textContent = '👁️';
+            }
+        }
+
+        function toggleAdminPassword() {
+            const passwordInput = document.getElementById('adminPassword');
+            const toggleBtn = document.querySelector('#settingsPanel .toggle-password');
             if (passwordInput.type === 'password') {
                 passwordInput.type = 'text';
                 toggleBtn.textContent = '🔒';
