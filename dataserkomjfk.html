@@ -186,11 +186,11 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 Data Sertifikasi Komputer JF Kominfo</h1>
+            <h1>📋 Data Sertifikasi Kompetensi JF Kesehatan</h1>
             <div class="header-info">
                 <div class="info-box timer-box">
-                    <div class="label">Waktu</div>
-                    <div class="value" id="timer">00:00:00</div>
+                    <div class="label">Sisa Waktu</div>
+                    <div class="value" id="timer">14:00:00</div>
                 </div>
                 <div class="info-box">
                     <div class="label">Data Terkirim</div>
@@ -322,11 +322,12 @@
         // Setelah deploy Google Apps Script, copy URL-nya
         // dan paste di bawah ini:
         // ============================================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwC6GAcIav7ocuD343wzOSLlj_Ko3fw8ZGVcJ8QuBzCp1mG7vvILRS8ZSwEqfIdAhq2/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxtrqOM71GKPhpK-W3SbdLPhLqQ6dSWEs_73tU2cpFCzjQI2cKzPIiXlFSySPyzGF7x/exec';
         
-        // Timer functionality
+        // Timer functionality (14 jam countdown)
         let timerInterval;
-        let seconds = 0;
+        const TOTAL_SECONDS = 14 * 3600; // 14 jam dalam detik
+        let remainingSeconds = TOTAL_SECONDS;
         
         function formatTime(totalSeconds) {
             const hours = Math.floor(totalSeconds / 3600);
@@ -338,11 +339,31 @@
         }
         
         function startTimer() {
-            seconds = 0;
-            document.getElementById('timer').textContent = formatTime(seconds);
+            // Ambil waktu terakhir dari localStorage atau gunakan waktu saat ini
+            const lastTime = localStorage.getItem('timerLastTime');
+            const now = Date.now();
+            
+            if (lastTime) {
+                const elapsed = Math.floor((now - parseInt(lastTime)) / 1000);
+                remainingSeconds = Math.max(0, TOTAL_SECONDS - elapsed);
+            } else {
+                remainingSeconds = TOTAL_SECONDS;
+            }
+            
+            document.getElementById('timer').textContent = formatTime(remainingSeconds);
+            
             timerInterval = setInterval(() => {
-                seconds++;
-                document.getElementById('timer').textContent = formatTime(seconds);
+                remainingSeconds--;
+                document.getElementById('timer').textContent = formatTime(remainingSeconds);
+                
+                // Simpan waktu terakhir update
+                localStorage.setItem('timerLastTime', Date.now());
+                
+                if (remainingSeconds <= 0) {
+                    stopTimer();
+                    document.getElementById('timer').textContent = '00:00:00';
+                    document.getElementById('timer').style.color = '#ff0000';
+                }
             }, 1000);
         }
         
@@ -353,8 +374,16 @@
         // Check NIP already submitted
         async function checkNIPExists(nip) {
             try {
+                console.log('Checking NIP:', nip);
                 const response = await fetch(WEB_APP_URL + '?nip=' + encodeURIComponent(nip));
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP error: ' + response.status);
+                }
+                
                 const data = await response.json();
+                console.log('NIP check response:', data);
                 return data.exists;
             } catch (error) {
                 console.error('Error checking NIP:', error);
@@ -365,8 +394,16 @@
         // Load data count
         async function loadDataCount() {
             try {
+                console.log('Loading data count...');
                 const response = await fetch(WEB_APP_URL + '?action=count');
+                console.log('Count response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP error: ' + response.status);
+                }
+                
                 const data = await response.json();
+                console.log('Count response:', data);
                 document.getElementById('dataCount').textContent = data.count || 0;
             } catch (error) {
                 console.error('Error loading count:', error);
@@ -466,7 +503,10 @@
                     };
                     
                     try {
-                        showMessage('info', 'Menyimpan data...');
+                        showMessage('info', 'Menyimpan data ke server...');
+                        console.log('Sending data to:', WEB_APP_URL);
+                        console.log('Form data:', JSON.stringify(formData).substring(0, 200) + '...');
+                        
                         const response = await fetch(WEB_APP_URL, {
                             method: 'POST',
                             headers: {
@@ -475,7 +515,14 @@
                             body: JSON.stringify(formData)
                         });
                         
+                        console.log('Response status:', response.status);
+                        
+                        if (!response.ok) {
+                            throw new Error('HTTP error: ' + response.status);
+                        }
+                        
                         const result = await response.json();
+                        console.log('Server response:', result);
                         
                         if (result.success) {
                             showMessage('success', '✅ Data berhasil disimpan! File PDF: ' + fileName);
@@ -485,7 +532,8 @@
                             showMessage('error', 'Gagal menyimpan data: ' + (result.message || 'Unknown error'));
                         }
                     } catch (error) {
-                        showMessage('error', 'Error: ' + error.message);
+                        console.error('Error submitting form:', error);
+                        showMessage('error', 'Error: ' + error.message + '. Pastikan Google Apps Script sudah di-deploy dengan benar.');
                     } finally {
                         submitBtn.disabled = false;
                         loading.style.display = 'none';
