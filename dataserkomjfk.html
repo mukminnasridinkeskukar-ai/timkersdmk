@@ -84,20 +84,23 @@
         .btn-submit:hover { transform: translateY(-2px); }
         .btn-submit:disabled { background: #999; cursor: not-allowed; }
         
-        /* Notification Styles */
+              /* Notification Styles */
         .notification {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 20px 30px;
-            border-radius: 12px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 30px 50px;
+            border-radius: 20px;
             color: white;
             font-weight: bold;
-            font-size: 1rem;
+            font-size: 1.5rem;
             z-index: 10000;
             display: none;
-            animation: slideIn 0.3s ease;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: zoomIn 0.5s ease;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 90%;
         }
         .notification.success {
             background: linear-gradient(135deg, #28a745, #20c997);
@@ -110,16 +113,22 @@
         }
         .notification.show { display: block; }
         
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        @keyframes zoomIn {
+            from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
         }
         .notification.show.pulse {
-            animation: slideIn 0.3s ease, pulse 0.5s ease 2;
+            animation: zoomIn 0.5s ease, pulse 1s ease infinite;
+        }
+        .notification .subtext {
+            font-size: 0.9rem;
+            font-weight: normal;
+            margin-top: 10px;
+            opacity: 0.9;
         }
         
         @media (max-width: 600px) {
@@ -132,11 +141,11 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Data Sertifikasi Kompetensi JF Kesehatan</h1>
+            <h1>Data Sertifikasi Komputer JF Kesehatan</h1>
             <div class="header-info">
                 <div class="info-box timer-box">
                     <div class="label">Sisa Waktu</div>
-                    <div class="value" id="timer">06:00:00</div>
+                    <div class="value" id="timer">14:00:00</div>
                 </div>
                 <div class="info-box">
                     <div class="label">Data Terkirim</div>
@@ -335,11 +344,10 @@
         var GAS_URL = 'https://script.google.com/macros/s/AKfycbzv2jFRBZNRtT8gOJDU-60Wzsi_awYj9jivoT4ZvY5UiBiVnlUXFyR4IK0RcZIbZ0Gd/exec';
         
         // Timer 06 jam
-        var TOTAL_SECONDS = 06 * 3600;
         var remainingSeconds = TOTAL_SECONDS;
         var notificationTimeout;
         
-        function showNotification(type, message) {
+        function showNotification(type, message, subtext) {
             var notification = document.getElementById('notification');
             
             // Stop any previous animation
@@ -349,7 +357,7 @@
             
             // Set notification style
             notification.className = 'notification ' + type + ' show pulse';
-            notification.innerHTML = message;
+            notification.innerHTML = message + (subtext ? '<div class="subtext">' + subtext + '</div>' : '');
             
             // Play sound based on type
             try {
@@ -359,26 +367,27 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audio.destination);
                 
-                if (type === 'success') {
+                          if (type === 'success') {
                     oscillator.frequency.value = 800;
-                    gainNode.gain.value = 0.1;
-                    oscillator.start();
-                    oscillator.stop(audio.currentTime + 0.2);
-                } else if (type === 'error') {
-                    oscillator.frequency.value = 400;
-                    gainNode.gain.value = 0.1;
+                    gainNode.gain.value = 0.2;
                     oscillator.start();
                     oscillator.stop(audio.currentTime + 0.3);
+                } else if (type === 'error') {
+                    oscillator.frequency.value = 400;
+                    gainNode.gain.value = 0.2;
+                    oscillator.start();
+                    oscillator.stop(audio.currentTime + 0.4);
                 }
             } catch (e) {}
             
-            // Auto hide after 5 seconds
+            // Auto hide after 8 seconds for success, 5 for others
+            var duration = type === 'success' ? 8000 : 5000;
             notificationTimeout = setTimeout(function() {
                 notification.className = 'notification';
                 setTimeout(function() {
                     notification.style.display = 'none';
                 }, 300);
-            }, 5000);
+            }, duration);
         }
         
         function startTimer() {
@@ -460,11 +469,11 @@
             
             window[callbackName] = function(result) {
                 if (result && result.success) {
-                    showNotification('success', '✅ BERHASIL! Data sudah tersimpan.');
+                    showNotification('success', '✅ BERHASIL!', 'Data sudah tersimpan di sistem.');
                     document.getElementById('serkomForm').reset();
                     loadDataCount();
                 } else {
-                    showNotification('error', '❌ ' + (result && result.message ? result.message : 'Gagal menyimpan data!'));
+                    showNotification('error', '❌ GAGAL!', result && result.message ? result.message : 'Silakan coba lagi.');
                 }
                 cleanup();
             };
@@ -472,7 +481,7 @@
             iframe.onload = function() {
                 setTimeout(function() {
                     if (window[callbackName]) {
-                        showNotification('error', '⚠️ Koneksi timeout. Silakan coba lagi.');
+                        showNotification('error', '⚠️ KONEKSI GAGAL!', 'Silakan refresh halaman dan coba lagi.');
                         cleanup();
                     }
                 }, 8000);
@@ -495,25 +504,25 @@
             var nip = document.getElementById('nip').value.trim();
             var nama = document.getElementById('nama').value.trim();
             var tanggalTerbit = document.getElementById('tanggalTerbit').value;
-            var fileInput = document.getElementById('fileSerkom');
+             var fileInput = document.getElementById('fileSerkom');
             
             if (!nip || !nama || !tanggalTerbit || !fileInput.files[0]) {
-                showNotification('error', '⚠️ Lengkapi data wajib (NIP, Nama, Tanggal, PDF)!');
+                showNotification('error', '⚠️ DATA BELUM LENGKAP!', 'Mohon isi semua data wajib (*).');
                 return;
             }
             
             if (nip.length < 15) {
-                showNotification('error', '⚠️ NIP minimal 15 digit!');
+                showNotification('error', '⚠️ NIP TIDAK VALID!', 'NIP minimal 15 digit.');
                 return;
             }
             
             if (fileInput.files[0].type !== 'application/pdf') {
-                showNotification('error', '⚠️ File harus PDF!');
+                showNotification('error', '⚠️ FILE TIDAK VALID!', 'File harus berformat PDF.');
                 return;
             }
             
             document.getElementById('submitBtn').disabled = true;
-            showNotification('info', '⏳ Memproses data...');
+            showNotification('info', '⏳ SEDANG MEMPROSES...', 'Mohon tunggu sebentar.');
             
             fileToBase64(fileInput.files[0]).then(function(base64) {
                 var data = {
@@ -530,11 +539,11 @@
                     fileData: base64
                 };
                 
-                showNotification('info', '💾 Menyimpan data ke server...');
+                showNotification('info', '💾 MENYIMPAN DATA...', 'Sedang mengupload ke server.');
                 submitForm(data, 'submit_' + Date.now());
                 
             }).catch(function(error) {
-                showNotification('error', '❌ Error: ' + error.message);
+                showNotification('error', '❌ ERROR!', error.message);
                 document.getElementById('submitBtn').disabled = false;
             });
         });
