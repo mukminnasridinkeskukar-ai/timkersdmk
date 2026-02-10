@@ -912,6 +912,8 @@
                             <button class="btn btn-info" onclick="downloadTemplateCSV()">📄 Download Template CSV</button>
                             <button class="btn btn-success" onclick="document.getElementById('csvUpload').click()">📤 Upload CSV</button>
                             <input type="file" id="csvUpload" accept=".csv" style="display: none;" onchange="handleCSVUpload(this)">
+                            <button class="btn btn-primary" onclick="document.getElementById('excelUpload').click()">📊 Upload Excel</button>
+                            <input type="file" id="excelUpload" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelUpload(this)">
                             <button class="btn btn-danger" onclick="resetDataPeserta()">🗑️ Reset Semua Data Peserta</button>
                             <span id="pesertaCount" style="margin-left: auto; color: #666;"></span>
                         </div>
@@ -1130,7 +1132,7 @@
     </div>
     
     <script>
-        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz9gUG78XNM2IetQwJAgbDZ3WAYv_8LK17EMHuWR6Fq8KitfuYy894K9DH0dpsYK5sePQ/exec';
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyxpxxTUDv3P0bPg2BLrMqAhpEwQvwXXdLft895gByiIUkg1HdJrDVFhRhNHb6raJ1b7w/exec';
         // Headers harus sesuai dengan keys di data object
         const PENDAFTARAN_HEADERS = ['timestamp', 'id', 'namaLengkap', 'nip', 'unitKerja', 'statusPegawai', 'jenisSDMK', 'jumlahJP', 'whatsapp', 'email', 'temaPembelajaran', 'narasumber', 'tanggalKegiatan', 'waktuMulai', 'waktuSelesai', 'platformDigital', 'jp'];
         const ABSENSI_HEADERS = ['timestamp', 'id', 'tanggalAbsensi', 'jamAbsensi', 'namaLengkap', 'nip', 'platformDigital', 'evalPenyelenggara', 'evalFasilitator', 'evalSarana', 'komentar'];
@@ -1375,6 +1377,8 @@
         }
         
         let currentAbsensiUser = null;
+        let googleSheetsDataLoaded = false;
+        let cachedGoogleSheetsPeserta = [];
         
         // Aturan Absensi (Fixed Time)
         // Absen dibuka 1 jam SETELAH kegiatan dimulai
@@ -1384,13 +1388,147 @@
         const ABSENSI_JAM_TUTUP = '22:00'; // Tutup jam 22:00 WITA
         const ABSENSI_ZONA_WAKTU = 'Asia/Makassar'; // WITA (UTC+8)
         
-        function absensiLogin(e) {
+        // Fungsi untuk mengambil data peserta dari Google Sheets
+        async function fetchPesertaFromGoogleSheets() {
+            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+                console.log('Google Sheets URL not configured, using local data');
+                return getData(DB_KEYS.PENDAFTARAN);
+            }
+            
+            try {
+                const url = GOOGLE_SHEETS_URL + '?action=readPeserta';
+                
+                // Use fetch with CORS support
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const result = await response.json();
+                
+                if (result && result.success && Array.isArray(result.data)) {
+                    // Map Google Sheets data to match expected format
+                    cachedGoogleSheetsPeserta = result.data.map((item, index) => ({
+                        timestamp: item.timestamp || new Date().toISOString(),
+                        id: item.id || 'P-' + Date.now().toString(36).toUpperCase() + '-' + index,
+                        namaLengkap: item.namaLengkap || item['Nama Lengkap'] || '',
+                        nip: item.nip || item['NIP'] || '',
+                        unitKerja: item.unitKerja || item['Unit Kerja'] || '',
+                        statusPegawai: item.statusPegawai || item['Status Pegawai'] || '',
+                        jenisSDMK: item.jenisSDMK || item['Jenis SDMK'] || '',
+                        jumlahJP: item.jumlahJP || item['Jumlah JP'] || '',
+                        whatsapp: item.whatsapp || item['WhatsApp'] || '',
+                        email: item.email || item['Email'] || '',
+                        temaPembelajaran: item.temaPembelajaran || item['Tema Pembelajaran'] || '',
+                        narasumber: item.narasumber || item['Narasumber'] || '',
+                        tanggalKegiatan: item.tanggalKegiatan || item['Tanggal Kegiatan'] || '',
+                        waktuMulai: item.waktuMulai || item['Waktu Mulai'] || item['Waktu'] || '',
+                        waktuSelesai: item.waktuSelesai || item['Waktu Selesai'] || '',
+                        platformDigital: item.platformDigital || item['Platform Digital'] || '',
+                        jp: item.jp || item['JP'] || ''
+                    }));
+                    googleSheetsDataLoaded = true;
+                    console.log('Data peserta berhasil dimuat dari Google Sheets: ' + cachedGoogleSheetsPeserta.length + ' data');
+                    return cachedGoogleSheetsPeserta;
+                } else {
+                    console.log('Data Google Sheets tidak valid, menggunakan local data');
+                    return getData(DB_KEYS.PENDAFTARAN);
+                }
+            } catch (error) {
+                console.log('Error fetching from Google Sheets:', error.message);
+                // Try JSONP as fallback
+                return fetchPesertaWithJSONP();
+            }
+        }
+        
+        // Fallback menggunakan JSONP jika fetch gagal
+        function fetchPesertaWithJSONP() {
+            return new Promise((resolve, reject) => {
+                const url = GOOGLE_SHEETS_URL + '?action=readPeserta';
+                const timeout = setTimeout(() => {
+                    document.head.removeChild(script);
+                    console.log('Google Sheets JSONP timeout, menggunakan local data');
+                    resolve(getData(DB_KEYS.PENDAFTARAN));
+                }, 5000);
+                
+                window.__googleSheetsCallback = function(result) {
+                    clearTimeout(timeout);
+                    if (script && script.parentNode) {
+                        document.head.removeChild(script);
+                    }
+                    delete window.__googleSheetsCallback;
+                    
+                    if (result && result.success && Array.isArray(result.data)) {
+                        cachedGoogleSheetsPeserta = result.data.map((item, index) => ({
+                            timestamp: item.timestamp || new Date().toISOString(),
+                            id: item.id || 'P-' + Date.now().toString(36).toUpperCase() + '-' + index,
+                            namaLengkap: item.namaLengkap || item['Nama Lengkap'] || '',
+                            nip: item.nip || item['NIP'] || '',
+                            unitKerja: item.unitKerja || item['Unit Kerja'] || '',
+                            statusPegawai: item.statusPegawai || item['Status Pegawai'] || '',
+                            jenisSDMK: item.jenisSDMK || item['Jenis SDMK'] || '',
+                            jumlahJP: item.jumlahJP || item['Jumlah JP'] || '',
+                            whatsapp: item.whatsapp || item['WhatsApp'] || '',
+                            email: item.email || item['Email'] || '',
+                            temaPembelajaran: item.temaPembelajaran || item['Tema Pembelajaran'] || '',
+                            narasumber: item.narasumber || item['Narasumber'] || '',
+                            tanggalKegiatan: item.tanggalKegiatan || item['Tanggal Kegiatan'] || '',
+                            waktuMulai: item.waktuMulai || item['Waktu Mulai'] || item['Waktu'] || '',
+                            waktuSelesai: item.waktuSelesai || item['Waktu Selesai'] || '',
+                            platformDigital: item.platformDigital || item['Platform Digital'] || '',
+                            jp: item.jp || item['JP'] || ''
+                        }));
+                        googleSheetsDataLoaded = true;
+                        console.log('Data peserta berhasil dimuat dari Google Sheets (JSONP): ' + cachedGoogleSheetsPeserta.length + ' data');
+                        resolve(cachedGoogleSheetsPeserta);
+                    } else {
+                        console.log('Data Google Sheets JSONP tidak valid');
+                        resolve(getData(DB_KEYS.PENDAFTARAN));
+                    }
+                };
+                
+                const script = document.createElement('script');
+                script.src = url + '&callback=__googleSheetsCallback';
+                script.async = true;
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Fungsi login absensi yang menggunakan data dari Google Sheets
+        async function absensiLogin(e) {
             e.preventDefault();
             const email = document.getElementById('absensiEmail').value.trim().toLowerCase();
             const nip = document.getElementById('absensiNip').value.trim();
-            const user = getData(DB_KEYS.PENDAFTARAN).find(item => item.email.toLowerCase() === email && item.nip === nip);
+            
+            // Tampilkan loading indicator
+            const loginBtn = e.target.querySelector('button[type="submit"]');
+            const originalBtnText = loginBtn ? loginBtn.innerHTML : '🔓 Login';
+            if (loginBtn) loginBtn.innerHTML = '⏳ Memuat...';
+            loginBtn.disabled = true;
+            
+            // Ambil data dari Google Sheets
+            const pesertaData = await fetchPesertaFromGoogleSheets();
+            
+            // Restore button state
+            if (loginBtn) {
+                loginBtn.innerHTML = originalBtnText;
+                loginBtn.disabled = false;
+            }
+            
+            // Validasi menggunakan data dari Google Sheets
+            const user = pesertaData.find(item => {
+                const itemEmail = (item.email || '').toLowerCase();
+                return itemEmail === email && item.nip === nip;
+            });
+            
             if (!user) {
-                showAlert('absensiLoginAlert', 'error', 'Email atau NIP tidak ditemukan!');
+                showAlert('absensiLoginAlert', 'error', 'Email atau NIP tidak ditemukan di data pendaftaran Google Sheets!\n\n📌 Pastikan:\n1. Anda sudah mendaftar melalui formulir pendaftaran\n2. Email dan NIP sesuai dengan data yang didaftarkan\n3. Data sudah tersinkronisasi ke Google Sheets');
                 return;
             }
             
@@ -1748,7 +1886,7 @@
         }
         
         // Pagination variables
-        const ROWS_PER_PAGE = 10;
+        const ROWS_PER_PAGE = 20;
         let pesertaPage = 1;
         let absensiPage = 1;
         
