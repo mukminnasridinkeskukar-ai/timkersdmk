@@ -1130,7 +1130,7 @@
     </div>
     
     <script>
-        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxByaDHV3Co8Vs9ntlt8La4c33D_CnzsP5x6dNEVBWVvK72WIL7nzE1Cpozfsz4qGg9xA/exec';
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwt8diFM2n64kXCPLUqclGwZhD9x7ceJRDhT60q6AltNqKKF5-w8yafGlLQ2zNGUGpORQ/exec';
         // Headers harus sesuai dengan keys di data object
         const PENDAFTARAN_HEADERS = ['timestamp', 'id', 'namaLengkap', 'nip', 'unitKerja', 'statusPegawai', 'jenisSDMK', 'jumlahJP', 'whatsapp', 'email', 'temaPembelajaran', 'narasumber', 'tanggalKegiatan', 'waktuMulai', 'waktuSelesai', 'platformDigital', 'jp'];
         const ABSENSI_HEADERS = ['timestamp', 'id', 'tanggalAbsensi', 'jamAbsensi', 'namaLengkap', 'nip', 'platformDigital', 'evalPenyelenggara', 'evalFasilitator', 'evalSarana', 'komentar'];
@@ -1388,66 +1388,114 @@
         
         // Fungsi untuk mengambil data peserta dari Google Sheets
         async function fetchPesertaFromGoogleSheets() {
-            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/AKfycbxByaDHV3Co8Vs9ntlt8La4c33D_CnzsP5x6dNEVBWVvK72WIL7nzE1Cpozfsz4qGg9xA/exec') {
+            if (!GOOGLE_SHEETS_URL || GOOGLE_SHEETS_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
                 console.log('Google Sheets URL not configured, using local data');
                 return getData(DB_KEYS.PENDAFTARAN);
             }
             
             try {
-                const url = GOOGLE_SHEETS_URL + '?sheetName=' + encodeURIComponent('Peserta') + '&action=read';
+                const url = GOOGLE_SHEETS_URL + '?action=readPeserta';
                 
-                // Use JSONP approach for cross-origin requests
-                return new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    const timeout = setTimeout(() => {
-                        document.head.removeChild(script);
-                        console.log('Google Sheets fetch timeout, using local data');
-                        resolve(getData(DB_KEYS.PENDAFTARAN));
-                    }, 5000);
-                    
-                    window.__googleSheetsCallback = function(data) {
-                        clearTimeout(timeout);
-                        document.head.removeChild(script);
-                        delete window.__googleSheetsCallback;
-                        
-                        if (data && Array.isArray(data)) {
-                            // Map Google Sheets data to match expected format
-                            cachedGoogleSheetsPeserta = data.map((item, index) => ({
-                                timestamp: item.timestamp || new Date().toISOString(),
-                                id: item.id || 'P-' + Date.now().toString(36).toUpperCase() + '-' + index,
-                                namaLengkap: item['Nama Lengkap'] || item.namaLengkap || '',
-                                nip: item['NIP'] || item.nip || '',
-                                unitKerja: item['Unit Kerja'] || item.unitKerja || '',
-                                statusPegawai: item['Status Pegawai'] || item.statusPegawai || '',
-                                jenisSDMK: item['Jenis SDMK'] || item.jenisSDMK || '',
-                                jumlahJP: item['Jumlah JP'] || item.jumlahJP || '',
-                                whatsapp: item['WhatsApp'] || item.whatsapp || '',
-                                email: item['Email'] || item.email || '',
-                                temaPembelajaran: item['Tema Pembelajaran'] || item.temaPembelajaran || '',
-                                narasumber: item['Narasumber'] || item.narasumber || '',
-                                tanggalKegiatan: item['Tanggal Kegiatan'] || item.tanggalKegiatan || '',
-                                waktuMulai: item['Waktu Mulai'] || item.waktuMulai || item['Waktu'] || '',
-                                waktuSelesai: item['Waktu Selesai'] || item.waktuSelesai || '',
-                                platformDigital: item['Platform Digital'] || item.platformDigital || '',
-                                jp: item['JP'] || item.jp || ''
-                            }));
-                            googleSheetsDataLoaded = true;
-                            console.log('Data peserta berhasil dimuat dari Google Sheets: ' + cachedGoogleSheetsPeserta.length + ' data');
-                            resolve(cachedGoogleSheetsPeserta);
-                        } else {
-                            console.log('Data Google Sheets tidak valid, menggunakan local data');
-                            resolve(getData(DB_KEYS.PENDAFTARAN));
-                        }
-                    };
-                    
-                    script.src = url + '&callback=__googleSheetsCallback';
-                    script.async = true;
-                    document.head.appendChild(script);
+                // Use fetch with CORS support
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const result = await response.json();
+                
+                if (result && result.success && Array.isArray(result.data)) {
+                    // Map Google Sheets data to match expected format
+                    cachedGoogleSheetsPeserta = result.data.map((item, index) => ({
+                        timestamp: item.timestamp || new Date().toISOString(),
+                        id: item.id || 'P-' + Date.now().toString(36).toUpperCase() + '-' + index,
+                        namaLengkap: item.namaLengkap || item['Nama Lengkap'] || '',
+                        nip: item.nip || item['NIP'] || '',
+                        unitKerja: item.unitKerja || item['Unit Kerja'] || '',
+                        statusPegawai: item.statusPegawai || item['Status Pegawai'] || '',
+                        jenisSDMK: item.jenisSDMK || item['Jenis SDMK'] || '',
+                        jumlahJP: item.jumlahJP || item['Jumlah JP'] || '',
+                        whatsapp: item.whatsapp || item['WhatsApp'] || '',
+                        email: item.email || item['Email'] || '',
+                        temaPembelajaran: item.temaPembelajaran || item['Tema Pembelajaran'] || '',
+                        narasumber: item.narasumber || item['Narasumber'] || '',
+                        tanggalKegiatan: item.tanggalKegiatan || item['Tanggal Kegiatan'] || '',
+                        waktuMulai: item.waktuMulai || item['Waktu Mulai'] || item['Waktu'] || '',
+                        waktuSelesai: item.waktuSelesai || item['Waktu Selesai'] || '',
+                        platformDigital: item.platformDigital || item['Platform Digital'] || '',
+                        jp: item.jp || item['JP'] || ''
+                    }));
+                    googleSheetsDataLoaded = true;
+                    console.log('Data peserta berhasil dimuat dari Google Sheets: ' + cachedGoogleSheetsPeserta.length + ' data');
+                    return cachedGoogleSheetsPeserta;
+                } else {
+                    console.log('Data Google Sheets tidak valid, menggunakan local data');
+                    return getData(DB_KEYS.PENDAFTARAN);
+                }
             } catch (error) {
-                console.log('Error fetching from Google Sheets:', error);
-                return getData(DB_KEYS.PENDAFTARAN);
+                console.log('Error fetching from Google Sheets:', error.message);
+                // Try JSONP as fallback
+                return fetchPesertaWithJSONP();
             }
+        }
+        
+        // Fallback menggunakan JSONP jika fetch gagal
+        function fetchPesertaWithJSONP() {
+            return new Promise((resolve, reject) => {
+                const url = GOOGLE_SHEETS_URL + '?action=readPeserta';
+                const timeout = setTimeout(() => {
+                    document.head.removeChild(script);
+                    console.log('Google Sheets JSONP timeout, menggunakan local data');
+                    resolve(getData(DB_KEYS.PENDAFTARAN));
+                }, 5000);
+                
+                window.__googleSheetsCallback = function(result) {
+                    clearTimeout(timeout);
+                    if (script && script.parentNode) {
+                        document.head.removeChild(script);
+                    }
+                    delete window.__googleSheetsCallback;
+                    
+                    if (result && result.success && Array.isArray(result.data)) {
+                        cachedGoogleSheetsPeserta = result.data.map((item, index) => ({
+                            timestamp: item.timestamp || new Date().toISOString(),
+                            id: item.id || 'P-' + Date.now().toString(36).toUpperCase() + '-' + index,
+                            namaLengkap: item.namaLengkap || item['Nama Lengkap'] || '',
+                            nip: item.nip || item['NIP'] || '',
+                            unitKerja: item.unitKerja || item['Unit Kerja'] || '',
+                            statusPegawai: item.statusPegawai || item['Status Pegawai'] || '',
+                            jenisSDMK: item.jenisSDMK || item['Jenis SDMK'] || '',
+                            jumlahJP: item.jumlahJP || item['Jumlah JP'] || '',
+                            whatsapp: item.whatsapp || item['WhatsApp'] || '',
+                            email: item.email || item['Email'] || '',
+                            temaPembelajaran: item.temaPembelajaran || item['Tema Pembelajaran'] || '',
+                            narasumber: item.narasumber || item['Narasumber'] || '',
+                            tanggalKegiatan: item.tanggalKegiatan || item['Tanggal Kegiatan'] || '',
+                            waktuMulai: item.waktuMulai || item['Waktu Mulai'] || item['Waktu'] || '',
+                            waktuSelesai: item.waktuSelesai || item['Waktu Selesai'] || '',
+                            platformDigital: item.platformDigital || item['Platform Digital'] || '',
+                            jp: item.jp || item['JP'] || ''
+                        }));
+                        googleSheetsDataLoaded = true;
+                        console.log('Data peserta berhasil dimuat dari Google Sheets (JSONP): ' + cachedGoogleSheetsPeserta.length + ' data');
+                        resolve(cachedGoogleSheetsPeserta);
+                    } else {
+                        console.log('Data Google Sheets JSONP tidak valid');
+                        resolve(getData(DB_KEYS.PENDAFTARAN));
+                    }
+                };
+                
+                const script = document.createElement('script');
+                script.src = url + '&callback=__googleSheetsCallback';
+                script.async = true;
+                document.head.appendChild(script);
+            });
         }
         
         // Fungsi login absensi yang menggunakan data dari Google Sheets
