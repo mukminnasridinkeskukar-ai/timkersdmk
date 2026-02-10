@@ -496,17 +496,22 @@
 
             <form id="consultationForm">
                 <div class="form-group">
-                    <label for="name">Nama Lengkap *</label>
-                    <input type="text" id="name" placeholder="Masukkan nama lengkap Anda" required>
+                    <label for="name">Nama *</label>
+                    <input type="text" id="name" placeholder="Masukkan nama Anda" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="unitKerja">Unit *</label>
+                    <input type="text" id="unitKerja" placeholder="Masukkan unit Anda" required>
                 </div>
 
                 <div class="form-group">
                     <label for="email">Email *</label>
-                    <input type="email" id="email" placeholder="Masukkan email aktif Anda" required>
+                    <input type="email" id="email" placeholder="Masukkan email Anda" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="phone">Nomor Telepon/WhatsApp *</label>
+                    <label for="phone">WhatsApp *</label>
                     <input type="tel" id="phone" placeholder="Contoh: 081234567890" required>
                 </div>
 
@@ -582,8 +587,8 @@
                 </div>
                 <div class="form-group">
                     <label>Nama Sheet</label>
-                    <input type="text" id="sheetName" placeholder="BukuTamu" value="BukuTamu">
-                    <small style="color: #666;">Nama sheet di Google Sheets tempat data akan disimpan</small>
+                    <input type="text" id="sheetName" value="BukuTamu">
+                    <small style="color: #666;">Nama sheet di Google Sheets</small>
                 </div>
                 <button type="submit" class="submit-btn">💾 Simpan Pengaturan</button>
             </form>
@@ -598,21 +603,6 @@
                     <button class="nav-btn" style="background: #dc3545; color: white;" onclick="logout()">Logout</button>
                 </div>
 
-                <div class="stats">
-                    <div class="stat-card">
-                        <h3 id="totalCount">0</h3>
-                        <p>Total Konsultasi</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="pendingCount">0</h3>
-                        <p>Belum Dibaca</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3 id="readCount">0</h3>
-                        <p>Sudah Dibaca</p>
-                    </div>
-                </div>
-
                 <button class="action-btn btn-export" onclick="exportData()">📊 Export ke CSV</button>
 
                 <div class="search-box">
@@ -625,11 +615,11 @@
                             <tr>
                                 <th>No</th>
                                 <th>Nama</th>
+                                <th>Unit</th>
                                 <th>Email</th>
+                                <th>WhatsApp</th>
                                 <th>Kategori</th>
                                 <th>Subjek</th>
-                                <th>Status</th>
-                                <th>Tanggal</th>
                                 <th>Aksi</th>
                             </tr>
                         </thead>
@@ -659,7 +649,7 @@
     <script>
         // Admin credentials
         const ADMIN_USERNAME = 'admin';
-        const ADMIN_PASSWORD = 'admin123';
+        const ADMIN_PASSWORD = 'sdmk2026#';
 
         // Data storage key
         const STORAGE_KEY = 'guestbook_data';
@@ -693,19 +683,19 @@
         // Fetch data from Google Sheets
         async function fetchDataFromGoogleSheets() {
             try {
-                const url = `${settings.googleSheetsUrl}?action=getAllBukuTamu`;
+                const url = `${settings.googleSheetsUrl}?action=getAll&sheetName=${settings.sheetName}`;
                 const response = await fetch(url);
                 const data = await response.json();
                 if (Array.isArray(data)) {
                     consultationData = data.map(item => ({
                         id: item['ID'] || item['id'] || Date.now(),
                         name: item['Nama'] || item['name'] || '',
+                        unitKerja: item['Unit'] || item['unitKerja'] || '',
                         email: item['Email'] || item['email'] || '',
-                        phone: item['Telepon'] || item['phone'] || item['WhatsApp'] || '',
+                        phone: item['WhatsApp'] || item['phone'] || item['Telepon'] || '',
                         category: item['Kategori'] || item['category'] || '',
                         subject: item['Subjek'] || item['subject'] || '',
-                        message: item['Pesan'] || item['message'] || '',
-                        status: item['Status'] || item['status'] || 'pending',
+                        message: item['Detail Pesan'] || item['message'] || '',
                         createdAt: item['Timestamp'] || item['createdAt'] || new Date().toISOString()
                     }));
                 }
@@ -723,7 +713,7 @@
 
             try {
                 const formData = new FormData();
-                formData.append('action', 'submitBukuTamu');
+                formData.append('action', 'submit');
                 formData.append('sheetName', settings.sheetName);
                 formData.append('data', JSON.stringify(data));
 
@@ -748,7 +738,7 @@
 
             try {
                 const formData = new FormData();
-                formData.append('action', 'deleteBukuTamu');
+                formData.append('action', 'delete');
                 formData.append('rowNumber', rowNumber);
 
                 const response = await fetch(settings.googleSheetsUrl, {
@@ -809,7 +799,6 @@
             document.getElementById('adminPanel').classList.add('active');
             loadData().then(() => {
                 renderTable();
-                updateStats();
             });
         }
 
@@ -841,21 +830,6 @@
                 return;
             }
 
-            // Test connection
-            try {
-                const testUrl = `${googleSheetsUrl}?action=testConnection`;
-                const response = await fetch(testUrl);
-                const result = await response.json();
-                
-                if (result.result !== 'success' && result.status !== 'SIPANDAI Google Sheets API Ready') {
-                    showSettingsError('Koneksi ke Google Sheets gagal! Periksa URL Anda.');
-                    return;
-                }
-            } catch (error) {
-                // URL might not support testConnection, but still save it
-                console.log('Connection test failed, but saving anyway:', error);
-            }
-
             settings.googleSheetsUrl = googleSheetsUrl;
             settings.sheetName = sheetName;
             
@@ -875,12 +849,12 @@
             const newData = {
                 id: Date.now(),
                 name: document.getElementById('name').value,
+                unitKerja: document.getElementById('unitKerja').value,
                 email: document.getElementById('email').value,
                 phone: document.getElementById('phone').value,
                 category: document.getElementById('category').value,
                 subject: document.getElementById('subject').value,
                 message: document.getElementById('message').value,
-                status: 'pending',
                 createdAt: new Date().toISOString()
             };
 
@@ -963,11 +937,11 @@
                 <tr>
                     <td>${index + 1}</td>
                     <td>${escapeHtml(item.name || '')}</td>
+                    <td>${escapeHtml(item.unitKerja || '')}</td>
                     <td>${escapeHtml(item.email || '')}</td>
+                    <td>${escapeHtml(item.phone || '')}</td>
                     <td>${getCategoryLabel(item.category)}</td>
                     <td>${escapeHtml(item.subject || '')}</td>
-                    <td><span class="status-badge status-${item.status}">${getStatusLabel(item.status)}</span></td>
-                    <td>${formatDate(item.createdAt)}</td>
                     <td>
                         <button class="action-btn btn-view" onclick="viewDetail(${item.id})">👁️</button>
                         <button class="action-btn btn-delete" onclick="deleteData(${item.id})">🗑️</button>
@@ -980,30 +954,22 @@
             const item = consultationData.find(d => d.id === id);
             if (!item) return;
 
-            // Mark as read
-            if (item.status === 'pending') {
-                item.status = 'read';
-                saveData();
-                renderTable();
-                updateStats();
-            }
-
             const modalBody = document.getElementById('modalBody');
             modalBody.innerHTML = `
                 <div class="detail-row">
-                    <label>ID Konsultasi</label>
-                    <p>#${item.id}</p>
+                    <label>Nama</label>
+                    <p>${escapeHtml(item.name || '')}</p>
                 </div>
                 <div class="detail-row">
-                    <label>Nama Lengkap</label>
-                    <p>${escapeHtml(item.name || '')}</p>
+                    <label>Unit</label>
+                    <p>${escapeHtml(item.unitKerja || '')}</p>
                 </div>
                 <div class="detail-row">
                     <label>Email</label>
                     <p>${escapeHtml(item.email || '')}</p>
                 </div>
                 <div class="detail-row">
-                    <label>Nomor Telepon</label>
+                    <label>WhatsApp</label>
                     <p>${escapeHtml(item.phone || '')}</p>
                 </div>
                 <div class="detail-row">
@@ -1017,14 +983,6 @@
                 <div class="detail-row">
                     <label>Detail Pesan</label>
                     <p>${escapeHtml(item.message || '')}</p>
-                </div>
-                <div class="detail-row">
-                    <label>Status</label>
-                    <p><span class="status-badge status-${item.status}">${getStatusLabel(item.status)}</span></p>
-                </div>
-                <div class="detail-row">
-                    <label>Tanggal Submit</label>
-                    <p>${formatDateTime(item.createdAt)}</p>
                 </div>
             `;
 
@@ -1048,17 +1006,10 @@
             consultationData = consultationData.filter(d => d.id !== id);
             saveData();
             renderTable();
-            updateStats();
         }
 
         function filterData() {
             renderTable();
-        }
-
-        function updateStats() {
-            document.getElementById('totalCount').textContent = consultationData.length;
-            document.getElementById('pendingCount').textContent = consultationData.filter(d => d.status === 'pending').length;
-            document.getElementById('readCount').textContent = consultationData.filter(d => d.status === 'read').length;
         }
 
         function exportData() {
@@ -1067,9 +1018,9 @@
                 return;
             }
 
-            let csv = 'No,Nama,Email,Telepon,Kategori,Subjek,Pesan,Status,Tanggal' + '\n';
+            let csv = 'No,Nama,Unit,Email,WhatsApp,Kategori,Subjek,Detail Pesan,Tanggal' + '\n';
             consultationData.forEach((item, index) => {
-                csv += `${index + 1},"${item.name || ''}","${item.email || ''}","${item.phone || ''}","${getCategoryLabel(item.category)}","${(item.subject || '').replace(/"/g, '""')}","${(item.message || '').replace(/"/g, '""')}","${getStatusLabel(item.status)}","${formatDateTime(item.createdAt)}"\n`;
+                csv += `${index + 1},"${item.name || ''}","${item.unitKerja || ''}","${item.email || ''}","${item.phone || ''}","${getCategoryLabel(item.category)}","${(item.subject || '').replace(/"/g, '""')}","${(item.message || '').replace(/"/g, '""')}","${formatDateTime(item.createdAt)}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
