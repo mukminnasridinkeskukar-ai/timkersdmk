@@ -519,9 +519,8 @@
                     <label for="category">Kategori Konsultasi *</label>
                     <select id="category" required>
                         <option value="">Pilih kategori konsultasi</option>
-                        <option value="produk">Informasi Produk</option>
+                        <option value="inovasi">Informasi Inovasi</option>
                         <option value="layanan">Layanan</option>
-                        <option value="harga">Informasi Harga</option>
                         <option value="keluhan">Keluhan</option>
                         <option value="saran">Saran</option>
                         <option value="kerjasama">Kerjasama</option>
@@ -649,7 +648,7 @@
     <script>
         // Admin credentials
         const ADMIN_USERNAME = 'admin';
-        const ADMIN_PASSWORD = 'sdmk2026#';
+        const ADMIN_PASSWORD = 'admin123';
 
         // Data storage key
         const STORAGE_KEY = 'guestbook_data';
@@ -683,9 +682,10 @@
         // Fetch data from Google Sheets
         async function fetchDataFromGoogleSheets() {
             try {
-                const url = `${settings.googleSheetsUrl}?action=getAll&sheetName=${settings.sheetName}`;
+                const url = `${settings.googleSheetsUrl}?action=getAll&sheetName=${encodeURIComponent(settings.sheetName)}`;
                 const response = await fetch(url);
                 const data = await response.json();
+                
                 if (Array.isArray(data)) {
                     consultationData = data.map(item => ({
                         id: item['ID'] || item['id'] || Date.now(),
@@ -696,7 +696,8 @@
                         category: item['Kategori'] || item['category'] || '',
                         subject: item['Subjek'] || item['subject'] || '',
                         message: item['Detail Pesan'] || item['message'] || '',
-                        createdAt: item['Timestamp'] || item['createdAt'] || new Date().toISOString()
+                        createdAt: item['Timestamp'] || item['createdAt'] || new Date().toISOString(),
+                        rowNumber: item['rowNumber']
                     }));
                 }
             } catch (error) {
@@ -715,7 +716,14 @@
                 const formData = new FormData();
                 formData.append('action', 'submit');
                 formData.append('sheetName', settings.sheetName);
-                formData.append('data', JSON.stringify(data));
+                formData.append('id', data.id);
+                formData.append('name', data.name);
+                formData.append('unitKerja', data.unitKerja);
+                formData.append('email', data.email);
+                formData.append('phone', data.phone);
+                formData.append('category', data.category);
+                formData.append('subject', data.subject);
+                formData.append('message', data.message);
 
                 const response = await fetch(settings.googleSheetsUrl, {
                     method: 'POST',
@@ -723,6 +731,7 @@
                 });
 
                 const result = await response.json();
+                console.log('Submit result:', result);
                 return result.result === 'success';
             } catch (error) {
                 console.error('Error submitting to Google Sheets:', error);
@@ -747,6 +756,7 @@
                 });
 
                 const result = await response.json();
+                console.log('Delete result:', result);
                 return result.result === 'success';
             } catch (error) {
                 console.error('Error deleting from Google Sheets:', error);
