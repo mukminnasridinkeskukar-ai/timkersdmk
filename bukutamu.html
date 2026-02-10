@@ -87,7 +87,7 @@
             transform: translateY(0);
         }
 
-        .menu-btn Konsumen {
+        .menu-btn-konsumen {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
         }
@@ -230,24 +230,6 @@
             background: #f5f5f5;
         }
 
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .status-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-read {
-            background: #d4edda;
-            color: #155724;
-        }
-
         .action-btn {
             padding: 6px 12px;
             border: none;
@@ -276,32 +258,6 @@
             background: #28a745;
             color: white;
             margin-bottom: 15px;
-        }
-
-        /* Stats */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .stat-card h3 {
-            font-size: 2rem;
-            margin-bottom: 5px;
-        }
-
-        .stat-card p {
-            font-size: 0.9rem;
-            opacity: 0.9;
         }
 
         /* Search Box */
@@ -426,13 +382,38 @@
             margin-top: 10px;
         }
 
+        /* Config Section */
+        .config-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .config-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .config-section textarea {
+            width: 100%;
+            height: 300px;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+        }
+
+        .config-section p {
+            margin-bottom: 10px;
+            color: #666;
+        }
+
         @media (max-width: 600px) {
             .header h1 {
                 font-size: 1.8rem;
-            }
-
-            .stats {
-                grid-template-columns: 1fr;
             }
 
             .menu-buttons {
@@ -457,14 +438,14 @@
     <div class="container">
         <div class="header">
             <h1>📖 Buku Tamu</h1>
-            <p>Formulir Konsultasi Pelanggan</p>
+            <p>Formulir Konsultasi</p>
         </div>
 
         <!-- Main Menu -->
         <div class="card main-menu" id="mainMenu">
             <h2>Silakan Pilih:</h2>
             <div class="menu-buttons">
-                <button class="menu-btn" onclick="showFormPanel()">
+                <button class="menu-btn menu-btn-konsumen" onclick="showFormPanel()">
                     <span class="icon">📝</span>
                     <span>Form Konsultasi</span>
                     <span style="font-size: 0.9rem; opacity: 0.9;">Isi formulir konsultasi</span>
@@ -474,11 +455,80 @@
                     <span>Admin</span>
                     <span style="font-size: 0.9rem; opacity: 0.9;">Login untuk admin</span>
                 </button>
-                <button class="menu-btn menu-btn-admin" onclick="showSettingsPanel()">
-                    <span class="icon">⚙️</span>
-                    <span>Pengaturan</span>
-                    <span style="font-size: 0.9rem; opacity: 0.9;">Konfigurasi aplikasi</span>
-                </button>
+            </div>
+
+            <!-- Setup Guide -->
+            <div class="config-section">
+                <h3>⚙️ Panduan Setup Google Sheets</h3>
+                <p>Ikuti langkah-langkah berikut untuk menghubungkan dengan Google Sheets:</p>
+                <ol style="margin-bottom: 15px; padding-left: 20px;">
+                    <li style="margin-bottom: 8px;">Buat Google Sheet baru, rename menjadi "Buku Tamu"</li>
+                    <li style="margin-bottom: 8px;">Buat sheet dengan nama "BukuTamu"</li>
+                    <li style="margin-bottom: 8px;">Buka <a href="https://script.google.com" target="_blank">script.google.com</a> → New Project</li>
+                    <li style="margin-bottom: 8px;">Copy kode di bawah ini dan paste ke dalam script</li>
+                    <li style="margin-bottom: 8px;">Ganti <strong>SPREADSHEET_ID</strong> dengan ID dari URL Google Sheet Anda</li>
+                    <li style="margin-bottom: 8px;">Deploy → Web app → Execute as: Me → Who has access: Anyone</li>
+                    <li style="margin-bottom: 8px;">Copy Web App URL dan masukkan di form admin</li>
+                </ol>
+                <textarea id="gsScript" readonly>
+// GOOGLE APPS SCRIPT FOR BUKU TAMU
+const SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID_HERE';
+const DEFAULT_SHEET_NAME = 'BukuTamu';
+
+function doPost(e) {
+  try {
+    var data = e.parameter.data ? JSON.parse(e.parameter.data) : {};
+    var action = e.parameter.action;
+    var sheetName = e.parameter.sheetName || data.sheetName || DEFAULT_SHEET_NAME;
+    
+    var sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
+    
+    if (!sheet) {
+      var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      sheet = ss.insertSheet(sheetName);
+      sheet.appendRow(['Timestamp', 'ID', 'Nama', 'Unit', 'Email', 'WhatsApp', 'Kategori', 'Subjek', 'Detail Pesan']);
+    }
+    
+    if (action === 'submit') {
+      sheet.appendRow([new Date(), data.id, data.name, data.unitKerja, data.email, data.phone, data.category, data.subject, data.message]);
+      return ContentService.createTextOutput(JSON.stringify({ 'result': 'success' })).setMimeType(ContentService.MimeType.JSON);
+    }
+    else if (action === 'delete') {
+      var row = parseInt(e.parameter.rowNumber);
+      if (row > 1) sheet.deleteRow(row);
+      return ContentService.createTextOutput(JSON.stringify({ 'result': 'success' })).setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ 'result': 'error', 'message': err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  try {
+    var action = e.parameter.action;
+    var sheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheetName = e.parameter.sheetName || DEFAULT_SHEET_NAME;
+    
+    if (action === 'getAll') {
+      var data = sheet.getSheetByName(sheetName).getDataRange().getValues();
+      var headers = data[0];
+      var result = [];
+      for (var i = 1; i < data.length; i++) {
+        var row = {};
+        for (var j = 0; j < headers.length; j++) row[headers[j]] = data[i][j];
+        row.rowNumber = i + 1;
+        result.push(row);
+      }
+      result.sort(function(a, b) { return new Date(b.Timestamp) - new Date(a.Timestamp); });
+      return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ 'status': 'Buku Tamu API Ready' })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ 'result': 'error', 'message': err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+                </textarea>
+                <button class="submit-btn" style="margin-top: 10px;" onclick="copyScript()">📋 Copy Kode</button>
             </div>
         </div>
 
@@ -491,7 +541,7 @@
             </div>
 
             <div class="success-message" id="successMessage">
-                ✅ Terimakasi! Data konsultasi Anda telah berhasil dikirim. Tim kami akan segera menghubungi Anda.
+                ✅ Terimakasi! Data konsultasi Anda telah berhasil dikirim.
             </div>
 
             <form id="consultationForm">
@@ -518,9 +568,8 @@
                 <div class="form-group">
                     <label for="category">Kategori Konsultasi *</label>
                     <select id="category" required>
-                        <option value="">Pilih kategori konsultasi</option>
-                        <option value="inovasi">Informasi Inovasi</option>
-                        <option value="layanan">Layanan</option>
+                        <option value="">Pilih kategori</option>
+                        <option value="informasi">Informasi</option>
                         <option value="keluhan">Keluhan</option>
                         <option value="saran">Saran</option>
                         <option value="kerjasama">Kerjasama</option>
@@ -530,19 +579,19 @@
 
                 <div class="form-group">
                     <label for="subject">Subjek *</label>
-                    <input type="text" id="subject" placeholder="Judul singkat konsultasi Anda" required>
+                    <input type="text" id="subject" placeholder="Judul konsultasi" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="message">Detail Pesan/Konsultasi *</label>
-                    <textarea id="message" placeholder="Jelaskan detail konsultasi atau pertanyaan Anda..." required></textarea>
+                    <label for="message">Detail Pesan *</label>
+                    <textarea id="message" placeholder="Jelaskan detail konsultasi Anda..." required></textarea>
                 </div>
 
-                <button type="submit" class="submit-btn">📤 Kirim Konsultasi</button>
+                <button type="submit" class="submit-btn">📤 Kirim</button>
             </form>
         </div>
 
-        <!-- Login Panel (Admin) -->
+        <!-- Login Panel -->
         <div class="card" id="loginPanel">
             <div class="nav-bar">
                 <button class="nav-btn back-btn" onclick="showMainMenu()">← Kembali</button>
@@ -551,6 +600,7 @@
             </div>
 
             <div class="error-message" id="loginError"></div>
+
             <form id="loginForm">
                 <div class="form-group">
                     <label>Username</label>
@@ -563,33 +613,16 @@
                         <span class="toggle-password" onclick="togglePassword()">👁️</span>
                     </div>
                 </div>
-                <button type="submit" class="submit-btn">Login</button>
-            </form>
-        </div>
-
-        <!-- Settings Panel -->
-        <div class="card" id="settingsPanel">
-            <div class="nav-bar">
-                <button class="nav-btn back-btn" onclick="showMainMenu()">← Kembali</button>
-                <h2 class="section-title">Pengaturan</h2>
-                <div style="width: 80px;"></div>
-            </div>
-
-            <div class="success-message" id="settingsSuccess"></div>
-            <div class="error-message" id="settingsError"></div>
-
-            <form id="settingsForm">
                 <div class="form-group">
-                    <label>Google Sheets Web App URL *</label>
-                    <input type="url" id="googleSheetsUrl" placeholder="https://script.google.com/macros/s/.../exec" required>
-                    <small style="color: #666;">Salin URL dari deployment Google Apps Script</small>
+                    <label>Web App URL</label>
+                    <input type="url" id="gsUrl" placeholder="https://script.google.com/macros/s/.../exec" required>
+                    <small style="color: #666;">Masukkan URL dari Google Apps Script</small>
                 </div>
                 <div class="form-group">
                     <label>Nama Sheet</label>
                     <input type="text" id="sheetName" value="BukuTamu">
-                    <small style="color: #666;">Nama sheet di Google Sheets</small>
                 </div>
-                <button type="submit" class="submit-btn">💾 Simpan Pengaturan</button>
+                <button type="submit" class="submit-btn">Login</button>
             </form>
         </div>
 
@@ -602,10 +635,10 @@
                     <button class="nav-btn" style="background: #dc3545; color: white;" onclick="logout()">Logout</button>
                 </div>
 
-                <button class="action-btn btn-export" onclick="exportData()">📊 Export ke CSV</button>
+                <button class="action-btn btn-export" onclick="exportData()">📊 Export CSV</button>
 
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Cari berdasarkan nama, email, atau subjek..." oninput="filterData()">
+                    <input type="text" id="searchInput" placeholder="Cari..." oninput="filterData()">
                 </div>
 
                 <div class="table-container">
@@ -618,7 +651,6 @@
                                 <th>Email</th>
                                 <th>WhatsApp</th>
                                 <th>Kategori</th>
-                                <th>Subjek</th>
                                 <th>Aksi</th>
                             </tr>
                         </thead>
@@ -626,7 +658,7 @@
                         </tbody>
                     </table>
                     <div class="empty-state" id="emptyState" style="display: none;">
-                        <p>📭 Belum ada data konsultasi</p>
+                        <p>📭 Belum ada data</p>
                     </div>
                 </div>
             </div>
@@ -637,7 +669,7 @@
     <div class="modal" id="detailModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Detail Konsultasi</h2>
+                <h2>Detail</h2>
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
             <div id="modalBody">
@@ -650,126 +682,29 @@
         const ADMIN_USERNAME = 'admin';
         const ADMIN_PASSWORD = 'admin123';
 
-        // Data storage key
-        const STORAGE_KEY = 'guestbook_data';
-        const SETTINGS_KEY = 'bukutamu_settings';
+        // Storage keys
+        const STORAGE_KEY = 'bukutamu_data';
+        const CONFIG_KEY = 'bukutamu_config';
 
-        // Initialize data from localStorage or empty array
+        // Data and state
         let consultationData = [];
         let isLoggedIn = false;
-
-        // Settings
-        let settings = {
-            googleSheetsUrl: localStorage.getItem('bukutamu_googleSheetsUrl') || '',
+        let config = {
+            gsUrl: localStorage.getItem('bukutamu_gsUrl') || '',
             sheetName: localStorage.getItem('bukutamu_sheetName') || 'BukuTamu'
         };
 
-        // Check if already logged in
-        if (localStorage.getItem('admin_logged_in') === 'true') {
+        // Check login
+        if (localStorage.getItem('bukutamu_logged_in') === 'true') {
             isLoggedIn = true;
             showAdminPanel();
         }
 
-        // Load data from Google Sheets or localStorage
-        async function loadData() {
-            if (settings.googleSheetsUrl) {
-                await fetchDataFromGoogleSheets();
-            } else {
-                consultationData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-            }
-        }
-
-        // Fetch data from Google Sheets
-        async function fetchDataFromGoogleSheets() {
-            try {
-                const url = `${settings.googleSheetsUrl}?action=getAll&sheetName=${encodeURIComponent(settings.sheetName)}`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (Array.isArray(data)) {
-                    consultationData = data.map(item => ({
-                        id: item['ID'] || item['id'] || Date.now(),
-                        name: item['Nama'] || item['name'] || '',
-                        unitKerja: item['Unit'] || item['unitKerja'] || '',
-                        email: item['Email'] || item['email'] || '',
-                        phone: item['WhatsApp'] || item['phone'] || item['Telepon'] || '',
-                        category: item['Kategori'] || item['category'] || '',
-                        subject: item['Subjek'] || item['subject'] || '',
-                        message: item['Detail Pesan'] || item['message'] || '',
-                        createdAt: item['Timestamp'] || item['createdAt'] || new Date().toISOString(),
-                        rowNumber: item['rowNumber']
-                    }));
-                }
-            } catch (error) {
-                console.log('Using localStorage data:', error);
-                consultationData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-            }
-        }
-
-        // Submit data to Google Sheets
-        async function submitToGoogleSheets(data) {
-            if (!settings.googleSheetsUrl) {
-                return false;
-            }
-
-            try {
-                const formData = new FormData();
-                formData.append('action', 'submit');
-                formData.append('sheetName', settings.sheetName);
-                formData.append('id', data.id);
-                formData.append('name', data.name);
-                formData.append('unitKerja', data.unitKerja);
-                formData.append('email', data.email);
-                formData.append('phone', data.phone);
-                formData.append('category', data.category);
-                formData.append('subject', data.subject);
-                formData.append('message', data.message);
-
-                const response = await fetch(settings.googleSheetsUrl, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                console.log('Submit result:', result);
-                return result.result === 'success';
-            } catch (error) {
-                console.error('Error submitting to Google Sheets:', error);
-                return false;
-            }
-        }
-
-        // Delete data from Google Sheets
-        async function deleteFromGoogleSheets(rowNumber) {
-            if (!settings.googleSheetsUrl) {
-                return false;
-            }
-
-            try {
-                const formData = new FormData();
-                formData.append('action', 'delete');
-                formData.append('rowNumber', rowNumber);
-
-                const response = await fetch(settings.googleSheetsUrl, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-                console.log('Delete result:', result);
-                return result.result === 'success';
-            } catch (error) {
-                console.error('Error deleting from Google Sheets:', error);
-                return false;
-            }
-        }
-
-        // Panel navigation functions
+        // Panel navigation
         function showMainMenu() {
             document.getElementById('mainMenu').style.display = 'block';
             document.getElementById('formPanel').classList.remove('active');
             document.getElementById('loginPanel').style.display = 'none';
-            document.getElementById('settingsPanel').style.display = 'none';
             document.getElementById('adminPanel').classList.remove('active');
         }
 
@@ -777,7 +712,6 @@
             document.getElementById('mainMenu').style.display = 'none';
             document.getElementById('formPanel').classList.add('active');
             document.getElementById('loginPanel').style.display = 'none';
-            document.getElementById('settingsPanel').style.display = 'none';
             document.getElementById('adminPanel').classList.remove('active');
         }
 
@@ -785,42 +719,49 @@
             document.getElementById('mainMenu').style.display = 'none';
             document.getElementById('formPanel').classList.remove('active');
             document.getElementById('loginPanel').style.display = 'block';
-            document.getElementById('settingsPanel').style.display = 'none';
-            document.getElementById('adminPanel').classList.remove('active');
-        }
-
-        function showSettingsPanel() {
-            document.getElementById('mainMenu').style.display = 'none';
-            document.getElementById('formPanel').classList.remove('active');
-            document.getElementById('loginPanel').style.display = 'none';
-            document.getElementById('settingsPanel').style.display = 'block';
             document.getElementById('adminPanel').classList.remove('active');
             
-            // Load settings into form
-            document.getElementById('googleSheetsUrl').value = settings.googleSheetsUrl || '';
-            document.getElementById('sheetName').value = settings.sheetName || 'BukuTamu';
+            // Load saved config
+            document.getElementById('gsUrl').value = config.gsUrl;
+            document.getElementById('sheetName').value = config.sheetName;
         }
 
         function showAdminPanel() {
             document.getElementById('mainMenu').style.display = 'none';
             document.getElementById('formPanel').classList.remove('active');
             document.getElementById('loginPanel').style.display = 'none';
-            document.getElementById('settingsPanel').style.display = 'none';
             document.getElementById('adminPanel').classList.add('active');
-            loadData().then(() => {
-                renderTable();
-            });
+            loadData();
         }
 
-        // Login form submission
+        function logout() {
+            localStorage.removeItem('bukutamu_logged_in');
+            isLoggedIn = false;
+            showMainMenu();
+        }
+
+        // Login
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
+            const gsUrl = document.getElementById('gsUrl').value.trim();
+            const sheetName = document.getElementById('sheetName').value.trim();
 
             if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                if (!gsUrl) {
+                    showLoginError('URL wajib diisi!');
+                    return;
+                }
+                
+                // Save config
+                config.gsUrl = gsUrl;
+                config.sheetName = sheetName;
+                localStorage.setItem('bukutamu_gsUrl', gsUrl);
+                localStorage.setItem('bukutamu_sheetName', sheetName);
+                
                 isLoggedIn = true;
-                localStorage.setItem('admin_logged_in', 'true');
+                localStorage.setItem('bukutamu_logged_in', 'true');
                 document.getElementById('loginError').style.display = 'none';
                 showAdminPanel();
             } else {
@@ -828,35 +769,17 @@
             }
         });
 
-        // Settings form submission
-        document.getElementById('settingsForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const googleSheetsUrl = document.getElementById('googleSheetsUrl').value.trim();
-            const sheetName = document.getElementById('sheetName').value.trim();
-            
-            if (!googleSheetsUrl) {
-                showSettingsError('URL Google Sheets wajib diisi!');
-                return;
-            }
+        function showLoginError(msg) {
+            const el = document.getElementById('loginError');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
 
-            settings.googleSheetsUrl = googleSheetsUrl;
-            settings.sheetName = sheetName;
-            
-            localStorage.setItem('bukutamu_googleSheetsUrl', googleSheetsUrl);
-            localStorage.setItem('bukutamu_sheetName', sheetName);
-            
-            showSettingsSuccess('Pengaturan berhasil disimpan!');
-            setTimeout(() => {
-                showMainMenu();
-            }, 2000);
-        });
-
-        // Consultation form submission
+        // Form submission
         document.getElementById('consultationForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
-            const newData = {
+            const data = {
                 id: Date.now(),
                 name: document.getElementById('name').value,
                 unitKerja: document.getElementById('unitKerja').value,
@@ -868,60 +791,100 @@
                 createdAt: new Date().toISOString()
             };
 
-            // Submit to Google Sheets if configured
-            if (settings.googleSheetsUrl) {
-                const success = await submitToGoogleSheets(newData);
-                if (!success) {
-                    alert('Gagal mengirim ke Google Sheets, data akan disimpan secara lokal.');
-                }
+            // Submit to Google Sheets
+            if (config.gsUrl) {
+                await submitToGoogleSheets(data);
             }
 
-            consultationData.unshift(newData);
+            consultationData.unshift(data);
             saveData();
 
-            // Reset form and show success message
             this.reset();
             showSuccessMessage();
         });
 
-        function showLoginError(message) {
-            const errorDiv = document.getElementById('loginError');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-        }
-
-        function showSettingsError(message) {
-            const errorDiv = document.getElementById('settingsError');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-            setTimeout(() => {
-                errorDiv.style.display = 'none';
-            }, 5000);
-        }
-
-        function showSettingsSuccess(message) {
-            const successDiv = document.getElementById('settingsSuccess');
-            successDiv.textContent = message;
-            successDiv.style.display = 'block';
-            setTimeout(() => {
-                successDiv.style.display = 'none';
-            }, 5000);
-        }
-
         function showSuccessMessage() {
-            const successDiv = document.getElementById('successMessage');
-            successDiv.style.display = 'block';
-            setTimeout(() => {
-                successDiv.style.display = 'none';
-            }, 5000);
+            const el = document.getElementById('successMessage');
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
         }
 
-        function logout() {
-            localStorage.removeItem('admin_logged_in');
-            isLoggedIn = false;
-            showMainMenu();
+        // Google Sheets functions
+        async function submitToGoogleSheets(data) {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'submit');
+                formData.append('sheetName', config.sheetName);
+                formData.append('data', JSON.stringify(data));
+
+                const response = await fetch(config.gsUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Error:', error);
+                return { result: 'error' };
+            }
         }
 
+        async function loadData() {
+            if (!config.gsUrl) {
+                consultationData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+                renderTable();
+                return;
+            }
+
+            try {
+                const url = `${config.gsUrl}?action=getAll&sheetName=${encodeURIComponent(config.sheetName)}`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (Array.isArray(data)) {
+                    consultationData = data.map(item => ({
+                        id: item['ID'] || item['id'] || Date.now(),
+                        name: item['Nama'] || item['name'] || '',
+                        unitKerja: item['Unit'] || item['unitKerja'] || '',
+                        email: item['Email'] || item['email'] || '',
+                        phone: item['WhatsApp'] || item['phone'] || '',
+                        category: item['Kategori'] || item['category'] || '',
+                        subject: item['Subjek'] || item['subject'] || '',
+                        message: item['Detail Pesan'] || item['message'] || '',
+                        rowNumber: item['rowNumber']
+                    }));
+                }
+            } catch (error) {
+                console.log('Using local data:', error);
+                consultationData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            }
+            renderTable();
+        }
+
+        async function deleteData(id) {
+            if (!confirm('Hapus data ini?')) return;
+
+            const item = consultationData.find(d => d.id === id);
+            if (item && item.rowNumber && config.gsUrl) {
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'delete');
+                    formData.append('rowNumber', item.rowNumber);
+                    await fetch(config.gsUrl, { method: 'POST', body: formData });
+                } catch (error) {
+                    console.error('Delete error:', error);
+                }
+            }
+
+            consultationData = consultationData.filter(d => d.id !== id);
+            saveData();
+            renderTable();
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(consultationData));
+        }
+
+        // Render table
         function renderTable() {
             const tbody = document.getElementById('dataBody');
             const emptyState = document.getElementById('emptyState');
@@ -937,21 +900,19 @@
             emptyState.style.display = 'none';
 
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const filteredData = consultationData.filter(item =>
+            const filtered = consultationData.filter(item =>
                 (item.name && item.name.toLowerCase().includes(searchTerm)) ||
-                (item.email && item.email.toLowerCase().includes(searchTerm)) ||
-                (item.subject && item.subject.toLowerCase().includes(searchTerm))
+                (item.email && item.email.toLowerCase().includes(searchTerm))
             );
 
-            tbody.innerHTML = filteredData.map((item, index) => `
+            tbody.innerHTML = filtered.map((item, i) => `
                 <tr>
-                    <td>${index + 1}</td>
-                    <td>${escapeHtml(item.name || '')}</td>
-                    <td>${escapeHtml(item.unitKerja || '')}</td>
-                    <td>${escapeHtml(item.email || '')}</td>
-                    <td>${escapeHtml(item.phone || '')}</td>
+                    <td>${i + 1}</td>
+                    <td>${escape(item.name || '')}</td>
+                    <td>${escape(item.unitKerja || '')}</td>
+                    <td>${escape(item.email || '')}</td>
+                    <td>${escape(item.phone || '')}</td>
                     <td>${getCategoryLabel(item.category)}</td>
-                    <td>${escapeHtml(item.subject || '')}</td>
                     <td>
                         <button class="action-btn btn-view" onclick="viewDetail(${item.id})">👁️</button>
                         <button class="action-btn btn-delete" onclick="deleteData(${item.id})">🗑️</button>
@@ -964,58 +925,20 @@
             const item = consultationData.find(d => d.id === id);
             if (!item) return;
 
-            const modalBody = document.getElementById('modalBody');
-            modalBody.innerHTML = `
-                <div class="detail-row">
-                    <label>Nama</label>
-                    <p>${escapeHtml(item.name || '')}</p>
-                </div>
-                <div class="detail-row">
-                    <label>Unit</label>
-                    <p>${escapeHtml(item.unitKerja || '')}</p>
-                </div>
-                <div class="detail-row">
-                    <label>Email</label>
-                    <p>${escapeHtml(item.email || '')}</p>
-                </div>
-                <div class="detail-row">
-                    <label>WhatsApp</label>
-                    <p>${escapeHtml(item.phone || '')}</p>
-                </div>
-                <div class="detail-row">
-                    <label>Kategori</label>
-                    <p>${getCategoryLabel(item.category)}</p>
-                </div>
-                <div class="detail-row">
-                    <label>Subjek</label>
-                    <p>${escapeHtml(item.subject || '')}</p>
-                </div>
-                <div class="detail-row">
-                    <label>Detail Pesan</label>
-                    <p>${escapeHtml(item.message || '')}</p>
-                </div>
+            document.getElementById('modalBody').innerHTML = `
+                <div class="detail-row"><label>Nama</label><p>${escape(item.name || '')}</p></div>
+                <div class="detail-row"><label>Unit</label><p>${escape(item.unitKerja || '')}</p></div>
+                <div class="detail-row"><label>Email</label><p>${escape(item.email || '')}</p></div>
+                <div class="detail-row"><label>WhatsApp</label><p>${escape(item.phone || '')}</p></div>
+                <div class="detail-row"><label>Kategori</label><p>${getCategoryLabel(item.category)}</p></div>
+                <div class="detail-row"><label>Subjek</label><p>${escape(item.subject || '')}</p></div>
+                <div class="detail-row"><label>Pesan</label><p>${escape(item.message || '')}</p></div>
             `;
-
             document.getElementById('detailModal').classList.add('active');
         }
 
         function closeModal() {
             document.getElementById('detailModal').classList.remove('active');
-        }
-
-        async function deleteData(id) {
-            if (!confirm('Apakah Anda yakin ingin menghapus data konsultasi ini?')) {
-                return;
-            }
-            
-            const item = consultationData.find(d => d.id === id);
-            if (item && item.rowNumber && settings.googleSheetsUrl) {
-                await deleteFromGoogleSheets(item.rowNumber);
-            }
-            
-            consultationData = consultationData.filter(d => d.id !== id);
-            saveData();
-            renderTable();
         }
 
         function filterData() {
@@ -1024,109 +947,51 @@
 
         function exportData() {
             if (consultationData.length === 0) {
-                alert('Tidak ada data untuk diexport!');
+                alert('Tidak ada data!');
                 return;
             }
 
-            let csv = 'No,Nama,Unit,Email,WhatsApp,Kategori,Subjek,Detail Pesan,Tanggal' + '\n';
-            consultationData.forEach((item, index) => {
-                csv += `${index + 1},"${item.name || ''}","${item.unitKerja || ''}","${item.email || ''}","${item.phone || ''}","${getCategoryLabel(item.category)}","${(item.subject || '').replace(/"/g, '""')}","${(item.message || '').replace(/"/g, '""')}","${formatDateTime(item.createdAt)}"\n`;
+            let csv = 'No,Nama,Unit,Email,WhatsApp,Kategori,Subjek,Pesan\n';
+            consultationData.forEach((item, i) => {
+                csv += `${i + 1},"${item.name || ''}","${item.unitKerja || ''}","${item.email || ''}","${item.phone || ''}","${getCategoryLabel(item.category)}","${(item.subject || '').replace(/"/g, '""')}","${(item.message || '').replace(/"/g, '""')}"\n`;
             });
 
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const blob = new Blob([csv], { type: 'text/csv' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `buku_tamu_${formatDateFile(new Date())}.csv`;
+            link.download = `bukutamu_${new Date().toISOString().split('T')[0]}.csv`;
             link.click();
         }
 
-        function saveData() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(consultationData));
+        function getCategoryLabel(cat) {
+            const labels = { informasi: 'Informasi', keluhan: 'Keluhan', saran: 'Saran', kerjasama: 'Kerjasama', lainnya: 'Lainnya' };
+            return labels[cat] || cat || '';
         }
 
-        function togglePassword() {
-            const passwordInput = document.getElementById('password');
-            const toggleBtn = document.querySelector('#loginPanel .toggle-password');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleBtn.textContent = '🔒';
-            } else {
-                passwordInput.type = 'password';
-                toggleBtn.textContent = '👁️';
-            }
-        }
-
-        function toggleAdminPassword() {
-            const passwordInput = document.getElementById('adminPassword');
-            const toggleBtn = document.querySelector('#settingsPanel .toggle-password');
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleBtn.textContent = '🔒';
-            } else {
-                passwordInput.type = 'password';
-                toggleBtn.textContent = '👁️';
-            }
-        }
-
-        function getCategoryLabel(category) {
-            const labels = {
-                produk: 'Informasi Produk',
-                layanan: 'Layanan',
-                harga: 'Informasi Harga',
-                keluhan: 'Keluhan',
-                saran: 'Saran',
-                kerjasama: 'Kerjasama',
-                lainnya: 'Lainnya'
-            };
-            return labels[category] || category;
-        }
-
-        function getStatusLabel(status) {
-            const labels = {
-                pending: 'Belum Dibaca',
-                read: 'Sudah Dibaca'
-            };
-            return labels[status] || status;
-        }
-
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-        }
-
-        function formatDateTime(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleString('id-ID', {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        function formatDateFile(date) {
-            return date.toISOString().split('T')[0];
-        }
-
-        function escapeHtml(text) {
+        function escape(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
+        function togglePassword() {
+            const input = document.getElementById('password');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function copyScript() {
+            const script = document.getElementById('gsScript');
+            navigator.clipboard.writeText(script.value).then(() => {
+                alert('Kode berhasil dicopy!');
+            });
+        }
+
         // Close modal on outside click
         document.getElementById('detailModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
+            if (e.target === this) closeModal();
         });
-
-        // Close modal on Escape key
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                closeModal();
-            }
+            if (e.key === 'Escape') closeModal();
         });
     </script>
 </body>
