@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Tenaga Medis dan Tenaga Kesehatan</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #0066cc, #004999);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 102, 204, 0.3);
+        }
+        
+        header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .filters-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .filters-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            padding: 12px 15px;
+            border: 2px solid #e1e5eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background-color: #fff;
+        }
+        
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+        }
+        
+        .search-group {
+            grid-column: 1 / -1;
+        }
+        
+        .search-group input {
+            width: 100%;
+        }
+        
+        .btn-reset {
+            padding: 12px 25px;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            align-self: flex-end;
+        }
+        
+        .btn-reset:hover {
+            background-color: #5a6268;
+            transform: translateY(-2px);
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .summary-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #0066cc;
+        }
+        
+        .summary-card h4 {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .summary-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .summary-card.highlight {
+            border-left-color: #28a745;
+        }
+        
+        .data-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            margin-bottom: 25px;
+        }
+        
+        .data-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        table th,
+        table td {
+            padding: 14px 18px;
+            text-align: left;
+            border-bottom: 1px solid #e1e5eb;
+        }
+        
+        table th {
+            background-color: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+        }
+        
+        table tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        table td {
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .jumlah-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            background-color: #e3f2fd;
+            color: #0066cc;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        
+        .chart-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+        
+        .chart-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e1e5eb;
+            border-top-color: #0066cc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-top: 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 16px;
+        }
+        
+        .status-bar {
+            background: #e3f2fd;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #0066cc;
+            font-size: 14px;
+        }
+        
+        .status-bar.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 22px;
+            }
+            
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .summary-card .value {
+                font-size: 26px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Dashboard Tenaga Medis dan Tenaga Kesehatan</h1>
+            <p>Monitoring jumlah tenaga medis dan kesehatan berdasarkan jenisnya</p>
+        </header>
+        
+        <div id="statusBar" class="status-bar" style="display: none;"></div>
+        
+        <section class="filters-section">
+            <h3>🔍 Filter & Pencarian</h3>
+            <div class="filters-grid">
+                <div class="search-group">
+                    <label for="searchInput">Pencarian</label>
+                    <input type="text" id="searchInput" placeholder="Cari berdasarkan Unit atau Jenis...">
+                </div>
+                
+                <div class="filter-group">
+                    <label for="tahunFilter">Tahun</label>
+                    <select id="tahunFilter">
+                        <option value="">Semua Tahun</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="bulanFilter">Bulan</label>
+                    <select id="bulanFilter">
+                        <option value="">Semua Bulan</option>
+                        <option value="1">Januari</option>
+                        <option value="2">Februari</option>
+                        <option value="3">Maret</option>
+                        <option value="4">April</option>
+                        <option value="5">Mei</option>
+                        <option value="6">Juni</option>
+                        <option value="7">Juli</option>
+                        <option value="8">Agustus</option>
+                        <option value="9">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="unitFilter">Unit</label>
+                    <select id="unitFilter">
+                        <option value="">Semua Unit</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="jenisFilter">Jenis</label>
+                    <select id="jenisFilter">
+                        <option value="">Semua Jenis</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group" style="justify-content: flex-end;">
+                    <button class="btn-reset" onclick="resetFilters()">↻ Reset Filter</button>
+                </div>
+            </div>
+        </section>
+        
+        <div id="summaryCards" class="summary-cards" style="display: none;">
+            <div class="summary-card">
+                <h4>Total Record</h4>
+                <div class="value" id="totalRecords">0</div>
+            </div>
+            <div class="summary-card highlight">
+                <h4>Total Jumlah</h4>
+                <div class="value" id="totalJumlah">0</div>
+            </div>
+            <div class="summary-card">
+                <h4>Jumlah Unit</h4>
+                <div class="value" id="totalUnit">0</div>
+            </div>
+            <div class="summary-card">
+                <h4>Jumlah Jenis</h4>
+                <div class="value" id="totalJenis">0</div>
+            </div>
+        </div>
+        
+        <section id="dataSection" class="data-section" style="display: none;">
+            <h3>📋 Data Detail</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Tahun</th>
+                            <th>Bulan</th>
+                            <th>Unit</th>
+                            <th>Jenis</th>
+                            <th>Jumlah</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
+        <section id="chartSection" class="chart-section" style="display: none;">
+            <h3>📈 Visualisasi Data</h3>
+            <div class="chart-container">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // ============================================
+        // KONFIGURASI - Ganti dengan URL Google Sheets Anda
+        // Format: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/gviz/tq?tqx=out:json
+        // ============================================
+        const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/gviz/tq?tqx=out:json';
+        
+        let allData = [];
+        let filteredData = [];
+        let chartInstance = null;
+        
+        // ============================================
+        // INISIALISASI
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            setupEventListeners();
+        });
+        
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', applyFilters);
+            document.getElementById('tahunFilter').addEventListener('change', applyFilters);
+            document.getElementById('bulanFilter').addEventListener('change', applyFilters);
+            document.getElementById('unitFilter').addEventListener('change', applyFilters);
+            document.getElementById('jenisFilter').addEventListener('change', applyFilters);
+        }
+        
+        // ============================================
+        // MEMUAT DATA DARI GOOGLE SHEETS
+        // ============================================
+        async function loadData() {
+            showLoading(true);
+            
+            try {
+                const response = await fetch(GOOGLE_SHEETS_URL);
+                if (!response.ok) {
+                    throw new Error('Gagal memuat data dari Google Sheets');
+                }
+                
+                const text = await response.text();
+                const jsonString = text.replace(/google.visualization.Query.setResponse\((.*)\);/s, '$1');
+                const data = JSON.parse(jsonString);
+                
+                if (data.status !== 'ok') {
+                    throw new Error('Respons dari Google Sheets tidak valid');
+                }
+                
+                // Parse data dari Google Sheets
+                const rows = data.table.rows;
+                const cols = data.table.cols;
+                
+                if (!rows || rows.length === 0) {
+                    throw new Error('Data tidak ditemukan di Google Sheets');
+                }
+                
+                allData = rows.map((row, index) => {
+                    const rowData = {};
+                    cols.forEach((col, colIndex) => {
+                        const value = row.c[colIndex];
+                        rowData[col.label] = value ? (value.f || value.v || '') : '';
+                    });
+                    rowData._index = index + 1;
+                    return rowData;
+                });
+                
+                // Validasi kolom yang diperlukan
+                const requiredColumns = ['Tahun', 'Bulan', 'Unit', 'Jenis', 'Jumlah'];
+                const columns = cols.map(col => col.label);
+                
+                const missingColumns = requiredColumns.filter(col => !columns.includes(col));
+                if (missingColumns.length > 0) {
+                    throw new Error(`Kolom tidak ditemukan: ${missingColumns.join(', ')}`);
+                }
+                
+                // Populate filter dropdowns
+                populateFilters();
+                
+                // Apply initial filter
+                applyFilters();
+                
+                showStatus('Data berhasil dimuat!', false);
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showStatus('Error: ' + error.message + '. Pastikan URL Google Sheets sudah benar.', true);
+                
+                // Demo mode dengan data contoh jika Google Sheets tidak tersedia
+                loadDemoData();
+            }
+        }
+        
+        // ============================================
+        // DATA CONTOK (JIKA GOOGLE SHEETS TIDAK TERSEDIA)
+        // ============================================
+        function loadDemoData() {
+            console.log('Memuat data contoh...');
+            
+            const demoData = [
+                { Tahun: '2024', Bulan: 'Januari', Unit: 'Rawat Jalan', Jenis: 'Dokter', Jumlah: 45 },
+                { Tahun: '2024', Bulan: 'Januari', Unit: 'Rawat Jalan', Jenis: 'Perawat', Jumlah: 78 },
+                { Tahun: '2024', Bulan: 'Januari', Unit: 'Rawat Inap', Jenis: 'Dokter', Jumlah: 32 },
+                { Tahun: '2024', Bulan: 'Januari', Unit: 'Rawat Inap', Jenis: 'Perawat', Jumlah: 156 },
+                { Tahun: '2024', Bulan: 'Januari', Unit: 'IGD', Jenis: 'Dokter', Jumlah: 18 },
+                { Tahun: '2024', Bulan: 'Januari', Unit: 'IGD', Jenis: 'Perawat', Jumlah: 42 },
+                { Tahun: '2024', Bulan: 'Januari', Unit: 'Laboratorium', Jenis: 'Analis', Jumlah: 24 },
+                { Tahun: '2024', Bulan: 'Januari', Unit: 'Radiologi', Jenis: 'Radiografer', Jumlah: 16 },
+                
+                { Tahun: '2024', Bulan: 'Februari', Unit: 'Rawat Jalan', Jenis: 'Dokter', Jumlah: 48 },
+                { Tahun: '2024', Bulan: 'Februari', Unit: 'Rawat Jalan', Jenis: 'Perawat', Jumlah: 82 },
+                { Tahun: '2024', Bulan: 'Februari', Unit: 'Rawat Inap', Jenis: 'Dokter', Jumlah: 35 },
+                { Tahun: '2024', Bulan: 'Februari', Unit: 'Rawat Inap', Jenis: 'Perawat', Jumlah: 160 },
+                { Tahun: '2024', Bulan: 'Februari', Unit: 'IGD', Jenis: 'Dokter', Jumlah: 20 },
+                { Tahun: '2024', Bulan: 'Februari', Unit: 'IGD', Jenis: 'Perawat', Jumlah: 45 },
+                { Tahun: '2024', Bulan: 'Februari', Unit: 'Farmasi', Jenis: 'Apoteker', Jumlah: 12 },
+                
+                { Tahun: '2024', Bulan: 'Maret', Unit: 'Rawat Jalan', Jenis: 'Dokter', Jumlah: 52 },
+                { Tahun: '2024', Bulan: 'Maret', Unit: 'Rawat Jalan', Jenis: 'Perawat', Jumlah: 85 },
+                { Tahun: '2024', Bulan: 'Maret', Unit: 'Poli Gigi', Jenis: 'Dokter Gigi', Jumlah: 8 },
+                { Tahun: '2024', Bulan: 'Maret', Unit: 'Poli Gigi', Jenis: 'Perawat Gigi', Jumlah: 8 },
+                { Tahun: '2024', Bulan: 'Maret', Unit: 'OK', Jenis: 'Perawat Anastesi', Jumlah: 14 },
+                { Tahun: '2024', Bulan: 'Maret', Unit: 'ICU', Jenis: 'Perawat ICU', Jumlah: 28 },
+                
+                { Tahun: '2025', Bulan: 'Januari', Unit: 'Rawat Jalan', Jenis: 'Dokter', Jumlah: 50 },
+                { Tahun: '2025', Bulan: 'Januari', Unit: 'Rawat Jalan', Jenis: 'Perawat', Jumlah: 80 },
+                { Tahun: '2025', Bulan: 'Januari', Unit: 'Rawat Inap', Jenis: 'Dokter', Jumlah: 38 },
+                { Tahun: '2025', Bulan: 'Januari', Unit: 'Rawat Inap', Jenis: 'Perawat', Jumlah: 165 },
+                { Tahun: '2025', Bulan: 'Januari', Unit: 'IGD', Jenis: 'Dokter', Jumlah: 22 },
+                { Tahun: '2025', Bulan: 'Januari', Unit: 'IGD', Jenis: 'Perawat', Jumlah: 48 },
+                { Tahun: '2025', Bulan: 'Januari', Unit: 'Laboratorium', Jenis: 'Analis', Jumlah: 26 },
+                
+                { Tahun: '2025', Bulan: 'Februari', Unit: 'Rawat Jalan', Jenis: 'Dokter', Jumlah: 55 },
+                { Tahun: '2025', Bulan: 'Februari', Unit: 'Rawat Jalan', Jenis: 'Perawat', Jumlah: 88 },
+                { Tahun: '2025', Bulan: 'Februari', Unit: 'ICU', Jenis: 'Dokter', Jumlah: 12 },
+                { Tahun: '2025', Bulan: 'Februari', Unit: 'ICU', Jenis: 'Perawat ICU', Jumlah: 32 },
+                { Tahun: '2025', Bulan: 'Februari', Unit: 'Farmasi', Jenis: 'Apoteker', Jumlah: 14 },
+                { Tahun: '2025', Bulan: 'Februari', Unit: 'Farmasi', Jenis: 'Assistant Apoteker', Jumlah: 18 },
+            ];
+            
+            allData = demoData.map((row, index) => ({
+                ...row,
+                _index: index + 1
+            }));
+            
+            populateFilters();
+            applyFilters();
+            showStatus('Menampilkan data contoh (konfigurasi Google Sheets diperlukan untuk data real)', false);
+        }
+        
+        // ============================================
+        // MENGISI FILTER DROPDOWNS
+        // ============================================
+        function populateFilters() {
+            // Extract unique values
+            const tahun = [...new Set(allData.map(d => d.Tahun))].filter(Boolean).sort().reverse();
+            const unit = [...new Set(allData.map(d => d.Unit))].filter(Boolean).sort();
+            const jenis = [...new Set(allData.map(d => d.Jenis))].filter(Boolean).sort();
+            
+            // Populate dropdowns
+            populateDropdown('tahunFilter', tahun);
+            populateDropdown('unitFilter', unit);
+            populateDropdown('jenisFilter', jenis);
+        }
+        
+        function populateDropdown(elementId, values) {
+            const select = document.getElementById(elementId);
+            const firstOption = select.options[0];
+            select.innerHTML = '';
+            select.add(firstOption);
+            
+            values.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                select.appendChild(option);
+            });
+        }
+        
+        // ============================================
+        // MENERAPKAN FILTER
+        // ============================================
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const tahun = document.getElementById('tahunFilter').value;
+            const bulan = document.getElementById('bulanFilter').value;
+            const unit = document.getElementById('unitFilter').value;
+            const jenis = document.getElementById('jenisFilter').value;
+            
+            filteredData = allData.filter(row => {
+                // Search filter
+                const matchesSearch = !searchTerm || 
+                    row.Unit.toLowerCase().includes(searchTerm) ||
+                    row.Jenis.toLowerCase().includes(searchTerm);
+                
+                // Year filter
+                const matchesTahun = !tahun || row.Tahun === tahun;
+                
+                // Month filter
+                const matchesBulan = !bulan || getMonthNumber(row.Bulan) === parseInt(bulan);
+                
+                // Unit filter
+                const matchesUnit = !unit || row.Unit === unit;
+                
+                // Type filter
+                const matchesJenis = !jenis || row.Jenis === jenis;
+                
+                return matchesSearch && matchesTahun && matchesBulan && matchesUnit && matchesJenis;
+            });
+            
+            updateSummary();
+            renderTable();
+            renderChart();
+        }
+        
+        function getMonthNumber(monthName) {
+            const months = {
+                'Januari': 1, 'Februari': 2, 'Maret': 3, 'April': 4,
+                'Mei': 5, 'Juni': 6, 'Juli': 7, 'Agustus': 8,
+                'September': 9, 'Oktober': 10, 'November': 11, 'Desember': 12
+            };
+            return months[monthName] || 0;
+        }
+        
+        // ============================================
+        // RENDER TABEL
+        // ============================================
+        function renderTable() {
+            const tableBody = document.getElementById('tableBody');
+            const dataSection = document.getElementById('dataSection');
+            
+            if (filteredData.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="no-data">Tidak ada data yang sesuai dengan filter</td></tr>';
+                dataSection.style.display = 'block';
+                return;
+            }
+            
+            const sortedData = [...filteredData].sort((a, b) => {
+                const yearCompare = b.Tahun.localeCompare(a.Tahun);
+                if (yearCompare !== 0) return yearCompare;
+                const monthCompare = getMonthNumber(b.Bulan) - getMonthNumber(a.Bulan);
+                if (monthCompare !== 0) return monthCompare;
+                return a.Unit.localeCompare(b.Unit) || a.Jenis.localeCompare(b.Jenis);
+            });
+            
+            tableBody.innerHTML = sortedData.map((row, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${row.Tahun}</td>
+                    <td>${row.Bulan}</td>
+                    <td>${row.Unit}</td>
+                    <td>${row.Jenis}</td>
+                    <td><span class="jumlah-badge">${parseInt(row.Jumlah).toLocaleString('id-ID')}</span></td>
+                </tr>
+            `).join('');
+            
+            dataSection.style.display = 'block';
+        }
+        
+        // ============================================
+        // RENDER CHART
+        // ============================================
+        function renderChart() {
+            const chartSection = document.getElementById('chartSection');
+            
+            if (filteredData.length === 0) {
+                chartSection.style.display = 'none';
+                return;
+            }
+            
+            chartSection.style.display = 'block';
+            
+            // Aggregate data by Jenis
+            const jenisData = {};
+            filteredData.forEach(row => {
+                const jenis = row.Jenis;
+                const jumlah = parseInt(row.Jumlah) || 0;
+                jenisData[jenis] = (jenisData[jenis] || 0) + jumlah;
+            });
+            
+            const labels = Object.keys(jenisData);
+            const data = Object.values(jenisData);
+            
+            // Generate colors
+            const colors = [
+                '#0066cc', '#28a745', '#ffc107', '#dc3545', '#6f42c1',
+                '#20c997', '#fd7e14', '#17a2b8', '#6610f2', '#e83e8c'
+            ];
+            
+            const backgroundColors = labels.map((_, i) => colors[i % colors.length]);
+            
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Jumlah Tenaga Kesehatan',
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Jumlah Tenaga Kesehatan Berdasarkan Jenis',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Jumlah'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Jenis'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // ============================================
+        // UPDATE RINGKASAN
+        // ============================================
+        function updateSummary() {
+            const summaryCards = document.getElementById('summaryCards');
+            
+            if (filteredData.length === 0) {
+                summaryCards.style.display = 'none';
+                return;
+            }
+            
+            summaryCards.style.display = 'grid';
+            
+            const totalRecords = filteredData.length;
+            const totalJumlah = filteredData.reduce((sum, row) => sum + (parseInt(row.Jumlah) || 0), 0);
+            const totalUnit = [...new Set(filteredData.map(d => d.Unit))].length;
+            const totalJenis = [...new Set(filteredData.map(d => d.Jenis))].length;
+            
+            document.getElementById('totalRecords').textContent = totalRecords.toLocaleString('id-ID');
+            document.getElementById('totalJumlah').textContent = totalJumlah.toLocaleString('id-ID');
+            document.getElementById('totalUnit').textContent = totalUnit;
+            document.getElementById('totalJenis').textContent = totalJenis;
+        }
+        
+        // ============================================
+        // RESET FILTER
+        // ============================================
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('tahunFilter').value = '';
+            document.getElementById('bulanFilter').value = '';
+            document.getElementById('unitFilter').value = '';
+            document.getElementById('jenisFilter').value = '';
+            applyFilters();
+        }
+        
+        // ============================================
+        // UTILITY
+        // ============================================
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.style.display = show ? 'block' : 'none';
+            }
+        }
+        
+        function showStatus(message, isError) {
+            const statusBar = document.getElementById('statusBar');
+            statusBar.textContent = message;
+            statusBar.style.display = 'block';
+            statusBar.className = 'status-bar' + (isError ? ' error' : '');
+            
+            if (!isError) {
+                setTimeout(() => {
+                    statusBar.style.display = 'none';
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
