@@ -717,7 +717,7 @@
         // ============================================
         // CONFIG - Ganti dengan URL Web App Anda
         // ============================================
-        const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxeuY9BpvWRxwckawN9G_SZP1ehaojDj-Br84kX_x5TAZswFV7Nt_zKvnMP_oilGdNIRw/exec';
+        const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyt2tQKHcim5UJTIhrmJt4wt_7ef_3K89eGFPBvgTyc9ZXJ-Kg1j68Cap9CrHkoRxJgdg/exec';
         
         // Data Dummy (fallback jika webapp tidak tersedia)
         const dummyKegiatanData = [
@@ -816,6 +816,57 @@
         // ============================================
         let kegiatanData = [];
         
+        // JSONP fallback function
+        function fetchKegiatanWithJSONP() {
+            return new Promise((resolve, reject) => {
+                if (WEBAPP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL') {
+                    resolve(dummyKegiatanData);
+                    return;
+                }
+                
+                const callbackName = '__kegiatansCallback_' + Date.now();
+                const url = WEBAPP_URL + '?action=getkegiatans&callback=' + callbackName;
+                
+                const timeout = setTimeout(() => {
+                    if (window[callbackName]) {
+                        delete window[callbackName];
+                    }
+                    console.log('JSONP timeout, using dummy data');
+                    resolve(dummyKegiatanData);
+                }, 8000);
+                
+                window[callbackName] = function(result) {
+                    clearTimeout(timeout);
+                    delete window[callbackName];
+                    
+                    if (result && result.success && Array.isArray(result.data)) {
+                        kegiatanData = result.data.map((item, index) => ({
+                            no: item.no || index + 1,
+                            tanggal: item.tanggal,
+                            pelaksana: item.pelaksana,
+                            tempat: item.tempat,
+                            tema: item.tema,
+                            link: item.link || '#'
+                        }));
+                        console.log('Data loaded via JSONP: ' + kegiatanData.length + ' items');
+                        resolve(kegiatanData);
+                    } else {
+                        resolve(dummyKegiatanData);
+                    }
+                };
+                
+                const script = document.createElement('script');
+                script.src = url;
+                script.onerror = function() {
+                    clearTimeout(timeout);
+                    delete window[callbackName];
+                    console.log('JSONP error, using dummy data');
+                    resolve(dummyKegiatanData);
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
         async function loadKegiatanFromWebapp() {
             const tbody = document.getElementById('daftar-kegiatan-body');
             
@@ -834,7 +885,10 @@
             
             try {
                 const url = WEBAPP_URL + '?action=getkegiatans';
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
                 
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
@@ -857,10 +911,11 @@
                 }
             } catch (error) {
                 console.error('Error fetching kegiatan data:', error);
-                // Fallback to dummy data
-                kegiatanData = dummyKegiatanData;
+                // Try JSONP as fallback
+                console.log('Trying JSONP fallback...');
+                kegiatanData = await fetchKegiatanWithJSONP();
                 renderDaftarKegiatan(kegiatanData);
-                showToast('Gagal memuat data, menggunakan data demo', 'error');
+                showToast('Gagal memuat data dari server', 'error');
             }
         }
 
