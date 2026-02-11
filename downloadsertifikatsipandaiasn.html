@@ -714,8 +714,13 @@
     <div id="toast" class="toast"></div>
 
     <script>
-        // Data Dummy
-        const kegiatanData = [
+        // ============================================
+        // CONFIG - Ganti dengan URL Web App Anda
+        // ============================================
+        const WEBAPP_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL';
+        
+        // Data Dummy (fallback jika webapp tidak tersedia)
+        const dummyKegiatanData = [
             { no: 1, tanggal: '2025-01-15', pelaksana: 'BKD Kota', tempat: 'Aula Gedung A', tema: 'Pelatihan Digital Marketing', link: '#' },
             { no: 2, tanggal: '2025-01-20', pelaksana: 'Diskominfo', tempat: 'Room 101', tema: 'Workshop Data Analysis', link: '#' },
             { no: 3, tanggal: '2025-02-05', pelaksana: 'BKD Kota', tempat: 'Aula Gedung B', tema: 'Seminar Cyber Security', link: '#' },
@@ -724,7 +729,7 @@
             { no: 6, tanggal: '2025-03-01', pelaksana: 'BKD Kota', tempat: 'Aula Gedung A', tema: 'Seminar Smart City', link: '#' }
         ];
 
-        const kegiatanTerbaru = [
+        const dummyKegiatanTerbaru = [
             { no: 1, tanggal: '2025-02-15', tema: 'Workshop AI Basics', peserta: 45, status: 'Selesai' },
             { no: 2, tanggal: '2025-02-10', tema: 'Pelatihan E-Government', peserta: 60, status: 'Selesai' },
             { no: 3, tanggal: '2025-02-05', tema: 'Seminar Cyber Security', peserta: 120, status: 'Selesai' },
@@ -798,8 +803,84 @@
                 // Show target section
                 const targetSection = this.getAttribute('data-section');
                 document.getElementById(targetSection).classList.add('active');
+                
+                // Load data if entering daftar-kegiatan section
+                if (targetSection === 'daftar-kegiatan') {
+                    loadKegiatanFromWebapp();
+                }
             });
         });
+
+        // ============================================
+        // FETCH DATA FROM GOOGLE SHEETS (WEBAPP)
+        // ============================================
+        let kegiatanData = [];
+        
+        async function loadKegiatanFromWebapp() {
+            const tbody = document.getElementById('daftar-kegiatan-body');
+            
+            // Show loading indicator
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Memuat data...</td></tr>';
+            
+            // Check if webapp URL is configured
+            if (WEBAPP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL') {
+                // Use dummy data if webapp URL not configured
+                console.log('Webapp URL not configured, using dummy data');
+                kegiatanData = dummyKegiatanData;
+                renderDaftarKegiatan(kegiatanData);
+                showToast('Mode Demo: Menggunakan data dummy', 'info');
+                return;
+            }
+            
+            try {
+                const url = WEBAPP_URL + '?action=getkegiatans';
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    kegiatanData = result.data.map((item, index) => ({
+                        no: item.no || index + 1,
+                        tanggal: item.tanggal,
+                        pelaksana: item.pelaksana,
+                        tempat: item.tempat,
+                        tema: item.tema,
+                        link: item.link || '#'
+                    }));
+                    renderDaftarKegiatan(kegiatanData);
+                } else {
+                    throw new Error(result.message || 'Failed to fetch data');
+                }
+            } catch (error) {
+                console.error('Error fetching kegiatan data:', error);
+                // Fallback to dummy data
+                kegiatanData = dummyKegiatanData;
+                renderDaftarKegiatan(kegiatanData);
+                showToast('Gagal memuat data, menggunakan data demo', 'error');
+            }
+        }
+
+        // Also load dummy kegiatan terbaru for dashboard
+        async function loadDashboardStats() {
+            if (WEBAPP_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL') {
+                try {
+                    const url = WEBAPP_URL + '?action=getstats';
+                    const response = await fetch(url);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        document.getElementById('total-kegiatan').textContent = result.data.total;
+                        document.getElementById('total-peserta').textContent = result.data.thisMonth;
+                    }
+                } catch (e) {
+                    console.log('Using default stats');
+                }
+            }
+        }
 
         // Render Table Functions
         function renderDaftarKegiatan(data) {
@@ -951,10 +1032,13 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            // Load dummy data by default
+            kegiatanData = dummyKegiatanData;
             renderDaftarKegiatan(kegiatanData);
-            renderKegiatanTerbaru(kegiatanTerbaru);
+            renderKegiatanTerbaru(dummyKegiatanTerbaru);
             renderRiwayatLaporan(laporanData);
             renderJadwal(jadwalData);
+            loadDashboardStats();
         });
     </script>
 </body>
