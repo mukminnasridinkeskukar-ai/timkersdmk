@@ -713,126 +713,32 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast"></div>
 
-    <script>
+       <script>
         // ============================================
         // CONFIG - Ganti dengan URL Web App Anda
         // ============================================
-        const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbz7fgl0BF6f4Tf7pG1J4APh9Gz0GTI2aHqxdj40bqubuAxSOF-g7gyohWLne783KlQKog/exec';
+        const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzTVm-edG4r5njyY4-xMLvyfbWygeY-hX4eCcg_mfgLMZiRUAuffTHdYtEJ1iixILAqnw/exec';
         
-        // Data Dummy (fallback jika webapp tidak tersedia)
-        const dummyKegiatanData = [
-            { no: 1, tanggal: '2025-01-15', pelaksana: 'BKD Kota', tempat: 'Aula Gedung A', tema: 'Pelatihan Digital Marketing', link: '#' },
-            { no: 2, tanggal: '2025-01-20', pelaksana: 'Diskominfo', tempat: 'Room 101', tema: 'Workshop Data Analysis', link: '#' },
-            { no: 3, tanggal: '2025-02-05', pelaksana: 'BKD Kota', tempat: 'Aula Gedung B', tema: 'Seminar Cyber Security', link: '#' },
-            { no: 4, tanggal: '2025-02-10', pelaksana: 'Dinas Pendidikan', tempat: 'Hall Utama', tema: 'Pelatihan E-Government', link: '#' },
-            { no: 5, tanggal: '2025-02-15', pelaksana: 'Diskominfo', tempat: 'Room 202', tema: 'Workshop AI Basics', link: '#' },
-            { no: 6, tanggal: '2025-03-01', pelaksana: 'BKD Kota', tempat: 'Aula Gedung A', tema: 'Seminar Smart City', link: '#' }
-        ];
-
-        const dummyKegiatanTerbaru = [
-            { no: 1, tanggal: '2025-02-15', tema: 'Workshop AI Basics', peserta: 45, status: 'Selesai' },
-            { no: 2, tanggal: '2025-02-10', tema: 'Pelatihan E-Government', peserta: 60, status: 'Selesai' },
-            { no: 3, tanggal: '2025-02-05', tema: 'Seminar Cyber Security', peserta: 120, status: 'Selesai' },
-            { no: 4, tanggal: '2025-01-20', tema: 'Workshop Data Analysis', peserta: 35, status: 'Selesai' }
-        ];
-
-        const laporanData = [
-            { no: 1, tanggal: '2025-02-10', nama: 'Ahmad Fauzi', jenis: 'Kesalahan Nama', status: 'Diproses' },
-            { no: 2, tanggal: '2025-02-08', nama: 'Siti Nurhaliza', jenis: 'Kesalahan Tanggal', status: 'Selesai' },
-            { no: 3, tanggal: '2025-02-05', nama: 'Budi Santoso', jenis: 'Kesalahan Tempat', status: 'Diproses' }
-        ];
-
-        const jadwalData = [
-            { 
-                id: 1, 
-                tema: 'Pelatihan Microsoft Office Advanced', 
-                tanggal: '2025-03-10', 
-                waktu: '08:00 - 16:00', 
-                tempat: 'Aula BKD Lt.3', 
-                pelaksana: 'BKD Kota', 
-                status: 'mendatang' 
-            },
-            { 
-                id: 2, 
-                tema: 'Workshop Public Speaking', 
-                tanggal: '2025-03-15', 
-                waktu: '09:00 - 12:00', 
-                tempat: 'Room 301', 
-                pelaksana: 'Diskominfo', 
-                status: 'mendatang' 
-            },
-            { 
-                id: 3, 
-                tema: 'Seminar Digital Transformation', 
-                tanggal: '2025-03-20', 
-                waktu: '08:00 - 17:00', 
-                tempat: 'Grand Hall', 
-                pelaksana: 'BKD Kota', 
-                status: 'mendatang' 
-            },
-            { 
-                id: 4, 
-                tema: 'Pelatihan Digital Marketing', 
-                tanggal: '2025-01-15', 
-                waktu: '08:00 - 16:00', 
-                tempat: 'Aula BKD Lt.3', 
-                pelaksana: 'BKD Kota', 
-                status: 'berakhir' 
-            },
-            { 
-                id: 5, 
-                tema: 'Workshop Data Analysis', 
-                tanggal: '2025-01-20', 
-                waktu: '09:00 - 16:00', 
-                tempat: 'Room 101', 
-                pelaksana: 'Diskominfo', 
-                status: 'berakhir' 
-            }
-        ];
-
-        // Navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                // Remove active class from all nav items
-                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-                // Add active class to clicked item
-                this.classList.add('active');
-                
-                // Hide all sections
-                document.querySelectorAll('.dashboard-section').forEach(section => section.classList.remove('active'));
-                // Show target section
-                const targetSection = this.getAttribute('data-section');
-                document.getElementById(targetSection).classList.add('active');
-                
-                // Load data if entering daftar-kegiatan section
-                if (targetSection === 'daftar-kegiatan') {
-                    loadKegiatanFromWebapp();
-                }
-            });
-        });
-
-        // ============================================
-        // FETCH DATA FROM GOOGLE SHEETS (JSONP)
-        // ============================================
+        // Data state
         let kegiatanData = [];
-        
-        // JSONP function - bypasses CORS by using script tag
-        function fetchWithJSONP(url, callbackName) {
+        let jadwalData = [];
+        let laporanData = [];
+
+        // ============================================
+        // JSONP FETCH FUNCTION
+        // ============================================
+        function fetchJSONP(url) {
             return new Promise((resolve) => {
+                const callbackName = '__cb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                 const timeout = setTimeout(() => {
                     if (window[callbackName]) delete window[callbackName];
-                    resolve(dummyKegiatanData);
-                }, 10000);
+                    resolve(null);
+                }, 15000);
                 
                 window[callbackName] = function(result) {
                     clearTimeout(timeout);
                     if (window[callbackName]) delete window[callbackName];
-                    
-                    if (result && result.success && Array.isArray(result.data)) {
-                        resolve(result.data);
-                    } else {
-                        resolve(dummyKegiatanData);
-                    }
+                    resolve(result);
                 };
                 
                 const script = document.createElement('script');
@@ -840,72 +746,80 @@
                 script.onerror = () => {
                     clearTimeout(timeout);
                     if (window[callbackName]) delete window[callbackName];
-                    resolve(dummyKegiatanData);
+                    resolve(null);
                 };
                 document.head.appendChild(script);
             });
         }
-        
-        async function loadKegiatanFromWebapp() {
-            const tbody = document.getElementById('daftar-kegiatan-body');
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Memuat data...</td></tr>';
-            
+
+        // ============================================
+        // FETCH DATA FROM GOOGLE SHEETS
+        // ============================================
+        async function loadAllData() {
             if (WEBAPP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL') {
-                console.log('Webapp URL not configured, using dummy data');
-                kegiatanData = dummyKegiatanData;
-                renderDaftarKegiatan(kegiatanData);
-                showToast('Mode Demo: Menggunakan data dummy', 'info');
+                showToast('Webapp URL belum dikonfigurasi', 'error');
                 return;
             }
             
-            // Use JSONP to bypass CORS
-            const callbackName = '__kegiatansCB_' + Date.now();
-            const url = WEBAPP_URL + '?action=getkegiatans';
+            // Load all data in parallel
+            const [kegiatans, jadwal, laporan, stats] = await Promise.all([
+                fetchJSONP(WEBAPP_URL + '?action=getkegiatans'),
+                fetchJSONP(WEBAPP_URL + '?action=getjadwal'),
+                fetchJSONP(WEBAPP_URL + '?action=getlaporan'),
+                fetchJSONP(WEBAPP_URL + '?action=getstats')
+            ]);
             
-            kegiatanData = await fetchWithJSONP(url, callbackName);
-            
-            // Transform data format
-            kegiatanData = kegiatanData.map((item, index) => ({
-                no: item.no || index + 1,
-                tanggal: item.tanggal,
-                pelaksana: item.pelaksana,
-                tempat: item.tempat,
-                tema: item.tema,
-                link: item.link || '#'
-            }));
-            
-            renderDaftarKegiatan(kegiatanData);
-            
-            if (kegiatanData.length > 0 && kegiatanData.length < dummyKegiatanData.length) {
-                showToast('Data dimuat dari Google Sheets: ' + kegiatanData.length + ' kegiatan', 'success');
+            // Process kegiatan
+            if (kegiatans && kegiatans.success) {
+                kegiatanData = kegiatans.data.map((item, i) => ({
+                    no: item.no || i + 1,
+                    tanggal: item.tanggal,
+                    pelaksana: item.pelaksana || '',
+                    tempat: item.tempat || '',
+                    tema: item.tema || '',
+                    link: item.link || '#'
+                }));
+                renderDaftarKegiatan(kegiatanData);
             }
+            
+            // Process jadwal
+            if (jadwal && jadwal.success) {
+                jadwalData = jadwal.data;
+                renderJadwal(jadwalData);
+            }
+            
+            // Process laporan
+            if (laporan && laporan.success) {
+                laporanData = laporan.data.map((item, i) => ({
+                    no: item.no || i + 1,
+                    timestamp: item.timestamp,
+                    nama: item.nama || '',
+                    kegiatan: item.kegiatan || '',
+                    jenis: item.jenis || '',
+                    status: item.status || 'Diproses'
+                }));
+                renderRiwayatLaporan(laporanData);
+            }
+            
+            // Process stats
+            if (stats && stats.success) {
+                document.getElementById('total-kegiatan').textContent = stats.data.totalKegiatan || 0;
+                document.getElementById('total-peserta').textContent = stats.data.totalLaporan || 0;
+            }
+            
+            showToast('Data berhasil dimuat dari Google Sheets', 'success');
         }
 
-        // Also load dummy kegiatan terbaru for dashboard
-        async function loadDashboardStats() {
-            if (WEBAPP_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL') {
-                try {
-                    const url = WEBAPP_URL + '?action=getstats';
-                    const response = await fetch(url);
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        document.getElementById('total-kegiatan').textContent = result.data.total;
-                        document.getElementById('total-peserta').textContent = result.data.thisMonth;
-                    }
-                } catch (e) {
-                    console.log('Using default stats');
-                }
-            }
-        }
-
-        // Render Table Functions
+        // ============================================
+        // RENDER FUNCTIONS
+        // ============================================
         function renderDaftarKegiatan(data) {
             const tbody = document.getElementById('daftar-kegiatan-body');
+            if (!tbody) return;
             tbody.innerHTML = '';
             
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Tidak ada data ditemukan</td></tr>';
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Tidak ada data kegiatan</td></tr>';
                 return;
             }
             
@@ -927,44 +841,15 @@
             });
         }
 
-        function renderKegiatanTerbaru(data) {
-            const tbody = document.getElementById('kegiatan-terbaru');
-            tbody.innerHTML = '';
-            
-            data.forEach(item => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${item.no}</td>
-                    <td>${formatDate(item.tanggal)}</td>
-                    <td>${item.tema}</td>
-                    <td>${item.peserta} orang</td>
-                    <td><span class="status-badge aktif">${item.status}</span></td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        function renderRiwayatLaporan(data) {
-            const tbody = document.getElementById('riwayat-laporan');
-            tbody.innerHTML = '';
-            
-            data.forEach((item, index) => {
-                const row = document.createElement('tr');
-                const statusClass = item.status === 'Selesai' ? 'aktif' : 'mendatang';
-                row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${formatDate(item.tanggal)}</td>
-                    <td>${item.nama}</td>
-                    <td>${item.jenis}</td>
-                    <td><span class="status-badge ${statusClass}">${item.status}</span></td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
         function renderJadwal(data) {
             const container = document.getElementById('jadwal-container');
+            if (!container) return;
             container.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                container.innerHTML = '<p style="text-align: center; padding: 20px;">Tidak ada jadwal kegiatan</p>';
+                return;
+            }
             
             data.forEach(item => {
                 const card = document.createElement('div');
@@ -973,7 +858,7 @@
                     <h3>${item.tema}</h3>
                     <div class="jadwal-info">
                         <div>📅 ${formatDate(item.tanggal)}</div>
-                        <div>🕐 ${item.waktu}</div>
+                        <div>🕐 ${item.waktu || '-'}</div>
                         <div>📍 ${item.tempat}</div>
                         <div>👤 ${item.pelaksana}</div>
                     </div>
@@ -985,50 +870,150 @@
             });
         }
 
-        // Helper Functions
+        function renderRiwayatLaporan(data) {
+            const tbody = document.getElementById('riwayat-laporan');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">Tidak ada laporan</td></tr>';
+                return;
+            }
+            
+            data.forEach((item, index) => {
+                const statusClass = item.status === 'Selesai' ? 'aktif' : 'mendatang';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${formatDate(item.timestamp)}</td>
+                    <td>${item.nama}</td>
+                    <td>${item.jenis || item.kegiatan}</td>
+                    <td><span class="status-badge ${statusClass}">${item.status}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // ============================================
+        // HELPER FUNCTIONS
+        // ============================================
         function formatDate(dateString) {
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            return new Date(dateString).toLocaleDateString('id-ID', options);
+            if (!dateString) return '-';
+            try {
+                const date = new Date(dateString);
+                if (isNaN(date.getTime())) return dateString;
+                return date.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+            } catch (e) {
+                return dateString;
+            }
         }
 
         function getStatusText(status) {
-            const statusMap = {
-                'aktif': 'Aktif',
-                'berakhir': 'Berakhir',
-                'mendatang': 'Mendatang'
-            };
-            return statusMap[status] || status;
-        }
-
-        function downloadSertifikat(link, tema) {
-            showToast(`Download sertifikat: ${tema}`, 'success');
-            // Implementasi download aktual
+            const map = { 'aktif': 'Aktif', 'berakhir': 'Berakhir', 'mendatang': 'Mendatang' };
+            return map[status] || status || 'Mendatang';
         }
 
         function showToast(message, type = 'info') {
             const toast = document.getElementById('toast');
+            if (!toast) return;
             toast.textContent = message;
             toast.className = `toast ${type} show`;
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
+            setTimeout(() => toast.classList.remove('show'), 4000);
         }
 
-        // Search and Filter
+        function downloadSertifikat(link, tema) {
+            if (link && link !== '#') {
+                window.open(link, '_blank');
+            }
+            showToast(`Download sertifikat: ${tema}`, 'success');
+        }
+
+        // ============================================
+        // FORM SUBMISSION - LAPORAN KESALAHAN
+        // ============================================
+        async function submitLaporan(event) {
+            event.preventDefault();
+            
+            if (WEBAPP_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL') {
+                showToast('Webapp URL belum dikonfigurasi', 'error');
+                return;
+            }
+            
+            const form = event.target;
+            const submitBtn = form.querySelector('.btn-submit');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Mengirim...';
+            submitBtn.disabled = true;
+            
+            const formData = {
+                nama: form['nama-lengkap']?.value || '',
+                nik: form.nik?.value || '',
+                email: form.email?.value || '',
+                kegiatan: form.kegiatan?.value || '',
+                jenis: form['jenis-kesalahan']?.value || '',
+                deskripsi: form.deskripsi?.value || ''
+            };
+            
+            try {
+                const response = await fetch(WEBAPP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'addlaporan', ...formData })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(result.message || 'Laporan berhasil dikirim!', 'success');
+                    form.reset();
+                    // Reload laporan data
+                    const laporan = await fetchJSONP(WEBAPP_URL + '?action=getlaporan');
+                    if (laporan && laporan.success) {
+                        laporanData = laporan.data.map((item, i) => ({
+                            no: item.no || i + 1,
+                            timestamp: item.timestamp,
+                            nama: item.nama || '',
+                            kegiatan: item.kegiatan || '',
+                            jenis: item.jenis || '',
+                            status: item.status || 'Diproses'
+                        }));
+                        renderRiwayatLaporan(laporanData);
+                    }
+                } else {
+                    showToast(result.message || 'Gagal mengirim laporan', 'error');
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+            
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
+
+        // ============================================
+        // SEARCH AND FILTER
+        // ============================================
         function filterKegiatan() {
-            const searchValue = document.getElementById('search-input').value.toLowerCase();
-            const tahunValue = document.getElementById('filter-tahun').value;
-            const bulanValue = document.getElementById('filter-bulan').value;
+            const search = document.getElementById('search-input')?.value.toLowerCase() || '';
+            const tahun = document.getElementById('filter-tahun')?.value || '';
+            const bulan = document.getElementById('filter-bulan')?.value || '';
             
             const filtered = kegiatanData.filter(item => {
-                const matchSearch = item.tema.toLowerCase().includes(searchValue) ||
-                                   item.pelaksana.toLowerCase().includes(searchValue) ||
-                                   item.tempat.toLowerCase().includes(searchValue);
+                const matchSearch = !search || 
+                    (item.tema?.toLowerCase().includes(search)) ||
+                    (item.pelaksana?.toLowerCase().includes(search)) ||
+                    (item.tempat?.toLowerCase().includes(search));
                 
-                const itemDate = new Date(item.tanggal);
-                const matchTahun = !tahunValue || itemDate.getFullYear().toString() === tahunValue;
-                const matchBulan = !bulanValue || (itemDate.getMonth() + 1).toString() === bulanValue;
+                let matchTahun = true;
+                let matchBulan = true;
+                
+                if (item.tanggal) {
+                    const d = new Date(item.tanggal);
+                    if (!isNaN(d.getTime())) {
+                        if (tahun) matchTahun = d.getFullYear().toString() === tahun;
+                        if (bulan) matchBulan = (d.getMonth() + 1).toString() === bulan;
+                    }
+                }
                 
                 return matchSearch && matchTahun && matchBulan;
             });
@@ -1036,27 +1021,41 @@
             renderDaftarKegiatan(filtered);
         }
 
-        document.getElementById('search-input').addEventListener('input', filterKegiatan);
-        document.getElementById('filter-tahun').addEventListener('change', filterKegiatan);
-        document.getElementById('filter-bulan').addEventListener('change', filterKegiatan);
-
-        // Form Submit
-        document.getElementById('laporan-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            showToast('Laporan berhasil dikirim!', 'success');
-            this.reset();
+        // ============================================
+        // NAVIGATION
+        // ============================================
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                this.classList.add('active');
+                
+                document.querySelectorAll('.dashboard-section').forEach(sec => sec.classList.remove('active'));
+                const target = this.getAttribute('data-section');
+                document.getElementById(target)?.classList.add('active');
+            });
         });
 
-        // Initialize
+        // ============================================
+        // INITIALIZE
+        // ============================================
         document.addEventListener('DOMContentLoaded', function() {
-            // Load dummy data by default
-            kegiatanData = dummyKegiatanData;
-            renderDaftarKegiatan(kegiatanData);
-            renderKegiatanTerbaru(dummyKegiatanTerbaru);
-            renderRiwayatLaporan(laporanData);
-            renderJadwal(jadwalData);
-            loadDashboardStats();
+            // Setup form submission
+            const form = document.getElementById('laporan-form');
+            if (form) form.addEventListener('submit', submitLaporan);
+            
+            // Setup filters
+            ['search-input', 'filter-tahun', 'filter-bulan'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', filterKegiatan);
+                    el.addEventListener('change', filterKegiatan);
+                }
+            });
+            
+            // Load all data from Google Sheets
+            loadAllData();
         });
     </script>
 </body>
 </html>
+
