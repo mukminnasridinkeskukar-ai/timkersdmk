@@ -291,6 +291,12 @@
         <header>
             <h1>📊 Dashboard Tenaga Medis dan Tenaga Kesehatan</h1>
             <p>Monitoring jumlah tenaga medis dan kesehatan berdasarkan jenisnya</p>
+            <p style="margin-top: 10px; font-size: 12px; opacity: 0.8;">
+                <strong>Cara Setup Google Sheet:</strong><br>
+                1. Sheet harus di-Share dengan "Anyone with the link" (Viewer)<br>
+                2. Header baris 1: Tahun | Bulan | Unit | Jenis | Jumlah<br>
+                3. Data dimulai dari baris 2
+            </p>
         </header>
         
         <div id="statusBar" class="status-bar" style="display: none;"></div>
@@ -398,10 +404,11 @@
 
     <script>
         // ============================================
-        // KONFIGURASI - Ganti dengan URL Google Sheets Anda
-        // Format: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/gviz/tq?tqx=out:json
+        // KONFIGURASI - Sesuaikan dengan Google Sheets Anda
+        // Format: https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/gviz/tq?tqx=out:json&sheet=NAMA_SHEET
         // ============================================
         const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1-ilnMB_Z3xYRMagjdltW4dwswop2TAx4gekYjVgP6rE/gviz/tq?tqx=out:json';
+        const SHEET_NAME = ''; // Kosongkan jika menggunakan sheet pertama (Sheet1)
         
         let allData = [];
         let filteredData = [];
@@ -436,7 +443,8 @@
                 }
                 
                 const text = await response.text();
-                const jsonString = text.replace(/google.visualization.Query.setResponse\((.*)\);/s, '$1');
+                // Remove Google Sheets security wrapper /*O_o*/ and trailing ;
+                const jsonString = text.replace(/^\/\*O_o\*\//, '').replace(/;$/, '').trim();
                 const data = JSON.parse(jsonString);
                 
                 if (data.status !== 'ok') {
@@ -480,7 +488,16 @@
                 
             } catch (error) {
                 console.error('Error loading data:', error);
-                showStatus('Error: ' + error.message + '. Pastikan URL Google Sheets sudah benar.', true);
+                
+                // Provide more helpful error messages
+                let errorMessage = error.message;
+                if (error.message.includes('Unexpected token')) {
+                    errorMessage = 'Data tidak dapat dibaca. Pastikan Google Sheet sudah di-Share dengan "Anyone with the link" atau dipublikasikan ke web.';
+                } else if (error.message.includes('Kolom tidak ditemukan')) {
+                    errorMessage = error.message + '. Pastikan header sheet adalah: Tahun, Bulan, Unit, Jenis, Jumlah';
+                }
+                
+                showStatus('Error: ' + errorMessage, true);
             }
         }
         
