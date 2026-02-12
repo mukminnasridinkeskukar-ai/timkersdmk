@@ -39,19 +39,36 @@
         .status { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
         .status.info { background: #e3f2fd; color: #0066cc; }
         .status.error { background: #ffebee; color: #c62828; }
+        .status.success { background: #e8f5e9; color: #2e7d32; }
+        .config-section { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 2px dashed #ccc; }
+        .config-section h3 { color: #333; margin-bottom: 15px; }
+        .config-section input { width: 100%; padding: 12px; border: 2px solid #e1e5eb; border-radius: 6px; font-size: 14px; margin-bottom: 10px; }
+        .config-section button { padding: 12px 24px; background: #0066cc; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .config-section button:hover { background: #0052a3; }
         @media (max-width: 768px) { .filters { flex-direction: column; } .filter-group { width: 100%; } .filter-group input, .filter-group select { width: 100%; } }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📊 Dashboard Tenaga Medis dan Kesehatan</h1>
-            <p>Data SDMK berdasarkan Jenis | Source: Google Sheets</p>
+            <h1>Dashboard Tenaga Medis dan Kesehatan</h1>
+            <p>Data SDMK berdasarkan Jenis | Source: Google Sheets via Web App</p>
         </header>
+        
+        <!-- Configuration Section -->
+        <div class="config-section" id="configSection">
+            <h3>Konfigurasi Web App URL</h3>
+            <p style="margin-bottom: 15px; color: #666; font-size: 13px;">
+                Masukkan URL Web App yang sudah di-deploy dari Google Apps Script.
+            </p>
+            <input type="text" id="webappUrl" placeholder="https://script.google.com/macros/s/AKfycbzspHFpBv76v-p_jYVUFpFRhQCB2tK33jnI7XHsSQqv_UBh6jnx182g9AhzB3NYHJb0/exec">
+            <button onclick="saveAndLoad()">Simpan & Muat Data</button>
+            <p id="configStatus" style="margin-top: 10px; font-size: 13px;"></p>
+        </div>
         
         <div id="status" class="status info" style="display:none;"></div>
         
-        <div class="filters">
+        <div class="filters" id="filtersSection" style="display:none;">
             <div class="filter-group">
                 <label>Pencarian (Unit/Jenis)</label>
                 <input type="text" id="search" placeholder="Cari..." oninput="applyFilters()">
@@ -91,7 +108,7 @@
         </div>
         
         <div class="data-table" id="dataTable" style="display:none;">
-            <h3>📋 Data Detail</h3>
+            <h3>Data Detail</h3>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -103,52 +120,78 @@
         </div>
         
         <div class="chart-section" id="chartSection" style="display:none;">
-            <h3>📈 Visualisasi per Jenis</h3>
+            <h3>Visualisasi per Jenis</h3>
             <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
         </div>
     </div>
 
     <script>
-        const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1-ilnMB_Z3xYRMagjdltW4dwswop2TAx4gekYjVgP6rE/gviz/tq?tqx=out:json';
         let allData = [];
         let chart = null;
         
-        document.addEventListener('DOMContentLoaded', loadData);
+        // Load saved WebApp URL on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedUrl = localStorage.getItem('sdmk_webapp_url');
+            if (savedUrl) {
+                document.getElementById('webappUrl').value = savedUrl;
+                loadData();
+            }
+        });
+        
+        function saveAndLoad() {
+            const url = document.getElementById('webappUrl').value.trim();
+            if (!url) {
+                document.getElementById('configStatus').textContent = 'Error: URL tidak boleh kosong';
+                document.getElementById('configStatus').style.color = '#c62828';
+                return;
+            }
+            
+            // Save URL
+            localStorage.setItem('sdmk_webapp_url', url);
+            document.getElementById('configStatus').textContent = 'URL tersimpan!';
+            document.getElementById('configStatus').style.color = '#2e7d32';
+            
+            // Load data
+            loadData();
+        }
         
         async function loadData() {
-            showStatus('Memuat data dari Google Sheets...', 'info');
+            const url = document.getElementById('webappUrl').value.trim();
+            if (!url) {
+                showStatus('Masukkan Web App URL terlebih dahulu', 'error');
+                return;
+            }
+            
+            showStatus('Memuat data dari Web App...', 'info');
+            document.getElementById('configSection').style.display = 'none';
+            
             try {
-                const res = await fetch(SHEET_URL);
-                if (!res.ok) throw new Error('Gagal mengambil data');
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Gagal mengambil data: ' + res.status);
+                
                 const text = await res.text();
-                const json = JSON.parse(text.replace(/^\/\*O_o\*\//, '').replace(/;$/, ''));
+                const data = JSON.parse(text);
                 
-                if (json.status !== 'ok') throw new Error('Format data tidak valid');
+                if (data.error) throw new Error(data.error);
+                if (!Array.isArray(data) || data.length === 0) throw new Error('Data kosong');
                 
-                const rows = json.table.rows;
-                const cols = json.table.cols;
-                if (!rows || rows.length === 0) throw new Error('Data kosong');
+                allData = data;
                 
-                allData = rows.map((row, i) => {
-                    const data = {};
-                    cols.forEach((col, idx) => {
-                        const val = row.c[idx];
-                        data[col.label] = val ? (val.f || val.v || '') : '';
-                    });
-                    return data;
-                });
-                
-                const columns = cols.map(c => c.label);
+                // Validate required columns
+                const firstRow = allData[0];
                 const required = ['Tahun', 'Bulan', 'Unit', 'Jenis', 'Jumlah'];
-                const missing = required.filter(c => !columns.includes(c));
+                const missing = required.filter(col => !firstRow.hasOwnProperty(col));
                 if (missing.length > 0) throw new Error('Kolom tidak lengkap: ' + missing.join(', '));
                 
                 populateFilters();
                 applyFilters();
-                showStatus('Data berhasil dimuat! (' + allData.length + ' record)', 'info');
+                showStatus('Data berhasil dimuat! (' + allData.length + ' record)', 'success');
+                document.getElementById('filtersSection').style.display = 'flex';
             } catch (e) {
                 console.error(e);
-                showStatus('Error: ' + e.message + '. Pastikan Google Sheet sudah di-Share dengan "Anyone with the link"', 'error');
+                showStatus('Error: ' + e.message, 'error');
+                document.getElementById('configSection').style.display = 'block';
+                document.getElementById('filtersSection').style.display = 'none';
             }
         }
         
@@ -164,9 +207,7 @@
         
         function fillSelect(id, values) {
             const sel = document.getElementById(id);
-            const first = sel.options[0];
-            sel.innerHTML = '';
-            sel.add(first);
+            sel.innerHTML = '<option value="">Semua</option>';
             values.forEach(v => {
                 const opt = document.createElement('option');
                 opt.value = v;
@@ -183,7 +224,7 @@
             const jenis = document.getElementById('jenis').value;
             
             const filtered = allData.filter(d => {
-                const matchSearch = !search || d.Unit.toLowerCase().includes(search) || d.Jenis.toLowerCase().includes(search);
+                const matchSearch = !search || (d.Unit && d.Unit.toLowerCase().includes(search)) || (d.Jenis && d.Jenis.toLowerCase().includes(search));
                 const matchTahun = !tahun || d.Tahun === tahun;
                 const matchBulan = !bulan || getMonthNum(d.Bulan) === parseInt(bulan);
                 const matchUnit = !unit || d.Unit === unit;
@@ -197,6 +238,7 @@
         }
         
         function getMonthNum(name) {
+            if (!name) return 0;
             const m = { 'Januari':1,'Februari':2,'Maret':3,'April':4,'Mei':5,'Juni':6,'Juli':7,'Agustus':8,'September':9,'Oktober':10,'November':11,'Desember':12 };
             return m[name] || 0;
         }
@@ -218,9 +260,9 @@
             if (data.length === 0) { section.style.display = 'none'; return; }
             section.style.display = 'block';
             
-            const sorted = [...data].sort((a, b) => b.Tahun.localeCompare(a.Tahun) || getMonthNum(b.Bulan) - getMonthNum(a.Bulan));
+            const sorted = [...data].sort((a, b) => String(b.Tahun).localeCompare(String(a.Tahun)) || getMonthNum(b.Bulan) - getMonthNum(a.Bulan));
             tbody.innerHTML = sorted.map((d, i) => 
-                `<tr><td>${i+1}</td><td>${d.Tahun}</td><td>${d.Bulan}</td><td>${d.Unit}</td><td>${d.Jenis}</td><td><span class="badge">${parseInt(d.Jumlah).toLocaleString('id-ID')}</span></td></tr>`
+                '<tr><td>' + (i+1) + '</td><td>' + (d.Tahun || '') + '</td><td>' + (d.Bulan || '') + '</td><td>' + (d.Unit || '') + '</td><td>' + (d.Jenis || '') + '</td><td><span class="badge">' + (parseInt(d.Jumlah) || 0).toLocaleString('id-ID') + '</span></td></tr>'
             ).join('');
         }
         
@@ -230,7 +272,10 @@
             section.style.display = 'block';
             
             const byJenis = {};
-            data.forEach(d => { byJenis[d.Jenis] = (byJenis[d.Jenis] || 0) + (parseInt(d.Jumlah) || 0); });
+            data.forEach(d => {
+                const jenis = d.Jenis || 'Lainnya';
+                byJenis[jenis] = (byJenis[jenis] || 0) + (parseInt(d.Jumlah) || 0);
+            });
             
             const labels = Object.keys(byJenis);
             const values = Object.values(byJenis);
@@ -260,7 +305,6 @@
             el.textContent = msg;
             el.className = 'status ' + type;
             el.style.display = 'block';
-            if (type === 'info') setTimeout(() => el.style.display = 'none', 5000);
         }
     </script>
 </body>
