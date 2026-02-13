@@ -1516,33 +1516,46 @@
         
         // ==================== DASHBOARD DATA ====================
         async function loadDashboardData() {
-            const statsUrl = `${GOOGLE_SHEETS_URL}?action=getStats`;
-            
-            fetch(statsUrl)
-                .then(response => response.json())
-                .then(result => {
-                    if (result && result.success && result.stats) {
-                        document.getElementById('stat-peserta').textContent = result.stats.totalPeserta || 0;
-                        document.getElementById('stat-narasumber').textContent = result.stats.totalNarasumber || 0;
-                        document.getElementById('stat-kegiatan').textContent = result.stats.kegiatanSelesai || 0;
-                        document.getElementById('stat-jp').textContent = result.stats.totalJP || 0;
-                    } else {
-                        showEmptyStats();
+            // Load stats with retry
+            for (let i = 0; i < 2; i++) {
+                try {
+                    const statsUrl = `${GOOGLE_SHEETS_URL}?action=getStats`;
+                    const response = await fetch(statsUrl, {
+                        method: 'GET',
+                        mode: 'cors',
+                        redirect: 'follow',
+                        credentials: 'omit',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result && result.success && result.stats) {
+                            document.getElementById('stat-peserta').textContent = result.stats.totalPeserta || 0;
+                            document.getElementById('stat-narasumber').textContent = result.stats.totalNarasumber || 0;
+                            document.getElementById('stat-kegiatan').textContent = result.stats.kegiatanSelesai || 0;
+                            document.getElementById('stat-jp').textContent = result.stats.totalJP || 0;
+                            break;
+                        }
                     }
-                })
-                .catch(error => {
-                    console.error('Error loading stats:', error);
-                    showEmptyStats();
-                });
+                } catch (e) {
+                    if (i === 1) console.error('Error loading stats:', e);
+                    else await new Promise(r => setTimeout(r, 1500));
+                }
+            }
             
-            fetchSheetData('Kegiatan')
-                .then(activities => {
-                    loadRecentActivities(activities);
-                })
-                .catch(error => {
-                    console.error('Error loading activities:', error);
-                    showEmptyActivities('recent-activities');
-                });
+            if (!document.getElementById('stat-peserta').textContent) {
+                showEmptyStats();
+            }
+            
+            // Load activities with retry
+            try {
+                const activities = await fetchSheetData('Kegiatan', 2);
+                loadRecentActivities(activities || []);
+            } catch (error) {
+                console.error('Error loading activities:', error);
+                showEmptyActivities('recent-activities');
+            }
         }
         
         function showEmptyStats() {
@@ -1925,26 +1938,45 @@
         }
         
         // ==================== GOOGLE SHEETS API FUNCTIONS ====================
-        async function fetchSheetData(sheetName) {
+        async function fetchSheetData(sheetName, retryCount = 2) {
             if (GOOGLE_SHEETS_URL.includes('YOUR_DEPLOYMENT_ID')) {
                 throw new Error('Google Sheets URL belum dikonfigurasi');
             }
             
             const url = `${GOOGLE_SHEETS_URL}?sheetName=${encodeURIComponent(sheetName)}&action=read`;
             
-            const response = await fetch(url);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            for (let i = 0; i < retryCount; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        mode: 'cors',
+                        redirect: 'follow',
+                        credentials: 'omit',
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    if (result && result.success && result.data) {
+                        return result.data;
+                    }
+                    
+                    return result || [];
+                } catch (error) {
+                    if (i === retryCount - 1) {
+                        console.error(`Error fetching ${sheetName}:`, error);
+                        throw error;
+                    }
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             }
-            
-            const result = await response.json();
-            
-            if (result && result.success && result.data) {
-                return result.data;
-            }
-            
-            return result || [];
         }
         
         async function submitToSheet(sheetName, data) {
@@ -1967,7 +1999,13 @@
             
             const response = await fetch(url, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                mode: 'cors',
+                redirect: 'follow',
+                credentials: 'omit',
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
             
             if (!response.ok) {
