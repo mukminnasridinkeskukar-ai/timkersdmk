@@ -1317,10 +1317,10 @@
     <script>
         // ==================== KONFIGURASI ====================
         // Default URL - akan digunakan jika tidak ada konfigurasi tersimpan
-        const DEFAULT_GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzoAp2lVzQaknqT7I9z_xoUvDXexyujSlQXn9gvDt2SukZBLufc8re-HLajVNShCI0/exec';
-        const DEFAULT_SPREADSHEET_ID = '1a25Gdo6k3VCBD3F7oueAM6EpT6KEsQkBDn4Vhwbum6s';
+        const DEFAULT_GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxDpWb3mqBxuiAlM2-phFF5RAKCAZhaQuomXbNVD1I1fHyNs9GkVrn5RGNPzMpA9M00/exec';
+        const DEFAULT_SPREADSHEET_ID = 'YOUR_SPREADSHEET_ID';
         const DEFAULT_ADMIN_USERNAME = 'admin';
-        const DEFAULT_ADMIN_PASSWORD = 'sipandaiasn2026#';
+        const DEFAULT_ADMIN_PASSWORD = 'sipandaiasn2025';
         
         // Load configuration from localStorage or use defaults
         let GOOGLE_SHEETS_URL = localStorage.getItem('scriptUrl') || DEFAULT_GOOGLE_SHEETS_URL;
@@ -2162,90 +2162,106 @@
         }
         
         // ==================== GOOGLE SHEETS API FUNCTIONS ====================
-        // CORS Fix: Use multiple approaches for Google Apps Script
+        // Using JSONP approach to bypass CORS for Google Apps Script
         async function fetchSheetData(sheetName, retryCount = 3) {
             if (GOOGLE_SHEETS_URL.includes('YOUR_DEPLOYMENT_ID')) {
                 throw new Error('Google Sheets URL belum dikonfigurasi');
             }
             
-            // Build URL with spreadsheet ID parameter
-            let url = `${GOOGLE_SHEETS_URL}?sheetName=${encodeURIComponent(sheetName)}&action=read`;
+            // Build URL with callback for JSONP
+            let url = `${GOOGLE_SHEETS_URL}?sheetName=${encodeURIComponent(sheetName)}&action=read&callback=handleResponse`;
             if (SPREADSHEET_ID && !SPREADSHEET_ID.includes('YOUR_')) {
                 url += `&spreadsheetId=${encodeURIComponent(SPREADSHEET_ID)}`;
             }
             
+            // Create a promise-based JSONP handler
+            return new Promise((resolve, reject) => {
+                const callbackName = 'handleResponse_' + Math.round(Math.random() * 1000000);
+                
+                // Define the callback function
+                window[callbackName] = function(data) {
+                    if (data && data.success && data.data) {
+                        resolve(data.data);
+                    } else if (data && Array.isArray(data)) {
+                        resolve(data);
+                    } else {
+                        resolve(data || []);
+                    }
+                    // Cleanup
+                    delete window[callbackName];
+                    scriptElement.remove();
+                };
+                
+                // Create script element for JSONP request
+                const scriptElement = document.createElement('script');
+                scriptElement.src = url.replace('handleResponse', callbackName);
+                
+                scriptElement.onerror = function() {
+                    // Cleanup
+                    delete window[callbackName];
+                    scriptElement.remove();
+                    
+                    // Try next approach - use no-cors fetch
+                    fetchWithNoCors(url, sheetName, retryCount)
+                        .then(resolve)
+                        .catch(reject);
+                };
+                
+                // Set timeout
+                setTimeout(() => {
+                    if (window[callbackName]) {
+                        delete window[callbackName];
+                        scriptElement.remove();
+                        // Fallback to no-cors
+                        fetchWithNoCors(url, sheetName, retryCount)
+                            .then(resolve)
+                            .catch(reject);
+                    }
+                }, 5000);
+                
+                document.head.appendChild(scriptElement);
+            });
+        }
+        
+        // Fallback: Use no-cors mode with fetch
+        async function fetchWithNoCors(url, sheetName, retryCount) {
             for (let i = 0; i < retryCount; i++) {
                 try {
-                    // Try with no-cors mode first (bypasses CORS check)
-                    const response = await fetch(url, {
+                    // Remove callback parameter for no-cors fetch
+                    const cleanUrl = url.replace(/&callback=[^&]+/, '');
+                    
+                    const response = await fetch(cleanUrl, {
                         method: 'GET',
                         mode: 'no-cors',
-                        redirect: 'follow',
-                        credentials: 'omit'
+                        redirect: 'follow'
                     });
                     
-                    // With no-cors, we get an opaque response
-                    // We need to wait a bit for the request to complete
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    // Wait for response
+                    await new Promise(resolve => setTimeout(resolve, 1500));
                     
-                    // Try to get response text - this may be empty with no-cors
-                    let text = '';
+                    // Try to get text (may be empty with opaque response)
                     try {
-                        text = await response.text();
-                    } catch (e) {
-                        // Ignore - opaque responses may throw
-                    }
-                    
-                    // If we got valid JSON, parse it
-                    if (text && text.trim().length > 0) {
-                        try {
+                        const text = await response.text();
+                        if (text && text.trim().length > 0) {
                             const result = JSON.parse(text);
-                            if (result && result.success && result.data) {
-                                return result.data;
-                            }
-                            if (result && Array.isArray(result)) {
-                                return result;
-                            }
-                            return result || [];
-                        } catch (parseError) {
-                            console.log(`Parse error (attempt ${i+1}), trying next method...`);
+                            if (result && result.data) return result.data;
+                            if (Array.isArray(result)) return result;
                         }
+                    } catch (e) {
+                        // Opaque response - can't read
                     }
                     
-                    // If no-cors didn't work, try with regular fetch (may fail due to CORS but gives better error)
-                    if (i === retryCount - 1) {
-                        try {
-                            const fallbackResponse = await fetch(url, {
-                                method: 'GET',
-                                mode: 'cors',
-                                redirect: 'follow'
-                            });
-                            const fallbackText = await fallbackResponse.text();
-                            if (fallbackText) {
-                                const result = JSON.parse(fallbackText);
-                                if (result && result.data) {
-                                    return result.data;
-                                }
-                            }
-                        } catch (fallbackError) {
-                            // Ignore fallback error
-                        }
-                    }
-                    
-                    // If we still don't have data, wait and retry
+                    // If still no data and retries left, wait and retry
                     if (i < retryCount - 1) {
                         await new Promise(resolve => setTimeout(resolve, 1500));
                     }
                 } catch (error) {
-                    console.error(`Error fetching ${sheetName} attempt ${i+1}:`, error);
+                    console.error(`Fetch error attempt ${i+1}:`, error);
                     if (i < retryCount - 1) {
                         await new Promise(resolve => setTimeout(resolve, 1500));
                     }
                 }
             }
-            
-            // Return empty array if all attempts failed
-            console.warn(`All fetch attempts failed for ${sheetName}, returning empty array`);
             return [];
         }
         
