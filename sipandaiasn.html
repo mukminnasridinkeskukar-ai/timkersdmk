@@ -1317,7 +1317,7 @@
     <script>
         // ==================== KONFIGURASI ====================
         // Default URL - akan digunakan jika tidak ada konfigurasi tersimpan
-        const DEFAULT_GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxxAXeexBxSlOjb0T7GxMQhjXp0gQAB7K9cqbuXiPu53toQkrREBr07CW_UYLd5uqdY/exec';
+        const DEFAULT_GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzoAp2lVzQaknqT7I9z_xoUvDXexyujSlQXn9gvDt2SukZBLufc8re-HLajVNShCI0/exec';
         const DEFAULT_SPREADSHEET_ID = '1a25Gdo6k3VCBD3F7oueAM6EpT6KEsQkBDn4Vhwbum6s';
         const DEFAULT_ADMIN_USERNAME = 'admin';
         const DEFAULT_ADMIN_PASSWORD = 'sipandaiasn2026#';
@@ -1661,22 +1661,61 @@
             testBtn.disabled = true;
             testBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Menguji...';
             
-            const testUrl = `${GOOGLE_SHEETS_URL}?sheetName=Galeri&action=read`;
+            let testUrl = `${GOOGLE_SHEETS_URL}?sheetName=Galeri&action=read`;
+            if (SPREADSHEET_ID && !SPREADSHEET_ID.includes('YOUR_')) {
+                testUrl += `&spreadsheetId=${encodeURIComponent(SPREADSHEET_ID)}`;
+            }
+            let success = false;
+            let errorMsg = '';
             
             try {
+                // Try no-cors mode first
                 const response = await fetch(testUrl, {
                     method: 'GET',
                     mode: 'no-cors',
                     redirect: 'follow'
                 });
                 
-                // With no-cors, we get an opaque response
-                // Wait a moment and check if we got data
+                // Wait for request to complete
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
-                showConfigMessage('Koneksi berhasil! Jika data tidak muncul, periksa konfigurasi spreadsheet di Google Apps Script.', 'success');
+                // Try to get response text
+                try {
+                    const text = await response.text();
+                    if (text && text.trim().length > 0 && text.includes('"success"')) {
+                        success = true;
+                    }
+                } catch (e) {
+                    // Opaque response - can't read
+                }
+                
+                if (!success) {
+                    // Try regular cors mode as fallback
+                    try {
+                        const corsResponse = await fetch(testUrl, {
+                            method: 'GET',
+                            mode: 'cors',
+                            redirect: 'follow'
+                        });
+                        const corsText = await corsResponse.text();
+                        if (corsText && corsText.includes('"success"')) {
+                            success = true;
+                        } else {
+                            errorMsg = 'Respons tidak valid dari server';
+                        }
+                    } catch (corsErr) {
+                        errorMsg = corsErr.message;
+                    }
+                }
+                
+                if (success) {
+                    showConfigMessage('Koneksi berhasil! Jika data tidak muncul, periksa:', 
+                        'success');
+                } else {
+                    showConfigMessage(`Koneksi bermasalah: ${errorMsg || 'Periksa URL dan Spreadsheet ID'}`, 'warning');
+                }
             } catch (error) {
-                showConfigMessage(`Koneksi gagal: ${error.message}. Periksa URL deployment dan coba lagi.`, 'danger');
+                showConfigMessage(`Koneksi gagal: ${error.message}. Periksa URL deployment.`, 'danger');
             } finally {
                 testBtn.disabled = false;
                 testBtn.innerHTML = '<i class="fas fa-plug me-2"></i>Test Koneksi';
@@ -1698,7 +1737,10 @@
             // Load stats with retry
             for (let i = 0; i < 2; i++) {
                 try {
-                    const statsUrl = `${GOOGLE_SHEETS_URL}?action=getStats`;
+                    let statsUrl = `${GOOGLE_SHEETS_URL}?action=getStats`;
+                    if (SPREADSHEET_ID && !SPREADSHEET_ID.includes('YOUR_')) {
+                        statsUrl += `&spreadsheetId=${encodeURIComponent(SPREADSHEET_ID)}`;
+                    }
                     const response = await fetch(statsUrl, {
                         method: 'GET',
                         mode: 'no-cors',
@@ -2120,51 +2162,91 @@
         }
         
         // ==================== GOOGLE SHEETS API FUNCTIONS ====================
-        // CORS Fix: Use no-cors mode for Google Apps Script which doesn't properly support CORS headers on redirect
-        async function fetchSheetData(sheetName, retryCount = 2) {
+        // CORS Fix: Use multiple approaches for Google Apps Script
+        async function fetchSheetData(sheetName, retryCount = 3) {
             if (GOOGLE_SHEETS_URL.includes('YOUR_DEPLOYMENT_ID')) {
                 throw new Error('Google Sheets URL belum dikonfigurasi');
             }
             
-            const url = `${GOOGLE_SHEETS_URL}?sheetName=${encodeURIComponent(sheetName)}&action=read`;
+            // Build URL with spreadsheet ID parameter
+            let url = `${GOOGLE_SHEETS_URL}?sheetName=${encodeURIComponent(sheetName)}&action=read`;
+            if (SPREADSHEET_ID && !SPREADSHEET_ID.includes('YOUR_')) {
+                url += `&spreadsheetId=${encodeURIComponent(SPREADSHEET_ID)}`;
+            }
             
             for (let i = 0; i < retryCount; i++) {
                 try {
-                    // Use no-cors mode to bypass CORS check - response will be opaque
-                    // This works because Google Apps Script returns JSON in the response body
+                    // Try with no-cors mode first (bypasses CORS check)
                     const response = await fetch(url, {
                         method: 'GET',
-                        mode: 'no-cors',  // Changed from 'cors' to 'no-cors' to bypass CORS
+                        mode: 'no-cors',
                         redirect: 'follow',
                         credentials: 'omit'
                     });
                     
-                    // With no-cors, response is opaque - we need to check if the fetch succeeded
-                    // The response will appear as ok:true with type 'opaque'
-                    // Google Apps Script returns the data in the response body
-                    const text = await response.text();
+                    // With no-cors, we get an opaque response
+                    // We need to wait a bit for the request to complete
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                     
-                    // Try to parse the JSON response
+                    // Try to get response text - this may be empty with no-cors
+                    let text = '';
                     try {
-                        const result = JSON.parse(text);
-                        if (result && result.success && result.data) {
-                            return result.data;
+                        text = await response.text();
+                    } catch (e) {
+                        // Ignore - opaque responses may throw
+                    }
+                    
+                    // If we got valid JSON, parse it
+                    if (text && text.trim().length > 0) {
+                        try {
+                            const result = JSON.parse(text);
+                            if (result && result.success && result.data) {
+                                return result.data;
+                            }
+                            if (result && Array.isArray(result)) {
+                                return result;
+                            }
+                            return result || [];
+                        } catch (parseError) {
+                            console.log(`Parse error (attempt ${i+1}), trying next method...`);
                         }
-                        return result || [];
-                    } catch (parseError) {
-                        // If parsing fails, return empty array (Google Apps Script might have returned an error page)
-                        console.error(`Parse error for ${sheetName}:`, parseError);
-                        return [];
+                    }
+                    
+                    // If no-cors didn't work, try with regular fetch (may fail due to CORS but gives better error)
+                    if (i === retryCount - 1) {
+                        try {
+                            const fallbackResponse = await fetch(url, {
+                                method: 'GET',
+                                mode: 'cors',
+                                redirect: 'follow'
+                            });
+                            const fallbackText = await fallbackResponse.text();
+                            if (fallbackText) {
+                                const result = JSON.parse(fallbackText);
+                                if (result && result.data) {
+                                    return result.data;
+                                }
+                            }
+                        } catch (fallbackError) {
+                            // Ignore fallback error
+                        }
+                    }
+                    
+                    // If we still don't have data, wait and retry
+                    if (i < retryCount - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 1500));
                     }
                 } catch (error) {
                     console.error(`Error fetching ${sheetName} attempt ${i+1}:`, error);
-                    if (i === retryCount - 1) {
-                        throw error;
+                    if (i < retryCount - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 1500));
                     }
-                    // Wait before retry
-                    await new Promise(resolve => setTimeout(resolve, 1500));
                 }
             }
+            
+            // Return empty array if all attempts failed
+            console.warn(`All fetch attempts failed for ${sheetName}, returning empty array`);
+            return [];
         }
         
         async function submitToSheet(sheetName, data) {
