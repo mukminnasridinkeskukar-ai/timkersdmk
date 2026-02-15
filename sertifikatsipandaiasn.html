@@ -328,7 +328,7 @@
     
     // Google Apps Script Web App URL
     // Replace 'YOUR_DEPLOYMENT_ID' with your actual deployment ID
-    const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx_ft2mwO_9-pzGv139M5O78UcemebacFWdEPQ-SQedq3SBCdpaKD5MdiA7_e3TrNVh/exec';
+    const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbx-TYtNVZoc2hib1Ih-gPM_3t2wj-U419-ED7yRFQdRmvWoezySr6MtMWcOwafbKHYh/exec';
     
     // Spreadsheet ID
     const SPREADSHEET_ID = '1a25Gdo6k3VCBD3F7oueAM6EpT6KEsQkBDn4Vhwbum6s';
@@ -346,43 +346,52 @@
     function fetchSheetDataJSONP(sheetName, action = 'read') {
       return new Promise((resolve, reject) => {
         const callbackName = 'jsonp_callback_' + (++callbackCounter);
+        const url = `${GOOGLE_SHEETS_URL}?sheetName=${encodeURIComponent(sheetName)}&action=${action}&spreadsheetId=${SPREADSHEET_ID}&callback=${callbackName}`;
+        
+        console.log('Fetching from:', url);
         
         // Create script element for JSONP request
         const script = document.createElement('script');
-        script.src = `${GOOGLE_SHEETS_URL}?sheetName=${encodeURIComponent(sheetName)}&action=${action}&spreadsheetId=${SPREADSHEET_ID}&callback=${callbackName}`;
+        script.src = url;
         
         // Handle successful response
         window[callbackName] = function(response) {
+          console.log('Response:', response);
           cleanup();
           if (response && response.success) {
             resolve(response.data || []);
+          } else if (response && response.error) {
+            reject(new Error(response.error));
           } else {
-            reject(new Error(response?.error || 'Unknown error'));
+            reject(new Error('Unknown error - response: ' + JSON.stringify(response)));
           }
         };
         
         // Handle error
-        script.onerror = function() {
+        script.onerror = function(e) {
+          console.error('Script load error:', e);
           cleanup();
-          reject(new Error('Failed to load data from Google Sheets'));
+          reject(new Error('Failed to load data - check console for details'));
         };
         
         // Cleanup function
         function cleanup() {
-          document.head.removeChild(script);
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
           delete window[callbackName];
         };
         
         // Add script to head to start request
         document.head.appendChild(script);
         
-        // Timeout after 10 seconds
+        // Timeout after 15 seconds
         setTimeout(() => {
           if (window[callbackName]) {
             cleanup();
-            reject(new Error('Request timeout'));
+            reject(new Error('Request timeout after 15 seconds'));
           }
-        }, 10000);
+        }, 15000);
       });
     }
     
@@ -550,10 +559,12 @@
       panel.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading activities...</div>';
       
       try {
+        console.log('Loading activities from sheet: Kegatan');
         const data = await fetchSheetDataJSONP('Kegatan');
+        console.log('Activities data:', data);
         
         if (!data || data.length === 0) {
-          panel.innerHTML = '<h2>Activities</h2><p>No activities found.</p>';
+          panel.innerHTML = '<h2>Activities</h2><p>No activities found. Please add data to the "Kegatan" sheet in Google Sheets.</p>';
           return;
         }
         
@@ -580,9 +591,16 @@
         panel.innerHTML = html;
         
       } catch (error) {
+        console.error('Error loading activities:', error);
         panel.innerHTML = `
           <div class="error-message">
-            <strong>Error loading activities:</strong> ${error.message}
+            <strong>Error loading activities:</strong> ${error.message}<br><br>
+            <strong>Possible causes:</strong><br>
+            1. Sheet name might be different (check case)<br>
+            2. No data in the "Kegatan" sheet<br>
+            3. Google Apps Script not deployed correctly<br>
+            <br>
+            <strong>Check browser console (F12) for more details.</strong>
           </div>
         `;
       }
@@ -686,5 +704,3 @@
   </script>
 </body>
 </html>
-
-
