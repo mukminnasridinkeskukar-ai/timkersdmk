@@ -179,6 +179,7 @@
       border-color: var(--primary);
     }
     .form-group textarea { min-height: 100px; resize: vertical; }
+    .form-hint { display: block; font-size: 0.85rem; color: var(--text-muted); margin-top: 0.35rem; }
     .btn-submit {
       background: linear-gradient(135deg, var(--primary), var(--primary-dark));
       color: white;
@@ -316,6 +317,14 @@
       font-weight: 500;
     }
     .btn-logout:hover { background: #b91c1c; }
+    .btn-aksi { border: none; padding: 0.4rem 0.65rem; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 0.8rem; font-weight: 500; margin-right: 0.35rem; }
+    .btn-aksi.hapus { background: #fee2e2; color: #b91c1c; }
+    .btn-aksi.hapus:hover { background: #fecaca; }
+    .btn-aksi.tolak { background: #fef3c7; color: #b45309; }
+    .btn-aksi.tolak:hover { background: #fde68a; }
+    .btn-aksi.diterima { background: #d1fae5; color: #047857; }
+    .btn-aksi.diterima:hover { background: #a7f3d0; }
+    .aksi-wrap { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 
     /* Utility */
     .hidden { display: none !important; }
@@ -395,9 +404,11 @@
               <input type="text" id="kontak" name="kontak" required placeholder="No. HP / Email">
             </div>
             <div class="form-group">
-              <label for="file_url">File URL (opsional)</label>
-              <input type="url" id="file_url" name="file_url" placeholder="Link dokumen/foto (Google Drive, dll)">
+              <label for="surat_pemberitahuan">Upload Dokumen Surat Pemberitahuan Kegiatan (PDF)</label>
+              <input type="file" id="surat_pemberitahuan" name="surat_pemberitahuan" accept=".pdf" aria-describedby="surat-hint">
+              <span id="surat-hint" class="form-hint">Format: PDF. Diunggah ke Google Drive saat terhubung.</span>
             </div>
+            <input type="hidden" name="file_url" id="form_file_url" value="">
             <input type="hidden" name="status" value="Pending">
             <button type="submit" class="btn-submit" id="btnSubmit">Kirim ke Google Sheet & Drive</button>
             <div id="formStatus" class="form-status"></div>
@@ -482,12 +493,13 @@
                   <th>Jumlah Peserta</th>
                   <th>Penanggung Jawab</th>
                   <th>Kontak</th>
-                  <th>File URL</th>
+                  <th>Surat PDF</th>
                   <th>Status</th>
+                  <th>Aksi</th>
                 </tr>
               </thead>
               <tbody id="adminTableBody">
-                <tr><td colspan="11" class="empty-state">Login untuk melihat data.</td></tr>
+                <tr><td colspan="12" class="empty-state">Login untuk melihat data.</td></tr>
               </tbody>
             </table>
           </div>
@@ -500,7 +512,7 @@
     // ========== KONFIGURASI GOOGLE SHEET & DRIVE ==========
     // Ganti dengan URL Web App Google Apps Script Anda setelah deploy
     const CONFIG = {
-      webAppUrl: 'https://script.google.com/macros/s/AKfycbwqX54hiaj2tEQQL5wZyvfwHPXze0C1XP6QzJDv3TdVczplPSPVUFCpHj4l0R01dSV3Eg/exec', // Contoh: https://script.google.com/macros/s/xxx/exec
+      webAppUrl: 'https://script.google.com/macros/s/AKfycbyOC4IfjAllKVBdBBtxVjlCYTHVYTFwYg9Wc-iw0FMUd6ypw319uxgIOOQcJNZ1kFXgdQ/exec', // Contoh: https://script.google.com/macros/s/xxx/exec
       adminPassword: 'abdimas2025' // Ganti dengan password aman
     };
 
@@ -579,6 +591,35 @@
         return;
       }
 
+      // Jika ada file PDF, unggah dulu ke Drive lalu dapatkan URL
+      const fileInput = document.getElementById('surat_pemberitahuan');
+      if (fileInput.files.length && fileInput.files[0]) {
+        formStatus.textContent = 'Mengunggah PDF ke Drive...';
+        try {
+          const file = fileInput.files[0];
+          const base64 = await new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => {
+              const s = r.result;
+              resolve(s.indexOf('base64,') >= 0 ? s.split('base64,')[1] : s);
+            };
+            r.onerror = reject;
+            r.readAsDataURL(file);
+          });
+          const res = await fetch(CONFIG.webAppUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'uploadFile', fileBase64: base64, fileName: file.name || 'surat.pdf' })
+          });
+          const json = await res.json();
+          if (json.url) document.getElementById('form_file_url').value = json.url;
+        } catch (err) {
+          formStatus.className = 'form-status error';
+          formStatus.textContent = 'Gagal mengunggah PDF. Data tetap dikirim tanpa lampiran.';
+        }
+      }
+
+      formStatus.textContent = 'Mengirim data...';
       // Kirim ke Google Apps Script via form POST (andal tanpa CORS)
       form.setAttribute('action', CONFIG.webAppUrl);
       form.setAttribute('method', 'post');
@@ -596,6 +637,7 @@
         formStatus.className = 'form-status success';
         formStatus.textContent = 'Data berhasil dikirim ke Google Sheet.';
         form.reset();
+        document.getElementById('form_file_url').value = '';
         btnSubmit.disabled = false;
       }, 1500);
     });
@@ -607,14 +649,15 @@
         fetch(CONFIG.webAppUrl + '?action=getData')
           .then(r => r.json())
           .then(data => {
-            renderDashboardTable(tbody, data.rows || []);
-            document.getElementById('totalKegiatan').textContent = (data.rows || []).length;
+            const rows = (data.rows || []).filter(r => r.status !== 'Dihapus');
+            renderDashboardTable(tbody, rows);
+            document.getElementById('totalKegiatan').textContent = rows.length;
             const thisMonth = new Date().getMonth();
-            const bulanIni = (data.rows || []).filter(r => new Date(r.tanggal_daftar || r.tanggal_pelaksanaan).getMonth() === thisMonth).length;
+            const bulanIni = rows.filter(r => new Date(r.tanggal_daftar || r.tanggal_pelaksanaan).getMonth() === thisMonth).length;
             document.getElementById('totalBulan').textContent = bulanIni;
           })
           .catch(() => {
-            const local = JSON.parse(localStorage.getItem('abdimas_data') || '[]');
+            const local = (JSON.parse(localStorage.getItem('abdimas_data') || '[]')).filter(r => r.status !== 'Dihapus');
             renderDashboardTable(tbody, local);
             document.getElementById('totalKegiatan').textContent = local.length;
             const thisMonth = new Date().getMonth();
@@ -622,7 +665,7 @@
             document.getElementById('totalBulan').textContent = bulanIni;
           });
       } else {
-        const local = JSON.parse(localStorage.getItem('abdimas_data') || '[]');
+        const local = (JSON.parse(localStorage.getItem('abdimas_data') || '[]')).filter(r => r.status !== 'Dihapus');
         renderDashboardTable(tbody, local);
         document.getElementById('totalKegiatan').textContent = local.length;
         const thisMonth = new Date().getMonth();
@@ -713,11 +756,11 @@
 
     function renderAdminTable(rows) {
       if (!rows.length) {
-        adminTableBody.innerHTML = '<tr><td colspan="11" class="empty-state">Belum ada data.</td></tr>';
+        adminTableBody.innerHTML = '<tr><td colspan="12" class="empty-state">Belum ada data.</td></tr>';
         return;
       }
       adminTableBody.innerHTML = rows.map(r => `
-        <tr>
+        <tr data-id="${escapeHtml(r.id || '')}">
           <td>${escapeHtml(r.timestamp != null ? (typeof r.timestamp === 'string' ? r.timestamp : formatDate(r.timestamp)) : '-')}</td>
           <td>${formatDate(r.tanggal_daftar)}</td>
           <td>${escapeHtml(r.id || '-')}</td>
@@ -727,10 +770,53 @@
           <td>${escapeHtml(r.jumlah_peserta)}</td>
           <td>${escapeHtml(r.penanggung_jawab)}</td>
           <td>${escapeHtml(r.kontak)}</td>
-          <td>${r.file_url ? '<a href="' + escapeHtml(r.file_url) + '" target="_blank" rel="noopener">Link</a>' : '-'}</td>
+          <td>${r.file_url ? '<a href="' + escapeHtml(r.file_url) + '" target="_blank" rel="noopener">PDF</a>' : '-'}</td>
           <td>${escapeHtml(r.status)}</td>
+          <td class="aksi-wrap">
+            <button type="button" class="btn-aksi hapus" data-action="delete" title="Hapus">Hapus</button>
+            <button type="button" class="btn-aksi tolak" data-action="Ditolak" title="Tolak">Tolak</button>
+            <button type="button" class="btn-aksi diterima" data-action="Diterima" title="Diterima">Diterima</button>
+          </td>
         </tr>
       `).join('');
+      adminTableBody.querySelectorAll('.btn-aksi').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tr = btn.closest('tr');
+          const id = tr.getAttribute('data-id');
+          const action = btn.getAttribute('data-action');
+          if (!id) return;
+          if (action === 'delete') adminAksiDelete(id);
+          else adminAksiUpdateStatus(id, action);
+        });
+      });
+    }
+
+    function adminAksiDelete(id) {
+      if (!confirm('Yakin ingin menghapus data ini?')) return;
+      if (CONFIG.webAppUrl && !CONFIG.webAppUrl.startsWith('GANTI')) {
+        fetch(CONFIG.webAppUrl + '?action=delete&id=' + encodeURIComponent(id))
+          .then(r => r.json())
+          .then(() => loadAdminTable())
+          .catch(() => {});
+      } else {
+        const local = JSON.parse(localStorage.getItem('abdimas_data') || '[]').filter(r => r.id !== id);
+        localStorage.setItem('abdimas_data', JSON.stringify(local));
+        loadAdminTable();
+      }
+    }
+
+    function adminAksiUpdateStatus(id, status) {
+      if (CONFIG.webAppUrl && !CONFIG.webAppUrl.startsWith('GANTI')) {
+        fetch(CONFIG.webAppUrl + '?action=updateStatus&id=' + encodeURIComponent(id) + '&status=' + encodeURIComponent(status))
+          .then(r => r.json())
+          .then(() => loadAdminTable())
+          .catch(() => {});
+      } else {
+        const local = JSON.parse(localStorage.getItem('abdimas_data') || '[]');
+        const row = local.find(r => r.id === id);
+        if (row) { row.status = status; localStorage.setItem('abdimas_data', JSON.stringify(local)); }
+        loadAdminTable();
+      }
     }
 
     function loadAdminTable() {
