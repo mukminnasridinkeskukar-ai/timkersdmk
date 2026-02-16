@@ -750,7 +750,7 @@
         // ============================================
         // CONFIGURATION - GANTI DENGAN GOOGLE APPS SCRIPT URL ANDA
         // ============================================
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxUYpVDoKMlslawJJOUJDbxks_uo4R6nsWJmEH51Z1RxuvvWdRiJOxoUF6vg_yEyml1/exec';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxaOEy3KIcR9Qg4DgqrEIUo6lI6tHyUTL2fAXOzRqo_BssNl8Fywyosd7oTp8athRb2Q/exec';
         
         // ============================================
         // GLOBAL VARIABLES
@@ -845,12 +845,7 @@
                 }
                 
                 // Submit to Google Apps Script
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: JSON.stringify(formData)
-                });
-                
-                const result = await response.json();
+                const result = await postData(SCRIPT_URL, formData);
                 
                 if (result.success) {
                     showAlert('✅ Pendaftaran berhasil! ID Registrasi: ' + result.id, 'success');
@@ -870,6 +865,76 @@
         });
         
         // ============================================
+        // FETCH WITH CORS HANDLING - SUPPORTS JSONP FALLBACK
+        // ============================================
+        let jsonpCallbackCounter = 0;
+        
+        async function fetchData(url) {
+            // First try regular fetch
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                    redirect: 'follow',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (response.ok) {
+                    return await response.json();
+                }
+                throw new Error('Response not OK');
+            } catch (error) {
+                console.log('Regular fetch failed, trying JSONP...');
+                // Fallback to JSONP
+                return new Promise((resolve, reject) => {
+                    const callbackName = 'jsonpCallback_' + (++jsonpCallbackCounter);
+                    const script = document.createElement('script');
+                    
+                    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
+                    script.onerror = () => reject(new Error('JSONP failed too'));
+                    
+                    window[callbackName] = (data) => {
+                        resolve(data);
+                        delete window[callbackName];
+                        script.remove();
+                    };
+                    
+                    document.head.appendChild(script);
+                    
+                    // Timeout after 10 seconds
+                    setTimeout(() => {
+                        if (window[callbackName]) {
+                            delete window[callbackName];
+                            reject(new Error('JSONP timeout'));
+                        }
+                    }, 10000);
+                });
+            }
+        }
+        
+        // ============================================
+        // POST DATA WITH CORS HANDLING
+        // ============================================
+        async function postData(url, data) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    mode: 'cors',
+                    body: JSON.stringify(data),
+                    redirect: 'follow',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('Post error:', error);
+                throw error;
+            }
+        }
+        
+        // ============================================
         // LOAD DASHBOARD DATA
         // ============================================
         async function loadDashboard() {
@@ -882,8 +947,7 @@
             noData.style.display = 'none';
             
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getAll');
-                const result = await response.json();
+                const result = await fetchData(SCRIPT_URL + '?action=getAll');
                 
                 if (result.success) {
                     allData = result.data || [];
@@ -980,8 +1044,7 @@
             noData.style.display = 'none';
             
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getAll');
-                const result = await response.json();
+                const result = await fetchData(SCRIPT_URL + '?action=getAll');
                 
                 if (result.success) {
                     allData = result.data || [];
@@ -1084,8 +1147,7 @@
             noData.style.display = 'none';
             
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getAll');
-                const result = await response.json();
+                const result = await fetchData(SCRIPT_URL + '?action=getAll');
                 
                 if (result.success) {
                     const data = result.data || [];
@@ -1133,8 +1195,7 @@
             const searchTerm = document.getElementById('gallerySearch').value.toLowerCase();
             
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getAll');
-                const result = await response.json();
+                const result = await fetchData(SCRIPT_URL + '?action=getAll');
                 
                 if (result.success) {
                     const data = (result.data || []).filter(row => 
@@ -1227,11 +1288,7 @@
             if (!newStatus) return;
             
             try {
-                const response = await fetch(SCRIPT_URL + '?action=updateStatus&id=' + id + '&status=' + encodeURIComponent(newStatus), {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
+                const result = await postData(SCRIPT_URL + '?action=updateStatus&id=' + id + '&status=' + encodeURIComponent(newStatus), {});
                 
                 if (result.success) {
                     alert('✅ Status berhasil diperbarui!');
@@ -1253,11 +1310,7 @@
             if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return;
             
             try {
-                const response = await fetch(SCRIPT_URL + '?action=delete&id=' + id, {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
+                const result = await postData(SCRIPT_URL + '?action=delete&id=' + id, {});
                 
                 if (result.success) {
                     alert('✅ Data berhasil dihapus!');
