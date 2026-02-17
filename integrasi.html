@@ -1,60 +1,141 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>PAK Integrasi Enterprise</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUPER ENTERPRISE PAK INTEGRASI PEMDA</title>
+
 <style>
-body{font-family:Arial;margin:0;background:#f4f6f9;}
-header{background:#1e3a8a;color:white;padding:15px;text-align:center;}
+body{
+    font-family: 'Segoe UI', sans-serif;
+    margin:0;
+    background:#f1f5f9;
+}
+header{
+    background:#0f172a;
+    color:white;
+    padding:15px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+h2{margin:0;}
 .container{padding:20px;}
-.card{background:white;padding:20px;border-radius:10px;margin-bottom:20px;}
-button{padding:10px 15px;border:none;border-radius:6px;cursor:pointer;margin:5px 0;}
-.btn{background:#2563eb;color:white;}
-.btn-danger{background:#dc2626;color:white;}
+.card{
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.08);
+    margin-bottom:20px;
+}
+button{
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+.btn-primary{background:#2563eb;color:white;}
 .btn-success{background:#16a34a;color:white;}
+.btn-danger{background:#dc2626;color:white;}
+.btn-warning{background:#f59e0b;color:white;}
+.btn-dark{background:#334155;color:white;}
 .hidden{display:none;}
-input,select{width:100%;padding:8px;margin-bottom:10px;}
-table{width:100%;border-collapse:collapse;}
-th,td{border:1px solid #ddd;padding:8px;}
-th{background:#e5e7eb;}
-.stat{font-size:18px;font-weight:bold;}
+input,select{
+    width:100%;
+    padding:8px;
+    margin-bottom:10px;
+    border-radius:6px;
+    border:1px solid #cbd5e1;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+th,td{
+    padding:8px;
+    border:1px solid #e2e8f0;
+}
+th{background:#e2e8f0;}
+.stat-box{
+    display:inline-block;
+    margin-right:20px;
+    font-weight:bold;
+}
+.lightbox{
+    position:fixed;
+    top:0;left:0;
+    width:100%;height:100%;
+    background:rgba(0,0,0,0.8);
+    display:none;
+    justify-content:center;
+    align-items:center;
+}
+.lightbox-content{
+    width:80%;
+    height:80%;
+    background:white;
+}
+.lightbox iframe{
+    width:100%;
+    height:100%;
+}
+.search-filter{
+    display:flex;
+    gap:10px;
+    margin-bottom:15px;
+}
 </style>
 </head>
+
 <body>
 
 <header>
-<h2>Dashboard PAK Integrasi - Enterprise</h2>
+<h2>Dashboard PAK Integrasi - SUPER ENTERPRISE PEMDA</h2>
+<button class="btn-dark" onclick="logout()">Logout</button>
 </header>
 
 <div class="container">
 
 <!-- LOGIN -->
 <div id="loginPage" class="card">
-<h3>Login Admin</h3>
-<input type="password" id="password" placeholder="Masukkan Password Admin">
-<button class="btn" onclick="login()">Login</button>
+<h3>Login Sistem</h3>
+<select id="role">
+<option value="Admin">Admin</option>
+<option value="Verifikator">Verifikator</option>
+<option value="User">User</option>
+</select>
+<input type="password" id="password" placeholder="Password">
+<button class="btn-primary" onclick="login()">Login</button>
 </div>
 
 <!-- DASHBOARD -->
-<div id="dashboardPage" class="hidden">
+<div id="mainPage" class="hidden">
 
 <div class="card">
 <h3>Statistik</h3>
-<div class="stat">Total: <span id="total"></span></div>
-<div class="stat">Menunggu: <span id="menunggu"></span></div>
-<div class="stat">Disetujui: <span id="disetujui"></span></div>
-<div class="stat">Ditolak: <span id="ditolak"></span></div>
+<div class="stat-box">Total: <span id="total"></span></div>
+<div class="stat-box">Menunggu: <span id="menunggu"></span></div>
+<div class="stat-box">Disetujui: <span id="disetujui"></span></div>
+<div class="stat-box">Ditolak: <span id="ditolak"></span></div>
+<canvas id="chart" height="80"></canvas>
 </div>
 
 <div class="card">
-<h3>Data Pengajuan</h3>
+<div class="search-filter">
+<input type="text" id="search" placeholder="Cari Nama..." onkeyup="renderTable()">
+<select id="filterSKPD" onchange="renderTable()">
+<option value="">Semua SKPD</option>
+</select>
+</div>
+
 <table>
 <thead>
 <tr>
+<th>Nomor PAK</th>
 <th>Nama</th>
-<th>Satker</th>
+<th>SKPD</th>
 <th>Status</th>
-<th>File</th>
+<th>Dokumen</th>
 <th>Aksi</th>
 </tr>
 </thead>
@@ -63,21 +144,43 @@ th{background:#e5e7eb;}
 </div>
 
 </div>
-
 </div>
 
+<!-- LIGHTBOX -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+<div class="lightbox-content">
+<iframe id="previewFrame"></iframe>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbzd4UEzM5MO_A6we6M4fisbIwmyS3N7-Of1iQnT6DwZMj8AD0PN-d5SwJvbEkRtHM_Z/exec";
-const ADMIN_PASSWORD="@pakintegrasi2026";
+const API_URL="YOUR_WEBAPP_URL";
+const PASSWORDS={
+Admin:"admin123",
+Verifikator:"verif123",
+User:"user123"
+};
+
+let currentRole="";
+let allData=[];
 
 function login(){
-if(document.getElementById("password").value===ADMIN_PASSWORD){
+let role=document.getElementById("role").value;
+let pass=document.getElementById("password").value;
+if(pass===PASSWORDS[role]){
+currentRole=role;
 document.getElementById("loginPage").classList.add("hidden");
-document.getElementById("dashboardPage").classList.remove("hidden");
+document.getElementById("mainPage").classList.remove("hidden");
 loadData();
 }else{
-alert("Password salah!");
+alert("Password salah");
 }
+}
+
+function logout(){
+location.reload();
 }
 
 async function loadData(){
@@ -87,47 +190,91 @@ body:JSON.stringify({action:"getData"})
 });
 let data=await res.json();
 data.shift();
+allData=data;
+populateFilter();
+renderTable();
+renderStats();
+}
 
-let total=0,menunggu=0,disetujui=0,ditolak=0;
+function populateFilter(){
+let skpdSet=new Set();
+allData.forEach(r=>skpdSet.add(r[15]));
+let select=document.getElementById("filterSKPD");
+skpdSet.forEach(skpd=>{
+let opt=document.createElement("option");
+opt.value=skpd;
+opt.textContent=skpd;
+select.appendChild(opt);
+});
+}
+
+function renderTable(){
+let search=document.getElementById("search").value.toLowerCase();
+let filter=document.getElementById("filterSKPD").value;
 let html="";
-
-data.forEach((row,i)=>{
-total++;
-if(row[17]=="Menunggu") menunggu++;
-if(row[17]=="Disetujui") disetujui++;
-if(row[17]=="Ditolak") ditolak++;
-
+allData.forEach((r,i)=>{
+if((r[3].toLowerCase().includes(search)) &&
+(filter===""||r[15]===filter)){
+let nomor="PAK-"+(i+1).toString().padStart(4,"0");
 html+=`
 <tr>
-<td>${row[3]}</td>
-<td>${row[15]}</td>
-<td>${row[17]}</td>
-<td><a href="${row[16]}" target="_blank">Download</a></td>
+<td>${nomor}</td>
+<td>${r[3]}</td>
+<td>${r[15]}</td>
+<td>${r[17]}</td>
+<td><button onclick="openLightbox('${r[16]}')" class="btn-primary">Preview</button></td>
 <td>
-<button onclick="update(${i+2},'Disetujui')" class="btn-success">Setujui</button>
-<button onclick="update(${i+2},'Ditolak')" class="btn-danger">Tolak</button>
+${currentRole!=="User"?`
+<button class="btn-success" onclick="updateStatus(${i+2},'Disetujui')">Setujui</button>
+<button class="btn-danger" onclick="updateStatus(${i+2},'Ditolak')">Tolak</button>
+`:''}
 </td>
 </tr>`;
+}
 });
-
 document.getElementById("tableData").innerHTML=html;
+}
+
+function renderStats(){
+let total=allData.length;
+let menunggu=allData.filter(r=>r[17]=="Menunggu").length;
+let disetujui=allData.filter(r=>r[17]=="Disetujui").length;
+let ditolak=allData.filter(r=>r[17]=="Ditolak").length;
+
 document.getElementById("total").innerText=total;
 document.getElementById("menunggu").innerText=menunggu;
 document.getElementById("disetujui").innerText=disetujui;
 document.getElementById("ditolak").innerText=ditolak;
+
+new Chart(document.getElementById("chart"),{
+type:"bar",
+data:{
+labels:["Menunggu","Disetujui","Ditolak"],
+datasets:[{data:[menunggu,disetujui,ditolak]}]
+}
+});
 }
 
-async function update(row,status){
+async function updateStatus(row,status){
 await fetch(API_URL,{
 method:"POST",
 body:JSON.stringify({
 action:"updateStatus",
 row:row,
 status:status,
-catatan:"-"
+catatan:"Diproses oleh "+currentRole
 })
 });
 loadData();
+}
+
+function openLightbox(url){
+document.getElementById("previewFrame").src=url;
+document.getElementById("lightbox").style.display="flex";
+}
+function closeLightbox(){
+document.getElementById("lightbox").style.display="none";
+document.getElementById("previewFrame").src="";
 }
 </script>
 
