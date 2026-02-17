@@ -844,7 +844,7 @@
             <div class="logo-icon">G</div>
             <div class="logo-text">
                 <h1>PAK Integrasi</h1>
-                <p>Kementerian Sekretariat Negara Republik Indonesia</p>
+                <p>Dinas Kesehatan Kabupaten Kutai Kartanegara</p>
             </div>
         </div>
         <div class="user-info">
@@ -1342,6 +1342,23 @@ let currentUser = {
 };
 
 // ============================================
+// HELPER: FETCH DENGAN REDIRECT
+// ============================================
+
+async function fetchWithRedirect(url, options = {}) {
+    try {
+        const response = await fetch(url, {
+            ...options,
+            redirect: 'follow',
+            mode: 'no-cors'
+        });
+        return response;
+    } catch (error) {
+        throw error;
+    }
+}
+
+// ============================================
 // NAVIGATION FUNCTIONS
 // ============================================
 
@@ -1469,36 +1486,61 @@ async function submitPAKForm(event) {
 }
 
 // ============================================
-// GOOGLE SHEETS FUNCTIONS
+// GOOGLE SHEETS FUNCTIONS - DENGAN FALLBACK KE LOCALSTORAGE
 // ============================================
 
-async function saveToGoogleSheets(data) {
-    const rowData = [
-        data.timestamp, data.email, data.noHP, data.namaLengkap, data.nip,
-        data.noKarpeg, data.ttl, data.pendidikan, data.jenisKelamin,
-        data.pangkatGol, data.tmtPangkat, data.jenisJF, data.jenjangJF,
-        data.tmtJF, data.masaKerjaGol, data.satuanKerja,
-        data.fileName || '', data.fileUrl || '', data.status
-    ];
+async function saveToGoogleSheets(data, isRetry = false) {
+    try {
+        // Coba simpan ke Google Sheets dulu
+        const rowData = [
+            data.timestamp, data.email, data.noHP, data.namaLengkap, data.nip,
+            data.noKarpeg, data.ttl, data.pendidikan, data.jenisKelamin,
+            data.pangkatGol, data.tmtPangkat, data.jenisJF, data.jenjangJF,
+            data.tmtJF, data.masaKerjaGol, data.satuanKerja,
+            data.fileName || '', data.fileUrl || '', data.status
+        ];
 
-    const response = await fetch(GOOGLE_SHEET_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'append', sheet: SHEET_DATA, values: rowData })
-    });
+        const response = await fetch(GOOGLE_SHEET_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'append', sheet: SHEET_DATA, values: rowData }),
+            mode: 'cors'
+        });
 
-    if (!response.ok) throw new Error('Failed to save to Google Sheets');
-    return await response.json();
+        if (!response.ok) throw new Error('Failed to save');
+        return await response.json();
+    } catch (error) {
+        console.log('Google Sheets error, using localStorage:', error);
+        // Fallback ke localStorage
+        saveToLocalStorage(data);
+        throw error;
+    }
+}
+
+// Simpan ke localStorage sebagai backup
+function saveToLocalStorage(data) {
+    let existingData = JSON.parse(localStorage.getItem('pakData') || '[]');
+    data.id = Date.now();
+    existingData.push(data);
+    localStorage.setItem('pakData', JSON.stringify(existingData));
+}
+
+function getLocalStorageData() {
+    return JSON.parse(localStorage.getItem('pakData') || '[]');
 }
 
 async function loadData() {
     try {
-        const response = await fetch(GOOGLE_SHEET_URL + '?action=read&sheet=' + SHEET_DATA);
+        // Coba load dari Google Sheets
+        const response = await fetch(GOOGLE_SHEET_URL + '?action=read&sheet=' + SHEET_DATA, {
+            mode: 'cors'
+        });
         const data = await response.json();
         displayData(data);
     } catch (error) {
-        console.log('Cannot load from Google Sheets, showing empty state');
-        displayData([]);
+        console.log('Google Sheets error, using localStorage:', error);
+        // Fallback ke localStorage
+        displayData(getLocalStorageData());
     }
 }
 
@@ -1582,12 +1624,14 @@ function formatDate(dateString) {
 }
 
 // ============================================
-// CRUD OPERATIONS
+// CRUD OPERATIONS - DENGAN FALLBACK
 // ============================================
 
 async function viewDetail(nip) {
     try {
-        const response = await fetch(GOOGLE_SHEET_URL + '?action=readOne&sheet=' + SHEET_DATA + '&nip=' + nip);
+        const response = await fetch(GOOGLE_SHEET_URL + '?action=readOne&sheet=' + SHEET_DATA + '&nip=' + nip, {
+            mode: 'cors'
+        });
         const item = await response.json();
         
         if (!item) { showToast('Data tidak ditemukan', 'error'); return; }
@@ -1633,8 +1677,59 @@ async function viewDetail(nip) {
 
         document.getElementById('detailModal').classList.add('active');
     } catch (error) {
-        showToast('Gagal memuat detail data', 'error');
+        // Fallback ke localStorage
+        const localData = getLocalStorageData();
+        const item = localData.find(d => d.nip === nip);
+        if (item) {
+            viewDetailLocal(item);
+        } else {
+            showToast('Data tidak ditemukan', 'error');
+        }
     }
+}
+
+// Tampilkan detail dari localStorage
+function viewDetailLocal(item) {
+    const fileHtml = item.fileUrl ? 
+        `<a href="${item.fileUrl}" target="_blank" style="color: #0066cc; font-weight: bold;">📎 ${item.fileName || 'Download PDF'}</a>` : 
+        (item.fileName || 'Tidak ada file');
+
+    document.getElementById('modalBody').innerHTML = `
+        <div class="form-section">
+            <h3>👤 Data Pessoal</h3>
+            <p><strong>Email:</strong> ${item.email || '-'}</p>
+            <p><strong>No. HP:</strong> ${item.noHP || '-'}</p>
+            <p><strong>Nama Lengkap:</strong> ${item.namaLengkap || '-'}</p>
+            <p><strong>NIP:</strong> ${item.nip || '-'}</p>
+            <p><strong>No. Karpeg:</strong> ${item.noKarpeg || '-'}</p>
+            <p><strong>TTL:</strong> ${item.ttl || '-'}</p>
+            <p><strong>Pendidikan:</strong> ${item.pendidikan || '-'}</p>
+            <p><strong>Jenis Kelamin:</strong> ${item.jenisKelamin || '-'}</p>
+        </div>
+        <div class="form-section">
+            <h3>💼 Data Kepegawaian</h3>
+            <p><strong>Pangkat/Gol:</strong> ${item.pangkatGol || '-'}</p>
+            <p><strong>TMT Pangkat:</strong> ${formatDate(item.tmtPangkat)}</p>
+            <p><strong>Jenis JF:</strong> ${item.jenisJF || '-'}</p>
+            <p><strong>Jenjang JF:</strong> ${item.jenjangJF || '-'}</p>
+            <p><strong>TMT JF:</strong> ${formatDate(item.tmtJF)}</p>
+            <p><strong>Masa Kerja Gol:</strong> ${item.masaKerjaGol || '-'}</p>
+            <p><strong>Satuan Kerja:</strong> ${item.satuanKerja || '-'}</p>
+        </div>
+        <div class="form-section">
+            <h3>📎 Dokumen</h3>
+            <p><strong>File:</strong> ${fileHtml}</p>
+        </div>
+        <div class="form-section">
+            <h3>📋 Status</h3>
+            <p><strong>Status:</strong> <span class="status-badge ${getStatusClass(item.status)}">${item.status || 'Menunggu'}</span></p>
+            <p><strong>Tanggal Ajuan:</strong> ${formatDate(item.timestamp)}</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="closeModal()">Tutup</button>
+        </div>`;
+
+    document.getElementById('detailModal').classList.add('active');
 }
 
 async function deleteData(nip) {
@@ -1644,22 +1739,30 @@ async function deleteData(nip) {
         await fetch(GOOGLE_SHEET_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'delete', sheet: SHEET_DATA, nip: nip })
+            body: JSON.stringify({ action: 'delete', sheet: SHEET_DATA, nip: nip }),
+            mode: 'cors'
         });
 
         showToast('Data berhasil dihapus!', 'success');
         addLog('Menghapus data PAK - NIP: ' + nip);
         loadData();
     } catch (error) {
-        showToast('Gagal menghapus data', 'error');
+        // Fallback ke localStorage
+        let data = getLocalStorageData();
+        data = data.filter(d => d.nip !== nip);
+        localStorage.setItem('pakData', JSON.stringify(data));
+        showToast('Data berhasil dihapus!', 'success');
+        addLog('Menghapus data PAK - NIP: ' + nip);
+        loadData();
     }
 }
 
 // ============================================
-// LOGBOX FUNCTIONS
+// LOGBOX FUNCTIONS - DENGAN FALLBACK
 // ============================================
 
 function addLog(message, type = '') {
+    // Coba simpan ke Google Sheets
     fetch(GOOGLE_SHEET_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1667,8 +1770,20 @@ function addLog(message, type = '') {
             action: 'append',
             sheet: SHEET_LOGS,
             values: [new Date().toISOString(), message, type, currentUser.nama]
-        })
-    }).catch(e => console.log('Log save failed'));
+        }),
+        mode: 'cors'
+    }).catch(e => {
+        // Fallback ke localStorage
+        const logs = JSON.parse(localStorage.getItem('pakLogs') || '[]');
+        logs.unshift({
+            timestamp: new Date().toISOString(),
+            message: message,
+            type: type,
+            user: currentUser.nama
+        });
+        if (logs.length > 100) logs.pop();
+        localStorage.setItem('pakLogs', JSON.stringify(logs));
+    });
 }
 
 function addLogEntry() {
@@ -1677,11 +1792,11 @@ function addLogEntry() {
 }
 
 function renderLogs() {
-    fetch(GOOGLE_SHEET_URL + '?action=read&sheet=' + SHEET_LOGS)
+    fetch(GOOGLE_SHEET_URL + '?action=read&sheet=' + SHEET_LOGS, { mode: 'cors' })
         .then(response => response.json())
         .then(logs => {
             if (!logs || logs.length === 0) {
-                document.getElementById('logEntries').innerHTML = `<div style="text-align:center; padding: 30px; color: #666;"><p>📭 Tidak ada log</p></div>`;
+                renderLogsLocal();
                 return;
             }
 
@@ -1698,8 +1813,29 @@ function renderLogs() {
             document.getElementById('logEntries').innerHTML = html;
         })
         .catch(e => {
-            document.getElementById('logEntries').innerHTML = `<div style="text-align:center; padding: 30px; color: #666;"><p>📭 Tidak ada log</p></div>`;
+            renderLogsLocal();
         });
+}
+
+function renderLogsLocal() {
+    const logs = JSON.parse(localStorage.getItem('pakLogs') || '[]');
+    
+    if (logs.length === 0) {
+        document.getElementById('logEntries').innerHTML = `<div style="text-align:center; padding: 30px; color: #666;"><p>📭 Tidak ada log</p></div>`;
+        return;
+    }
+
+    let html = '';
+    logs.forEach(log => {
+        const typeClass = log.type || '';
+        html += `<div class="log-entry ${typeClass}">
+            <div class="log-time">${formatDate(log.timestamp)}, ${new Date(log.timestamp).toLocaleTimeString('id-ID')}</div>
+            <div class="log-message">${log.message}</div>
+            <small style="color: #999;">User: ${log.user}</small>
+        </div>`;
+    });
+
+    document.getElementById('logEntries').innerHTML = html;
 }
 
 // ============================================
