@@ -1420,22 +1420,31 @@ async function submitPAKForm(event) {
                 reader.readAsDataURL(file);
             });
 
-            try {
-                const driveResponse = await fetch(GOOGLE_SHEET_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'uploadFile',
-                        fileName: fileName,
-                        fileData: fileData,
-                        mimeType: 'application/pdf'
-                    })
+           // Upload ke Google Drive via GET (lebih reliable untuk CORS)
+                const params = new URLSearchParams({
+                    action: 'uploadFile',
+                    fileName: fileName,
+                    fileData: fileData,
+                    mimeType: 'application/pdf'
+                });
+                
+                const driveUrl = GOOGLE_SHEET_URL + '?' + params.toString();
+                
+                const driveResponse = await fetch(driveUrl, {
+                    method: 'GET'
                 });
 
-                const driveResult = await driveResponse.json();
-                if (driveResult.success && driveResult.fileUrl) {
-                    fileUrl = driveResult.fileUrl;
-                    showToast('Dokumen berhasil diupload ke Google Drive!', 'success');
+                const text = await driveResponse.text();
+                console.log('Drive response:', text);
+                
+                try {
+                    const driveResult = JSON.parse(text);
+                    if (driveResult.success && driveResult.fileUrl) {
+                        fileUrl = driveResult.fileUrl;
+                        showToast('Dokumen berhasil diupload ke Google Drive!', 'success');
+                    }
+                } catch(e) {
+                    console.log('Parse drive response error');
                 }
             } catch (driveError) {
                 console.log('Drive upload error:', driveError);
@@ -1894,4 +1903,5 @@ document.getElementById('uploadDokumenPDF').addEventListener('change', function(
     </script>
 </body>
 </html>
+
 
