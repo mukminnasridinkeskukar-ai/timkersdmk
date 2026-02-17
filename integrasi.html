@@ -1486,103 +1486,65 @@ async function submitPAKForm(event) {
 }
 
 // ============================================
-// GOOGLE SHEETS FUNCTIONS - DENGAN FALLBACK KE LOCALSTORAGE
+// GOOGLE SHEETS FUNCTIONS
 // ============================================
 
+// Kirim ke Google Sheets
 async function saveToGoogleSheets(data) {
-    try {
-        const rowData = [
-            data.timestamp, data.email, data.noHP, data.namaLengkap, data.nip,
-            data.noKarpeg, data.ttl, data.pendidikan, data.jenisKelamin,
-            data.pangkatGol, data.tmtPangkat, data.jenisJF, data.jenjangJF,
-            data.tmtJF, data.masaKerjaGol, data.satuanKerja,
-            data.fileName || '', data.fileUrl || '', data.status
-        ];
+    const rowData = [
+        data.timestamp, data.email, data.noHP, data.namaLengkap, data.nip,
+        data.noKarpeg, data.ttl, data.pendidikan, data.jenisKelamin,
+        data.pangkatGol, data.tmtPangkat, data.jenisJF, data.jenjangJF,
+        data.tmtJF, data.masaKerjaGol, data.satuanKerja,
+        data.fileName || '', data.fileUrl || '', data.status
+    ];
 
-        // Tanpa mode specification - biarkan browser handle
-        const response = await fetch(GOOGLE_SHEET_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'append', sheet: SHEET_DATA, values: rowData })
-        });
-
-        if (!response.ok) throw new Error('Failed to save');
-        return await response.json();
-        
-    } catch (error) {
-        console.error('Error:', error);
-        // Coba lagi dengan cara lain - iframe submission
-        return await saveViaIframe(data);
-    }
-}
-
-// Fallback menggunakan iframe untuk bypass CORS
-function saveViaIframe(data) {
-    return new Promise((resolve, reject) => {
-        const iframe = document.createElement('iframe');
-        iframe.name = 'hiddenFrame';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = GOOGLE_SHEET_URL;
-        form.target = 'hiddenFrame';
-
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'data';
-        input.value = JSON.stringify({ action: 'append', sheet: SHEET_DATA, values: [
-            data.timestamp, data.email, data.noHP, data.namaLengkap, data.nip,
-            data.noKarpeg, data.ttl, data.pendidikan, data.jenisKelamin,
-            data.pangkatGol, data.tmtPangkat, data.jenisJF, data.jenjangJF,
-            data.tmtJF, data.masaKerjaGol, data.satuanKerja,
-            data.fileName || '', data.fileUrl || '', data.status
-        ]});
-
-        form.appendChild(input);
-        document.body.appendChild(form);
-
-        // Timeout untuk detection
-        setTimeout(() => {
-            document.body.removeChild(form);
-            document.body.removeChild(iframe);
-            resolve({ success: true, method: 'iframe' });
-        }, 3000);
-
-        form.submit();
+    // Kirim menggunakan GET dengan query parameter
+    const params = new URLSearchParams({
+        action: 'append',
+        sheet: SHEET_DATA,
+        data: JSON.stringify(rowData)
     });
-}
-
-// Simpan ke localStorage sebagai backup
-function saveToLocalStorage(data) {
-    let existingData = JSON.parse(localStorage.getItem('pakData') || '[]');
-    data.id = Date.now();
-    existingData.push(data);
-    localStorage.setItem('pakData', JSON.stringify(existingData));
-}
-
-function getLocalStorageData() {
-    return JSON.parse(localStorage.getItem('pakData') || '[]');
-}
-
-async function loadData() {
+    
+    const url = GOOGLE_SHEET_URL + '?' + params.toString();
+    
     try {
-        // Pakai mode: 'no-cors' agar bisa akses dari website lain
-        await fetch(GOOGLE_SHEET_URL + '?action=read&sheet=' + SHEET_DATA, {
-            mode: 'no-cors'
+        // Gunakan redirect: 'manual' untuk avoid CORS issues
+        const response = await fetch(url, {
+            method: 'GET',
+            redirect: 'follow'
         });
         
-        // Dengan no-cors, response akan opaque
-        // Kita tidak bisa baca isinya, tapi request sudah terkirim
-        console.log('Request load terkirim');
+        console.log('Response status:', response.status);
+        return { success: true };
         
-    } catch (error) {
-        console.log('Error:', error);
+    } catch (err) {
+        console.error('Error saving to Google Sheets:', err);
+        // Jangan throw error - biarkan continue
+        return { success: false, error: err.message };
     }
+}
+
+// Load data dari Google Sheets
+async function loadData() {
+    const url = GOOGLE_SHEET_URL + '?action=read&sheet=' + SHEET_DATA;
     
-    // Tetap tampilkan array kosong karena tidak bisa baca response
-    displayData([]);
+    try {
+        const response = await fetch(url, { method: 'GET' });
+        const text = await response.text();
+        console.log('Read response:', text.substring(0, 200));
+        
+        try {
+            const data = JSON.parse(text);
+            displayData(data);
+        } catch(e) {
+            console.log('Parse error, showing empty');
+            displayData([]);
+        }
+    } catch (err) {
+        console.error('Load error:', err);
+        displayData([]);
+    }
 }
 
 // ============================================
@@ -1932,3 +1894,4 @@ document.getElementById('uploadDokumenPDF').addEventListener('change', function(
     </script>
 </body>
 </html>
+
