@@ -756,7 +756,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr><td colspan="3" style="text-align: center; padding: 20px; color: #999;">Data kegiatan akan muncul di sini</td></tr>
+              <tr><td colspan="3" style="text-align: center; padding: 20px; color: #999;">Memuat data...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1136,7 +1136,7 @@
   <script>
     // Configuration
     const APP_CONFIG = {
-      scriptUrl: 'https://script.google.com/macros/s/AKfycbxlIYgBLowZwhJgbYT5m8hKvSYtW7M5TNHwv_kskjZC6I7Nc3VJjRk3fIytx-HTLi96MA/exec',
+      scriptUrl: 'https://script.google.com/macros/s/AKfycbxtNOnZAA_3JVVrlcDVxPuhQyeroMPyzxScD6BpAcls9yNT2s8QmmEqWM2tMQAuQ-hbwQ/exec',
       timeout: 30000,
       defaultKegitan: {
         id: 'DEFAULT001',
@@ -1248,6 +1248,69 @@
         '<tr><td colspan="4" style="text-align: center; color: #999;">Belum ada aktivitas recent</td></tr>';
     }
 
+    // Load Kegiatann Data for Dashboard
+    async function loadKegiatannData() {
+      const tbody = document.querySelector('#kegiatann-page tbody');
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Memuat data...</td></tr>';
+      
+      try {
+        const response = await fetch(APP_CONFIG.scriptUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getKegiatann' })
+        });
+        
+        // With no-cors, use fallback
+        displayKegiatannData(APP_CONFIG.defaultKegiatann || []);
+      } catch (e) {
+        displayKegiatannData([]);
+      }
+    }
+
+    // Display Kegiatann Data
+    function displayKegiatannData(data) {
+      const tbody = document.querySelector('#kegiatann-page tbody');
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #999;">Belum ada data kegiatan</td></tr>';
+        return;
+      }
+      
+      let html = '';
+      const now = new Date();
+      
+      data.forEach(function(item) {
+        const tgl = new Date(item.tanggal || item[2]);
+        let status = '';
+        let statusClass = '';
+        
+        if (tgl < now) {
+          status = 'Selesai';
+          statusClass = 'background: #e8f5e9; color: #2e7d32;';
+        } else if (item.is_active || item[7] === true) {
+          status = 'Aktif';
+          statusClass = 'background: #fff3e0; color: #e65100;';
+        } else {
+          status = 'Akan Datang';
+          statusClass = 'background: #e3f2fd; color: #1565c0;';
+        }
+        
+        html += '<tr>' +
+          '<td style="padding: 12px;">' + (item.tema || item[1] || '-') + '</td>' +
+          '<td style="padding: 12px;">' + formatDateShort(new Date(item.tanggal || item[2])) + '</td>' +
+          '<td style="padding: 12px;"><span style="padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;' + statusClass + '">' + status + '</span></td>' +
+        '</tr>';
+      });
+      
+      tbody.innerHTML = html;
+    }
+
+    // Format date short
+    function formatDateShort(date) {
+      return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
     // Load Kegiatan Info for Registration
     async function loadKegitanInfo() {
       const infoContainer = document.getElementById('info-kegitan');
@@ -1354,6 +1417,15 @@
       );
       if (clickedLink) {
         clickedLink.classList.add('active');
+      }
+      
+      // Load data for specific pages
+      if (pageId === 'kegiatann') {
+        loadKegiatannData();
+      }
+      
+      if (pageId === 'dashboard') {
+        loadDashboardData();
       }
     }
 
