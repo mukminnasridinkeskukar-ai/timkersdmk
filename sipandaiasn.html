@@ -325,6 +325,12 @@
             transform: translateY(-2px);
         }
         
+        .form-group input.error,
+        .form-group select.error {
+            border-color: #ef4444;
+            animation: shake 0.5s ease;
+        }
+        
         .form-group select {
             cursor: pointer;
             appearance: none;
@@ -339,6 +345,17 @@
             font-size: 11px;
             color: #94a3b8;
             margin-top: 5px;
+        }
+        
+        .form-group .error-text {
+            font-size: 11px;
+            color: #ef4444;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .form-group .error-text.visible {
+            display: block;
         }
         
         .hidden-field {
@@ -423,6 +440,13 @@
             border: 2px solid #ef4444;
             display: block;
             animation: shake 0.5s ease;
+        }
+        
+        .status-message.warning {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            border: 2px solid #f59e0b;
+            display: block;
         }
         
         .footer {
@@ -529,7 +553,7 @@
                 </div>
                 <div class="form-group">
                     <label for="googleScriptUrl">🔗 Google Apps Script URL <span class="required">*</span></label>
-                    <input type="url" id="googleScriptUrl" name="googleScriptUrl" required placeholder="https://script.google.com/macros/s/AKfycbwp4WQyuH9aIEwnbxD7F4xKwcmFsAGhb8i2l-PSsQktfrbBDp5tF3nkzmeVCIQy-Lb0nw/exec">
+                    <input type="url" id="googleScriptUrl" name="googleScriptUrl" required placeholder="https://script.google.com/macros/s/AKfycbzIuSGzbZJpCde6MnBdFgOIprph5IBzJKrtiLeG7xKR6c6IhbIkOcj_v_9AR4ycTrJ3FQ/exec">
                 </div>
                 <button type="button" class="btn-submit" id="saveUrlBtn">Simpan & Lanjutkan</button>
             </div>
@@ -570,13 +594,13 @@
         <div class="timer-section">
             <div class="timer-box">
                 <div class="label">⏰ Waktu Pendaftaran Tersisa</div>
-                <div class="value" id="countdown">05:00:00</div>
+                <div class="value" id="countdown">168:00:00</div>
                 <div class="unit">Jam : Menit : Detik</div>
             </div>
             <div class="timer-box">
                 <div class="label">🎫 Kuota Tersedia</div>
                 <div class="value" id="quota">45</div>
-                <div class="unit">peserta dari 50</div>
+                <div class="unit">peserta dari 1000</div>
             </div>
         </div>
         
@@ -606,6 +630,7 @@
                     <div class="form-group">
                         <label for="nip">NIP <span class="required">*</span></label>
                         <input type="text" id="nip" name="nip" required placeholder="Masukkan NIP" maxlength="18">
+                        <span class="error-text" id="nipError">⚠️ NIP ini sudah terdaftar! Setiap NIP hanya boleh mendaftar 1 kali.</span>
                     </div>
                 </div>
                 
@@ -744,12 +769,32 @@
     </div>
     
     <script>
+        // Storage key for registered NIPs
+        const REGISTERED_NIPS_KEY = 'sipandi_registered_nips';
+        
         // Timer Configuration
         const TOTAL_QUOTA = 50;
         let currentQuota = 45;
         
         // Countdown timer (5 hours from now)
         let countdownSeconds = 5 * 60 * 60; // 5 hours
+        
+        function getRegisteredNIPs() {
+            const nips = localStorage.getItem(REGISTERED_NIPS_KEY);
+            return nips ? JSON.parse(nips) : [];
+        }
+        
+        function saveRegisteredNIP(nip) {
+            const nips = getRegisteredNIPs();
+            if (!nips.includes(nip)) {
+                nips.push(nip);
+                localStorage.setItem(REGISTERED_NIPS_KEY, JSON.stringify(nips));
+            }
+        }
+        
+        function isNIPRegistered(nip) {
+            return getRegisteredNIPs().includes(nip);
+        }
         
         function updateCountdown() {
             const hours = Math.floor(countdownSeconds / 3600);
@@ -800,6 +845,27 @@
             document.getElementById('timestamp').value = now.toISOString();
             document.getElementById('id').value = 'SIPANDI-' + Date.now();
             
+            // NIP validation on input
+            const nipInput = document.getElementById('nip');
+            const nipError = document.getElementById('nipError');
+            
+            nipInput.addEventListener('blur', function() {
+                const nip = this.value.trim();
+                if (nip && isNIPRegistered(nip)) {
+                    this.classList.add('error');
+                    nipError.classList.add('visible');
+                } else {
+                    this.classList.remove('error');
+                    nipError.classList.remove('visible');
+                }
+            });
+            
+            nipInput.addEventListener('input', function() {
+                // Remove error when user starts typing
+                this.classList.remove('error');
+                nipError.classList.remove('visible');
+            });
+            
             // Lightbox functionality
             const lightbox = document.getElementById('lightbox');
             const googleScriptUrl = document.getElementById('googleScriptUrl');
@@ -827,9 +893,19 @@
                 const submitBtn = document.getElementById('submitBtn');
                 const statusMessage = document.getElementById('statusMessage');
                 const scriptUrl = localStorage.getItem('googleScriptUrl');
+                const nip = document.getElementById('nip').value.trim();
                 
                 if (!scriptUrl) {
                     lightbox.classList.add('active');
+                    return;
+                }
+                
+                // Check if NIP is already registered
+                if (isNIPRegistered(nip)) {
+                    statusMessage.className = 'status-message error';
+                    statusMessage.innerHTML = '❌ <strong>Pendaftaran Gagal!</strong><br>NIP ini sudah terdaftar sebelumnya.<br>Setiap NIP hanya boleh mendaftar 1 kali.';
+                    document.getElementById('nip').classList.add('error');
+                    document.getElementById('nipError').classList.add('visible');
                     return;
                 }
                 
@@ -845,7 +921,7 @@
                     timestamp: document.getElementById('timestamp').value,
                     id: document.getElementById('id').value,
                     nama_lengkap: formData.get('nama_lengkap'),
-                    nip: formData.get('nip'),
+                    nip: nip,
                     unit_kerja: formData.get('unit_kerja'),
                     status_pegawai: formData.get('status_pegawai'),
                     jenis_sdmk: formData.get('jenis_sdmk'),
@@ -873,12 +949,15 @@
                         body: JSON.stringify(data)
                     });
                     
+                    // Save NIP to prevent duplicate registration
+                    saveRegisteredNIP(nip);
+                    
                     // Update quota
                     currentQuota--;
                     updateQuota();
                     
                     statusMessage.className = 'status-message success';
-                    statusMessage.innerHTML = '✅ <strong>Pendaftaran Berhasil!</strong><br>Data telah dikirim ke Google Sheets.<br>Sisa kuotam: ' + currentQuota + ' peserta';
+                    statusMessage.innerHTML = '✅ <strong>Pendaftaran Berhasil!</strong><br>Terima kasih telah mendaftar.<br>Sisa kuotam: ' + currentQuota + ' peserta';
                     
                     this.reset();
                     document.getElementById('timestamp').value = new Date().toISOString();
