@@ -1155,7 +1155,32 @@
        CONFIGURATION
        ============================================ */
     // GANTI DENGAN URL WEB APP ANDA
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxNt83Yf-Z0QXH_HeUYEf-bJyj6M8r_jSxaMqVdX5Ltl-4-qbbosvHK3ZyyFBkxGj7g/exec";
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyKwCnsXeS-EKWOPuOtJFBlmikc_BbNDROCxK9X8A9xdh6HfZwgRbQrsA_rWWSlUhh3/exec";
+    
+    // Helper function untuk mendapatkan URL data dengan CORS support
+    function getDataUrl() {
+      // Tambahkan mode=data untuk mengambil JSON
+      if (WEB_APP_URL.includes('?')) {
+        return WEB_APP_URL + "&mode=data";
+      } else {
+        return WEB_APP_URL + "?mode=data";
+      }
+    }
+    
+    // Helper function untuk redirect URL (tanpa mode=data)
+    function getRedirectUrl() {
+      return WEB_APP_URL;
+    }
+    
+    // Helper function untuk mendapatkan URL data
+    function getDataUrl() {
+      // Jika URL sudah ada ? maka tambahkan &mode=data, jika tidak tambahkan ?mode=data
+      if (WEB_APP_URL.includes('?')) {
+        return WEB_APP_URL + "&mode=data";
+      } else {
+        return WEB_APP_URL + "?mode=data";
+      }
+    }
     
     /* ============================================
        STATE MANAGEMENT
@@ -1258,21 +1283,34 @@
       showLoading(true);
       
       try {
-        const response = await fetch(WEB_APP_URL);
+        // Gunakan endpoint JSON dengan CORS headers
+        const dataUrl = getDataUrl();
+        const response = await fetch(dataUrl, {
+          method: 'GET',
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('HTTP error! status: ' + response.status);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
           allData = result.data;
           populateFilters();
           applyFilters();
-          showToast('success', `Berhasil memuat ${result.data.length} data SDMK`);
+          showToast('success', 'Berhasil memuat ' + result.data.length + ' data SDMK');
         } else {
           showToast('error', result.message);
           showEmptyState(true);
         }
       } catch (error) {
         console.error('Error loading data:', error);
-        showToast('error', 'Gagal memuat data. Pastikan URL Web App sudah benar.');
+        showToast('error', 'Gagal memuat data. Pastikan URL Web App sudah benar: ' + error.message);
         showEmptyState(true);
       } finally {
         showLoading(false);
