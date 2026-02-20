@@ -1121,6 +1121,34 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- Modal: Login -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fas fa-sign-in-alt"></i> Login Admin</h3>
+        <button class="modal-close" onclick="closeModal('loginModal')">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 20px; color: var(--text-medium);">Silakan login untuk mengakses halaman ini.</p>
+        <form id="loginModalForm">
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label">Username</label>
+            <input type="text" class="form-input" id="modalLoginUsername" placeholder="Masukkan username" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="modalLoginPassword" placeholder="Masukkan password" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+            <i class="fas fa-sign-in-alt"></i> Masuk
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Login Page -->
   <div class="login-container" id="loginPage">
     <div class="login-box">
@@ -1955,7 +1983,7 @@
     // ============================================
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyaH8iUT6YFrVeHE260esQ8HQqeTAKWiRUL-v3vGSkFE719t2q2ChlVMSLu4PjEXC9YHg/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx48ZLvjy4FrbPg94Cvvpu07PRCvwSrvkHV-zJIyQbvzaomxrfdu-F4mJg_OdgBfBkCGQ/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -1975,13 +2003,20 @@
     });
 
     function initApp() {
-      // Check if admin is logged in
+      // Check if admin session exists
       if (adminToken) {
         showApp();
-        loadDashboardData();
       } else {
         showLogin();
       }
+      
+      // Always show app container for public access
+      // Login required only for restricted pages
+      document.getElementById('appContainer').style.display = 'flex';
+      document.getElementById('loginPage').style.display = 'none';
+      
+      // Load dashboard data (public)
+      loadDashboardData();
       
       // Setup event listeners
       setupEventListeners();
@@ -2003,7 +2038,10 @@
 
       // Login form
       document.getElementById('loginForm').addEventListener('submit', handleLogin);
-
+      
+      // Modal login form
+      document.getElementById('loginModalForm').addEventListener('submit', handleModalLogin);
+      
       // Logout
       document.getElementById('logoutBtn').addEventListener('click', handleLogout);
 
@@ -2082,6 +2120,34 @@
     // ============================================
     // AUTHENTICATION
     // ============================================
+    function handleModalLogin(e) {
+      e.preventDefault();
+      
+      const username = document.getElementById('modalLoginUsername').value;
+      const password = document.getElementById('modalLoginPassword').value;
+
+      showToast('Sedang login...', 'info');
+
+      // For demo purposes, simulate login
+      // In production, this would call the Google Apps Script
+      if (username === 'admin' && password === 'pakintegrasi2026') {
+        adminToken = btoa(username + ':' + new Date().getTime());
+        sessionStorage.setItem('adminToken', adminToken);
+        sessionStorage.setItem('adminUser', username);
+        
+        closeModal('loginModal');
+        showApp();
+        loadDashboardData();
+        showToast('Login berhasil!', 'success');
+        
+        // Clear form
+        document.getElementById('modalLoginUsername').value = '';
+        document.getElementById('modalLoginPassword').value = '';
+      } else {
+        showToast('Username atau password salah!', 'error');
+      }
+    }
+
     function handleLogin(e) {
       e.preventDefault();
       
@@ -2116,18 +2182,39 @@
       document.getElementById('loginPage').style.display = 'flex';
       document.getElementById('appContainer').style.display = 'none';
     }
-
+    
+    function showLoginModal() {
+      document.getElementById('loginModal').classList.add('active');
+    }
+    
     function showApp() {
       document.getElementById('loginPage').style.display = 'none';
       document.getElementById('appContainer').style.display = 'flex';
-      document.getElementById('userInfo').style.display = 'flex';
-      document.getElementById('userName').textContent = sessionStorage.getItem('adminUser') || 'Admin';
+      
+      if (adminToken) {
+        document.getElementById('userInfo').style.display = 'flex';
+        document.getElementById('userName').textContent = sessionStorage.getItem('adminUser') || 'Admin';
+      } else {
+        document.getElementById('userInfo').style.display = 'none';
+      }
     }
 
     // ============================================
     // NAVIGATION
     // ============================================
+    // Menu yang membutuhkan login
+    const RESTRICTED_PAGES = ['admin', 'pengelola'];
+    
     function navigateTo(page) {
+      // Cek akses untuk halaman terbatas
+      if (RESTRICTED_PAGES.includes(page)) {
+        if (!adminToken) {
+          showToast('Silakan login terlebih dahulu!', 'warning');
+          showLoginModal();
+          return;
+        }
+      }
+      
       // Update menu active state
       document.querySelectorAll('.menu-item').forEach(item => {
         item.classList.remove('active');
