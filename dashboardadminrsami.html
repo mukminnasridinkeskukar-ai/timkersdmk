@@ -1152,33 +1152,12 @@
 
   <script>
     /* ============================================
-       EMBEDDED DATA - Dari Google Apps Script
+       CONFIGURATION - GANTI DENGAN URL GOOGLE APPS SCRIPT ANDA
        ============================================ */
-    // Google Apps Script akan meng-inject variabel GOOGLE_SCRIPT_DATA
-    // sebelum halaman di-serve
-    var EMBEDDED_DATA = undefined;
-    
-    // Debug: log semua variabel yang ada
-    console.log('Checking for embedded data...');
-    console.log('GOOGLE_SCRIPT_DATA exists:', typeof GOOGLE_SCRIPT_DATA !== 'undefined');
-    
-    if (typeof GOOGLE_SCRIPT_DATA !== 'undefined') {
-      EMBEDDED_DATA = GOOGLE_SCRIPT_DATA;
-      console.log('Embedded data loaded:', EMBEDDED_DATA);
-    } else {
-      console.log('GOOGLE_SCRIPT_DATA not found - will use fallback');
-    }
-    
-    /* ============================================
-       CONFIGURATION
-       ============================================ */
-    // Mode: 'embedded' = data dari Google Apps Script langsung
-    // Mode: 'external' = fetch dari API eksternal
-    const DATA_MODE = 'embedded'; // Gunakan 'embedded' untuk Google Apps Script
-    
-    // Untuk mode external, isi URL ini (tidak diperlukan untuk mode embedded)
-    const EXTERNAL_API_URL = "https://script.google.com/macros/s/AKfycbxxfLuHgCBsr297BBbZWkaeQBDmcQfd6J4lZqdAfb-MZKqGd54g8tOa_XWYH8W54Qg/exec";
-    
+    // GANTI INI DENGAN URL WEB APP GOOGLE SCRIPT ANDA
+    // Contoh: "https://script.google.com/macros/s/ABC123XYZ/exec"
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwfvp8ldSLwruAPihYH7gKvStqNrFF6Ui4-tyZeo69tqCxGWhRLIh4WLDYzmygErOHC/exec";
+
     /* ============================================
        STATE MANAGEMENT
        ============================================ */
@@ -1211,7 +1190,6 @@
       modalClose: document.getElementById('modalClose'),
       refreshBtn: document.getElementById('refreshBtn'),
       toastContainer: document.getElementById('toastContainer'),
-      // Stats elements
       statTotal: document.getElementById('statTotal'),
       statMale: document.getElementById('statMale'),
       statFemale: document.getElementById('statFemale'),
@@ -1225,66 +1203,9 @@
        INITIALIZATION
        ============================================ */
     document.addEventListener('DOMContentLoaded', function() {
-      // Load data - tergantung mode
-      if (DATA_MODE === 'embedded') {
-        // Gunakan data yang sudah di-embed
-        loadEmbeddedData();
-      } else {
-        // Fetch dari API eksternal
-        loadExternalData();
-      }
+      loadData();
       setupEventListeners();
     });
-
-    /* ============================================
-       LOAD EMBEDDED DATA (Dari Google Apps Script)
-       ============================================ */
-    function loadEmbeddedData() {
-      showLoading(true);
-      
-      console.log('loadEmbeddedData called');
-      console.log('EMBEDDED_DATA:', EMBEDDED_DATA);
-      
-      try {
-        // Cek apakah data tersedia dari embed
-        if (EMBEDDED_DATA && EMBEDDED_DATA.success) {
-          allData = EMBEDDED_DATA.data || [];
-          console.log('Data loaded from embed:', allData.length, 'records');
-          populateFilters();
-          applyFilters();
-          showToast('success', 'Berhasil memuat ' + allData.length + ' data SDMK');
-        } else {
-          // Jika embed gagal, coba mode external sebagai fallback
-          console.log('Embedded data not available or failed, trying external...');
-          loadExternalData();
-        }
-      } catch (error) {
-        console.error('Error loading embedded data:', error);
-        // Fallback ke external
-        loadExternalData();
-      } finally {
-        showLoading(false);
-      }
-    }
-    
-    /* ============================================
-       LOAD EXTERNAL DATA (Fallback)
-       ============================================ */
-    function loadExternalData() {
-      showLoading(true);
-      
-      // Untuk penggunaan standalone (tanpa Google Apps Script)
-      // Anda bisa mengisi data secara manual di sini
-      // atau menggunakan API eksternal
-      
-      // Contoh: Load dari file JSON lokal
-      // fetch('data.json').then(r => r.json()).then(data => { ... })
-      
-      // Untuk saat ini, tampilkan pesan bahwa perlu setup
-      showToast('info', 'Silakan deploy ke Google Apps Script untuk memuat data');
-      showLoading(false);
-      showEmptyState(true);
-    }
 
     /* ============================================
        EVENT LISTENERS
@@ -1318,11 +1239,8 @@
         if (e.target === elements.profileModal) closeModal();
       });
 
-      // Refresh - reload data dari embedded
-      elements.refreshBtn.addEventListener('click', function() {
-        // Untuk refresh, kita perlu reload halaman karena data di-embed saat serving
-        window.location.reload();
-      });
+      // Refresh
+      elements.refreshBtn.addEventListener('click', loadData);
 
       // Keyboard events
       document.addEventListener('keydown', function(e) {
@@ -1334,13 +1252,71 @@
     }
 
     /* ============================================
-       DATA LOADING -TERSEDIA UNTUK REFERENCE
+       DATA LOADING - Menggunakan JSONP/CORS Proxy
        ============================================ */
-    // Fungsi ini保留 untuk backward compatibility
-    // Load data sekarang menggunakan loadEmbeddedData() yang dipanggil di DOMContentLoaded
-    async function loadData() {
-      // Redirect ke loadEmbeddedData
-      loadEmbeddedData();
+    function loadData() {
+      showLoading(true);
+      
+      // Method: Menggunakan Google Apps Script sebagai JSONP endpoint
+      // Kita buat element script untuk bypass CORS
+      const callbackName = 'jsonp_callback_' + Math.round(Math.random() * 1000000);
+      
+      // Cek apakah URL sudah benar dikonfigurasi
+      if (GOOGLE_SCRIPT_URL.includes('your-script-id')) {
+        showToast('error', 'Silakan konfigurasi GOOGLE_SCRIPT_URL di index.html');
+        showEmptyState(true);
+        showLoading(false);
+        return;
+      }
+      
+      // Hapus callback lama jika ada
+      window[callbackName] = function(data) {
+        try {
+          if (data && data.success) {
+            allData = data.data || [];
+            populateFilters();
+            applyFilters();
+            showToast('success', 'Berhasil memuat ' + allData.length + ' data SDMK');
+          } else {
+            showToast('error', data?.message || 'Gagal memuat data');
+            showEmptyState(true);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          showToast('error', 'Error memuat data');
+          showEmptyState(true);
+        } finally {
+          showLoading(false);
+          // Cleanup
+          delete window[callbackName];
+          const oldScript = document.getElementById('jsonp-script');
+          if (oldScript) oldScript.remove();
+        }
+      };
+      
+      // Cek error timeout
+      setTimeout(() => {
+        if (typeof window[callbackName] === 'function') {
+          delete window[callbackName];
+          showToast('error', 'Gagal terhubung ke server. Periksa URL Google Apps Script.');
+          showEmptyState(true);
+          showLoading(false);
+          const oldScript = document.getElementById('jsonp-script');
+          if (oldScript) oldScript.remove();
+        }
+      }, 10000);
+      
+      // Load data via JSONP
+      const script = document.createElement('script');
+      script.id = 'jsonp-script';
+      script.src = GOOGLE_SCRIPT_URL + '?callback=' + callbackName;
+      script.onerror = function() {
+        showToast('error', 'Gagal terhubung ke server. Periksa URL Google Apps Script.');
+        showEmptyState(true);
+        showLoading(false);
+        delete window[callbackName];
+      };
+      document.head.appendChild(script);
     }
 
     /* ============================================
