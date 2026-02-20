@@ -1953,7 +1953,9 @@
     // ============================================
     // GLOBAL VARIABLES
     // ============================================
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxsiYFdyXYHbx8pnpbUFyjle83gcTyUQ4sqoPkp7_qpGbmsPjwVqjjYu_UBuen1eE1q-A/exec'; // Will be auto-detected in production
+    // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
+    // Format: https://script.google.com/macros/s/XXXXX/exec
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyaH8iUT6YFrVeHE260esQ8HQqeTAKWiRUL-v3vGSkFE719t2q2ChlVMSLu4PjEXC9YHg/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -2166,16 +2168,71 @@
     }
 
     // ============================================
-    // DATA LOADING
+    // API CALLS TO GOOGLE APPS SCRIPT
     // ============================================
-    function loadDashboardData() {
-      // Demo data for testing - replace with actual API call
-      const demoData = generateDemoData();
-      allData = demoData;
-      filteredData = [...allData];
-      updateStats();
-      updateCharts();
-      renderDashboardTable();
+    
+    async function apiCall(action, params = {}) {
+      // Jika menggunakan demo mode (belum dikonfigurasi)
+      if (SCRIPT_URL === 'ISI_URL_GOOGLE_SCRIPT_DISINI' || !SCRIPT_URL) {
+        console.log('Demo mode - using mock data');
+        return null; // Will use demo data
+      }
+      
+      try {
+        const url = new URL(SCRIPT_URL);
+        url.searchParams.append('action', action);
+        
+        Object.keys(params).forEach(key => {
+          url.searchParams.append(key, params[key]);
+        });
+        
+        const response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        console.error('API Error:', error);
+        showToast('Gagal terhubung ke server', 'error');
+        return null;
+      }
+    }
+
+    async function apiPost(action, data = {}) {
+      // Jika menggunakan demo mode
+      if (SCRIPT_URL === 'ISI_URL_GOOGLE_SCRIPT_DISINI' || !SCRIPT_URL) {
+        console.log('Demo mode - using mock data');
+        return null;
+      }
+      
+      try {
+        const formData = new FormData();
+        formData.append('action', action);
+        
+        Object.keys(data).forEach(key => {
+          formData.append(key, data[key]);
+        });
+        
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: formData
+        });
+        
+        const result = await response.json();
+        return result;
+      } catch (error) {
+        console.error('API Error:', error);
+        showToast('Gagal terhubung ke server', 'error');
+        return null;
+      }
+    }
+
+    function isDemoMode() {
+      return SCRIPT_URL === 'ISI_URL_GOOGLE_SCRIPT_DISINI' || !SCRIPT_URL;
     }
 
     function generateDemoData() {
