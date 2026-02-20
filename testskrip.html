@@ -1984,7 +1984,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyYN4P9qr4bvNJhdwSANVTA9EfUr21zkr4kmrgWdesKfOk0tQ_nLWF-S186cm3ACbVQlA/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxcyUk4Ybve1XiOyaQ6UIw-kF9tx2EUpFinWtt38_3u6FFPZTyqmiU401FrilXvhtr37w/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -2004,13 +2004,13 @@
     });
 
     function initApp() {
-      // Always show app container - all pages accessible without login
-      // Login only required for admin and SDMK pages
+      // Show app container immediately - dashboard is the default page
+      // No login required for dashboard, formulir, or tracking
       document.getElementById('appContainer').style.display = 'flex';
       document.getElementById('loginPage').style.display = 'none';
       
-      // Load dashboard data (public access)
-      loadDashboardData();
+      // Navigate to dashboard (Beranda) by default
+      navigateTo('dashboard');
       
       // Setup event listeners
       setupEventListeners();
@@ -2183,6 +2183,7 @@
         if (!adminToken) {
           showToast('Silakan login terlebih dahulu!', 'warning');
           showLoginModal();
+          // Stay on current page
           return;
         }
       }
@@ -2197,13 +2198,13 @@
 
       // Update page title
       const titles = {
-        'dashboard': 'Dashboard Data',
+        'dashboard': 'Beranda',
         'formulir': 'Formulir Pengajuan',
         'tracking': 'Pemantauan Proses',
         'pengelola': 'Dashboard SDMK',
         'admin': 'Admin Panel'
       };
-      document.getElementById('pageTitle').textContent = titles[page] || 'Dashboard';
+      document.getElementById('pageTitle').textContent = titles[page] || 'Beranda';
 
       // Show page section
       document.querySelectorAll('.page-section').forEach(section => {
@@ -2304,18 +2305,49 @@
     }
 
     // ============================================
-    // DATA LOADING
+    // DATA LOADING - Using JSONP for CORS workaround
     // ============================================
     function loadDashboardData() {
-      // Always try demo mode first for stability
-      // This ensures dashboard works even with CORS issues
-      console.log('Loading dashboard with demo data...');
-      const demoData = generateDemoData();
-      allData = demoData;
-      filteredData = [...allData];
-      updateStats();
-      updateCharts();
-      renderDashboardTable();
+      // Check if SCRIPT_URL is configured
+      if (!SCRIPT_URL || SCRIPT_URL === 'ISI_URL_GOOGLE_SCRIPT_DISINI') {
+        console.log('No API URL configured');
+        showToast('Silakan konfigurasi URL API terlebih dahulu', 'warning');
+        return;
+      }
+      
+      // Show loading
+      showToast('Memuat data...', 'info');
+      
+      // Use JSONP approach to bypass CORS
+      const callbackName = 'jsonp_callback_' + Math.round(Math.random() * 100000);
+      const url = SCRIPT_URL + '?action=getAllData&callback=' + callbackName;
+      
+      // Create script element for JSONP
+      const script = document.createElement('script');
+      script.src = url;
+      
+      window[callbackName] = function(response) {
+        if (response && response.success) {
+          allData = response.data;
+          filteredData = [...allData];
+          updateStats();
+          updateCharts();
+          renderDashboardTable();
+        } else {
+          showToast(response?.message || 'Gagal memuat data', 'error');
+        }
+        // Cleanup
+        delete window[callbackName];
+        script.remove();
+      };
+      
+      script.onerror = function() {
+        showToast('Gagal terhubung ke server', 'error');
+        delete window[callbackName];
+        script.remove();
+      };
+      
+      document.head.appendChild(script);
     }
 
     function generateDemoData() {
