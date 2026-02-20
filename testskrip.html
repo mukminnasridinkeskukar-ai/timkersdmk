@@ -859,9 +859,16 @@
                     <div class="verification-card">
                         <div class="verification-icon"><i class="fas fa-qrcode"></i></div>
                         <h4>Verifikasi Identitas</h4>
-                        <p class="text-muted mb-4">Masukkan email dan NIP yang digunakan saat pendaftaran</p>
+                        <p class="text-muted mb-4">Pilih kegiatan & masukkan email/NIP yang digunakan saat pendaftaran</p>
                         
                         <form id="verifyForm">
+                            <div class="mb-3">
+                                <label class="form-label required">Pilih Kegiatan</label>
+                                <select class="form-select" id="selectAbsensiTema" required onchange="updateAbsensiTimer()">
+                                    <option value="">-- Pilih Kegiatan --</option>
+                                </select>
+                                <small class="text-muted" id="absensiDateInfo"></small>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label required">Email</label>
                                 <input type="email" class="form-control" id="verifyEmail" placeholder="email@domain.com" required>
@@ -1269,7 +1276,7 @@
         // CONFIGURATION - GANTI DENGAN URL GOOGLE APPS SCRIPT ANDA
         // ============================================
         
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzFDtIPDtKPtC_wiYI8zsZ0PHjG9KT6BZL-fReA9yJ43V113MR4BMZriat8BB5a9O4GLw/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbwfEOdt6ZlkmaYbbCETTmwbE3oY3dXqpp1g4BtsTNh5KGzHIDaBEwUnfr4xASE9FT6Zdg/exec';
         
         // ============================================
         // GLOBAL VARIABLES
@@ -2019,20 +2026,96 @@
         // ============================================
         
         let absensiTimerInterval = null;
+        let selectedAbsensiJadwal = null;
         
         function startAbsensiTimer() {
-            // Default absensi hours - can be customized
-            const jamBuka = '08:00';
-            const jamTutup = '17:00';
+            // Load available topics for absensi
+            loadAbsensiTopics();
             
+            // Initialize with default hours
+            updateAbsensiTimerDisplay('08:00', '17:00', null);
+        }
+        
+        async function loadAbsensiTopics() {
+            const select = document.getElementById('selectAbsensiTema');
+            if (!select) return;
+            
+            try {
+                const result = await apiCall('getJadwal');
+                if (result.success && result.data) {
+                    // Filter today's activities
+                    const today = new Date().toISOString().split('T')[0];
+                    const todayActivities = result.data.filter(j => {
+                        return j.tanggal === today;
+                    });
+                    
+                    if (todayActivities.length > 0) {
+                        select.innerHTML = '<option value="">-- Pilih Kegiatan --</option>' +
+                            todayActivities.map(j => `<option value="${j.tema}" data-tanggal="${j.tanggal}" data-jammulai="${j.jammulai}" data-jamselesai="${j.jamselesai}">${j.tema} - ${formatDate(j.tanggal)}</option>`).join('');
+                    } else {
+                        // Show all upcoming activities
+                        select.innerHTML = '<option value="">-- Pilih Kegiatan --</option>' +
+                            result.data.map(j => `<option value="${j.tema}" data-tanggal="${j.tanggal}" data-jammulai="${j.jammulai}" data-jamselesai="${j.jamselesai}">${j.tema} - ${formatDate(j.tanggal)}</option>`).join('');
+                    }
+                }
+            } catch (error) {
+                // Demo mode
+                const demoTopics = [
+                    { tema: 'Leadership Transformation', tanggal: new Date().toISOString().split('T')[0], jammulai: '08:00', jamselesai: '16:00' },
+                    { tema: 'Digital Government Innovation', tanggal: '2024-03-20', jammulai: '09:00', jamselesai: '17:00' }
+                ];
+                document.getElementById('selectAbsensiTema').innerHTML = '<option value="">-- Pilih Kegiatan --</option>' +
+                    demoTopics.map(j => `<option value="${j.tema}" data-tanggal="${j.tanggal}" data-jammulai="${j.jammulai}" data-jamselesai="${j.jamselesai}">${j.tema} - ${formatDate(j.tanggal)}</option>`).join('');
+            }
+        }
+        
+        function updateAbsensiTimer() {
+            const select = document.getElementById('selectAbsensiTema');
+            const selectedOption = select?.options[select.selectedIndex];
+            
+            if (!selectedOption || !selectedOption.value) {
+                updateAbsensiTimerDisplay('08:00', '17:00', null);
+                return;
+            }
+            
+            const tanggal = selectedOption.getAttribute('data-tanggal');
+            const jamMulai = selectedOption.getAttribute('data-jammulai') || '08:00';
+            const jamSelesai = selectedOption.getAttribute('data-jamselesai') || '17:00';
+            
+            updateAbsensiTimerDisplay(jamMulai, jamSelesai, tanggal);
+        }
+        
+        function updateAbsensiTimerDisplay(jamBuka, jamTutup, tanggal) {
             document.getElementById('absensiJamBuka').textContent = jamBuka;
             document.getElementById('absensiJamTutup').textContent = jamTutup;
+            
+            const dateInfo = document.getElementById('absensiDateInfo');
+            if (tanggal) {
+                dateInfo.textContent = `📅 ${formatDate(tanggal)}`;
+            } else {
+                dateInfo.textContent = '';
+            }
             
             clearInterval(absensiTimerInterval);
             
             const updateAbsensiStatus = () => {
                 const now = new Date();
                 const currentTime = now.getTime();
+                const todayStr = now.toISOString().split('T')[0];
+                
+                // Check if selected date is today
+                if (tanggal && tanggal !== todayStr) {
+                    const statusEl = document.getElementById('absensiStatus');
+                    const countdownEl = document.getElementById('absensiCountdown');
+                    const bannerEl = document.getElementById('absensiTimerBanner');
+                    
+                    statusEl.textContent = 'BELUM WAKTUNYA';
+                    statusEl.className = 'badge bg-secondary';
+                    countdownEl.textContent = `Absensi dibuka pada ${formatDate(tanggal)}`;
+                    bannerEl.className = 'alert alert-secondary mb-4';
+                    document.getElementById('verifyForm')?.querySelector('button')?.setAttribute('disabled', 'true');
+                    return;
+                }
                 
                 // Get today's opening and closing times
                 const [bukaHour, bukaMin] = jamBuka.split(':').map(Number);
@@ -2056,7 +2139,6 @@
                     countdownEl.textContent = `Buka dalam ${hours}j ${minutes}m`;
                     bannerEl.className = 'alert alert-secondary mb-4';
                     
-                    // Disable verification form
                     document.getElementById('verifyForm')?.querySelector('button')?.setAttribute('disabled', 'true');
                 } else if (currentTime >= openTime && currentTime < closeTime) {
                     // Open
@@ -2069,7 +2151,6 @@
                     countdownEl.textContent = `Tutup dalam ${hours}j ${minutes}m`;
                     bannerEl.className = 'alert alert-success mb-4';
                     
-                    // Enable verification form
                     document.getElementById('verifyForm')?.querySelector('button')?.removeAttribute('disabled');
                 } else {
                     // Closed
@@ -2078,7 +2159,6 @@
                     countdownEl.textContent = 'Absensi hari ini telah ditutup';
                     bannerEl.className = 'alert alert-danger mb-4';
                     
-                    // Disable verification form
                     document.getElementById('verifyForm')?.querySelector('button')?.setAttribute('disabled', 'true');
                 }
             };
@@ -2184,15 +2264,27 @@
         document.getElementById('verifyForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            const tema = document.getElementById('selectAbsensiTema').value;
             const email = document.getElementById('verifyEmail').value;
             const nip = document.getElementById('verifyNIP').value;
+            
+            if (!tema) {
+                showToast('Pilih kegiatan terlebih dahulu!', 'warning');
+                return;
+            }
             
             // Verify via API
             const result = await apiCall('verifyPeserta', { email: email, nip: nip });
             
             if (result.success && result.data) {
+                // Check if registered for the selected tema
+                if (result.data.tema !== tema) {
+                    showToast('Anda tidak terdaftar untuk kegiatan ini!', 'warning');
+                    return;
+                }
+                
                 // Check if already absented
-                const checkAbsen = await apiCall('checkAbsensiExists', { nip: nip, tema: result.data.tema });
+                const checkAbsen = await apiCall('checkAbsensiExists', { nip: nip, tema: tema });
                 
                 if (checkAbsen.exists) {
                     showToast('Anda sudah melakukan absensi!', 'warning');
@@ -2207,7 +2299,7 @@
                 document.getElementById('absensiPlatform').textContent = result.data.platform || '-';
                 
                 document.getElementById('absensiId').value = result.data.id || '';
-                document.getElementById('absensiTema').value = result.data.tema || '';
+                document.getElementById('absensiTema').value = tema;
                 
                 document.getElementById('verificationForm').style.display = 'none';
                 document.getElementById('absensiForm').style.display = 'block';
