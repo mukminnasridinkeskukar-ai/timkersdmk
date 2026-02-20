@@ -1152,35 +1152,24 @@
 
   <script>
     /* ============================================
+       EMBEDDED DATA - Dari Google Apps Script
+       ============================================ */
+    // Google Apps Script akan meng-inject variabel GOOGLE_SCRIPT_DATA
+    // sebelum halaman di-serve
+    var EMBEDDED_DATA = undefined;
+    if (typeof GOOGLE_SCRIPT_DATA !== 'undefined') {
+      EMBEDDED_DATA = GOOGLE_SCRIPT_DATA;
+    }
+    
+    /* ============================================
        CONFIGURATION
        ============================================ */
-    // GANTI DENGAN URL WEB APP ANDA
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyKwCnsXeS-EKWOPuOtJFBlmikc_BbNDROCxK9X8A9xdh6HfZwgRbQrsA_rWWSlUhh3/exec";
+    // Mode: 'embedded' = data dari Google Apps Script langsung
+    // Mode: 'external' = fetch dari API eksternal
+    const DATA_MODE = 'embedded'; // Gunakan 'embedded' untuk Google Apps Script
     
-    // Helper function untuk mendapatkan URL data dengan CORS support
-    function getDataUrl() {
-      // Tambahkan mode=data untuk mengambil JSON
-      if (WEB_APP_URL.includes('?')) {
-        return WEB_APP_URL + "&mode=data";
-      } else {
-        return WEB_APP_URL + "?mode=data";
-      }
-    }
-    
-    // Helper function untuk redirect URL (tanpa mode=data)
-    function getRedirectUrl() {
-      return WEB_APP_URL;
-    }
-    
-    // Helper function untuk mendapatkan URL data
-    function getDataUrl() {
-      // Jika URL sudah ada ? maka tambahkan &mode=data, jika tidak tambahkan ?mode=data
-      if (WEB_APP_URL.includes('?')) {
-        return WEB_APP_URL + "&mode=data";
-      } else {
-        return WEB_APP_URL + "?mode=data";
-      }
-    }
+    // Untuk mode external, isi URL ini (tidak diperlukan untuk mode embedded)
+    const EXTERNAL_API_URL = "https://script.google.com/macros/s/AKfycbwnRvMlTlfg-q4BKEp8DwVXLO1qABlLTVW17UyG7KSG0ZvNTJulzDwRl0MwujduBXO-/exec";
     
     /* ============================================
        STATE MANAGEMENT
@@ -1228,9 +1217,62 @@
        INITIALIZATION
        ============================================ */
     document.addEventListener('DOMContentLoaded', function() {
-      loadData();
+      // Load data - tergantung mode
+      if (DATA_MODE === 'embedded') {
+        // Gunakan data yang sudah di-embed
+        loadEmbeddedData();
+      } else {
+        // Fetch dari API eksternal
+        loadExternalData();
+      }
       setupEventListeners();
     });
+
+    /* ============================================
+       LOAD EMBEDDED DATA (Dari Google Apps Script)
+       ============================================ */
+    function loadEmbeddedData() {
+      showLoading(true);
+      
+      try {
+        // Cek apakah data tersedia dari embed
+        if (EMBEDDED_DATA && EMBEDDED_DATA.success) {
+          allData = EMBEDDED_DATA.data || [];
+          populateFilters();
+          applyFilters();
+          showToast('success', 'Berhasil memuat ' + allData.length + ' data SDMK');
+        } else {
+          // Jika embed gagal, coba mode external sebagai fallback
+          console.log('Embedded data not available, trying external...');
+          loadExternalData();
+        }
+      } catch (error) {
+        console.error('Error loading embedded data:', error);
+        // Fallback ke external
+        loadExternalData();
+      } finally {
+        showLoading(false);
+      }
+    }
+    
+    /* ============================================
+       LOAD EXTERNAL DATA (Fallback)
+       ============================================ */
+    function loadExternalData() {
+      showLoading(true);
+      
+      // Untuk penggunaan standalone (tanpa Google Apps Script)
+      // Anda bisa mengisi data secara manual di sini
+      // atau menggunakan API eksternal
+      
+      // Contoh: Load dari file JSON lokal
+      // fetch('data.json').then(r => r.json()).then(data => { ... })
+      
+      // Untuk saat ini, tampilkan pesan bahwa perlu setup
+      showToast('info', 'Silakan deploy ke Google Apps Script untuk memuat data');
+      showLoading(false);
+      showEmptyState(true);
+    }
 
     /* ============================================
        EVENT LISTENERS
@@ -1264,8 +1306,11 @@
         if (e.target === elements.profileModal) closeModal();
       });
 
-      // Refresh
-      elements.refreshBtn.addEventListener('click', loadData);
+      // Refresh - reload data dari embedded
+      elements.refreshBtn.addEventListener('click', function() {
+        // Untuk refresh, kita perlu reload halaman karena data di-embed saat serving
+        window.location.reload();
+      });
 
       // Keyboard events
       document.addEventListener('keydown', function(e) {
@@ -1277,44 +1322,13 @@
     }
 
     /* ============================================
-       DATA LOADING
+       DATA LOADING -TERSEDIA UNTUK REFERENCE
        ============================================ */
+    // Fungsi ini保留 untuk backward compatibility
+    // Load data sekarang menggunakan loadEmbeddedData() yang dipanggil di DOMContentLoaded
     async function loadData() {
-      showLoading(true);
-      
-      try {
-        // Gunakan endpoint JSON dengan CORS headers
-        const dataUrl = getDataUrl();
-        const response = await fetch(dataUrl, {
-          method: 'GET',
-          mode: 'cors',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('HTTP error! status: ' + response.status);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          allData = result.data;
-          populateFilters();
-          applyFilters();
-          showToast('success', 'Berhasil memuat ' + result.data.length + ' data SDMK');
-        } else {
-          showToast('error', result.message);
-          showEmptyState(true);
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-        showToast('error', 'Gagal memuat data. Pastikan URL Web App sudah benar: ' + error.message);
-        showEmptyState(true);
-      } finally {
-        showLoading(false);
-      }
+      // Redirect ke loadEmbeddedData
+      loadEmbeddedData();
     }
 
     /* ============================================
