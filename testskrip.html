@@ -3380,70 +3380,63 @@
           driveLink: ''
         };
 
-       // Upload file to Drive first if selected
+              // Upload file to Drive first if selected - using POST
         if (selectedFile) {
           showToast('Mengupload dokumen ke Google Drive...', 'info');
-          const reader = new FileReader();
           
           const uploadResult = await new Promise((resolve, reject) => {
-            reader.onload = async function(event) {
-              try {
-                // Convert to base64
-                const base64Data = event.target.result.split(',')[1];
-                const fileName = selectedFile.name;
-                
-                // Upload to Google Drive via API
-                const callbackName = 'upload_callback_' + Math.round(Math.random() * 100000);
-                const uploadUrl = SCRIPT_URL + '?action=uploadFile&callback=' + callbackName + 
-                  '&fileName=' + encodeURIComponent(fileName) + 
-                  '&base64Data=' + encodeURIComponent(base64Data) + 
-                  '&folderId=' + encodeURIComponent('1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
-                
-                               const script = document.createElement('script');
-                script.src = uploadUrl;
-                
-                let resolved = false;
-                
-                window[callbackName] = function(response) {
-                  resolved = true;
-                  if (response && response.success && response.fileUrl) {
-                    resolve(response.fileUrl);
+            try {
+              const reader = new FileReader();
+              
+              reader.onload = async function(event) {
+                try {
+                  const base64Data = event.target.result.split(',')[1];
+                  const fileName = selectedFile.name;
+                  
+                  // Check file size (1MB = ~1.33M base64 chars)
+                  if (base64Data.length > 1400000) {
+                    showToast('File terlalu besar! Maksimal 1MB', 'error');
+                    resolve('');
+                    return;
+                  }
+                  
+                  // Use POST for larger files
+                  const formData = new FormData();
+                  formData.append('contentType', 'application/pdf');
+                  formData.append('fileName', fileName);
+                  formData.append('folderId', '1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
+                  formData.append('file', selectedFile);
+                  
+                  // POST request to Google Apps Script
+                  const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData
+                  });
+                  
+                  const result = await response.json();
+                  
+                  if (result && result.success) {
+                    resolve(result.fileUrl);
                   } else {
-                    // Upload failed - show error but continue with empty link
-                    showToast(response?.message || 'Upload gagal - dokumen tidak akan tersedia', 'error');
+                    showToast(result?.message || 'Upload gagal', 'error');
                     resolve('');
                   }
-                };
-                
-                script.onerror = function() {
-                  if (!resolved) {
-                    resolved = true;
-                    showToast('Gagal koneksi ke server upload - dokumen tidak akan tersedia', 'error');
-                    resolve('');
-                  }
-                };
-                
-                document.head.appendChild(script);
-                
-                // Timeout - 15 seconds
-                setTimeout(() => {
-                  if (!resolved) {
-                    resolved = true;
-                    showToast('Upload timeout - dokumen tidak akan tersedia', 'error');
-                    resolve('');
-                  }
-                }, 15000);
-                
-              } catch (err) {
-                showToast('Error processing file: ' + err.message, 'error');
-                reject(err);
-              }
-            };
-            reader.onerror = function() {
-              showToast('Gagal membaca file', 'error');
-              reject(new Error('Gagal membaca file'));
-            };
-            reader.readAsDataURL(selectedFile);
+                } catch (err) {
+                  showToast('Error upload: ' + err.message, 'error');
+                  reject(err);
+                }
+              };
+              
+              reader.onerror = function() {
+                showToast('Gagal membaca file', 'error');
+                reject(new Error('Gagal membaca file'));
+              };
+              
+              reader.readAsDataURL(selectedFile);
+            } catch (err) {
+              showToast('Error: ' + err.message, 'error');
+              reject(err);
+            }
           });
           
           formData.driveLink = uploadResult;
