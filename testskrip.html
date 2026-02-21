@@ -193,6 +193,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+      position: relative;
     }
 
     .user-avatar {
@@ -1214,7 +1215,7 @@
         
         <a class="menu-item" data-page="pengelola">
           <i class="fas fa-building"></i>
-          <span>Dashboard SDMK</span>
+          <span>User SDMK</span>
         </a>
         
         <div class="menu-section">Administrasi</div>
@@ -1225,7 +1226,7 @@
           <span class="menu-badge" id="adminBadge" style="display: none;">!</span>
         </a>
         
-        <a class="menu-item" id="logoutBtn">
+        <a class="menu-item" id="logoutBtn" style="display: none;">
           <i class="fas fa-sign-out-alt"></i>
           <span>Logout</span>
         </a>
@@ -1242,13 +1243,21 @@
           <h1 class="page-title" id="pageTitle">Dashboard Data</h1>
         </div>
         
-        <div class="user-info" id="userInfo" style="display: none;">
+        <div class="user-info" id="userInfo" style="display: none; cursor: pointer;" onclick="toggleUserMenu()">
           <div class="user-avatar">
             <i class="fas fa-user"></i>
           </div>
           <div>
             <div class="user-name" id="userName">Admin</div>
-            <div class="user-role">Administrator</div>
+            <div class="user-role" id="userRole">Administrator</div>
+          </div>
+          <i class="fas fa-chevron-down" style="margin-left: 8px; color: var(--text-light);"></i>
+          
+          <!-- Dropdown Menu -->
+          <div id="userDropdown" style="display: none; position: absolute; top: 60px; right: 30px; background: var(--white); border-radius: 8px; box-shadow: var(--shadow-lg); min-width: 180px; z-index: 1000; overflow: hidden;">
+            <a href="#" onclick="handleLogout(); return false;" style="display: block; padding: 12px 16px; color: var(--danger); text-decoration: none; font-weight: 500;">
+              <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
           </div>
         </div>
       </header>
@@ -1984,7 +1993,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOdqhpRVoi3eZCHXAKrCapUg9UWf63VXzFSW7yZxl4DikQUtJC2tWwiBIOqI3EnWRs7w/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxWYiaCxJxUPLrbmPGbHStubc6fcQ-Xf5RQ0V9xyJRAykIe6WVihqXm-yWML6TDNOJ3lA/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -2180,11 +2189,36 @@
       
       if (adminToken) {
         document.getElementById('userInfo').style.display = 'flex';
-        document.getElementById('userName').textContent = sessionStorage.getItem('adminUser') || 'Admin';
+        // Get stored user info
+        const storedUser = sessionStorage.getItem('adminUser');
+        if (storedUser) {
+          try {
+            const user = JSON.parse(storedUser);
+            document.getElementById('userName').textContent = user.nama || user.username;
+            document.getElementById('userRole').textContent = user.role === 'admin' ? 'Administrator' : 'User SDMK';
+          } catch(e) {
+            document.getElementById('userName').textContent = storedUser;
+            document.getElementById('userRole').textContent = 'Admin';
+          }
+        }
       } else {
         document.getElementById('userInfo').style.display = 'none';
       }
     }
+    
+    function toggleUserMenu() {
+      const dropdown = document.getElementById('userDropdown');
+      dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      const userInfo = document.getElementById('userInfo');
+      const dropdown = document.getElementById('userDropdown');
+      if (userInfo && !userInfo.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
 
     // ============================================
     // NAVIGATION
@@ -2216,7 +2250,7 @@
         'dashboard': 'Beranda',
         'formulir': 'Formulir Pengajuan',
         'tracking': 'Pemantauan Proses',
-        'pengelola': 'Dashboard SDMK',
+        'pengelola': 'User SDMK',
         'admin': 'Admin Panel'
       };
       document.getElementById('pageTitle').textContent = titles[page] || 'Beranda';
