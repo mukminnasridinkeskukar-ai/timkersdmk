@@ -3348,27 +3348,49 @@
       openModal('statusModal');
     }
 
-    function submitStatusUpdate() {
-      const rowIndex = parseInt(document.getElementById('statusRowNumber').value) - 2;
+     function submitStatusUpdate() {
+      const rowNumber = parseInt(document.getElementById('statusRowNumber').value);
       const newStatus = document.getElementById('updateStatus').value;
       const catatan = document.getElementById('updateCatatan').value;
 
-      if (rowIndex >= 0 && rowIndex < allData.length) {
-        allData[rowIndex]['Status'] = newStatus;
-        allData[rowIndex]['Catatan Admin'] = catatan;
-        allData[rowIndex]['Update Terakhir'] = new Date().toISOString();
-
-        showToast('Status berhasil diupdate!', 'success');
-        closeModal('statusModal');
-        filterAdmin();
+      if (!rowNumber || rowNumber < 2) {
+        showToast('Nomor baris tidak valid!', 'error');
+        return;
       }
+
+      // Show loading
+      const btn = document.querySelector('#statusModal .btn-primary');
+      const originalText = btn ? btn.textContent : 'Simpan';
+      if (btn) btn.disabled = true;
+
+      // Call backend API
+      jsonpCall('updateStatus', {
+        rowNumber: rowNumber,
+        status: newStatus,
+        catatan: catatan
+      }, function(response) {
+        if (btn) btn.disabled = false;
+        
+        if (response && response.success) {
+          showToast('Status berhasil diupdate!', 'success');
+          closeModal('statusModal');
+          loadAdminData(); // Reload from server
+        } else {
+          showToast(response?.message || 'Gagal merubah data status', 'error');
+        }
+      }, function(error) {
+        if (btn) btn.disabled = false;
+        showToast('Gagal merubah data status: ' + error, 'error');
+      });
     }
 
     function showEdit(index) {
       const row = filteredData[index];
       if (!row) return;
 
-      document.getElementById('editRowNumber').value = index;
+      // Get the actual row number in the sheet (index + 2 because row 1 is header)
+      const rowNumber = index + 2;
+      document.getElementById('editRowNumber').value = rowNumber;
       document.getElementById('editNama').value = row['Nama Lengkap dengan Gelar'] || '';
       document.getElementById('editNIP').value = row['NIP'] || '';
       document.getElementById('editPangkatGol').value = row['Pangkat/Gol'] || '';
@@ -3383,24 +3405,44 @@
     }
 
     function submitEdit() {
-      const index = parseInt(document.getElementById('editRowNumber').value);
+      const rowNumber = parseInt(document.getElementById('editRowNumber').value);
       
-      if (index >= 0 && index < allData.length) {
-        allData[index]['Nama Lengkap dengan Gelar'] = document.getElementById('editNama').value;
-        allData[index]['NIP'] = document.getElementById('editNIP').value;
-        allData[index]['Pangkat/Gol'] = document.getElementById('editPangkatGol').value;
-        allData[index]['Jenis JF'] = document.getElementById('editJenisJF').value;
-        allData[index]['Jenjang JF'] = document.getElementById('editJenjangJF').value;
-        allData[index]['Satuan Kerja'] = document.getElementById('editSatuanKerja').value;
-        allData[index]['TMT Pangkat'] = document.getElementById('editTmtpangkat').value;
-        allData[index]['TMT JF'] = document.getElementById('editTmtjf').value;
-        allData[index]['Masa Kerja Gol'] = document.getElementById('editMasaKerjaGol').value;
-        allData[index]['Update Terakhir'] = new Date().toISOString();
-
-        showToast('Data berhasil diupdate!', 'success');
-        closeModal('editModal');
-        filterAdmin();
+      if (!rowNumber || rowNumber < 2) {
+        showToast('Nomor baris tidak valid!', 'error');
+        return;
       }
+
+      // Show loading
+      const btn = document.querySelector('#editModal .btn-primary');
+      const originalText = btn ? btn.textContent : 'Simpan';
+      if (btn) btn.disabled = true;
+
+      // Call backend API
+      jsonpCall('updateData', {
+        rowNumber: rowNumber,
+        nama: document.getElementById('editNama').value,
+        nip: document.getElementById('editNIP').value,
+        pangkatGol: document.getElementById('editPangkatGol').value,
+        jenisJF: document.getElementById('editJenisJF').value,
+        jenjangJF: document.getElementById('editJenjangJF').value,
+        satuanKerja: document.getElementById('editSatuanKerja').value,
+        tmtPangkat: document.getElementById('editTmtpangkat').value,
+        tmtJF: document.getElementById('editTmtjf').value,
+        masaKerjaGol: document.getElementById('editMasaKerjaGol').value
+      }, function(response) {
+        if (btn) btn.disabled = false;
+        
+        if (response && response.success) {
+          showToast('Data berhasil diupdate!', 'success');
+          closeModal('editModal');
+          loadAdminData(); // Reload from server
+        } else {
+          showToast(response?.message || 'Gagal mengupdate data', 'error');
+        }
+      }, function(error) {
+        if (btn) btn.disabled = false;
+        showToast('Gagal mengupdate data: ' + error, 'error');
+      });
     }
 
     function openDeleteModal(rowNumber) {
@@ -3409,18 +3451,33 @@
     }
 
     function confirmDelete() {
-      if (deleteRowNumber) {
-        // In production, call delete API
-        // For demo, remove from array
-        const index = deleteRowNumber - 2;
-        if (index >= 0 && index < allData.length) {
-          allData.splice(index, 1);
-          showToast('Data berhasil dihapus!', 'success');
-        }
-        
-        closeModal('deleteModal');
-        filterAdmin();
+      if (!deleteRowNumber) {
+        showToast('Nomor baris tidak valid!', 'error');
+        return;
       }
+
+      // Show loading
+      const btn = document.querySelector('#deleteModal .btn-danger');
+      const originalText = btn ? btn.textContent : 'Hapus';
+      if (btn) btn.disabled = true;
+
+      // Call backend API
+      jsonpCall('deleteData', {
+        rowNumber: deleteRowNumber
+      }, function(response) {
+        if (btn) btn.disabled = false;
+        
+        if (response && response.success) {
+          showToast('Data berhasil dihapus!', 'success');
+          closeModal('deleteModal');
+          loadAdminData(); // Reload from server
+        } else {
+          showToast(response?.message || 'Gagal menghapus data', 'error');
+        }
+      }, function(error) {
+        if (btn) btn.disabled = false;
+        showToast('Gagal menghapus data: ' + error, 'error');
+      });
     }
 
     function viewDocument(url) {
