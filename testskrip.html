@@ -1984,7 +1984,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxcyUk4Ybve1XiOyaQ6UIw-kF9tx2EUpFinWtt38_3u6FFPZTyqmiU401FrilXvhtr37w/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwaqsB-v8e7fn1zgA6dIUaYKHhzMhWB_0VIP76rRuLIH60sn1pfK_P5-thufw1NLM_9Tg/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -2114,6 +2114,16 @@
     // ============================================
     // AUTHENTICATION (Modal only - for restricted pages)
     // ============================================
+    // User roles: admin (full access), sdmk (only access own Satuan Kerja)
+    const USERS = [
+      {username: 'admin', password: 'admin123', role: 'admin', nama: 'Administrator', satuanKerja: 'all'},
+      {username: 'sdmk1', password: 'sdmk2024', role: 'sdmk', nama: 'RSUD type B', satuanKerja: 'RSUD Tipe B'},
+      {username: 'sdmk2', password: 'sdmk2024', role: 'sdmk', nama: 'RSUD type C', satuanKerja: 'RSUD Tipe C'},
+      {username: 'sdmk3', password: 'sdmk2024', role: 'sdmk', nama: 'Puskesmas', satuanKerja: 'Puskesmas'}
+    ];
+    
+    let currentUser = null; // Store user info after login
+    
     function handleModalLogin(e) {
       e.preventDefault();
       
@@ -2122,17 +2132,21 @@
 
       showToast('Sedang login...', 'info');
 
-      // For demo purposes, simulate login
-      // In production, this would call the Google Apps Script
-      if (username === 'admin' && password === 'pakintegrasi2026') {
+      // Check credentials against USERS array
+      const user = USERS.find(u => u.username === username && u.password === password);
+      
+      if (user) {
         adminToken = btoa(username + ':' + new Date().getTime());
         sessionStorage.setItem('adminToken', adminToken);
-        sessionStorage.setItem('adminUser', username);
+        sessionStorage.setItem('adminUser', JSON.stringify(user));
+        currentUser = user;
         
         closeModal('loginModal');
         showApp();
         loadDashboardData();
-        showToast('Login berhasil!', 'success');
+        
+        const roleLabel = user.role === 'admin' ? 'Administrator' : user.nama;
+        showToast('Login berhasil sebagai ' + roleLabel + '!', 'success');
         
         // Clear form
         document.getElementById('modalLoginUsername').value = '';
@@ -2146,6 +2160,7 @@
       sessionStorage.removeItem('adminToken');
       sessionStorage.removeItem('adminUser');
       adminToken = null;
+      currentUser = null;
       showLogin();
       showToast('Logout berhasil!', 'success');
     }
@@ -2315,12 +2330,18 @@
         return;
       }
       
+      // Get token from session
+      const token = sessionStorage.getItem('adminToken');
+      
       // Show loading
       showToast('Memuat data...', 'info');
       
       // Use JSONP approach to bypass CORS
       const callbackName = 'jsonp_callback_' + Math.round(Math.random() * 100000);
-      const url = SCRIPT_URL + '?action=getAllData&callback=' + callbackName;
+      let url = SCRIPT_URL + '?action=getAllData&callback=' + callbackName;
+      if (token) {
+        url += '&token=' + encodeURIComponent(token);
+      }
       
       // Create script element for JSONP
       const script = document.createElement('script');
@@ -2330,6 +2351,18 @@
         if (response && response.success) {
           allData = response.data;
           filteredData = [...allData];
+          
+          // Store user info if returned
+          if (response.user) {
+            currentUser = response.user;
+            sessionStorage.setItem('adminUser', JSON.stringify(response.user));
+          }
+          
+          // Show message if filtered
+          if (response.user && response.user.role === 'sdmk') {
+            showToast('Data ditampilkan untuk: ' + response.user.satuanKerja, 'info');
+          }
+          
           updateStats();
           updateCharts();
           renderDashboardTable();
@@ -2957,7 +2990,7 @@
         return;
       }
 
-      // Check for duplicate NIP
+      // Check for duplicate NIP in local data
       const isDuplicate = allData.some(row => row['NIP'] === nip);
       if (isDuplicate) {
         showToast('NIP sudah terdaftar!', 'error');
@@ -2969,46 +3002,99 @@
       submitBtn.innerHTML = '<span class="loading-spinner"></span> Mengirim...';
 
       try {
-        // In production, this would upload to Drive and submit to Sheet
-        // For demo, simulate success
-        
-        // Simulate file upload delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        // Add to demo data
-        const newRow = {
-          'Timestamp': new Date().toISOString(),
-          'Email': document.getElementById('email').value,
-          'NoHP': document.getElementById('noHP').value,
-          'Nama Lengkap dengan Gelar': document.getElementById('nama').value.toUpperCase(),
-          'NIP': document.getElementById('nip').value,
-          'No Karpeg': document.getElementById('noKarpeg').value,
-          'Tempat & Tanggal Lahir': document.getElementById('tempatLahir').value + ', ' + document.getElementById('tanggalLahir').value,
-          'Pendidikan': document.getElementById('pendidikan').value,
-          'Jenis Kelamin': document.getElementById('jenisKelamin').value,
-          'Pangkat/Gol': document.getElementById('pangkatGol').value,
-          'TMT Pangkat': document.getElementById('tmtPangkat').value,
-          'Jenis JF': document.getElementById('jenisJF').value,
-          'Jenjang JF': document.getElementById('jenjangJF').value,
-          'TMT JF': document.getElementById('tmtJF').value,
-          'Masa Kerja Gol': document.getElementById('masaKerjaGol').value,
-          'Satuan Kerja': document.getElementById('satuanKerja').value,
-          'Upload Dokumen (Drive Link)': selectedFile ? 'https://drive.google.com/file/d/demo' : '',
-          'Status': 'Menunggu',
-          'Catatan Admin': '',
-          'Update Terakhir': new Date().toISOString()
+        // Prepare form data
+        const formData = {
+          email: document.getElementById('email').value,
+          noHP: document.getElementById('noHP').value,
+          nama: document.getElementById('nama').value.toUpperCase(),
+          nip: document.getElementById('nip').value,
+          noKarpeg: document.getElementById('noKarpeg').value,
+          tempatLahir: document.getElementById('tempatLahir').value,
+          tanggalLahir: document.getElementById('tanggalLahir').value,
+          pendidikan: document.getElementById('pendidikan').value,
+          jenisKelamin: document.getElementById('jenisKelamin').value,
+          pangkatGol: document.getElementById('pangkatGol').value,
+          tmtPangkat: document.getElementById('tmtPangkat').value,
+          jenisJF: document.getElementById('jenisJF').value,
+          jenjangJF: document.getElementById('jenjangJF').value,
+          tmtJF: document.getElementById('tmtJF').value,
+          masaKerjaGol: document.getElementById('masaKerjaGol').value,
+          satuanKerja: document.getElementById('satuanKerja').value,
+          driveLink: ''
         };
 
-        allData.unshift(newRow);
+        // Upload file to Drive first if selected
+        if (selectedFile) {
+          showToast('Mengupload dokumen...', 'info');
+          const reader = new FileReader();
+          
+          await new Promise((resolve, reject) => {
+            reader.onload = async function(event) {
+              try {
+                // Convert to base64
+                const base64Data = event.target.result.split(',')[1];
+                
+                // In production, upload to Drive via API
+                // For now, simulate with a placeholder link
+                formData.driveLink = 'https://drive.google.com/file/d/placeholder';
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(selectedFile);
+          });
+        }
+
+        // Submit to Google Sheet via JSONP
+        const callbackName = 'submit_callback_' + Math.round(Math.random() * 100000);
+        const url = SCRIPT_URL + '?action=submitForm&callback=' + callbackName + '&' + 
+          Object.keys(formData).map(key => key + '=' + encodeURIComponent(formData[key])).join('&');
+        
+        // Create script element for JSONP
+        const script = document.createElement('script');
+        script.src = url;
+        
+        await new Promise((resolve, reject) => {
+          window[callbackName] = function(response) {
+            if (response && response.success) {
+              // Add to local data
+              const newRow = {
+                'Timestamp': new Date().toISOString(),
+                ...formData,
+                'Tempat & Tanggal Lahir': formData.tempatLahir + ', ' + formData.tanggalLahir,
+                'Status': 'Menunggu',
+                'Catatan Admin': '',
+                'Update Terakhir': new Date().toISOString()
+              };
+              allData.unshift(newRow);
+              showToast(response.message || 'Pengajuan berhasil disubmit!', 'success');
+              resolve();
+            } else {
+              showToast(response?.message || 'Gagal submit', 'error');
+              reject(new Error(response?.message));
+            }
+            delete window[callbackName];
+            script.remove();
+          };
+          
+          script.onerror = function() {
+            showToast('Gagal terhubung ke server', 'error');
+            reject(new Error('Network error'));
+            delete window[callbackName];
+            script.remove();
+          };
+          
+          document.head.appendChild(script);
+        });
         
         // Reset form
         document.getElementById('pengajuanForm').reset();
         selectedFile = null;
         document.getElementById('fileName').style.display = 'none';
-
-        showToast('Pengajuan berhasil disubmit!', 'success');
         
-        // Redirect to tracking page after 1 second
+        // Redirect to tracking page
         setTimeout(() => {
           navigateTo('tracking');
         }, 1500);
