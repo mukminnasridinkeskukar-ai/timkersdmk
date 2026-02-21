@@ -1613,14 +1613,19 @@
                 <div class="form-group full-width">
                   <label class="form-label">Upload Dokumen Kelengkapan (PDF) <span class="required">*</span></label>
                   <div class="file-upload-wrapper">
-                    <div class="file-upload-area" id="fileUploadArea">
+                  <div class="file-upload-area" id="fileUploadArea">
                       <i class="fas fa-cloud-upload-alt"></i>
                       <p>Klik atau drag file PDF di sini</p>
-                      <span>Ukuran maksimal: 10MB</span>
+                      <span>Ukuran maksimal: 500KB</span>
                     </div>
                     <input type="file" id="fileInput" accept=".pdf" style="display: none;">
                     <div class="file-name" id="fileName" style="display: none;"></div>
                   </div>
+                  <small class="text-muted" style="margin-top: 5px; display: block;">
+                    <i class="fas fa-info-circle"></i> Pastikan ukuran file PDF maksimal 500KB untuk upload otomatis
+                  </small>
+                </div>
+              </div>
                 </div>
               </div>
               
@@ -2226,7 +2231,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-5mIrDAGMGbdzgxmCIJqIatCDOT2qzu7zULDIrayun0wish5JDSQHp0w4mJeEYKDq0A/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGj___rp1S5llYo2L-C4qHVMfm89qrt0RCZoKFdFk41rccSrxMohxjjutE_MqRuvULbw/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -3380,6 +3385,11 @@
         return;
       }
 
+      // Validate document - file is required
+      if (!selectedFile) {
+        showToast('Silakan upload dokumen PDF!', 'error');
+        return;
+      }
       const submitBtn = document.getElementById('submitBtn');
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<span class="loading-spinner"></span> Mengirim...';
@@ -3416,54 +3426,96 @@
             reader.onload = async function(event) {
               try {
                 // Convert to base64
-               const base64Data = event.target.result.split(',')[1];
+                             const base64Data = event.target.result.split(',')[1];
                 const fileName = selectedFile.name;
                 
-                // Check size - limit to ~800KB for URL-based upload (max ~1MB file)
-                if (base64Data.length > 800000) {
-                  showToast('File terlalu besar untuk upload otomatis (maks ~500KB). Coba file yang lebih kecil.', 'warning');
+                // Check size - very conservative limit for URL-based upload
+                // Maximum safe URL length is ~2000-4000 chars, base64 adds 33%
+                // So max file size is around 100KB
+                if (base64Data.length > 100000) {
+                  showToast('File terlalu besar! Compress PDF agar di bawah 75KB.', 'error');
                   resolve('');
                   return;
                 }
                 
-                // Use JSONP
-                const callbackName = 'upload_callback_' + Math.round(Math.random() * 100000);
+                console.log('File size (base64):', base64Data.length, 'chars');
+                
+                // Use JSONP for upload - send directly to Google Apps Script
+                const callbackName = 'upload_callback_' + Math.round(Math.random() * 1000000);
                 const uploadUrl = SCRIPT_URL + '?action=uploadFile&callback=' + callbackName + 
                   '&fileName=' + encodeURIComponent(fileName) + 
                   '&base64Data=' + encodeURIComponent(base64Data) + 
                   '&folderId=' + encodeURIComponent('1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
                 
+                console.log('Upload URL length:', uploadUrl.length);
+                
+                if (uploadUrl.length > 4000) {
+                  showToast('URL terlalu panjang. Compress PDF lebih kecil lagi.', 'error');
+                  resolve('');
+                  return;
+                }
+                
+                // Create script element for JSONP
                 const script = document.createElement('script');
                 script.src = uploadUrl;
                 
                 let resolved = false;
+                let uploadSuccess = false;
                 
+                // Define callback function
                 window[callbackName] = function(response) {
                   resolved = true;
+                  console.log('Upload callback response:', response);
+                  
                   if (response && response.success && response.fileUrl) {
                     formData.driveLink = response.fileUrl;
-                    showToast('Dokumen berhasil diupload!', 'success');
+                    uploadSuccess = true;
+                    console.log('Upload SUCCESS, file URL:', response.fileUrl);
+                    showToast('✓ Dokumen berhasil diupload ke Google Drive!', 'success');
                   } else {
-                    showToast('Upload gagal: ' + (response?.message || 'Unknown error'), 'error');
+                    console.log('Upload failed:', response);
+                    showToast('Upload dokumen gagal: ' + (response?.message || 'Unknown error'), 'error');
                   }
                   resolve();
                 };
                 
-                script.onerror = function(e) {
-                  console.log('Script error:', e);
-                  showToast('Gagal koneksi ke server upload. Cek koneksi internet dan coba lagi.', 'error');
-                  resolve();
+                // Handle script load
+                script.onload = function() {
+                  console.log('Script loaded successfully');
                 };
                 
-                document.head.appendChild(script);
-                
-                setTimeout(() => {
+                // Handle script error - CORS or network issues
+                script.onerror = function(e) {
                   if (!resolved) {
                     resolved = true;
-                    showToast('Upload timeout', 'error');
-                    resolve();
+                    console.log('Script onerror triggered - network/CORS issue');
+                    showToast('Gagal terhubung ke server Google. Periksa koneksi internet.', 'error');
                   }
-                }, 15000);
+                  resolve();
+                };
+                
+                // Append script to head
+                document.head.appendChild(script);
+                
+                // Wait for upload with timeout
+                await new Promise((resolveTimeout) => {
+                  setTimeout(() => {
+                    if (!resolved) {
+                      resolved = true;
+                      console.log('Upload timeout after 30 seconds');
+                      showToast('Upload timeout - koneksi terlalu lambat.', 'error');
+                    }
+                    resolveTimeout();
+                  }, 30000);
+                });
+                
+                // If upload failed, stop form submission
+                if (!uploadSuccess) {
+                  showToast('Mohon maaf, upload dokumen gagal. Silakan coba lagi dengan file lebih kecil.', 'error');
+                  submitBtn.disabled = false;
+                  submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Pengajuan';
+                  return;
+                }
                 
               } catch (err) {
                 showToast('Error: ' + err.message, 'error');
