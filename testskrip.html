@@ -1211,6 +1211,11 @@
           <span>Pemantauan Proses</span>
         </a>
         
+        <a class="menu-item" data-page="pakTerbit">
+          <i class="fas fa-file-contract"></i>
+          <span>Cek PAK Terbit</span>
+        </a>
+        
         <div class="menu-section">Pengelola</div>
         
         <a class="menu-item" data-page="pengelola">
@@ -1743,6 +1748,31 @@
           </div>
         </section>
 
+       <!-- CEK PAK TERBIT -->
+        <section class="page-section" id="pakTerbitPage">
+          <div class="table-container">
+            <div class="table-header">
+              <h3 class="table-title"><i class="fas fa-file-contract"></i> Daftar PAK yang Sudah Terbit</h3>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>Nama Lengkap dan Gelar</th>
+                    <th>Satuan Kerja</th>
+                    <th>Status</th>
+                    <th>Link Download</th>
+                  </tr>
+                </thead>
+                <tbody id="pakTerbitTableBody">
+                  <!-- Data will be loaded here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+        
         <!-- DASHBOARD PENGELOLA SDMK -->
         <section class="page-section" id="pengelolaPage">
           <div class="stats-grid">
@@ -2550,6 +2580,7 @@
         'dashboard': 'Beranda',
         'formulir': 'Formulir Pengajuan',
         'tracking': 'Pemantauan Proses',
+        'pakTerbit': 'Cek PAK Terbit',
         'pengelola': 'User SDMK',
         'admin': 'Admin Panel'
       };
@@ -2569,6 +2600,8 @@
         loadDashboardData();
       } else if (page === 'tracking') {
         loadTrackingData();
+      } else if (page === 'pakTerbit') {
+        loadPakTerbitData();
       } else if (page === 'pengelola') {
         loadPengelolaData();
       } else if (page === 'admin') {
@@ -2880,6 +2913,12 @@
       renderTrackingTable();
     }
 
+   function loadPakTerbitData() {
+      // Filter hanya data dengan status "Terbit"
+      filteredData = allData.filter(row => row['Status'] === 'Terbit');
+      renderPakTerbitTable();
+    }
+    
     function loadPengelolaData() {
       filteredData = [...allData];
       updatePengelolaStats();
@@ -3072,6 +3111,38 @@
       renderPagination('dashboard', filteredData.length);
     }
 
+   function renderPakTerbitTable() {
+      const tbody = document.getElementById('pakTerbitTableBody');
+      
+      if (filteredData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 40px;">
+              <i class="fas fa-inbox" style="font-size: 40px; color: var(--text-light); margin-bottom: 12px;"></i>
+              <p>Belum ada PAK yang terbit</p>
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = filteredData.map((row, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td><strong>${row['Nama Lengkap dengan Gelar'] || '-'}</strong></td>
+            <td>${row['Satuan Kerja'] || '-'}</td>
+            <td>${getStatusBadge(row['Status'])}</td>
+            <td>
+              ${row['Upload Dokumen (Drive Link)'] || row['Dokumen'] ? 
+                `<button class="btn btn-primary btn-sm" onclick="viewDocument('${row['Upload Dokumen (Drive Link)'] || row['Dokumen']}')">
+                  <i class="fas fa-download"></i> Download
+                </button>` : 
+                '<span style="color: var(--text-light)">-</span>'
+              }
+            </td>
+          </tr>
+        `).join('');
+      }
+    }
+    
     function renderTrackingTable() {
       currentPage = 1;
       const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -3145,7 +3216,7 @@
 
       renderPagination('pengelola', filteredData.length);
     }
-
+    
     function renderAdminTable() {
       currentPage = 1;
       const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -3855,6 +3926,13 @@
       
       // Check if it's a Google Drive link
       if (url.includes('drive.google.com')) {
+        // Check if it's a folder link
+        if (url.includes('/drive/folders/')) {
+          // It's a folder - open in new tab
+          window.open(url, '_blank');
+          return;
+        }
+        
         // Extract file ID from various Google Drive URL formats
         let fileId = '';
         if (url.includes('/d/')) {
@@ -3869,7 +3947,8 @@
           // Use Google Drive embed URL
           embedUrl = 'https://drive.google.com/uc?export=download&id=' + fileId;
         } else {
-          showToast('Link dokumen tidak valid - file ID tidak ditemukan', 'error');
+                  // Can't extract file ID - try opening directly
+          window.open(url, '_blank');
           return;
         }
       }
