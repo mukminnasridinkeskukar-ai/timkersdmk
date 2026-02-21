@@ -2352,6 +2352,9 @@
     // Halaman yang membutuhkan login
     const RESTRICTED_PAGES = ['admin', 'pengelola'];
 
+   // Pages yang hanya bisa diakses admin
+    const ADMIN_ONLY_PAGES = ['admin'];
+    
     /* ============================================
      * INISIALISASI APLIKASI
      * ============================================ */
@@ -2528,6 +2531,8 @@
             const user = JSON.parse(storedUser);
             document.getElementById('userName').textContent = user.nama || user.username;
             document.getElementById('userRole').textContent = user.role === 'admin' ? 'Administrator' : 'User SDMK';
+          // Update menu visibility based on role
+            updateMenuByRole(user.role);
           } catch(e) {
             document.getElementById('userName').textContent = storedUser;
             document.getElementById('userRole').textContent = 'Admin';
@@ -2538,7 +2543,16 @@
         document.getElementById('headerLogoutBtn').style.display = 'none';
       }
     }
-    
+       function updateMenuByRole(role) {
+      // Hide admin-only pages for non-admin users
+      const adminMenuItems = document.querySelectorAll('[data-page="admin"]');
+      adminMenuItems.forEach(item => {
+        item.style.display = role === 'admin' ? 'flex' : 'none';
+      });
+      
+      // Show/hide logout button based on login status
+      document.getElementById('logoutBtn').style.display = adminToken ? 'flex' : 'none';
+    }
     function toggleUserMenu() {
       const dropdown = document.getElementById('userDropdown');
       dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
@@ -2564,6 +2578,19 @@
           showLoginModal();
           // Stay on current page
           return;
+        }
+      }
+     // Cek akses untuk halaman admin saja
+      if (ADMIN_ONLY_PAGES.includes(page)) {
+        const storedUser = sessionStorage.getItem('adminUser');
+        if (storedUser) {
+          try {
+            const user = JSON.parse(storedUser);
+            if (user.role !== 'admin') {
+              showToast('Anda tidak memiliki akses ke halaman ini!', 'error');
+              return;
+            }
+          } catch(e) {}
         }
       }
       
@@ -3083,6 +3110,15 @@
       const pageData = filteredData.slice(start, end);
 
       const tbody = document.getElementById('dashboardTableBody');
+      // Check if user is admin
+      let isAdmin = false;
+      const storedUser = sessionStorage.getItem('adminUser');
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          isAdmin = user.role === 'admin';
+        } catch(e) {}
+      }
       
       if (pageData.length === 0) {
         tbody.innerHTML = `
@@ -3237,17 +3273,7 @@
       } else {
         tbody.innerHTML = pageData.map((row, index) => {
           const rowNum = start + index + 2; // +2 because of header
-          return `
-            <tr>
-              <td>${start + index + 1}</td>
-              <td><strong>${row['Nama Lengkap dengan Gelar'] || '-'}</strong></td>
-              <td>${row['NIP'] || '-'}</td>
-              <td>${row['Pangkat/Gol'] || '-'}</td>
-              <td>${row['Satuan Kerja'] || '-'}</td>
-              <td>${row['Jenis JF'] || '-'}</td>
-              <td>${getStatusBadge(row['Status'])}</td>
-              <td>${formatDate(row['Update Terakhir'])}</td>
-              <td>
+          const actionButtons = isAdmin ? `
                 <div style="display: flex; gap: 6px;">
                   <button class="btn btn-primary btn-sm btn-icon" onclick="showEdit(${start + index})" title="Edit">
                     <i class="fas fa-edit"></i>
@@ -3259,6 +3285,19 @@
                     <i class="fas fa-trash"></i>
                   </button>
                 </div>
+                         ` : '<span style="color: var(--text-light)">View Only</span>';
+          
+          return `
+            <tr>
+              <td>${start + index + 1}</td>
+              <td><strong>${row['Nama Lengkap dengan Gelar'] || '-'}</strong></td>
+              <td>${row['NIP'] || '-'}</td>
+              <td>${row['Pangkat/Gol'] || '-'}</td>
+              <td>${row['Satuan Kerja'] || '-'}</td>
+              <td>${row['Jenis JF'] || '-'}</td>
+              <td>${getStatusBadge(row['Status'])}</td>
+              <td>${formatDate(row['Update Terakhir'])}</td>
+              <td>${actionButtons}</td>
               </td>
             </tr>
           `;
