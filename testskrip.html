@@ -1984,7 +1984,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwaqsB-v8e7fn1zgA6dIUaYKHhzMhWB_0VIP76rRuLIH60sn1pfK_P5-thufw1NLM_9Tg/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOdqhpRVoi3eZCHXAKrCapUg9UWf63VXzFSW7yZxl4DikQUtJC2tWwiBIOqI3EnWRs7w/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -2323,18 +2323,25 @@
     // DATA LOADING - Using JSONP for CORS workaround
     // ============================================
     function loadDashboardData() {
+      // Show loading
+      showToast('Memuat data...', 'info');
+      
       // Check if SCRIPT_URL is configured
-      if (!SCRIPT_URL || SCRIPT_URL === 'ISI_URL_GOOGLE_SCRIPT_DISINI') {
-        console.log('No API URL configured');
-        showToast('Silakan konfigurasi URL API terlebih dahulu', 'warning');
+      if (!SCRIPT_URL || SCRIPT_URL === 'ISI_URL_GOOGLE_SCRIPT_DISINI' || SCRIPT_URL === '') {
+        console.log('No API URL configured - using demo data');
+        // Use demo data if no API configured
+        const demoData = generateDemoData();
+        allData = demoData;
+        filteredData = [...allData];
+        updateStats();
+        updateCharts();
+        renderDashboardTable();
+        showToast('Mode demo - gunakan data sample untuk testing', 'info');
         return;
       }
       
       // Get token from session
       const token = sessionStorage.getItem('adminToken');
-      
-      // Show loading
-      showToast('Memuat data...', 'info');
       
       // Use JSONP approach to bypass CORS
       const callbackName = 'jsonp_callback_' + Math.round(Math.random() * 100000);
@@ -2343,11 +2350,27 @@
         url += '&token=' + encodeURIComponent(token);
       }
       
+      console.log('Loading from:', url);
+      
       // Create script element for JSONP
       const script = document.createElement('script');
       script.src = url;
       
+      // Set timeout for fallback
+      const timeout = setTimeout(() => {
+        showToast('Timeout - menggunakan data demo', 'warning');
+        const demoData = generateDemoData();
+        allData = demoData;
+        filteredData = [...allData];
+        updateStats();
+        updateCharts();
+        renderDashboardTable();
+        delete window[callbackName];
+        if (script.parentNode) script.remove();
+      }, 10000);
+      
       window[callbackName] = function(response) {
+        clearTimeout(timeout);
         if (response && response.success) {
           allData = response.data;
           filteredData = [...allData];
@@ -2361,23 +2384,41 @@
           // Show message if filtered
           if (response.user && response.user.role === 'sdmk') {
             showToast('Data ditampilkan untuk: ' + response.user.satuanKerja, 'info');
+          } else {
+            showToast(response.message || 'Data berhasil dimuat', 'success');
           }
           
           updateStats();
           updateCharts();
           renderDashboardTable();
         } else {
-          showToast(response?.message || 'Gagal memuat data', 'error');
+          showToast(response?.message || 'Gagal memuat data - menggunakan demo', 'warning');
+          // Fallback to demo
+          const demoData = generateDemoData();
+          allData = demoData;
+          filteredData = [...allData];
+          updateStats();
+          updateCharts();
+          renderDashboardTable();
         }
         // Cleanup
         delete window[callbackName];
-        script.remove();
+        if (script.parentNode) script.remove();
       };
       
       script.onerror = function() {
-        showToast('Gagal terhubung ke server', 'error');
+        clearTimeout(timeout);
+        console.log('API Error - using demo data');
+        showToast('Gagal terhubung - menggunakan data demo', 'warning');
+        // Fallback to demo
+        const demoData = generateDemoData();
+        allData = demoData;
+        filteredData = [...allData];
+        updateStats();
+        updateCharts();
+        renderDashboardTable();
         delete window[callbackName];
-        script.remove();
+        if (script.parentNode) script.remove();
       };
       
       document.head.appendChild(script);
