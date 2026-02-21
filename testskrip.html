@@ -1260,6 +1260,11 @@
             </a>
           </div>
         </div>
+        
+        <!-- Always visible logout button for logged in users -->
+        <button id="headerLogoutBtn" class="btn btn-danger btn-sm" style="display: none; margin-right: 10px;" onclick="handleLogout()">
+          <i class="fas fa-sign-out-alt"></i> Logout
+        </button>
       </header>
 
       <div class="content-area">
@@ -1993,7 +1998,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyhH-Odi3_uhjNwiW0vl_eoXdsH5zirVqvaCiCOVIA3FQLAENJa2lbpk-aWVr6ej4IBjg/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzwaz4hpAW2MtDXTs_07E8oBydZ_bKUYJPDfa3R1-kv8thO4pyYNUwuu7cj83GHptrVQ/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -2189,6 +2194,7 @@
       
       if (adminToken) {
         document.getElementById('userInfo').style.display = 'flex';
+        document.getElementById('headerLogoutBtn').style.display = 'inline-flex';
         // Get stored user info
         const storedUser = sessionStorage.getItem('adminUser');
         if (storedUser) {
@@ -2203,6 +2209,7 @@
         }
       } else {
         document.getElementById('userInfo').style.display = 'none';
+        document.getElementById('headerLogoutBtn').style.display = 'none';
       }
     }
     
@@ -3491,8 +3498,34 @@
     }
 
     function viewDocument(url) {
-      document.getElementById('documentViewer').src = url;
-      document.getElementById('documentLink').href = url;
+      if (!url) {
+        showToast('Link dokumen tidak tersedia', 'error');
+        return;
+      }
+      
+      // Convert Google Drive link to embed URL
+      let embedUrl = url;
+      
+      // Check if it's a Google Drive link
+      if (url.includes('drive.google.com')) {
+        // Extract file ID from various Google Drive URL formats
+        let fileId = '';
+        if (url.includes('/d/')) {
+          const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          if (match) fileId = match[1];
+        } else if (url.includes('id=')) {
+          const match = url.match(/id=([a-zA-Z0-9_-]+)/);
+          if (match) fileId = match[1];
+        }
+        
+        if (fileId) {
+          // Use Google Drive embed URL
+          embedUrl = 'https://drive.google.com/uc?export=download&id=' + fileId;
+        }
+      }
+      
+      document.getElementById('documentViewer').src = embedUrl;
+      document.getElementById('documentLink').href = url; // Original link for download
       openModal('documentModal');
     }
 
