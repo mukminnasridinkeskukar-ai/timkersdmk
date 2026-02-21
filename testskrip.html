@@ -1520,19 +1520,27 @@
                   </select>
                 </div>
                 
-                <div class="form-group full-width">
+             <div class="form-group full-width">
+                  <label class="form-label">Link Google Drive Dokumen <span class="required">*</span></label>
+                  <input type="url" class="form-input" id="driveLinkManual" placeholder="https://drive.google.com/file/d/..." required>
+                  <small style="color: var(--text-light); font-size: 0.75rem; display: block; margin-top: 5px;">
+                    <i class="fas fa-info-circle"></i> Upload dokumen ke Google Drive terlebih dahulu, lalu copy linknya di sini
+                  </small>
+                </div>
+                
+                <div class="form-group full-width" style="display: none;">
                   <label class="form-label">Upload Dokumen Kelengkapan (PDF) <span class="required">*</span></label>
                   <div class="file-upload-wrapper">
                     <div class="file-upload-area" id="fileUploadArea">
                       <i class="fas fa-cloud-upload-alt"></i>
                       <p>Klik atau drag file PDF di sini</p>
-                      <span>Ukuran maksimal: 500KB</span>
+                      <span>Ukuran maksimal: 50KB</span>
                     </div>
                     <input type="file" id="fileInput" accept=".pdf" style="display: none;">
                     <div class="file-name" id="fileName" style="display: none;"></div>
                   </div>
                   <small class="text-muted" style="margin-top: 5px; display: block;">
-                    <i class="fas fa-info-circle"></i> Pastikan ukuran file PDF maksimal 500KB untuk upload otomatis
+                    <i class="fas fa-info-circle"></i> Alternatif: Upload otomatis (maksimal 50KB)
                   </small>
                 </div>
               </div>
@@ -2001,7 +2009,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwNn6dmTdIQhQ6sYHQPAwYks6wG68kBbmxN-_L9dBIl_pYx5NJG0QLJPz2S_S9PVbauKQ/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwoPT8Yuo3wdKnU5ulxLrWVl9rSWmA7ltVNlfXmdDW_WZsWnuQORCM1cssGjxI0mesf9g/exec";
     const ITEMS_PER_PAGE = 10;
 
     // State variables
@@ -3121,8 +3129,8 @@
         return;
       }
       
-     if (file.size > 1024 * 1024) {
-        showToast('Ukuran file maksimal 1MB!', 'error');
+      if (file.size > 50 * 1024) {
+        showToast('Ukuran file maksimal 50KB! Compress PDF terlebih dahulu.', 'error');
         return;
       }
 
@@ -3150,9 +3158,16 @@
         return;
       }
 
-      // Validate document - file is required
-      if (!selectedFile) {
-        showToast('Silakan upload dokumen PDF!', 'error');
+      // Validate document - Google Drive link is required
+      const driveLink = document.getElementById('driveLinkManual').value;
+      if (!driveLink || driveLink.trim() === '') {
+        showToast('Silakan isi link Google Drive dokumen!', 'error');
+        return;
+      }
+      
+      // Validate URL format
+      if (!driveLink.includes('drive.google.com')) {
+        showToast('Link harus berupa Google Drive!', 'error');
         return;
       }
 
@@ -3179,76 +3194,10 @@
           tmtJF: document.getElementById('tmtJF').value,
           masaKerjaGol: document.getElementById('masaKerjaGol').value,
           satuanKerja: document.getElementById('satuanKerja').value,
-          driveLink: ''
+          driveLink: document.getElementById('driveLinkManual').value
         };
 
-        // Upload file to Google Drive via FormData POST (lebih reliable)
-        if (selectedFile) {
-          showToast('Mengupload dokumen ke Google Drive...', 'info');
-          
-          const reader = new FileReader();
-          
-          await new Promise((resolve, reject) => {
-            reader.onload = async function(event) {
-              try {
-                // Convert to base64
-                const base64Data = event.target.result.split(',')[1];
-                const fileName = selectedFile.name;
-                
-                // Check size - max 1MB (base64 encoded ~1.33MB)
-                if (base64Data.length > 1400000) {
-                  showToast('File terlalu besar! Maksimal 1MB.', 'error');
-                  resolve('');
-                  return;
-                }
-                
-                console.log('File size (base64):', base64Data.length, 'chars');
-                
-                // Use FormData POST instead of JSONP to avoid URL length limit
-                const formDataUpload = new FormData();
-                formDataUpload.append('action', 'uploadFile');
-                formDataUpload.append('fileName', fileName);
-                formDataUpload.append('base64Data', base64Data);
-                formDataUpload.append('folderId', '1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
-                
-                // Use fetch with no-cors mode for Google Apps Script
-                try {
-                  const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: formDataUpload,
-                    mode: 'no-cors'
-                  });
-                  
-                  // With no-cors, we can't read the response
-                  // Assume success if no network error
-                  formData.driveLink = 'https://drive.google.com/uc?export=download&id=UPLOADED_' + Date.now();
-                  showToast('✓ Dokumen berhasil diupload ke Google Drive!', 'success');
-                  
-                } catch (uploadError) {
-                  console.log('Upload error:', uploadError);
-                  // Fallback: use placeholder URL
-                  formData.driveLink = 'https://drive.google.com/uc?export=download&id=UPLOADED_' + Date.now();
-                  showToast('✓ Dokumen berhasil diupload!', 'success');
-                }
-                
-                resolve();
-                
-              } catch (err) {
-                showToast('Error: ' + err.message, 'error');
-                resolve();
-              }
-            };
-            
-            reader.onerror = function() {
-              showToast('Gagal membaca file', 'error');
-              resolve();
-            };
-            
-            reader.readAsDataURL(selectedFile);
-          });
-        }
-
-        // Submit to Google Sheet via JSONP
+        // Langsung submit ke Google Sheet (link sudah diambil dari input)
         const callbackName = 'submit_callback_' + Math.round(Math.random() * 100000);
         const url = SCRIPT_URL + '?action=submitForm&callback=' + callbackName + '&' + 
           Object.keys(formData).map(key => key + '=' + encodeURIComponent(formData[key])).join('&');
@@ -3292,8 +3241,6 @@
         
         // Reset form
         document.getElementById('pengajuanForm').reset();
-        selectedFile = null;
-        document.getElementById('fileName').style.display = 'none';
         
         // Redirect to tracking page
         setTimeout(() => {
