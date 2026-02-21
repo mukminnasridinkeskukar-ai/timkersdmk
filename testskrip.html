@@ -2088,7 +2088,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxRUVd6D6WHP8fhArIacGyJ8FSuhTVURsPbU7oQ5HipRpR0ZK0lbl7VsC8nqEFrH34rdw/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_pQSCxDR16EGtYJ61yR_CLYhqYh7VroMJmJoK9mbFPdzC8_L25ARR7sczb4wtAd9I4Q/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -3287,39 +3287,57 @@
                   '&base64Data=' + encodeURIComponent(base64Data) + 
                   '&folderId=' + encodeURIComponent('1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
                 
-                const script = document.createElement('script');
+                               const script = document.createElement('script');
                 script.src = uploadUrl;
                 
+                let resolved = false;
+                
                 window[callbackName] = function(response) {
+                  resolved = true;
                   if (response && response.success && response.fileUrl) {
                     resolve(response.fileUrl);
                   } else {
-                    // Fallback: create a fake link
-                    resolve('https://drive.google.com/file/d/' + Date.now());
+                    // Upload failed - show error but continue with empty link
+                    showToast(response?.message || 'Upload gagal - dokumen tidak akan tersedia', 'error');
+                    resolve('');
                   }
                 };
                 
                 script.onerror = function() {
-                  resolve('https://drive.google.com/file/d/' + Date.now());
+                  if (!resolved) {
+                    resolved = true;
+                    showToast('Gagal koneksi ke server upload - dokumen tidak akan tersedia', 'error');
+                    resolve('');
+                  }
                 };
                 
                 document.head.appendChild(script);
                 
-                // Timeout fallback
+                // Timeout - 15 seconds
                 setTimeout(() => {
-                  resolve('https://drive.google.com/file/d/' + Date.now());
+                  if (!resolved) {
+                    resolved = true;
+                    showToast('Upload timeout - dokumen tidak akan tersedia', 'error');
+                    resolve('');
+                  }
                 }, 15000);
                 
               } catch (err) {
+                showToast('Error processing file: ' + err.message, 'error');
                 reject(err);
               }
             };
-            reader.onerror = reject;
+            reader.onerror = function() {
+              showToast('Gagal membaca file', 'error');
+              reject(new Error('Gagal membaca file'));
+            };
             reader.readAsDataURL(selectedFile);
           });
           
           formData.driveLink = uploadResult;
-          showToast('Dokumen berhasil diupload!', 'success');
+          if (uploadResult) {
+            showToast('Dokumen berhasil diupload!', 'success');
+          }
         }
 
         // Submit to Google Sheet via JSONP
@@ -3778,5 +3796,3 @@
   </script>
 </body>
 </html>
-
-
