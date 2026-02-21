@@ -3380,121 +3380,78 @@
           driveLink: ''
         };
 
-                // Upload file to Drive - dengan fallback ke link manual
+         // Upload file to Drive via JSONP
         if (selectedFile) {
           showToast('Mengupload dokumen ke Google Drive...', 'info');
           
-          const uploadResult = await new Promise((resolve, reject) => {
-            try {
-              const reader = new FileReader();
-              
-              reader.onload = async function(event) {
-                try {
-                  const base64Data = event.target.result.split(',')[1];
-                  const fileName = selectedFile.name;
-                  
-                  // Check file size
-                  if (base64Data.length > 1400000) {
-                    showToast('File terlalu besar! Maksimal 1MB', 'error');
-                    // Show manual upload option
-                    const useManual = confirm('File terlalu besar. Apakah Anda ingin upload manual ke Google Drive dan paste linknya?');
-                    if (useManual) {
-                      resolve('MANUAL_UPLOAD_REQUIRED');
-                    } else {
-                      resolve('');
-                    }
-                    return;
-                  }
-                  
-                  // Try JSONP GET approach
-                  const callbackName = 'upload_callback_' + Math.round(Math.random() * 100000);
-                  const uploadUrl = SCRIPT_URL + '?action=uploadFile&callback=' + callbackName + 
-                    '&fileName=' + encodeURIComponent(fileName) + 
-                    '&base64Data=' + encodeURIComponent(base64Data) + 
-                    '&folderId=' + encodeURIComponent('1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
-                  
-                  const script = document.createElement('script');
-                  script.src = uploadUrl;
-                  
-                  let resolved = false;
-                  
-                  window[callbackName] = function(response) {
-                    resolved = true;
-                    if (response && response.success && response.fileUrl) {
-                      resolve(response.fileUrl);
-                    } else {
-                      // Upload failed - offer manual option
-                      const useManual = confirm('Upload otomatis gagal. Ingin upload manual ke Google Drive?');
-                      if (useManual) {
-                        resolve('MANUAL_UPLOAD_REQUIRED');
-                      } else {
-                        resolve('');
-                      }
-                    }
-                  };
-                  
-                  script.onerror = function() {
-                    if (!resolved) {
-                      resolved = true;
-                      const useManual = confirm('Gagal koneksi. Ingin upload manual ke Google Drive?');
-                      if (useManual) {
-                        resolve('MANUAL_UPLOAD_REQUIRED');
-                      } else {
-                        resolve('');
-                      }
-                    }
-                  };
-                  
-                  document.head.appendChild(script);
-                  
-                  // Timeout
-                  setTimeout(() => {
-                    if (!resolved) {
-                      resolved = true;
-                      const useManual = confirm('Upload timeout. Ingin upload manual ke Google Drive?');
-                      if (useManual) {
-                        resolve('MANUAL_UPLOAD_REQUIRED');
-                      } else {
-                        resolve('');
-                      }
-                    }
-                  }, 20000);
-                  
-                } catch (err) {
-                  showToast('Error: ' + err.message, 'error');
-                  resolve('');
-                }
-              };
-              
-              reader.onerror = function() {
-                showToast('Gagal membaca file', 'error');
-                resolve('');
-              };
-              
-              reader.readAsDataURL(selectedFile);
-            } catch (err) {
-              showToast('Error: ' + err.message, 'error');
-              resolve('');
-            }
-          });
+          const reader = new FileReader();
           
-                // If manual upload required, prompt for link
-          if (uploadResult === 'MANUAL_UPLOAD_REQUIRED') {
-            const manualLink = prompt('Silakan upload file ke Google Drive secara manual, lalu paste link nya di sini:');
+          await new Promise((resolve, reject) => {
+            reader.onload = async function(event) {
+              try {
+                // Convert to base64
+                const base64Data = event.target.result.split(',')[1];
+                const fileName = selectedFile.name;
+                
+                // Check size - limit to ~500KB for URL-based upload
+                if (base64Data.length > 500000) {
+                  showToast('File terlalu besar untuk upload otomatis. Silakan upload manual ke Google Drive dan paste link di kolom Catatan Admin setelah submit.', 'warning');
+                  resolve('');
+                  return;
+                }
+                
+                // Use JSONP
+                const callbackName = 'upload_callback_' + Math.round(Math.random() * 100000);
+                const uploadUrl = SCRIPT_URL + '?action=uploadFile&callback=' + callbackName + 
+                  '&fileName=' + encodeURIComponent(fileName) + 
+                  '&base64Data=' + encodeURIComponent(base64Data) + 
+                  '&folderId=' + encodeURIComponent('1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
+                
+                const script = document.createElement('script');
+                script.src = uploadUrl;
+                
+                let resolved = false;
+                
+                window[callbackName] = function(response) {
+                  resolved = true;
+                  if (response && response.success && response.fileUrl) {
+                    formData.driveLink = response.fileUrl;
+                    showToast('Dokumen berhasil diupload!', 'success');
+                  } else {
+                    showToast('Upload gagal: ' + (response?.message || 'Unknown error'), 'error');
+                  }
+                  resolve();
+                };
+                
+                script.onerror = function() {
+                  resolved = true;
+                  showToast('Gagal koneksi server upload', 'error');
+                  resolve();
+                };
+                
+                document.head.appendChild(script);
+                
+                setTimeout(() => {
+                  if (!resolved) {
+                    resolved = true;
+                    showToast('Upload timeout', 'error');
+                    resolve();
+                  }
+                }, 15000);
+                
+              } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+                resolve();
+              }
+            };
             
-            if (manualLink && manualLink.includes('drive.google.com')) {
-              formData.driveLink = manualLink;
-              showToast('Link dokumen berhasil ditambahkan!', 'success');
-            } else {
-              showToast('Link tidak valid, dokumen tidak akan tersedia', 'warning');
-              formData.driveLink = '';
-            }
-          } else {
-            formData.driveLink = uploadResult;
-            if (uploadResult) {
-              showToast('Dokumen berhasil diupload!', 'success');
-            }
-          }
+            reader.onerror = function() {
+              showToast('Gagal membaca file', 'error');
+              resolve();
+            };
+            
+            reader.readAsDataURL(selectedFile);
+          });
         }
 
         // Submit to Google Sheet via JSONP
@@ -3953,4 +3910,5 @@
   </script>
 </body>
 </html>
+
 
