@@ -3380,7 +3380,7 @@
           driveLink: ''
         };
 
-                   // Upload file to Drive first if selected - using POST with CORS
+                // Upload file to Drive - dengan fallback ke link manual
         if (selectedFile) {
           showToast('Mengupload dokumen ke Google Drive...', 'info');
           
@@ -3393,61 +3393,110 @@
                   const base64Data = event.target.result.split(',')[1];
                   const fileName = selectedFile.name;
                   
-                  // Check file size (1MB = ~1.33M base64 chars)
+                  // Check file size
                   if (base64Data.length > 1400000) {
                     showToast('File terlalu besar! Maksimal 1MB', 'error');
-                    resolve('');
+                    // Show manual upload option
+                    const useManual = confirm('File terlalu besar. Apakah Anda ingin upload manual ke Google Drive dan paste linknya?');
+                    if (useManual) {
+                      resolve('MANUAL_UPLOAD_REQUIRED');
+                    } else {
+                      resolve('');
+                    }
                     return;
                   }
                   
-                  // Use POST with CORS and fileData parameter
-                  const formData = new FormData();
-                  formData.append('fileName', fileName);
-                  formData.append('folderId', '1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
-                  formData.append('fileData', base64Data);
+                  // Try JSONP GET approach
+                  const callbackName = 'upload_callback_' + Math.round(Math.random() * 100000);
+                  const uploadUrl = SCRIPT_URL + '?action=uploadFile&callback=' + callbackName + 
+                    '&fileName=' + encodeURIComponent(fileName) + 
+                    '&base64Data=' + encodeURIComponent(base64Data) + 
+                    '&folderId=' + encodeURIComponent('1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
                   
-                  // POST request with cors mode
-                  const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    body: formData,
-                    mode: 'cors',
-                    credentials: 'omit'
-                  });
+                  const script = document.createElement('script');
+                  script.src = uploadUrl;
                   
-                  if (response.ok) {
-                    const result = await response.json();
-                    
-                    if (result && result.success) {
-                      resolve(result.fileUrl);
+                  let resolved = false;
+                  
+                  window[callbackName] = function(response) {
+                    resolved = true;
+                    if (response && response.success && response.fileUrl) {
+                      resolve(response.fileUrl);
                     } else {
-                      showToast(result?.message || 'Upload gagal', 'error');
-                      resolve('');
+                      // Upload failed - offer manual option
+                      const useManual = confirm('Upload otomatis gagal. Ingin upload manual ke Google Drive?');
+                      if (useManual) {
+                        resolve('MANUAL_UPLOAD_REQUIRED');
+                      } else {
+                        resolve('');
+                      }
                     }
-                  } else {
-                    showToast('Server error: ' + response.status, 'error');
-                    resolve('');
-                  }
+                  };
+                  
+                  script.onerror = function() {
+                    if (!resolved) {
+                      resolved = true;
+                      const useManual = confirm('Gagal koneksi. Ingin upload manual ke Google Drive?');
+                      if (useManual) {
+                        resolve('MANUAL_UPLOAD_REQUIRED');
+                      } else {
+                        resolve('');
+                      }
+                    }
+                  };
+                  
+                  document.head.appendChild(script);
+                  
+                  // Timeout
+                  setTimeout(() => {
+                    if (!resolved) {
+                      resolved = true;
+                      const useManual = confirm('Upload timeout. Ingin upload manual ke Google Drive?');
+                      if (useManual) {
+                        resolve('MANUAL_UPLOAD_REQUIRED');
+                      } else {
+                        resolve('');
+                      }
+                    }
+                  }, 20000);
+                  
                 } catch (err) {
-                  showToast('Error upload: ' + err.message, 'error');
-                  reject(err);
+                  showToast('Error: ' + err.message, 'error');
+                  resolve('');
                 }
               };
               
               reader.onerror = function() {
                 showToast('Gagal membaca file', 'error');
-                reject(new Error('Gagal membaca file'));
+                resolve('');
               };
               
               reader.readAsDataURL(selectedFile);
             } catch (err) {
               showToast('Error: ' + err.message, 'error');
-              reject(err);
+              resolve('');
             }
           });
           
-          formData.driveLink = uploadResult;
-          if (uploadResult) {
-            showToast('Dokumen berhasil diupload!', 'success');
+          // If manual upload required, prompt for link
+          if (uploadResult === 'MANUAL_UPLOAD_REQUIRED') {
+            const manualLink = prompt('Silakan:
+1. Upload file ke Google Drive secara manual
+2. Buat link sharing (Anyone with link can view)
+3. Paste link di bawah ini:');
+            
+            if (manualLink && manualLink.includes('drive.google.com')) {
+              formData.driveLink = manualLink;
+              showToast('Link dokumen berhasil ditambahkan!', 'success');
+            } else {
+              showToast('Link tidak valid, dokumen tidak akan tersedia', 'warning');
+              formData.driveLink = '';
+            }
+          } else {
+            formData.driveLink = uploadResult;
+            if (uploadResult) {
+              showToast('Dokumen berhasil diupload!', 'success');
+            }
           }
         }
 
@@ -3907,3 +3956,4 @@
   </script>
 </body>
 </html>
+
