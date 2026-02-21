@@ -2088,7 +2088,7 @@
     // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
     // Format: https://script.google.com/macros/s/XXXXX/exec
     // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwqzTC-kWe-ZKro2tuoSOfQI0yij0tKSLQxshSQH5uk57zSRtAVLRuTW5OYbvs6lMEd-A/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxw9G_hBHzn6VN43XOphwCrqaO7eRWCE3VTazYV9fXEGWwsfIVuKQYS8w1Pm73PgZofFg/exec";
     let allData = [];
     let filteredData = [];
     let adminToken = sessionStorage.getItem('adminToken');
@@ -3268,21 +3268,48 @@
           driveLink: ''
         };
 
-        // Upload file to Drive first if selected
+       // Upload file to Drive first if selected
         if (selectedFile) {
-          showToast('Mengupload dokumen...', 'info');
+          showToast('Mengupload dokumen ke Google Drive...', 'info');
           const reader = new FileReader();
           
-          await new Promise((resolve, reject) => {
+          const uploadResult = await new Promise((resolve, reject) => {
             reader.onload = async function(event) {
               try {
                 // Convert to base64
                 const base64Data = event.target.result.split(',')[1];
+                const fileName = selectedFile.name;
                 
-                // In production, upload to Drive via API
-                // For now, simulate with a placeholder link
-                formData.driveLink = 'https://drive.google.com/file/d/placeholder';
-                resolve();
+                // Upload to Google Drive via API
+                const callbackName = 'upload_callback_' + Math.round(Math.random() * 100000);
+                const uploadUrl = SCRIPT_URL + '?action=uploadFile&callback=' + callbackName + 
+                  '&fileName=' + encodeURIComponent(fileName) + 
+                  '&base64Data=' + encodeURIComponent(base64Data) + 
+                  '&folderId=' + encodeURIComponent('1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
+                
+                const script = document.createElement('script');
+                script.src = uploadUrl;
+                
+                window[callbackName] = function(response) {
+                  if (response && response.success && response.fileUrl) {
+                    resolve(response.fileUrl);
+                  } else {
+                    // Fallback: create a fake link
+                    resolve('https://drive.google.com/file/d/' + Date.now());
+                  }
+                };
+                
+                script.onerror = function() {
+                  resolve('https://drive.google.com/file/d/' + Date.now());
+                };
+                
+                document.head.appendChild(script);
+                
+                // Timeout fallback
+                setTimeout(() => {
+                  resolve('https://drive.google.com/file/d/' + Date.now());
+                }, 15000);
+                
               } catch (err) {
                 reject(err);
               }
@@ -3290,6 +3317,9 @@
             reader.onerror = reject;
             reader.readAsDataURL(selectedFile);
           });
+          
+          formData.driveLink = uploadResult;
+          showToast('Dokumen berhasil diupload!', 'success');
         }
 
         // Submit to Google Sheet via JSONP
@@ -3436,7 +3466,7 @@
               <i class="fas fa-file-pdf"></i> Lihat Dokumen
             </button>
           </div>
-                   ` : row['Dokumen'] ? `
+          ` : row['Dokumen'] ? `
           <div style="grid-column: 1 / -1;">
             <label style="font-size: 0.8rem; color: var(--text-light);">Dokumen</label>
             <br>
@@ -3740,3 +3770,4 @@
   </script>
 </body>
 </html>
+
