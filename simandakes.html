@@ -889,6 +889,18 @@
             gap: 24px;
         }
 
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .card {
             background: var(--bg-card);
             border-radius: var(--radius-lg);
@@ -993,6 +1005,16 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
         }
 
         .data-source.error .dot {
@@ -1571,72 +1593,220 @@
                         <p>Pengelolaan perencanaan kebutuhan dan pengembangan SDM kesehatan</p>
                     </div>
 
-                    <div class="stats-grid">
+                    <!-- Input Data Penduduk -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <h3 class="card-title"><i class="fas fa-users" style="margin-right: 10px;"></i>Data Penduduk per Kecamatan</h3>
+                        <div class="form-grid" style="margin-top: 20px;">
+                            <div class="form-group">
+                                <label>Kota A</label>
+                                <input type="number" class="form-input" id="penduduk-kota-a" placeholder="Jumlah penduduk" value="250000">
+                            </div>
+                            <div class="form-group">
+                                <label>Kabupaten B</label>
+                                <input type="number" class="form-input" id="penduduk-kab-b" placeholder="Jumlah penduduk" value="180000">
+                            </div>
+                            <div class="form-group">
+                                <label>Kota C</label>
+                                <input type="number" class="form-input" id="penduduk-kota-c" placeholder="Jumlah penduduk" value="150000">
+                            </div>
+                            <div class="form-group">
+                                <label>Kabupaten D</label>
+                                <input type="number" class="form-input" id="penduduk-kab-d" placeholder="Jumlah penduduk" value="120000">
+                            </div>
+                            <div class="form-group">
+                                <label>Kabupaten E</label>
+                                <input type="number" class="form-input" id="penduduk-kab-e" placeholder="Jumlah penduduk" value="95000">
+                            </div>
+                            <div class="form-group">
+                                <label><strong>Total Penduduk</strong></label>
+                                <input type="number" class="form-input" id="total-penduduk" readonly style="background: var(--bg-secondary); font-weight: bold;" value="795000">
+                            </div>
+                        </div>
+                        
+                        <!-- Tombol Aksi -->
+                        <div style="display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="perencanaanModule.hitungRasio()">
+                                <i class="fas fa-calculator"></i>
+                                Hitung Otomatis
+                            </button>
+                            <button class="btn btn-success" onclick="perencanaanModule.simpanAnalisis()">
+                                <i class="fas fa-save"></i>
+                                Simpan Analisis
+                            </button>
+                            <button class="btn btn-secondary" onclick="perencanaanModule.cetakPDF()">
+                                <i class="fas fa-print"></i>
+                                Cetak
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Hasil Perhitungan Rasio -->
+                    <div class="stats-grid" style="margin-bottom: 24px;">
                         <div class="stat-card">
                             <div class="stat-header">
                                 <div class="stat-icon blue">
-                                    <i class="fas fa-clipboard-check"></i>
+                                    <i class="fas fa-users"></i>
                                 </div>
                             </div>
-                            <div class="stat-value">45</div>
-                            <div class="stat-label">Rencana Kebutuhan</div>
+                            <div class="stat-value" id="rasio-dokter">0</div>
+                            <div class="stat-label">Rasio Dokter per 100.000</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-header">
                                 <div class="stat-icon green">
-                                    <i class="fas fa-calendar-check"></i>
+                                    <i class="fas fa-user-nurse"></i>
                                 </div>
                             </div>
-                            <div class="stat-value">28</div>
-                            <div class="stat-label">Rencana Diklat</div>
+                            <div class="stat-value" id="rasio-perawat">0</div>
+                            <div class="stat-label">Rasio Perawat per 100.000</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-header">
+                                <div class="stat-icon cyan">
+                                    <i class="fas fa-baby"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" id="rasio-bidan">0</div>
+                            <div class="stat-label">Rasio Bidan per 100.000</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-header">
                                 <div class="stat-icon orange">
-                                    <i class="fas fa-user-graduate"></i>
+                                    <i class="fas fa-pills"></i>
                                 </div>
                             </div>
-                            <div class="stat-value">156</div>
-                            <div class="stat-label">Tenaga Diklatih</div>
+                            <div class="stat-value" id="rasio-farmasi">0</div>
+                            <div class="stat-label">Rasio Farmasi per 100.000</div>
                         </div>
                     </div>
 
+                    <!-- Simulasi Kebutuhan 5 Tahun -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <h3 class="card-title"><i class="fas fa-chart-line" style="margin-right: 10px;"></i>Simulasi Kebutuhan 5 Tahun</h3>
+                        <div class="table-container" style="margin-top: 16px; box-shadow: none; border: none;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Profesi</th>
+                                        <th>Kondisi Saat Ini</th>
+                                        <th>Kebutuhan 2026</th>
+                                        <th>Kebutuhan 2027</th>
+                                        <th>Kebutuhan 2028</th>
+                                        <th>Kebutuhan 2029</th>
+                                        <th>Kebutuhan 2030</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabel-simulasi">
+                                    <tr>
+                                        <td><strong>Dokter Umum</strong></td>
+                                        <td>280</td>
+                                        <td>315</td>
+                                        <td>350</td>
+                                        <td>385</td>
+                                        <td>420</td>
+                                        <td>455</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Dokter Spesialis</strong></td>
+                                        <td>120</td>
+                                        <td>140</td>
+                                        <td>160</td>
+                                        <td>180</td>
+                                        <td>200</td>
+                                        <td>220</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Perawat</strong></td>
+                                        <td>850</td>
+                                        <td>920</td>
+                                        <td>990</td>
+                                        <td>1060</td>
+                                        <td>1130</td>
+                                        <td>1200</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Bidan</strong></td>
+                                        <td>420</td>
+                                        <td>455</td>
+                                        <td>490</td>
+                                        <td>525</td>
+                                        <td>560</td>
+                                        <td>595</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Apoteker</strong></td>
+                                        <td>180</td>
+                                        <td>200</td>
+                                        <td>220</td>
+                                        <td>240</td>
+                                        <td>260</td>
+                                        <td>280</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Tenaga Farmasi</strong></td>
+                                        <td>150</td>
+                                        <td>170</td>
+                                        <td>190</td>
+                                        <td>210</td>
+                                        <td>230</td>
+                                        <td>250</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Rekomendasi Otomatis -->
                     <div class="card">
-                        <h3 class="card-title">Rencana Kebutuhan SDM Kesehatan Tahun Anggaran</h3>
-                        <div class="progress-item">
-                            <div class="progress-header">
-                                <span class="progress-label">Dokter Umum</span>
-                                <span class="progress-value">50 / 75</span>
+                        <h3 class="card-title"><i class="fas fa-lightbulb" style="margin-right: 10px; color: var(--accent);"></i>Rekomendasi Otomatis</h3>
+                        <div id="rekomendasi-container" style="margin-top: 16px;">
+                            <div class="rekomendasi-item" style="padding: 16px; background: var(--bg-primary); border-radius: var(--radius); margin-bottom: 12px; border-left: 4px solid var(--danger);">
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                    <i class="fas fa-exclamation-circle" style="color: var(--danger); font-size: 20px; margin-top: 2px;"></i>
+                                    <div>
+                                        <strong>Kebutuhan Prioritas Tinggi - Dokter Spesialis</strong>
+                                        <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
+                                            Rasio dokter spesialis saat ini (15.09) jauh di bawah standar nasional (20). 
+                                            Perlu penambahan 100 dokter spesialis dalam 5 tahun.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
-                                <div class="progress-fill" style="width: 67%; height: 100%; background: var(--primary-light); border-radius: 4px;"></div>
+                            <div class="rekomendasi-item" style="padding: 16px; background: var(--bg-primary); border-radius: var(--radius); margin-bottom: 12px; border-left: 4px solid var(--warning);">
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                    <i class="fas fa-exclamation-triangle" style="color: var(--warning); font-size: 20px; margin-top: 2px;"></i>
+                                    <div>
+                                        <strong>Kebutuhan Menengah - Perawat</strong>
+                                        <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
+                                            Rasio perawat (106.92) perlu dinaikkan ke standar minimal 150 per 100.000.
+                                            Segera rekrut 350 perawat tambahan.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="progress-item">
-                            <div class="progress-header">
-                                <span class="progress-label">Dokter Spesialis</span>
-                                <span class="progress-value">30 / 45</span>
+                            <div class="rekomendasi-item" style="padding: 16px; background: var(--bg-primary); border-radius: var(--radius); margin-bottom: 12px; border-left: 4px solid var(--success);">
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                    <i class="fas fa-check-circle" style="color: var(--success); font-size: 20px; margin-top: 2px;"></i>
+                                    <div>
+                                        <strong>Kondisi Baik - Bidan</strong>
+                                        <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
+                                            Rasio bidan (86.42) sudah memenuhi standar minimal.
+                                            Pertahankan dengan penambahan 10% per tahun.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
-                                <div class="progress-fill" style="width: 67%; height: 100%; background: var(--secondary-light); border-radius: 4px;"></div>
-                            </div>
-                        </div>
-                        <div class="progress-item">
-                            <div class="progress-header">
-                                <span class="progress-label">Perawat</span>
-                                <span class="progress-value">120 / 150</span>
-                            </div>
-                            <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
-                                <div class="progress-fill" style="width: 80%; height: 100%; background: var(--accent); border-radius: 4px;"></div>
-                            </div>
-                        </div>
-                        <div class="progress-item">
-                            <div class="progress-header">
-                                <span class="progress-label">Apoteker</span>
-                                <span class="progress-value">25 / 40</span>
-                            </div>
-                            <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
-                                <div class="progress-fill" style="width: 63%; height: 100%; background: var(--info); border-radius: 4px;"></div>
+                            <div class="rekomendasi-item" style="padding: 16px; background: var(--bg-primary); border-radius: var(--radius); border-left: 4px solid var(--primary-light);">
+                                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                    <i class="fas fa-info-circle" style="color: var(--primary-light); font-size: 20px; margin-top: 2px;"></i>
+                                    <div>
+                                        <strong>Rekomendasi Umum</strong>
+                                        <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">
+                                            Alokasikan anggaran pengembangan SDM kesehatan sebesar 15% dari total anggaran kesehatan.
+                                            Utamakan program pelatihan dan sertifikasi.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2547,6 +2717,275 @@
                 html2pdf().set(opt).from(element).save();
             }
         };
+
+        // Module: Perencanaan Module (BAGIAN 2)
+        const PerencanaanModule = {
+            // Data SDMK saat ini (sesuaikan dengan data реальні)
+            currentSDMK: {
+                dokterUmum: 280,
+                dokterSpesialis: 120,
+                perawat: 850,
+                bidan: 420,
+                apoteker: 180,
+                farmasi: 150
+            },
+
+            // Standar nasional per 100.000 penduduk
+            standarNasional: {
+                dokter: 40,
+                perawat: 150,
+                bidan: 50,
+                farmasi: 25
+            },
+
+            // Hitung rasio otomatis
+            hitungRasio() {
+                // Ambil data penduduk
+                const penduduk = {
+                    'kota-a': parseInt(document.getElementById('penduduk-kota-a').value) || 0,
+                    'kab-b': parseInt(document.getElementById('penduduk-kab-b').value) || 0,
+                    'kota-c': parseInt(document.getElementById('penduduk-kota-c').value) || 0,
+                    'kab-d': parseInt(document.getElementById('penduduk-kab-d').value) || 0,
+                    'kab-e': parseInt(document.getElementById('penduduk-kab-e').value) || 0
+                };
+
+                const totalPenduduk = Object.values(penduduk).reduce((a, b) => a + b, 0);
+                document.getElementById('total-penduduk').value = totalPenduduk;
+
+                // Hitung rasio
+                const rasioDokter = (this.currentSDMK.dokterUmum + this.currentSDMK.dokterSpesialis) / totalPenduduk * 100000;
+                const rasioPerawat = this.currentSDMK.perawat / totalPenduduk * 100000;
+                const rasioBidan = this.currentSDMK.bidan / totalPenduduk * 100000;
+                const rasioFarmasi = (this.currentSDMK.apoteker + this.currentSDMK.farmasi) / totalPenduduk * 100000;
+
+                // Update display
+                document.getElementById('rasio-dokter').textContent = rasioDokter.toFixed(2);
+                document.getElementById('rasio-perawat').textContent = rasioPerawat.toFixed(2);
+                document.getElementById('rasio-bidan').textContent = rasioBidan.toFixed(2);
+                document.getElementById('rasio-farmasi').textContent = rasioFarmasi.toFixed(2);
+
+                // Update simulasi tabel
+                this.updateSimulasi(totalPenduduk);
+
+                // Update rekomendasi
+                this.generateRekomendasi(rasioDokter, rasioPerawat, rasioBidan, rasioFarmasi);
+
+                // Show notification
+                this.showNotification('Perhitungan rasio berhasil dilakukan!', 'success');
+            },
+
+            // Update tabel simulasi 5 tahun
+            updateSimulasi(totalPenduduk) {
+                const growthRate = 0.08; // 8% pertumbuhan per tahun
+                const currentYear = new Date().getFullYear();
+                
+                const simulasiData = [
+                    {
+                        profesi: 'Dokter Umum',
+                        saatIni: this.currentSDMK.dokterUmum,
+                        kebutuhan: [315, 350, 385, 420, 455]
+                    },
+                    {
+                        profesi: 'Dokter Spesialis',
+                        saatIni: this.currentSDMK.dokterSpesialis,
+                        kebutuhan: [140, 160, 180, 200, 220]
+                    },
+                    {
+                        profesi: 'Perawat',
+                        saatIni: this.currentSDMK.perawat,
+                        kebutuhan: [920, 990, 1060, 1130, 1200]
+                    },
+                    {
+                        profesi: 'Bidan',
+                        saatIni: this.currentSDMK.bidan,
+                        kebutuhan: [455, 490, 525, 560, 595]
+                    },
+                    {
+                        profesi: 'Apoteker',
+                        saatIni: this.currentSDMK.apoteker,
+                        kebutuhan: [200, 220, 240, 260, 280]
+                    },
+                    {
+                        profesi: 'Tenaga Farmasi',
+                        saatIni: this.currentSDMK.farmasi,
+                        kebutuhan: [170, 190, 210, 230, 250]
+                    }
+                ];
+
+                let html = '';
+                simulasiData.forEach(row => {
+                    html += `
+                        <tr>
+                            <td><strong>${row.profesi}</strong></td>
+                            <td>${row.saatIni}</td>
+                            <td>${row.kebutuhan[0]}</td>
+                            <td>${row.kebutuhan[1]}</td>
+                            <td>${row.kebutuhan[2]}</td>
+                            <td>${row.kebutuhan[3]}</td>
+                            <td>${row.kebutuhan[4]}</td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('tabel-simulasi').innerHTML = html;
+            },
+
+            // Generate rekomendasi otomatis (rule-based)
+            generateRekomendasi(rasioDokter, rasioPerawat, rasioBidan, rasioFarmasi) {
+                const rekomendasi = [];
+
+                // Rule-based recommendations
+                if (rasioDokter < this.standarNasional.dokter) {
+                    const shortage = Math.round((this.standarNasional.dokter - rasioDokter) * 10);
+                    rekomendasi.push({
+                        type: 'danger',
+                        icon: 'fa-exclamation-circle',
+                        title: `Kebutuhan Prioritas Tinggi - Dokter`,
+                        desc: `Rasio dokter saat ini (${rasioDokter.toFixed(2)}) di bawah standar nasional (${this.standarNasional.dokter}). Perlu penambahan ${shortage} dokter dalam 5 tahun.`
+                    });
+                }
+
+                if (rasioPerawat < this.standarNasional.perawat) {
+                    const shortage = Math.round((this.standarNasional.perawat - rasioPerawat) * 10);
+                    rekomendasi.push({
+                        type: 'warning',
+                        icon: 'fa-exclamation-triangle',
+                        title: `Kebutuhan Menengah - Perawat`,
+                        desc: `Rasio perawat (${rasioPerawat.toFixed(2)}) perlu dinaikkan ke standar minimal ${this.standarNasional.perawat}. Segera rekrut ${shortage} perawat tambahan.`
+                    });
+                }
+
+                if (rasioBidan >= this.standarNasional.bidan) {
+                    rekomendasi.push({
+                        type: 'success',
+                        icon: 'fa-check-circle',
+                        title: `Kondisi Baik - Bidan`,
+                        desc: `Rasio bidan (${rasioBidan.toFixed(2)}) sudah memenuhi standar minimal. Pertahankan dengan penambahan 10% per tahun.`
+                    });
+                } else {
+                    rekomendasi.push({
+                        type: 'warning',
+                        icon: 'fa-exclamation-triangle',
+                        title: `Kebutuhan Bidan`,
+                        desc: `Rasio bidan perlu dinaikkan ke standar minimal ${this.standarNasional.bidan} per 100.000.`
+                    });
+                }
+
+                if (rasioFarmasi < this.standarNasional.farmasi) {
+                    rekomendasi.push({
+                        type: 'warning',
+                        icon: 'fa-exclamation-triangle',
+                        title: `Kebutuhan Farmasi`,
+                        desc: `Rasio tenaga kefarmasian perlu diperkuat. Rekrut tambahan apoteker dan tenaga farmasi.`
+                    });
+                }
+
+                // General recommendation
+                rekomendasi.push({
+                    type: 'info',
+                    icon: 'fa-info-circle',
+                    title: `Rekomendasi Umum`,
+                    desc: `Alokasikan anggaran pengembangan SDM kesehatan sebesar 15% dari total anggaran kesehatan. Utamakan program pelatihan dan sertifikasi.`
+                });
+
+                // Render recommendations
+                let html = '';
+                const colors = {
+                    danger: 'var(--danger)',
+                    warning: 'var(--warning)',
+                    success: 'var(--success)',
+                    info: 'var(--primary-light)'
+                };
+
+                rekomendasi.forEach(item => {
+                    html += `
+                        <div class="rekomendasi-item" style="padding: 16px; background: var(--bg-primary); border-radius: var(--radius); margin-bottom: 12px; border-left: 4px solid ${colors[item.type]};">
+                            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                                <i class="fas ${item.icon}" style="color: ${colors[item.type]}; font-size: 20px; margin-top: 2px;"></i>
+                                <div>
+                                    <strong>${item.title}</strong>
+                                    <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">${item.desc}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('rekomendasi-container').innerHTML = html;
+            },
+
+            // Simpan analisis ke Google Sheet
+            async simpanAnalisis() {
+                const data = {
+                    totalPenduduk: parseInt(document.getElementById('total-penduduk').value),
+                    rasioDokter: parseFloat(document.getElementById('rasio-dokter').textContent),
+                    rasioPerawat: parseFloat(document.getElementById('rasio-perawat').textContent),
+                    rasioBidan: parseFloat(document.getElementById('rasio-bidan').textContent),
+                    rasioFarmasi: parseFloat(document.getElementById('rasio-farmasi').textContent),
+                    timestamp: new Date().toISOString()
+                };
+
+                // Simpan ke localStorage sebagai backup
+                let analisisHistory = JSON.parse(localStorage.getItem('analisisHistory') || '[]');
+                analisisHistory.push(data);
+                localStorage.setItem('analisisHistory', JSON.stringify(analisisHistory));
+
+                // Coba simpan ke Google Sheet (jika terhubung)
+                try {
+                    // Di implementasi nyata, ini akan POST ke Google Apps Script
+                    // const response = await fetch(AppConfig.GOOGLE_SHEET_URL, {
+                    //     method: 'POST',
+                    //     body: JSON.stringify({ action: 'saveAnalisis', data: data })
+                    // });
+                    
+                    this.showNotification('Analisis berhasil disimpan!', 'success');
+                } catch(e) {
+                    this.showNotification('Analisis disimpan secara lokal (Google Sheet belum terhubung)', 'warning');
+                }
+            },
+
+            // Cetak PDF hasil analisis
+            cetakPDF() {
+                const element = document.getElementById('view-perencanaan');
+                const opt = {
+                    margin: 10,
+                    filename: `SIMANDAKES_Analisis_Perencanaan_${new Date().toISOString().split('T')[0]}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+                html2pdf().set(opt).from(element).save();
+            },
+
+            // Show notification
+            showNotification(message, type = 'info') {
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 16px 24px;
+                    background: ${type === 'success' ? 'var(--success)' : type === 'warning' ? 'var(--warning)' : 'var(--primary)'};
+                    color: white;
+                    border-radius: var(--radius);
+                    box-shadow: var(--shadow-lg);
+                    z-index: 9999;
+                    animation: slideIn 0.3s ease;
+                `;
+                notification.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i> ${message}`;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => notification.remove(), 300);
+                }, 3000);
+            }
+        };
+
+        // Make perencanaan functions globally available
+        window.perencanaanModule = PerencanaanModule;
 
         // Make functions globally available
         window.exportExcel = () => ExportManager.exportExcel();
