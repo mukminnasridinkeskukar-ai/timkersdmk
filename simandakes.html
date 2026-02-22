@@ -8,6 +8,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             --primary: #1e40af;
@@ -401,6 +405,15 @@
             background: #b91c1c;
         }
 
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #16a34a;
+        }
+
         .theme-toggle {
             width: 40px;
             height: 40px;
@@ -423,21 +436,10 @@
             color: var(--text-secondary);
         }
 
-        [data-theme="dark"] .theme-toggle .fa-sun {
-            display: block;
-        }
-
-        [data-theme="dark"] .theme-toggle .fa-moon {
-            display: none;
-        }
-
-        [data-theme="light"] .theme-toggle .fa-sun {
-            display: none;
-        }
-
-        [data-theme="light"] .theme-toggle .fa-moon {
-            display: block;
-        }
+        [data-theme="dark"] .theme-toggle .fa-sun { display: block; }
+        [data-theme="dark"] .theme-toggle .fa-moon { display: none; }
+        [data-theme="light"] .theme-toggle .fa-sun { display: none; }
+        [data-theme="light"] .theme-toggle .fa-moon { display: block; }
 
         /* Page Content */
         .page-content {
@@ -461,19 +463,36 @@
         /* Dashboard Cards */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
             margin-bottom: 32px;
         }
 
         .stat-card {
             background: var(--bg-card);
             border-radius: var(--radius-lg);
-            padding: 24px;
+            padding: 20px;
             box-shadow: var(--shadow);
             border: 1px solid var(--border);
             transition: var(--transition);
+            position: relative;
+            overflow: hidden;
         }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary);
+        }
+
+        .stat-card.green::before { background: var(--secondary); }
+        .stat-card.orange::before { background: var(--accent); }
+        .stat-card.red::before { background: var(--danger); }
+        .stat-card.cyan::before { background: var(--info); }
 
         .stat-card:hover {
             transform: translateY(-2px);
@@ -484,17 +503,17 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         .stat-icon {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             border-radius: var(--radius);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 18px;
         }
 
         .stat-icon.blue {
@@ -522,37 +541,21 @@
             color: var(--info);
         }
 
-        .stat-trend {
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 20px;
-        }
-
-        .stat-trend.up {
-            background: rgba(34, 197, 94, 0.1);
-            color: var(--success);
-        }
-
-        .stat-trend.down {
-            background: rgba(220, 38, 38, 0.1);
-            color: var(--danger);
-        }
-
         .stat-value {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 700;
             margin-bottom: 4px;
         }
 
         .stat-label {
             color: var(--text-secondary);
-            font-size: 14px;
+            font-size: 13px;
         }
 
         /* Charts Section */
         .charts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 24px;
             margin-bottom: 32px;
         }
@@ -565,59 +568,29 @@
             border: 1px solid var(--border);
         }
 
+        .chart-card.col-span-2 {
+            grid-column: span 2;
+        }
+
         .chart-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
         .chart-title {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
         }
 
         .chart-container {
-            height: 250px;
+            height: 280px;
             position: relative;
         }
 
-        /* Simple Bar Chart */
-        .bar-chart {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-around;
-            height: 200px;
-            padding-top: 20px;
-        }
-
-        .bar-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            flex: 1;
-        }
-
-        .bar {
-            width: 40px;
-            background: linear-gradient(to top, var(--primary), var(--primary-light));
-            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-            transition: var(--transition);
-        }
-
-        .bar:hover {
-            opacity: 0.8;
-        }
-
-        .bar-label {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .bar-value {
-            font-size: 12px;
-            font-weight: 600;
+        .chart-container canvas {
+            max-height: 100%;
         }
 
         /* Tables */
@@ -635,6 +608,8 @@
             justify-content: space-between;
             padding: 20px 24px;
             border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 16px;
         }
 
         .table-title {
@@ -645,6 +620,16 @@
         .table-actions {
             display: flex;
             gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .table-filters {
+            display: flex;
+            gap: 12px;
+            padding: 16px 24px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
         }
 
         .search-box {
@@ -652,9 +637,11 @@
             align-items: center;
             gap: 8px;
             padding: 8px 16px;
-            background: var(--bg-primary);
+            background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: var(--radius);
+            flex: 1;
+            min-width: 200px;
         }
 
         .search-box input {
@@ -663,7 +650,23 @@
             outline: none;
             font-size: 14px;
             color: var(--text-primary);
-            width: 200px;
+            width: 100%;
+        }
+
+        .filter-select {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            min-width: 150px;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--primary);
         }
 
         table {
@@ -672,22 +675,23 @@
         }
 
         th, td {
-            padding: 16px 24px;
+            padding: 14px 20px;
             text-align: left;
         }
 
         th {
             background: var(--bg-primary);
-            font-size: 12px;
+            font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--text-secondary);
             font-weight: 600;
+            white-space: nowrap;
         }
 
         td {
             border-bottom: 1px solid var(--border);
-            font-size: 14px;
+            font-size: 13px;
         }
 
         tr:hover {
@@ -698,9 +702,9 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 4px 12px;
+            padding: 4px 10px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
         }
 
@@ -899,19 +903,6 @@
             margin-bottom: 16px;
         }
 
-        /* Form layouts */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }
-
-        .form-row {
-            display: flex;
-            gap: 16px;
-            margin-top: 20px;
-        }
-
         /* Admin Panel */
         .admin-panel {
             display: none;
@@ -971,135 +962,61 @@
             flex-shrink: 0;
         }
 
-        .log-icon.login {
-            background: rgba(34, 197, 94, 0.1);
-            color: var(--success);
-        }
+        .log-icon.login { background: rgba(34, 197, 94, 0.1); color: var(--success); }
+        .log-icon.logout { background: rgba(220, 38, 38, 0.1); color: var(--danger); }
+        .log-icon.action { background: rgba(59, 130, 246, 0.1); color: var(--primary-light); }
 
-        .log-icon.logout {
-            background: rgba(220, 38, 38, 0.1);
-            color: var(--danger);
-        }
+        .log-content { flex: 1; }
+        .log-title { font-weight: 500; margin-bottom: 4px; }
+        .log-time { font-size: 12px; color: var(--text-secondary); }
 
-        .log-icon.action {
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--primary-light);
-        }
-
-        .log-content {
-            flex: 1;
-        }
-
-        .log-title {
-            font-weight: 500;
-            margin-bottom: 4px;
-        }
-
-        .log-time {
+        /* Data Source Indicator */
+        .data-source {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-size: 12px;
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            background: var(--bg-primary);
+            border-radius: var(--radius);
+        }
+
+        .data-source .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .data-source.error .dot {
+            background: var(--danger);
+        }
+
+        /* Loading State */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
             color: var(--text-secondary);
         }
 
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .sidebar {
-                width: 80px;
-            }
-            .sidebar .sidebar-title,
-            .sidebar .nav-item span,
-            .sidebar .nav-item.locked::after,
-            .sidebar .nav-section-title {
-                display: none;
-            }
-            .main-content {
-                margin-left: 80px;
-            }
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
+        .loading i {
+            font-size: 24px;
+            animation: spin 1s linear infinite;
+            margin-right: 12px;
         }
 
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                width: 280px;
-            }
-            .sidebar.mobile-open {
-                transform: translateX(0);
-            }
-            .sidebar.mobile-open .sidebar-title,
-            .sidebar.mobile-open .nav-item span,
-            .sidebar.mobile-open .nav-item.locked::after {
-                display: block;
-            }
-            .main-content {
-                margin-left: 0;
-            }
-            .topbar {
-                padding: 16px;
-            }
-            .page-content {
-                padding: 16px;
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .table-container {
-                overflow-x: auto;
-            }
-            table {
-                min-width: 600px;
-            }
-            .grid-2, .grid-3 {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Mobile menu button */
-        .mobile-menu-btn {
-            display: none;
-            width: 40px;
-            height: 40px;
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            cursor: pointer;
-            align-items: center;
-            justify-content: center;
-        }
-
-        @media (max-width: 768px) {
-            .mobile-menu-btn {
-                display: flex;
-            }
-        }
-
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 99;
-        }
-
-        .sidebar-overlay.active {
-            display: block;
-        }
-
-        /* Year footer */
-        .footer-year {
-            text-align: center;
-            padding: 16px;
-            color: var(--text-light);
-            font-size: 12px;
-            border-top: 1px solid var(--border);
-            background: var(--bg-secondary);
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         /* Pagination */
@@ -1118,6 +1035,7 @@
             border-radius: var(--radius);
             cursor: pointer;
             transition: var(--transition);
+            color: var(--text-primary);
         }
 
         .pagination button:hover {
@@ -1130,67 +1048,134 @@
             border-color: var(--primary);
         }
 
-        /* Donut Chart */
-        .donut-chart {
-            width: 200px;
-            height: 200px;
-            margin: 0 auto;
-            position: relative;
+        /* Responsive */
+        @media (max-width: 1280px) {
+            .charts-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .chart-card.col-span-2 {
+                grid-column: span 2;
+            }
         }
 
-        .donut-chart svg {
-            transform: rotate(-90deg);
+        @media (max-width: 1024px) {
+            .sidebar { width: 80px; }
+            .sidebar .sidebar-title, .sidebar .nav-item span, .sidebar .nav-item.locked::after, .sidebar .nav-section-title { display: none; }
+            .main-content { margin-left: 80px; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .chart-card.col-span-2 { grid-column: span 1; }
         }
 
-        .donut-center {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                width: 280px;
+            }
+            .sidebar.mobile-open { transform: translateX(0); }
+            .sidebar.mobile-open .sidebar-title, .sidebar.mobile-open .nav-item span, .sidebar.mobile-open .nav-item.locked::after { display: block; }
+            .main-content { margin-left: 0; }
+            .topbar { padding: 16px; }
+            .page-content { padding: 16px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .table-container { overflow-x: auto; }
+            table { min-width: 700px; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .table-filters { flex-direction: column; }
+            .filter-select, .search-box { width: 100%; }
+        }
+
+        /* Mobile menu button */
+        .mobile-menu-btn {
+            display: none;
+            width: 40px;
+            height: 40px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn { display: flex; }
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 99;
+        }
+
+        .sidebar-overlay.active { display: block; }
+
+        /* Footer */
+        .footer-year {
+            text-align: center;
+            padding: 16px;
+            color: var(--text-light);
+            font-size: 12px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-secondary);
+        }
+
+        /* KPI Cards Row */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 640px) {
+            .kpi-row { grid-template-columns: 1fr; }
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
             text-align: center;
         }
 
-        .donut-value {
-            font-size: 28px;
-            font-weight: 700;
+        .kpi-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 12px;
         }
 
-        .donut-label {
-            font-size: 12px;
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+
+        .kpi-label {
+            font-size: 13px;
             color: var(--text-secondary);
         }
 
-        /* Progress bars */
-        .progress-item {
-            margin-bottom: 16px;
-        }
-
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-        }
-
-        .progress-label {
-            font-size: 14px;
-        }
-
-        .progress-value {
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .progress-bar {
-            height: 8px;
-            background: var(--bg-primary);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
+        .kpi-sublabel {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 4px;
         }
     </style>
 </head>
@@ -1287,17 +1272,17 @@
                 <div class="topbar-left">
                     <button class="mobile-menu-btn" id="mobileMenuBtn">
                         <i class="fas fa-bars"></i>
-                    <div class=" </button>
-                   breadcrumb">
+                    </button>
+                    <div class="breadcrumb">
                         <a href="#" id="breadcrumbHome">Home</a>
                         <i class="fas fa-chevron-right" style="font-size: 10px; color: var(--text-light);"></i>
                         <span id="breadcrumbCurrent">Dashboard</span>
                     </div>
                 </div>
                 <div class="topbar-right">
-                    <div class="search-box">
-                        <i class="fas fa-search" style="color: var(--text-light);"></i>
-                        <input type="text" placeholder="Pencarian...">
+                    <div class="data-source" id="dataSource">
+                        <span class="dot"></span>
+                        <span id="dataSourceText">Terhubung dengan Google Sheet</span>
                     </div>
                     <button class="theme-toggle" id="themeToggle">
                         <i class="fas fa-moon"></i>
@@ -1313,177 +1298,268 @@
                 <section class="view active" id="view-dashboard">
                     <div class="page-header">
                         <h2>Dashboard Data SDM Kesehatan</h2>
-                        <p>Ringkasan data sumber daya manusia kesehatan Pemerintah Daerah</p>
+                        <p>Ringkasan data sumber daya manusia kesehatan Pemerintah Daerah - Realtime dari Google Sheet</p>
+                    </div>
+
+                    <!-- KPI Cards with Animation -->
+                    <div class="kpi-row">
+                        <div class="kpi-card">
+                            <div class="kpi-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--primary-light);">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="kpi-value" data-count="2847">0</div>
+                            <div class="kpi-label">Total SDMK</div>
+                            <div class="kpi-sublabel">Tenaga Kesehatan</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--secondary-light);">
+                                <i class="fas fa-user-md"></i>
+                            </div>
+                            <div class="kpi-value" data-count="523">0</div>
+                            <div class="kpi-label">Dokter</div>
+                            <div class="kpi-sublabel">Umum & Spesialis</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon" style="background: rgba(6, 182, 212, 0.1); color: var(--info);">
+                                <i class="fas fa-user-nurse"></i>
+                            </div>
+                            <div class="kpi-value" data-count="1245">0</div>
+                            <div class="kpi-label">Perawat</div>
+                            <div class="kpi-sublabel">Profesi Keperawatan</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--accent);">
+                                <i class="fas fa-baby"></i>
+                            </div>
+                            <div class="kpi-value" data-count="687">0</div>
+                            <div class="kpi-label">Bidan</div>
+                            <div class="kpi-sublabel">Profesi Kebidanan</div>
+                        </div>
                     </div>
 
                     <!-- Stats Grid -->
                     <div class="stats-grid">
+                        <div class="stat-card green">
+                            <div class="stat-header">
+                                <div class="stat-icon green">
+                                    <i class="fas fa-clinic-medical"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" data-count="156">0</div>
+                            <div class="stat-label">Total Puskesmas</div>
+                        </div>
+                        <div class="stat-card orange">
+                            <div class="stat-header">
+                                <div class="stat-icon orange">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" data-ratio="42.5">0</div>
+                            <div class="stat-label">Rasio per 100.000 penduduk</div>
+                        </div>
+                        <div class="stat-card cyan">
+                            <div class="stat-header">
+                                <div class="stat-icon cyan">
+                                    <i class="fas fa-balance-scale"></i>
+                                </div>
+                            </div>
+                            <div class="stat-value" data-count="78">0</div>
+                            <div class="stat-label">Indeks Kecukupan SDMK (%)</div>
+                        </div>
                         <div class="stat-card">
                             <div class="stat-header">
                                 <div class="stat-icon blue">
-                                    <i class="fas fa-user-md"></i>
-                                </div>
-                                <span class="stat-trend up">+12%</span>
-                            </div>
-                            <div class="stat-value">2,847</div>
-                            <div class="stat-label">Total SDM Kesehatan</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-header">
-                                <div class="stat-icon green">
-                                    <i class="fas fa-stethoscope"></i>
-                                </div>
-                                <span class="stat-trend up">+8%</span>
-                            </div>
-                            <div class="stat-value">1,523</div>
-                            <div class="stat-label">Dokter</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-header">
-                                <div class="stat-icon orange">
-                                    <i class="fas fa-user-nurse"></i>
-                                </div>
-                                <span class="stat-trend up">+15%</span>
-                            </div>
-                            <div class="stat-value">892</div>
-                            <div class="stat-label">Perawat</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-header">
-                                <div class="stat-icon cyan">
                                     <i class="fas fa-pills"></i>
                                 </div>
-                                <span class="stat-trend down">-3%</span>
                             </div>
-                            <div class="stat-value">432</div>
-                            <div class="stat-label">Apoteker</div>
+                            <div class="stat-value" data-count="234">0</div>
+                            <div class="stat-label">Tenaga Farmasi</div>
                         </div>
                     </div>
 
-                    <!-- Charts -->
+                    <!-- Charts Grid -->
                     <div class="charts-grid">
-                        <div class="chart-card">
+                        <div class="chart-card col-span-2">
                             <div class="chart-header">
-                                <h3 class="chart-title">Distribusi SDM Kesehatan per Kabupaten/Kota</h3>
+                                <h3 class="chart-title">Distribusi SDMK per Kecamatan</h3>
                             </div>
                             <div class="chart-container">
-                                <div class="bar-chart">
-                                    <div class="bar-item">
-                                        <div class="bar-value">850</div>
-                                        <div class="bar" style="height: 150px;"></div>
-                                        <div class="bar-label">Kota A</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">620</div>
-                                        <div class="bar" style="height: 110px;"></div>
-                                        <div class="bar-label">Kab. B</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">480</div>
-                                        <div class="bar" style="height: 85px;"></div>
-                                        <div class="bar-label">Kota C</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">520</div>
-                                        <div class="bar" style="height: 92px;"></div>
-                                        <div class="bar-label">Kab. D</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">377</div>
-                                        <div class="bar" style="height: 67px;"></div>
-                                        <div class="bar-label">Kab. E</div>
-                                    </div>
-                                </div>
+                                <canvas id="barChartKecamatan"></canvas>
                             </div>
                         </div>
-
                         <div class="chart-card">
                             <div class="chart-header">
-                                <h3 class="chart-title">Persebaran berdasarkan Jenis Profesi</h3>
+                                <h3 class="chart-title">Pie Chart Profesi</h3>
                             </div>
-                            <div class="chart-container" style="display: flex; align-items: center; justify-content: center;">
-                                <div class="donut-chart">
-                                    <svg viewBox="0 0 100 100" width="200" height="200">
-                                        <circle cx="50" cy="50" r="40" fill="none" stroke="#e2e8f0" stroke-width="12"/>
-                                        <circle cx="50" cy="50" r="40" fill="none" stroke="#3b82f6" stroke-width="12" stroke-dasharray="100 151" stroke-dashoffset="0"/>
-                                        <circle cx="50" cy="50" r="40" fill="none" stroke="#10b981" stroke-width="12" stroke-dasharray="60 191" stroke-dashoffset="-100"/>
-                                        <circle cx="50" cy="50" r="40" fill="none" stroke="#f59e0b" stroke-width="12" stroke-dasharray="40 211" stroke-dashoffset="-160"/>
-                                        <circle cx="50" cy="50" r="40" fill="none" stroke="#06b6d4" stroke-width="12" stroke-dasharray="30 221" stroke-dashoffset="-200"/>
-                                    </svg>
-                                    <div class="donut-center">
-                                        <div class="donut-value">2,847</div>
-                                        <div class="donut-label">Total</div>
-                                    </div>
-                                </div>
+                            <div class="chart-container">
+                                <canvas id="pieChartProfesi"></canvas>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Recent Table -->
-                    <div class="table-container">
+                    <!-- Line Chart -->
+                    <div class="charts-grid" style="margin-bottom: 32px;">
+                        <div class="chart-card col-span-3">
+                            <div class="chart-header">
+                                <h3 class="chart-title">Tren SDMK 5 Tahun Terakhir</h3>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="lineChartTren"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Realtime Table -->
+                    <div class="table-container" id="tableContainer">
                         <div class="table-header">
-                            <h3 class="table-title">Data Terbaru SDM Kesehatan</h3>
+                            <h3 class="table-title">Data Realtime SDM Kesehatan</h3>
                             <div class="table-actions">
-                                <button class="btn btn-secondary">
-                                    <i class="fas fa-download"></i>
-                                    Export
+                                <button class="btn btn-success" onclick="exportExcel()">
+                                    <i class="fas fa-file-excel"></i>
+                                    Export Excel
+                                </button>
+                                <button class="btn btn-secondary" onclick="printPDF()">
+                                    <i class="fas fa-print"></i>
+                                    Print PDF
                                 </button>
                             </div>
                         </div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>NIK</th>
-                                    <th>Nama Lengkap</th>
-                                    <th>Profesi</th>
-                                    <th>Unit Kerja</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>3571010101900001</td>
-                                    <td>Dr. Ahmad Wijaya, Sp.PD</td>
-                                    <td>Dokter Spesialis</td>
-                                    <td>RSUD Kota A</td>
-                                    <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
-                                </tr>
-                                <tr>
-                                    <td>3571010202900002</td>
-                                    <td>Siti Rahayu, S.Kep</td>
-                                    <td>Perawat</td>
-                                    <td>Puskesmas Kec. B</td>
-                                    <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
-                                </tr>
-                                <tr>
-                                    <td>3571010303900003</td>
-                                    <td>Budi Santoso, Apt</td>
-                                    <td>Apoteker</td>
-                                    <td>RSUD Kota A</td>
-                                    <td><span class="status-badge pending"><i class="fas fa-circle"></i>Pending</span></td>
-                                </tr>
-                                <tr>
-                                    <td>3571010404900004</td>
-                                    <td> Dra. Maria Theresa</td>
-                                    <td>Dokter Umum</td>
-                                    <td>Puskesmas Kec. C</td>
-                                    <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
-                                </tr>
-                                <tr>
-                                    <td>3571010505900005</td>
-                                    <td>Joko Pramono</td>
-                                    <td>Tenaga Farmasi</td>
-                                    <td>Apotek Daerah</td>
-                                    <td><span class="status-badge inactive"><i class="fas fa-circle"></i>Non-Aktif</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div class="pagination">
-                            <button>&laquo;</button>
-                            <button class="active">1</button>
-                            <button>2</button>
-                            <button>3</button>
-                            <button>&raquo;</button>
+                        <div class="table-filters">
+                            <div class="search-box">
+                                <i class="fas fa-search" style="color: var(--text-light);"></i>
+                                <input type="text" id="searchInput" placeholder="Cari nama, NIP, atau unit kerja...">
+                            </div>
+                            <select class="filter-select" id="filterProfesi">
+                                <option value="">Semua Profesi</option>
+                                <option value="Dokter">Dokter</option>
+                                <option value="Dokter Spesialis">Dokter Spesialis</option>
+                                <option value="Perawat">Perawat</option>
+                                <option value="Bidan">Bidan</option>
+                                <option value="Apoteker">Apoteker</option>
+                                <option value="Tenaga Farmasi">Tenaga Farmasi</option>
+                            </select>
+                            <select class="filter-select" id="filterWilayah">
+                                <option value="">Semua Wilayah</option>
+                                <option value="Kota A">Kota A</option>
+                                <option value="Kab. B">Kab. B</option>
+                                <option value="Kota C">Kota C</option>
+                                <option value="Kab. D">Kab. D</option>
+                                <option value="Kab. E">Kab. E</option>
+                            </select>
+                        </div>
+                        <div id="tableContent">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Nama</th>
+                                        <th>NIP</th>
+                                        <th>Profesi</th>
+                                        <th>Unit Kerja</th>
+                                        <th>Wilayah</th>
+                                        <th>Status</th>
+                                        <th>Pelatihan Terakhir</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody">
+                                    <tr>
+                                        <td>Dr. Ahmad Wijaya, Sp.PD</td>
+                                        <td>3571010101900001</td>
+                                        <td>Dokter Spesialis</td>
+                                        <td>RSUD Kota A</td>
+                                        <td>Kota A</td>
+                                        <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
+                                        <td>ECG Dasar - Jan 2026</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Siti Rahayu, S.Kep</td>
+                                        <td>3571010202900002</td>
+                                        <td>Perawat</td>
+                                        <td>Puskesmas Kec. B</td>
+                                        <td>Kab. B</td>
+                                        <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
+                                        <td>P3K Lanjutan - Des 2025</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Budi Santoso, Apt</td>
+                                        <td>3571010303900003</td>
+                                        <td>Apoteker</td>
+                                        <td>RSUD Kota A</td>
+                                        <td>Kota A</td>
+                                        <td><span class="status-badge pending"><i class="fas fa-circle"></i>Pending</span></td>
+                                        <td>-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Dra. Maria Theresa</td>
+                                        <td>3571010404900004</td>
+                                        <td>Dokter Umum</td>
+                                        <td>Puskesmas Kec. C</td>
+                                        <td>Kota C</td>
+                                        <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
+                                        <td>ATLS - Nov 2025</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Joko Pramono</td>
+                                        <td>3571010505900005</td>
+                                        <td>Tenaga Farmasi</td>
+                                        <td>Apotek Daerah</td>
+                                        <td>Kab. D</td>
+                                        <td><span class="status-badge inactive"><i class="fas fa-circle"></i>Non-Aktif</span></td>
+                                        <td>-</td>
+                                    </tr>
+                                    <tr>
+                                        <td>EFI Natalia, Am.Keb</td>
+                                        <td>3571010606900006</td>
+                                        <td>Bidan</td>
+                                        <td>Puskesmas Kec. E</td>
+                                        <td>Kab. E</td>
+                                        <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
+                                        <td>Asuhan Persalinan - Jan 2026</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Dr. Rina Susilowati</td>
+                                        <td>3571010707900007</td>
+                                        <td>Dokter Umum</td>
+                                        <td>RSUD Kab. B</td>
+                                        <td>Kab. B</td>
+                                        <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
+                                        <td>CPR - Okt 2025</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Wahyu Nugroho, S.Kep</td>
+                                        <td>3571010808900008</td>
+                                        <td>Perawat</td>
+                                        <td>RSUD Kota C</td>
+                                        <td>Kota C</td>
+                                        <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
+                                        <td>Manajemen DM - Jan 2026</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Linda Susilowati, Am.Farm</td>
+                                        <td>3571010909900009</td>
+                                        <td>Tenaga Farmasi</td>
+                                        <td>Puskesmas Kec. A</td>
+                                        <td>Kota A</td>
+                                        <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
+                                        <td>Pelayanan Kefarmasian - Sep 2025</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Dr. Hendro Wibowo, Sp.B</td>
+                                        <td>3571011010900010</td>
+                                        <td>Dokter Spesialis</td>
+                                        <td>RSUD Utama</td>
+                                        <td>Kota A</td>
+                                        <td><span class="status-badge active"><i class="fas fa-circle"></i>Aktif</span></td>
+                                        <td>Bedah Laparoskopi - Des 2025</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="pagination" id="pagination">
+                            <button onclick="changePage(-1)">«</button>
+                            <button class="active" onclick="goToPage(1)">1</button>
+                            <button onclick="goToPage(2)">2</button>
+                            <button onclick="goToPage(3)">3</button>
+                            <button onclick="changePage(1)">»</button>
                         </div>
                     </div>
                 </section>
@@ -1532,8 +1608,8 @@
                                 <span class="progress-label">Dokter Umum</span>
                                 <span class="progress-value">50 / 75</span>
                             </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 67%; background: var(--primary-light);"></div>
+                            <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                <div class="progress-fill" style="width: 67%; height: 100%; background: var(--primary-light); border-radius: 4px;"></div>
                             </div>
                         </div>
                         <div class="progress-item">
@@ -1541,8 +1617,8 @@
                                 <span class="progress-label">Dokter Spesialis</span>
                                 <span class="progress-value">30 / 45</span>
                             </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 67%; background: var(--secondary-light);"></div>
+                            <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                <div class="progress-fill" style="width: 67%; height: 100%; background: var(--secondary-light); border-radius: 4px;"></div>
                             </div>
                         </div>
                         <div class="progress-item">
@@ -1550,8 +1626,8 @@
                                 <span class="progress-label">Perawat</span>
                                 <span class="progress-value">120 / 150</span>
                             </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 80%; background: var(--accent);"></div>
+                            <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                <div class="progress-fill" style="width: 80%; height: 100%; background: var(--accent); border-radius: 4px;"></div>
                             </div>
                         </div>
                         <div class="progress-item">
@@ -1559,8 +1635,8 @@
                                 <span class="progress-label">Apoteker</span>
                                 <span class="progress-value">25 / 40</span>
                             </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: 63%; background: var(--info);"></div>
+                            <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                <div class="progress-fill" style="width: 63%; height: 100%; background: var(--info); border-radius: 4px;"></div>
                             </div>
                         </div>
                     </div>
@@ -1663,8 +1739,8 @@
                                     <span class="progress-label">Ahli</span>
                                     <span class="progress-value">35%</span>
                                 </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 35%; background: var(--success);"></div>
+                                <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                    <div class="progress-fill" style="width: 35%; height: 100%; background: var(--success); border-radius: 4px;"></div>
                                 </div>
                             </div>
                             <div class="progress-item">
@@ -1672,8 +1748,8 @@
                                     <span class="progress-label">Mahir</span>
                                     <span class="progress-value">42%</span>
                                 </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 42%; background: var(--primary-light);"></div>
+                                <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                    <div class="progress-fill" style="width: 42%; height: 100%; background: var(--primary-light); border-radius: 4px;"></div>
                                 </div>
                             </div>
                             <div class="progress-item">
@@ -1681,8 +1757,8 @@
                                     <span class="progress-label">Menengah</span>
                                     <span class="progress-value">18%</span>
                                 </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 18%; background: var(--accent);"></div>
+                                <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                    <div class="progress-fill" style="width: 18%; height: 100%; background: var(--accent); border-radius: 4px;"></div>
                                 </div>
                             </div>
                             <div class="progress-item">
@@ -1690,8 +1766,8 @@
                                     <span class="progress-label">Dasar</span>
                                     <span class="progress-value">5%</span>
                                 </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 5%; background: var(--danger);"></div>
+                                <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                    <div class="progress-fill" style="width: 5%; height: 100%; background: var(--danger); border-radius: 4px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -1703,8 +1779,8 @@
                                     <span class="progress-label">Sertifikasi Lengkap</span>
                                     <span class="progress-value">1,723 (61%)</span>
                                 </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 61%; background: var(--success);"></div>
+                                <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                    <div class="progress-fill" style="width: 61%; height: 100%; background: var(--success); border-radius: 4px;"></div>
                                 </div>
                             </div>
                             <div class="progress-item">
@@ -1712,8 +1788,8 @@
                                     <span class="progress-label">Sedang Proses</span>
                                     <span class="progress-value">845 (30%)</span>
                                 </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 30%; background: var(--accent);"></div>
+                                <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                    <div class="progress-fill" style="width: 30%; height: 100%; background: var(--accent); border-radius: 4px;"></div>
                                 </div>
                             </div>
                             <div class="progress-item">
@@ -1721,8 +1797,8 @@
                                     <span class="progress-label">Belum Sertifikasi</span>
                                     <span class="progress-value">279 (9%)</span>
                                 </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: 9%; background: var(--danger);"></div>
+                                <div class="progress-bar" style="height: 8px; background: var(--bg-primary); border-radius: 4px;">
+                                    <div class="progress-fill" style="width: 9%; height: 100%; background: var(--danger); border-radius: 4px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -1850,48 +1926,6 @@
                             <div class="stat-label">Laporan Dibuat</div>
                         </div>
                     </div>
-
-                    <div class="charts-grid">
-                        <div class="chart-card">
-                            <div class="chart-header">
-                                <h3 class="chart-title">Tren Kinerja Bulanan</h3>
-                            </div>
-                            <div class="chart-container">
-                                <div class="bar-chart">
-                                    <div class="bar-item">
-                                        <div class="bar-value">78</div>
-                                        <div class="bar" style="height: 120px; background: linear-gradient(to top, var(--secondary), var(--secondary-light));"></div>
-                                        <div class="bar-label">Jan</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">82</div>
-                                        <div class="bar" style="height: 130px; background: linear-gradient(to top, var(--secondary), var(--secondary-light));"></div>
-                                        <div class="bar-label">Feb</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">79</div>
-                                        <div class="bar" style="height: 125px; background: linear-gradient(to top, var(--secondary), var(--secondary-light));"></div>
-                                        <div class="bar-label">Mar</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">85</div>
-                                        <div class="bar" style="height: 140px; background: linear-gradient(to top, var(--secondary), var(--secondary-light));"></div>
-                                        <div class="bar-label">Apr</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">88</div>
-                                        <div class="bar" style="height: 150px; background: linear-gradient(to top, var(--secondary), var(--secondary-light));"></div>
-                                        <div class="bar-label">Mei</div>
-                                    </div>
-                                    <div class="bar-item">
-                                        <div class="bar-value">85</div>
-                                        <div class="bar" style="height: 140px; background: linear-gradient(to top, var(--secondary), var(--secondary-light));"></div>
-                                        <div class="bar-label">Jun</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </section>
 
                 <!-- Laporan View -->
@@ -1927,7 +1961,7 @@
                         <div class="card">
                             <h3 class="card-title"><i class="fas fa-file-export" style="margin-right: 10px; color: var(--primary-light);"></i>Ekspor Data</h3>
                             <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
-                                <button class="btn btn-secondary" style="justify-content: flex-start;">
+                                <button class="btn btn-secondary" style="justify-content: flex-start;" onclick="exportExcel()">
                                     <i class="fas fa-file-excel"></i>
                                     Export Excel - Data SDM
                                 </button>
@@ -1935,7 +1969,7 @@
                                     <i class="fas fa-file-csv"></i>
                                     Export CSV - Rekap
                                 </button>
-                                <button class="btn btn-secondary" style="justify-content: flex-start;">
+                                <button class="btn btn-secondary" style="justify-content: flex-start;" onclick="printPDF()">
                                     <i class="fas fa-file-pdf"></i>
                                     Export PDF - Kartu Identitas
                                 </button>
@@ -2144,7 +2178,10 @@
             APP_NAME: 'SIMANDAKES PEMDA',
             VERSION: '1.0.0',
             THEME_KEY: 'simandakesTheme',
-            SESSION_KEY: 'simandakesSession'
+            SESSION_KEY: 'simandakesSession',
+            // Google Apps Script Web App URL - Replace with your actual URL
+            GOOGLE_SHEET_URL: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL',
+            REFRESH_INTERVAL: 60000 // 60 seconds
         };
 
         // Hardcoded users
@@ -2153,35 +2190,369 @@
             { username: 'operator', password: 'operator123', role: 'OPERATOR', name: 'Operator SIMANDAKES' }
         ];
 
+        // Sample data (fallback when Google Sheet not connected)
+        let sdmkData = [
+            { nama: "Dr. Ahmad Wijaya, Sp.PD", nip: "3571010101900001", profesi: "Dokter Spesialis", unit: "RSUD Kota A", wilayah: "Kota A", status: "Aktif", pelatihan: "ECG Dasar - Jan 2026" },
+            { nama: "Siti Rahayu, S.Kep", nip: "3571010202900002", profesi: "Perawat", unit: "Puskesmas Kec. B", wilayah: "Kab. B", status: "Aktif", pelatihan: "P3K Lanjutan - Des 2025" },
+            { nama: "Budi Santoso, Apt", nip: "3571010303900003", profesi: "Apoteker", unit: "RSUD Kota A", wilayah: "Kota A", status: "Pending", pelatihan: "-" },
+            { nama: "Dra. Maria Theresa", nip: "3571010404900004", profesi: "Dokter Umum", unit: "Puskesmas Kec. C", wilayah: "Kota C", status: "Aktif", pelatihan: "ATLS - Nov 2025" },
+            { nama: "Joko Pramono", nip: "3571010505900005", profesi: "Tenaga Farmasi", unit: "Apotek Daerah", wilayah: "Kab. D", status: "Non-Aktif", pelatihan: "-" },
+            { nama: "EFI Natalia, Am.Keb", nip: "3571010606900006", profesi: "Bidan", unit: "Puskesmas Kec. E", wilayah: "Kab. E", status: "Aktif", pelatihan: "Asuhan Persalinan - Jan 2026" },
+            { nama: "Dr. Rina Susilowati", nip: "3571010707900007", profesi: "Dokter Umum", unit: "RSUD Kab. B", wilayah: "Kab. B", status: "Aktif", pelatihan: "CPR - Okt 2025" },
+            { nama: "Wahyu Nugroho, S.Kep", nip: "3571010808900008", profesi: "Perawat", unit: "RSUD Kota C", wilayah: "Kota C", status: "Aktif", pelatihan: "Manajemen DM - Jan 2026" },
+            { nama: "Linda Susilowati, Am.Farm", nip: "3571010909900009", profesi: "Tenaga Farmasi", unit: "Puskesmas Kec. A", wilayah: "Kota A", status: "Aktif", pelatihan: "Pelayanan Kefarmasian - Sep 2025" },
+            { nama: "Dr. Hendro Wibowo, Sp.B", nip: "3571011010900010", profesi: "Dokter Spesialis", unit: "RSUD Utama", wilayah: "Kota A", status: "Aktif", pelatihan: "Bedah Laparoskopi - Des 2025" }
+        ];
+
+        // Statistics data
+        let statsData = {
+            totalSDMK: 2847,
+            totalDokter: 523,
+            totalPerawat: 1245,
+            totalBidan: 687,
+            totalPuskesmas: 156,
+            rasio: 42.5,
+            indeksKecukupan: 78,
+            totalFarmasi: 234,
+            kecamatan: [
+                { nama: "Kota A", total: 850 },
+                { nama: "Kab. B", total: 620 },
+                { nama: "Kota C", total: 480 },
+                { nama: "Kab. D", total: 520 },
+                { nama: "Kab. E", total: 377 }
+            ],
+            profesi: [
+                { nama: "Dokter", total: 523 },
+                { nama: "Perawat", total: 1245 },
+                { nama: "Bidan", total: 687 },
+                { nama: "Apoteker", total: 234 },
+                { nama: "Farmasi", total: 158 }
+            ],
+            tren: [
+                { tahun: 2021, total: 2156 },
+                { tahun: 2022, total: 2345 },
+                { tahun: 2023, total: 2512 },
+                { tahun: 2024, total: 2689 },
+                { tahun: 2025, total: 2847 }
+            ]
+        };
+
         // Module: Session Management
         const SessionManager = {
             save(session) {
                 localStorage.setItem(AppConfig.SESSION_KEY, JSON.stringify(session));
             },
-
             get() {
                 const session = localStorage.getItem(AppConfig.SESSION_KEY);
                 return session ? JSON.parse(session) : null;
             },
-
             clear() {
                 localStorage.removeItem(AppConfig.SESSION_KEY);
             },
-
             isLoggedIn() {
                 return this.get() !== null;
             },
-
             getRole() {
                 const session = this.get();
                 return session ? session.role : null;
             },
-
             getName() {
                 const session = this.get();
                 return session ? session.name : null;
             }
         };
+
+        // Module: Google Sheets Integration
+        const GoogleSheetsManager = {
+            isConnected: false,
+
+            async fetchData() {
+                // In production, replace with actual Google Apps Script URL
+                // For demo, we use local data
+                try {
+                    // Simulate API call
+                    // const response = await fetch(AppConfig.GOOGLE_SHEET_URL);
+                    // const data = await response.json();
+                    
+                    // Using local data for demo
+                    this.updateDashboard();
+                    this.isConnected = true;
+                    this.updateConnectionStatus(true);
+                } catch (error) {
+                    console.log('Using local data (Google Sheet not connected)');
+                    this.isConnected = false;
+                    this.updateConnectionStatus(false);
+                    this.updateDashboard();
+                }
+            },
+
+            updateConnectionStatus(connected) {
+                const sourceEl = document.getElementById('dataSource');
+                const textEl = document.getElementById('dataSourceText');
+                
+                if (connected) {
+                    sourceEl.classList.remove('error');
+                    textEl.textContent = 'Terhubung dengan Google Sheet';
+                } else {
+                    sourceEl.classList.add('error');
+                    textEl.textContent = 'Mode Offline - Data Lokal';
+                }
+            },
+
+            updateDashboard() {
+                this.updateKPICounters();
+                this.updateCharts();
+                this.updateTable();
+            },
+
+            updateKPICounters() {
+                // Animate counters
+                this.animateCounter('[data-count="2847"]', statsData.totalSDMK);
+                this.animateCounter('[data-count="523"]', statsData.totalDokter);
+                this.animateCounter('[data-count="1245"]', statsData.totalPerawat);
+                this.animateCounter('[data-count="687"]', statsData.totalBidan);
+                this.animateCounter('[data-count="156"]', statsData.totalPuskesmas);
+                this.animateCounter('[data-count="234"]', statsData.totalFarmasi);
+                this.animateCounter('[data-ratio="42.5"]', statsData.rasio, true);
+                this.animateCounter('[data-count="78"]', statsData.indeksKecukupan);
+            },
+
+            animateCounter(selector, target, isDecimal = false) {
+                const el = document.querySelector(selector);
+                if (!el) return;
+                
+                let current = 0;
+                const increment = target / 50;
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        current = target;
+                        clearInterval(timer);
+                    }
+                    el.textContent = isDecimal ? current.toFixed(1) : Math.floor(current).toLocaleString('id-ID');
+                }, 30);
+            },
+
+            updateCharts() {
+                this.initBarChart();
+                this.initPieChart();
+                this.initLineChart();
+            },
+
+            initBarChart() {
+                const ctx = document.getElementById('barChartKecamatan');
+                if (!ctx) return;
+                
+                if (window.barChartInstance) {
+                    window.barChartInstance.destroy();
+                }
+
+                window.barChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: statsData.kecamatan.map(k => k.nama),
+                        datasets: [{
+                            label: 'Jumlah SDMK',
+                            data: statsData.kecamatan.map(k => k.total),
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.8)',
+                                'rgba(16, 185, 129, 0.8)',
+                                'rgba(245, 158, 11, 0.8)',
+                                'rgba(6, 182, 212, 0.8)',
+                                'rgba(139, 92, 246, 0.8)'
+                            ],
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            },
+
+            initPieChart() {
+                const ctx = document.getElementById('pieChartProfesi');
+                if (!ctx) return;
+                
+                if (window.pieChartInstance) {
+                    window.pieChartInstance.destroy();
+                }
+
+                window.pieChartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: statsData.profesi.map(p => p.nama),
+                        datasets: [{
+                            data: statsData.profesi.map(p => p.total),
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.8)',
+                                'rgba(16, 185, 129, 0.8)',
+                                'rgba(245, 158, 11, 0.8)',
+                                'rgba(220, 38, 38, 0.8)',
+                                'rgba(6, 182, 212, 0.8)'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 15
+                                }
+                            }
+                        }
+                    }
+                });
+            },
+
+            initLineChart() {
+                const ctx = document.getElementById('lineChartTren');
+                if (!ctx) return;
+                
+                if (window.lineChartInstance) {
+                    window.lineChartInstance.destroy();
+                }
+
+                window.lineChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: statsData.tren.map(t => t.tahun),
+                        datasets: [{
+                            label: 'Total SDMK',
+                            data: statsData.tren.map(t => t.total),
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                            pointRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            },
+
+            updateTable() {
+                const tbody = document.getElementById('tableBody');
+                if (!tbody) return;
+
+                tbody.innerHTML = sdmkData.map(item => `
+                    <tr>
+                        <td>${item.nama}</td>
+                        <td>${item.nip}</td>
+                        <td>${item.profesi}</td>
+                        <td>${item.unit}</td>
+                        <td>${item.wilayah}</td>
+                        <td><span class="status-badge ${item.status === 'Aktif' ? 'active' : item.status === 'Pending' ? 'pending' : 'inactive'}"><i class="fas fa-circle"></i>${item.status}</span></td>
+                        <td>${item.pelatihan}</td>
+                    </tr>
+                `).join('');
+            },
+
+            startAutoRefresh() {
+                setInterval(() => {
+                    this.fetchData();
+                }, AppConfig.REFRESH_INTERVAL);
+            }
+        };
+
+        // Module: Table Filter & Search
+        const TableManager = {
+            init() {
+                document.getElementById('searchInput').addEventListener('input', (e) => this.filter());
+                document.getElementById('filterProfesi').addEventListener('change', (e) => this.filter());
+                document.getElementById('filterWilayah').addEventListener('change', (e) => this.filter());
+            },
+
+            filter() {
+                const search = document.getElementById('searchInput').value.toLowerCase();
+                const profesi = document.getElementById('filterProfesi').value;
+                const wilayah = document.getElementById('filterWilayah').value;
+
+                const filtered = sdmkData.filter(item => {
+                    const matchSearch = item.nama.toLowerCase().includes(search) || 
+                                        item.nip.includes(search) ||
+                                        item.unit.toLowerCase().includes(search);
+                    const matchProfesi = !profesi || item.profesi.includes(profesi);
+                    const matchWilayah = !wilayah || item.wilayah === wilayah;
+                    return matchSearch && matchProfesi && matchWilayah;
+                });
+
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = filtered.map(item => `
+                    <tr>
+                        <td>${item.nama}</td>
+                        <td>${item.nip}</td>
+                        <td>${item.profesi}</td>
+                        <td>${item.unit}</td>
+                        <td>${item.wilayah}</td>
+                        <td><span class="status-badge ${item.status === 'Aktif' ? 'active' : item.status === 'Pending' ? 'pending' : 'inactive'}"><i class="fas fa-circle"></i>${item.status}</span></td>
+                        <td>${item.pelatihan}</td>
+                    </tr>
+                `).join('');
+            }
+        };
+
+        // Module: Export Functions
+        const ExportManager = {
+            exportExcel() {
+                const ws = XLSX.utils.json_to_sheet(sdmkData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Data SDMK");
+                XLSX.writeFile(wb, `SIMANDAKES_DataSDMK_${new Date().toISOString().split('T')[0]}.xlsx`);
+            },
+
+            printPDF() {
+                const element = document.getElementById('tableContainer');
+                const opt = {
+                    margin: 10,
+                    filename: `SIMANDAKES_Laporan_${new Date().toISOString().split('T')[0]}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+                };
+                html2pdf().set(opt).from(element).save();
+            }
+        };
+
+        // Make functions globally available
+        window.exportExcel = () => ExportManager.exportExcel();
+        window.printPDF = () => ExportManager.printPDF();
+        window.changePage = (dir) => console.log('Page change:', dir);
+        window.goToPage = (page) => console.log('Go to page:', page);
 
         // Module: Theme Manager
         const ThemeManager = {
@@ -2189,12 +2560,10 @@
                 const savedTheme = localStorage.getItem(AppConfig.THEME_KEY) || 'light';
                 this.setTheme(savedTheme);
             },
-
             setTheme(theme) {
                 document.documentElement.setAttribute('data-theme', theme);
                 localStorage.setItem(AppConfig.THEME_KEY, theme);
             },
-
             toggle() {
                 const currentTheme = localStorage.getItem(AppConfig.THEME_KEY) || 'light';
                 const newTheme = currentTheme === 'light' ? 'dark' : 'light';
@@ -2213,7 +2582,6 @@
             },
 
             bindEvents() {
-                // Nav item clicks
                 document.querySelectorAll('.nav-item').forEach(item => {
                     item.addEventListener('click', (e) => {
                         e.preventDefault();
@@ -2222,7 +2590,6 @@
                     });
                 });
 
-                // Mobile menu
                 document.getElementById('mobileMenuBtn').addEventListener('click', () => {
                     document.getElementById('sidebar').classList.toggle('mobile-open');
                     document.getElementById('sidebarOverlay').classList.toggle('active');
@@ -2233,7 +2600,6 @@
                     document.getElementById('sidebarOverlay').classList.remove('active');
                 });
 
-                // Sidebar toggle
                 document.getElementById('toggleSidebar').addEventListener('click', () => {
                     document.getElementById('sidebar').classList.toggle('collapsed');
                     document.getElementById('mainContent').classList.toggle('sidebar-collapsed');
@@ -2241,7 +2607,6 @@
             },
 
             handleNavigation(view) {
-                // Check if view requires login
                 const requiresLogin = ['admin', 'log-aktivitas'].includes(view);
 
                 if (requiresLogin && !SessionManager.isLoggedIn()) {
@@ -2254,17 +2619,14 @@
             },
 
             navigateTo(view) {
-                // Update nav items
                 document.querySelectorAll('.nav-item').forEach(item => {
                     item.classList.toggle('active', item.dataset.view === view);
                 });
 
-                // Update views
                 document.querySelectorAll('.view').forEach(v => {
                     v.classList.toggle('active', v.id === `view-${view}`);
                 });
 
-                // Update breadcrumbs
                 const viewNames = {
                     'dashboard': 'Dashboard',
                     'perencanaan': 'Perencanaan',
@@ -2280,13 +2642,11 @@
                 document.getElementById('breadcrumbCurrent').textContent = viewNames[view] || view;
                 this.currentView = view;
 
-                // Close mobile menu
                 document.getElementById('sidebar').classList.remove('mobile-open');
                 document.getElementById('sidebarOverlay').classList.remove('active');
             },
 
             updateUI() {
-                // Update user info
                 const userInfo = document.getElementById('userInfo');
                 const logoutBtn = document.getElementById('logoutBtn');
 
@@ -2301,7 +2661,6 @@
                     logoutBtn.style.display = 'none';
                 }
 
-                // Update lock icons based on login status
                 document.querySelectorAll('.nav-item.locked').forEach(item => {
                     if (SessionManager.isLoggedIn()) {
                         item.classList.remove('locked');
@@ -2352,7 +2711,6 @@
                     this.hide();
                     NavigationManager.updateUI();
 
-                    // Navigate to pending view or admin
                     if (NavigationManager.pendingView) {
                         NavigationManager.navigateTo(NavigationManager.pendingView);
                         NavigationManager.pendingView = null;
@@ -2378,7 +2736,6 @@
                 NavigationManager.updateUI();
                 NavigationManager.navigateTo('dashboard');
 
-                // Add lock icons back
                 document.querySelectorAll('.nav-item.locked').forEach(item => {
                     if (!item.classList.contains('locked')) {
                         item.classList.add('locked');
@@ -2414,6 +2771,11 @@
             LogoutHandler.init();
             YearManager.init();
             ThemeToggle.init();
+            TableManager.init();
+            
+            // Initialize Google Sheets data
+            GoogleSheetsManager.fetchData();
+            GoogleSheetsManager.startAutoRefresh();
         });
     </script>
 </body>
