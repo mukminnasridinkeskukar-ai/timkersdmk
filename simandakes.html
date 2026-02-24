@@ -304,7 +304,7 @@
                 <div id="adminContent" style="display:none">
                     <div class="admin-grid">
                         <div class="card"><div class="card-header"><h3 class="card-title"><i class="fas fa-users-cog"></i> Manajemen User</h3></div><div class="table-container"><table id="tableUsers" class="display" style="width:100%"><thead><tr><th>Username</th><th>Role</th><th>Last Login</th><th>Aksi</th></tr></thead><tbody id="tableUsersBody"></tbody></table></div><button class="btn btn-primary" style="margin-top:15px" onclick="addUser()"><i class="fas fa-plus"></i> Tambah User</button></div>
-                        <div class="card"><div class="card-header"><h3 class="card-title"><i class="fas fa-cog"></i> Pengaturan</h3></div><div class="settings-group"><div class="settings-title"><i class="fas fa-google"></i> Google Sheets</div><div class="form-group"><label class="form-label">Spreadsheet ID</label><input type="text" class="form-control" id="settingSpreadsheetId" placeholder="Masukkan Spreadsheet ID"></div><div class="form-group"><label class="form-label">API Key</label><input type="password" class="form-control" id="settingApiKey" placeholder="Masukkan API Key"></div><button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Simpan</button></div><div class="settings-group"><div class="settings-title"><i class="fas fa-clock"></i> Auto Refresh</div><div class="form-group"><label class="form-label">Interval (menit)</label><select class="form-control" id="settingRefresh"><option value="1">1</option><option value="5" selected>5</option><option value="10">10</option></select></div></div></div></div>
+                        <div class="card"><div class="card-header"><h3 class="card-title"><i class="fas fa-cog"></i> Pengaturan</h3></div><div class="settings-group"><div class="settings-title"><i class="fas fa-google"></i> Google Sheets</div><div class="form-group"><label class="form-label">Spreadsheet ID</label><input type="text" class="form-control" id="settingSpreadsheetId" placeholder="Masukkan Spreadsheet ID"></div><div class="form-group"><label class="form-label">Google Apps Script Web App URL</label><input type="text" class="form-control" id="settingWebAppUrl" placeholder="https://script.google.com/macros/s/.../exec"></div><div class="form-group"><label class="form-label">API Key</label><input type="password" class="form-control" id="settingApiKey" placeholder="Masukkan API Key"></div><button class="btn btn-primary" onclick="testConnection()"><i class="fas fa-plug"></i> Test Koneksi</button><button class="btn btn-primary" style="margin-left:10px" onclick="saveSettings()"><i class="fas fa-save"></i> Simpan</button></div><div class="settings-group"><div class="settings-title"><i class="fas fa-clock"></i> Auto Refresh</div><div class="form-group"><label class="form-label">Interval (menit)</label><select class="form-control" id="settingRefresh"><option value="1">1</option><option value="5" selected>5</option><option value="10">10</option></select></div></div></div></div>
                     </div>
                     <div class="card" style="margin-top:20px"><div class="card-header"><h3 class="card-title"><i class="fas fa-history"></i> Log Aktivitas</h3><button class="btn btn-secondary" onclick="exportLogs()"><i class="fas fa-download"></i> Export</button></div><div class="filters"><div class="filter-group"><label>Dari:</label><input type="date" class="form-control" id="logTglMulai"></div><div class="filter-group"><label>Sampai:</label><input type="date" class="form-control" id="logTglAkhir"></div><button class="btn btn-secondary" onclick="filterLogs()"><i class="fas fa-filter"></i> Filter</button></div><div class="table-container"><table id="tableLogs" class="display" style="width:100%"><thead><tr><th>Timestamp</th><th>User</th><th>Modul</th><th>Aksi</th><th>IP</th></tr></thead><tbody id="tableLogsBody"></tbody></table></div></div>
                     <button class="btn btn-danger" style="margin-top:20px" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
@@ -344,10 +344,45 @@
         </div>
     </div>
     <script>
-        const AppConfig = { GOOGLE_SHEET_URL: 'YOUR_GOOGLE_SHEET_URL', GOOGLE_SHEET_API_KEY: 'YOUR_API_KEY', SPREADSHEET_ID: 'https://script.google.com/macros/s/AKfycbzwte2oatByo61HGfr2ADBW3wwjjmDRamNzetWzfpJVfp_lOsNtBdCVc3SeIpreVWYm/exec', REFRESH_INTERVAL: 5 * 60 * 1000, SESSION_TIMEOUT: 30 * 60 * 1000 };
+        const AppConfig = { 
+            // GANTI DENGAN GOOGLE APPS SCRIPT WEB APP URL ANDA
+            // Deploy Code.gs sebagai Web App, lalu copy URL-nya di sini
+            GOOGLE_SHEET_URL: 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec', 
+            SPREADSHEET_ID: 'YOUR_SPREADSHEET_ID', 
+            REFRESH_INTERVAL: 5 * 60 * 1000, 
+            SESSION_TIMEOUT: 30 * 60 * 1000 
+        };
         let currentLang = 'id', isDarkMode = false, isLoggedIn = false, allData = {}, charts = {}, dataTables = {}, refreshInterval, map = null;
-        document.addEventListener('DOMContentLoaded', function() { initTheme(); initNavigation(); initDataTables(); initCharts(); fetchAllData(); startAutoRefresh(); hideLoader(); });
+        document.addEventListener('DOMContentLoaded', function() { 
+            initTheme(); 
+            initNavigation(); 
+            initDataTables(); 
+            initCharts(); 
+            loadSavedSettings();
+            fetchAllData(); 
+            startAutoRefresh(); 
+            hideLoader(); 
+        });
         function hideLoader() { setTimeout(() => { document.getElementById('loader').classList.add('hidden'); }, 1000); }
+        
+        function loadSavedSettings() {
+            const savedWebAppUrl = localStorage.getItem('webAppUrl');
+            if (savedWebAppUrl && !savedWebAppUrl.includes('YOUR_')) {
+                AppConfig.GOOGLE_SHEET_URL = savedWebAppUrl;
+            }
+            
+            const savedSpreadsheetId = localStorage.getItem('spreadsheetId');
+            if (savedSpreadsheetId) {
+                AppConfig.SPREADSHEET_ID = savedSpreadsheetId;
+                const el = document.getElementById('settingSpreadsheetId');
+                if (el) el.value = savedSpreadsheetId;
+            }
+            
+            const savedRefresh = localStorage.getItem('refreshInterval');
+            if (savedRefresh) {
+                AppConfig.REFRESH_INTERVAL = parseInt(savedRefresh);
+            }
+        }
         function initTheme() { const savedTheme = localStorage.getItem('theme') || 'light'; setTheme(savedTheme); }
         function setTheme(theme) { document.documentElement.setAttribute('data-theme', theme); isDarkMode = theme === 'dark'; localStorage.setItem('theme', theme); const icon = document.getElementById('themeIcon'); icon.className = isDarkMode ? 'fas fa-sun' : 'fas fa-moon'; }
         function toggleTheme() { setTheme(isDarkMode ? 'light' : 'dark'); }
@@ -357,7 +392,107 @@
         function setLang(lang) { currentLang = lang; localStorage.setItem('lang', lang); }
         function initDataTables() { const tables = ['tablePerencanaan', 'tableRekrutmen', 'tableKompetensi', 'tablePendistribusian', 'tablePendayagunaan', 'tablePemenuhan', 'tableMonitoring', 'tableLaporan', 'tableUsers', 'tableLogs']; tables.forEach(tableId => { if (document.getElementById(tableId)) { dataTables[tableId] = $('#' + tableId).DataTable({ responsive: true, language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/id.json' } }); } }); }
         function initCharts() { const chartColors = { primary: '#0ea5e9', secondary: '#06b6d4', success: '#10b981', warning: '#f59e0b', danger: '#ef4444', purple: '#8b5cf6' }; const ctxPie = document.getElementById('chartPie'); if (ctxPie) { charts.pie = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['Dokter', 'Perawat', 'Bidan', 'Apoteker', 'Teknik'], datasets: [{ data: [150, 400, 200, 50, 30], backgroundColor: [chartColors.primary, chartColors.success, chartColors.purple, chartColors.warning, chartColors.danger] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } }); } const ctxBar = document.getElementById('chartBar'); if (ctxBar) { charts.bar = new Chart(ctxBar, { type: 'bar', data: { labels: ['Dokter', 'Perawat', 'Bidan', 'Apoteker'], datasets: [{ label: 'Kebutuhan', data: [200, 500, 250, 60], backgroundColor: chartColors.danger }, { label: 'Tersedia', data: [150, 400, 200, 50], backgroundColor: chartColors.success }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } }); } const ctxLine = document.getElementById('chartLine'); if (ctxLine) { charts.line = new Chart(ctxLine, { type: 'line', data: { labels: ['2020', '2021', '2022', '2023', '2024'], datasets: [{ label: 'Total SDM', data: [1800, 2100, 2400, 2700, 3000], borderColor: chartColors.primary, backgroundColor: 'rgba(14, 165, 233, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } }); } const ctxDistribusi = document.getElementById('chartDistribusi'); if (ctxDistribusi) { charts.distribusi = new Chart(ctxDistribusi, { type: 'bar', data: { labels: ['Puskesmas A', 'Puskesmas B', 'RSUD 1', 'RSUD 2', 'Klinik'], datasets: [{ label: 'Jumlah SDM', data: [45, 38, 120, 85, 25], backgroundColor: chartColors.primary }] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' } }); } const ctxProgram = document.getElementById('chartProgram'); if (ctxProgram) { charts.program = new Chart(ctxProgram, { type: 'polarArea', data: { labels: ['Internship', 'Nusantara Sehat', 'PPDS', 'Fellowship'], datasets: [{ data: [120, 80, 30, 15], backgroundColor: ['rgba(14, 165, 233, 0.7)', 'rgba(139, 92, 246, 0.7)', 'rgba(6, 182, 212, 0.7)', 'rgba(16, 185, 129, 0.7)'] }] }, options: { responsive: true, maintainAspectRatio: false } }); } const ctxMonitoring = document.getElementById('chartMonitoring'); if (ctxMonitoring) { charts.monitoring = new Chart(ctxMonitoring, { type: 'line', data: { labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], datasets: [{ label: 'Target', data: [100, 100, 100, 100, 100, 100], borderColor: chartColors.danger, borderDash: [5, 5], fill: false }, { label: 'Realisasi', data: [65, 70, 72, 75, 78, 80], borderColor: chartColors.success, backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false } }); } const ctxKebutuhan = document.getElementById('chartKebutuhan'); if (ctxKebutuhan) { charts.kebutuhan = new Chart(ctxKebutuhan, { type: 'bar', data: { labels: ['Dokter', 'Perawat', 'Bidan', 'Apoteker'], datasets: [{ label: 'Kebutuhan', data: [200, 500, 250, 60], backgroundColor: chartColors.warning }, { label: 'Realisasi', data: [150, 400, 200, 50], backgroundColor: chartColors.success }] }, options: { responsive: true, maintainAspectRatio: false } }); } }
-        async function fetchAllData() { const url = AppConfig.GOOGLE_SHEET_URL; if (!url || url === 'YOUR_GOOGLE_SHEET_URL') { setOfflineStatus(); loadDemoData(); return; } try { const response = await fetch(url + '?action=getAllData'); const data = await response.json(); if (data.error) throw new Error(data.error); allData = data; setConnectedStatus(); updateAllPages(); } catch (error) { console.error('Error fetching data:', error); setOfflineStatus(); loadDemoData(); } }
+        async function fetchAllData() { 
+            const url = AppConfig.GOOGLE_SHEET_URL; 
+            
+            // Cek apakah URL sudah dikonfigurasi
+            if (!url || url.includes('YOUR_DEPLOYMENT_ID') || url.includes('YOUR_GOOGLE_SHEET_URL')) { 
+                console.log('Using demo mode - Google Sheets URL not configured');
+                setOfflineStatus(); 
+                loadDemoData(); 
+                return; 
+            }
+            
+            try {
+                // Fetch all data from Google Apps Script
+                const response = await fetch(url + '?action=getAll');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Process data from Google Sheets
+                allData = {
+                    sdmk: data.sdmk || [],
+                    stats: data.stats || {},
+                    tren: data.tren || [],
+                    perencanaan: data.perencanaan || [],
+                    pendistribusian: data.pendistribusian || [],
+                    pendayagunaan: data.pelatihan || [],
+                    logs: data.logs || []
+                };
+                
+                setConnectedStatus(); 
+                updateAllPages(); 
+                console.log('Data loaded from Google Sheets successfully');
+            } catch (error) { 
+                console.error('Error fetching data from Google Sheets:', error); 
+                setOfflineStatus(); 
+                loadDemoData(); 
+            } 
+        }
+        
+        // Fetch individual data modules
+        async function fetchDashboardData() {
+            const url = AppConfig.GOOGLE_SHEET_URL;
+            if (!url || url.includes('YOUR_DEPLOYMENT_ID')) return loadDemoData();
+            try {
+                const response = await fetch(url + '?action=getStats');
+                const data = await response.json();
+                return data;
+            } catch(e) { console.error(e); return null; }
+        }
+        
+        async function fetchPerencanaan() {
+            const url = AppConfig.GOOGLE_SHEET_URL;
+            if (!url || url.includes('YOUR_DEPLOYMENT_ID')) return null;
+            try {
+                const response = await fetch(url + '?action=getPerencanaan');
+                const data = await response.json();
+                return data;
+            } catch(e) { console.error(e); return null; }
+        }
+        
+        async function fetchDistribusi() {
+            const url = AppConfig.GOOGLE_SHEET_URL;
+            if (!url || url.includes('YOUR_DEPLOYMENT_ID')) return null;
+            try {
+                const response = await fetch(url + '?action=getPendistribusian');
+                const data = await response.json();
+                return data;
+            } catch(e) { console.error(e); return null; }
+        }
+        
+        async function fetchPendayagunaan() {
+            const url = AppConfig.GOOGLE_SHEET_URL;
+            if (!url || url.includes('YOUR_DEPLOYMENT_ID')) return null;
+            try {
+                const response = await fetch(url + '?action=getPelatihan');
+                const data = await response.json();
+                return data;
+            } catch(e) { console.error(e); return null; }
+        }
+        
+        async function fetchSDMDetail() {
+            const url = AppConfig.GOOGLE_SHEET_URL;
+            if (!url || url.includes('YOUR_DEPLOYMENT_ID')) return null;
+            try {
+                const response = await fetch(url + '?action=getSDMK');
+                const data = await response.json();
+                return data;
+            } catch(e) { console.error(e); return null; }
+        }
+        
+        async function fetchLog() {
+            const url = AppConfig.GOOGLE_SHEET_URL;
+            if (!url || url.includes('YOUR_DEPLOYMENT_ID')) return null;
+            try {
+                const response = await fetch(url + '?action=getLogs');
+                const data = await response.json();
+                return data;
+            } catch(e) { console.error(e); return null; }
+        }
         function setConnectedStatus() { document.getElementById('statusDot').classList.add('connected'); document.getElementById('statusText').textContent = 'Terhubung'; }
         function setOfflineStatus() { document.getElementById('statusDot').classList.remove('connected'); document.getElementById('statusText').textContent = 'Offline'; }
         function loadDemoData() { allData = { sdmk: generateDemoSDM(), perencanaan: generateDemoPerencanaan(), pendistribusian: generateDemoPendistribusian(), pendayagunaan: generateDemoPendayagunaan(), logs: [] }; updateAllPages(); }
@@ -393,7 +528,64 @@
         function addUser() { document.getElementById('userModal').classList.add('active'); }
         function closeUserModal() { document.getElementById('userModal').classList.remove('active'); }
         function saveUser() { Swal.fire('Berhasil', 'User telah ditambahkan', 'success'); closeUserModal(); loadAdminData(); }
-        function saveSettings() { const spreadsheetId = document.getElementById('settingSpreadsheetId').value; const apiKey = document.getElementById('settingApiKey').value; const refresh = document.getElementById('settingRefresh').value; localStorage.setItem('spreadsheetId', spreadsheetId); localStorage.setItem('apiKey', apiKey); localStorage.setItem('refreshInterval', refresh * 60000); AppConfig.SPREADSHEET_ID = spreadsheetId; AppConfig.GOOGLE_SHEET_API_KEY = apiKey; AppConfig.REFRESH_INTERVAL = refresh * 60000; Swal.fire('Berhasil', 'Pengaturan telah disimpan', 'success'); addLog('Settings', 'Admin', 'Pengaturan diubah'); }
+        function saveSettings() { 
+            const spreadsheetId = document.getElementById('settingSpreadsheetId').value; 
+            const apiKey = document.getElementById('settingApiKey').value; 
+            const refresh = document.getElementById('settingRefresh').value; 
+            
+            // Simpan ke localStorage
+            localStorage.setItem('spreadsheetId', spreadsheetId); 
+            localStorage.setItem('apiKey', apiKey); 
+            localStorage.setItem('refreshInterval', refresh * 60000); 
+            
+            // Update AppConfig
+            AppConfig.SPREADSHEET_ID = spreadsheetId; 
+            AppConfig.GOOGLE_SHEET_API_KEY = apiKey; 
+            AppConfig.REFRESH_INTERVAL = refresh * 60000; 
+            
+            // Jika URL Google Apps Script dikonfigurasi
+            const webAppUrl = document.getElementById('settingWebAppUrl')?.value;
+            if (webAppUrl) {
+                AppConfig.GOOGLE_SHEET_URL = webAppUrl;
+                localStorage.setItem('webAppUrl', webAppUrl);
+            }
+            
+            Swal.fire('Berhasil', 'Pengaturan telah disimpan. Data akan dimuat ulang.', 'success'); 
+            addLog('Settings', 'Admin', 'Pengaturan diubah');
+            
+            // Refresh data
+            fetchAllData();
+        }
+        
+        async function testConnection() {
+            const webAppUrl = document.getElementById('settingWebAppUrl').value;
+            if (!webAppUrl) {
+                Swal.fire('Peringatan', 'Masukkan URL Web App terlebih dahulu', 'warning');
+                return;
+            }
+            
+            Swal.fire({ title: 'Menguji koneksi...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+            
+            try {
+                const response = await fetch(webAppUrl + '?action=getStats');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                Swal.fire('Berhasil!', 'Koneksi ke Google Sheets berhasil!', 'success');
+                
+                // Simpan URL jika berhasil
+                AppConfig.GOOGLE_SHEET_URL = webAppUrl;
+                localStorage.setItem('webAppUrl', webAppUrl);
+                
+                // Muat ulang data
+                fetchAllData();
+            } catch (error) {
+                Swal.fire('Gagal!', 'Koneksi gagal: ' + error.message, 'error');
+            }
+        }
         function logout() { localStorage.removeItem('adminToken'); isLoggedIn = false; document.getElementById('adminLoginRequired').style.display = 'block'; document.getElementById('adminContent').style.display = 'none'; addLog('Logout', 'Admin', 'Logout berhasil'); navigateTo('dashboard'); }
         function addLog(action, user, details) { const logs = JSON.parse(localStorage.getItem('activityLogs') || '[]'); logs.unshift({ timestamp: new Date().toLocaleString('id-ID'), user: user, modul: 'Admin', action: action, details: details, ip: '127.0.0.1' }); localStorage.setItem('activityLogs', JSON.stringify(logs.slice(0, 100))); }
         function filterLogs() { loadAdminData(); }
