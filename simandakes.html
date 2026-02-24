@@ -3178,7 +3178,8 @@
                 
                 // Calculate rasio (simplified calculation)
                 const totalPenduduk = 795000; // Should come from Perencanaan sheet
-                statsData.rasio = ((statsData.totalDokter / totalPenduduk) * 100000).toFixed(1);
+                const dokterCount = statsData.totalDokter || 0;
+                statsData.rasio = dokterCount > 0 ? ((dokterCount / totalPenduduk) * 100000).toFixed(1) : 0;
                 
                 // Calculate kecamatan distribution
                 const kecamatanMap = {};
@@ -3286,12 +3287,19 @@
                 const el = document.querySelector(selector);
                 if (!el) return;
                 
+                // Ensure target is a number
+                const numTarget = parseFloat(target) || 0;
+                if (numTarget === 0) {
+                    el.textContent = '0';
+                    return;
+                }
+                
                 let current = 0;
-                const increment = target / 50;
+                const increment = numTarget / 50;
                 const timer = setInterval(() => {
                     current += increment;
-                    if (current >= target) {
-                        current = target;
+                    if (current >= numTarget) {
+                        current = numTarget;
                         clearInterval(timer);
                     }
                     el.textContent = isDecimal ? current.toFixed(1) : Math.floor(current).toLocaleString('id-ID');
@@ -3480,24 +3488,39 @@
                 const wilayah = document.getElementById('filterWilayah').value;
 
                 const filtered = sdmkData.filter(item => {
+                    if (!item.nama) return false;
                     const matchSearch = item.nama.toLowerCase().includes(search) || 
-                                        item.nip.includes(search) ||
-                                        item.unit.toLowerCase().includes(search);
-                    const matchProfesi = !profesi || item.profesi.includes(profesi);
+                                        (item.nip && item.nip.includes(search)) ||
+                                        (item.unit && item.unit.toLowerCase().includes(search));
+                    const matchProfesi = !profesi || (item.profesi && item.profesi.includes(profesi));
                     const matchWilayah = !wilayah || item.wilayah === wilayah;
                     return matchSearch && matchProfesi && matchWilayah;
                 });
 
                 const tbody = document.getElementById('tableBody');
+                if (!tbody) return;
+                
+                if (filtered.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i><br>
+                                Data tidak ditemukan
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
                 tbody.innerHTML = filtered.map(item => `
                     <tr>
                         <td>${item.nama}</td>
-                        <td>${item.nip}</td>
-                        <td>${item.profesi}</td>
-                        <td>${item.unit}</td>
-                        <td>${item.wilayah}</td>
-                        <td><span class="status-badge ${item.status === 'Aktif' ? 'active' : item.status === 'Pending' ? 'pending' : 'inactive'}"><i class="fas fa-circle"></i>${item.status}</span></td>
-                        <td>${item.pelatihan}</td>
+                        <td>${item.nip || ''}</td>
+                        <td>${item.profesi || ''}</td>
+                        <td>${item.unit || ''}</td>
+                        <td>${item.wilayah || ''}</td>
+                        <td><span class="status-badge ${item.status === 'Aktif' ? 'active' : item.status === 'Pending' ? 'pending' : 'inactive'}"><i class="fas fa-circle"></i>${item.status || '-'}</span></td>
+                        <td>${item.pelatihan || '-'}</td>
                     </tr>
                 `).join('');
             }
