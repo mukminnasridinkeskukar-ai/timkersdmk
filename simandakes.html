@@ -152,16 +152,32 @@
                 <!-- DASHBOARD -->
                 <section class="view active" id="view-dashboard">
                     <div class="page-header"><h2>Dashboard Data SDM Kesehatan</h2><p>Data realtime dari Google Sheet</p></div>
+                    
+                    <!-- Bagian 1: Statistik Utama -->
                     <div class="stats-grid">
-                        <div class="stat-card"><div class="stat-value" id="total-sdmk">0</div><div class="stat-label">Total SDMK</div></div>
-                        <div class="stat-card green"><div class="stat-value" id="total-dokter">0</div><div class="stat-label">Dokter</div></div>
-                        <div class="stat-card cyan"><div class="stat-value" id="total-perawat">0</div><div class="stat-label">Perawat</div></div>
-                        <div class="stat-card orange"><div class="stat-value" id="total-bidan">0</div><div class="stat-label">Bidan</div></div>
+                        <div class="stat-card"><div class="stat-value" id="jumlah-penduduk">0</div><div class="stat-label">Jumlah Penduduk</div></div>
+                        <div class="stat-card green"><div class="stat-value" id="total-sdmk">0</div><div class="stat-label">Total SDMK</div></div>
+                        <div class="stat-card cyan"><div class="stat-value" id="rasio-nakes">0</div><div class="stat-label">Rasio Nakes per 1000</div></div>
+                        <div class="stat-card orange"><div class="stat-value" id="dokter-spesialis">0</div><div class="stat-label">Dokter Spesialis</div></div>
+                    </div>
+                    
+                    <!-- Bagian 2: Distribusi per Kecamatan & Puskesmas -->
+                    <div class="charts-grid">
+                        <div class="chart-card col-span-2"><div class="card-title">Distribusi SDMK per Kecamatan (20 Kecamatan)</div><div class="chart-container"><canvas id="chartKecamatan"></canvas></div></div>
                     </div>
                     <div class="charts-grid">
-                        <div class="chart-card col-span-2"><div class="card-title">Distribusi per Wilayah</div><div class="chart-container"><canvas id="chartWilayah"></canvas></div></div>
-                        <div class="chart-card"><div class="card-title">Distribusi Profesi</div><div class="chart-container"><canvas id="chartProfesi"></canvas></div></div>
+                        <div class="chart-card"><div class="card-title">Distribusi SDMK per Puskesmas (32 Puskesmas)</div><div class="chart-container"><canvas id="chartPuskesmas"></canvas></div></div>
                     </div>
+                    
+                    <!-- Bagian 3: Distribusi Profesi per Kecamatan -->
+                    <div class="charts-grid">
+                        <div class="chart-card"><div class="card-title">Distribusi Dokter per Kecamatan</div><div class="chart-container"><canvas id="chartDokterKec"></canvas></div></div>
+                        <div class="chart-card"><div class="card-title">Distribusi Dokter Gigi per Kecamatan</div><div class="chart-container"><canvas id="chartDokterGigiKec"></canvas></div></div>
+                        <div class="chart-card"><div class="card-title">Distribusi Perawat per Kecamatan</div><div class="chart-container"><canvas id="chartPerawatKec"></canvas></div></div>
+                        <div class="chart-card"><div class="card-title">Distribusi Bidan per Kecamatan</div><div class="chart-container"><canvas id="chartBidanKec"></canvas></div></div>
+                    </div>
+                    
+                    <!-- Tabel Data -->
                     <div class="table-container">
                         <div class="table-header"><h3 class="table-title">Data SDMK</h3><button class="btn btn-success" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Export</button></div>
                         <div class="table-filters">
@@ -320,7 +336,7 @@
         let isLoggedIn = false;
         let currentPage = 1;
         const itemsPerPage = 10;
-        let chartWilayah, chartProfesi, chartPendistribusian;
+        let chartKecamatan, chartPuskesmas, chartDokterKec, chartDokterGigiKec, chartPerawatKec, chartBidanKec;
 
         // Init
         document.addEventListener('DOMContentLoaded', function() {
@@ -360,10 +376,16 @@
 
         // Dashboard
         function updateDashboard() {
+            // Bagian 1: Statistik Utama
+            const penduduk = allData.perencanaan ? allData.perencanaan.reduce((sum, p) => sum + (parseInt(p.penduduk) || 0), 0) : 0;
+            document.getElementById('jumlah-penduduk').textContent = penduduk.toLocaleString('id-ID');
             document.getElementById('total-sdmk').textContent = sdmkData.length;
-            document.getElementById('total-dokter').textContent = sdmkData.filter(d => d.profesi && d.profesi.toLowerCase().includes('dokter')).length;
-            document.getElementById('total-perawat').textContent = sdmkData.filter(d => d.profesi && d.profesi.toLowerCase().includes('perawat')).length;
-            document.getElementById('total-bidan').textContent = sdmkData.filter(d => d.profesi && d.profesi.toLowerCase().includes('bidan')).length;
+            
+            const rasioNakes = penduduk > 0 ? (sdmkData.length / penduduk * 1000).toFixed(2) : 0;
+            document.getElementById('rasio-nakes').textContent = rasioNakes;
+            
+            const dokterSpesialis = sdmkData.filter(d => d.profesi && d.profesi.toLowerCase().includes('spesialis')).length;
+            document.getElementById('dokter-spesialis').textContent = dokterSpesialis;
 
             // Filters
             const profs = [...new Set(sdmkData.map(d => d.profesi).filter(Boolean))];
@@ -378,16 +400,42 @@
         }
 
         function updateCharts() {
-            const wData = {};
-            sdmkData.forEach(d => { const w = d.wilayah || 'Lain'; wData[w] = (wData[w] || 0) + 1; });
-            const pData = {};
-            sdmkData.forEach(d => { const p = d.profesi || 'Lain'; pData[p] = (pData[p] || 0) + 1; });
-
-            const ctxW = document.getElementById('chartWilayah');
-            if (ctxW) { if (chartWilayah) chartWilayah.destroy(); chartWilayah = new Chart(ctxW, { type: 'bar', data: { labels: Object.keys(wData), datasets: [{ label: 'Jumlah', data: Object.values(wData), backgroundColor: '#3b82f6' }] } }); }
-
-            const ctxP = document.getElementById('chartProfesi');
-            if (ctxP) { if (chartProfesi) chartProfesi.destroy(); chartProfesi = new Chart(ctxP, { type: 'doughnut', data: { labels: Object.keys(pData), datasets: [{ data: Object.values(pData), backgroundColor: ['#3b82f6','#10b981','#f59e0b','#dc2626','#8b5cf6'] }] } }); }
+            // Bagian 2: Distribusi per Kecamatan (20 Kecamatan)
+            const kecData = {};
+            sdmkData.forEach(d => { const k = d.wilayah || 'Lain'; kecData[k] = (kecData[k] || 0) + 1; });
+            const ctxKec = document.getElementById('chartKecamatan');
+            if (ctxKec) { if (chartKecamatan) chartKecamatan.destroy(); chartKecamatan = new Chart(ctxKec, { type: 'bar', data: { labels: Object.keys(kecData), datasets: [{ label: 'Jumlah SDMK', data: Object.values(kecData), backgroundColor: '#3b82f6' }] }, options: { indexAxis: 'y' } }); }
+            
+            // Distribusi per Puskesmas (32 Puskesmas)
+            const puskesData = {};
+            sdmkData.forEach(d => { const p = d.unit || 'Lain'; puskesData[p] = (puskesData[p] || 0) + 1; });
+            const ctxPuskes = document.getElementById('chartPuskesmas');
+            if (ctxPuskes) { if (chartPuskesmas) chartPuskesmas.destroy(); chartPuskesmas = new Chart(ctxPuskes, { type: 'bar', data: { labels: Object.keys(puskesData).slice(0, 32), datasets: [{ label: 'Jumlah SDMK', data: Object.values(puskesData).slice(0, 32), backgroundColor: '#10b981' }] }, options: { indexAxis: 'y' } }); }
+            
+            // Bagian 3: Distribusi per Kecamatan per Profesi
+            // Dokter per Kecamatan
+            const dokterKec = {};
+            sdmkData.filter(d => d.profesi && (d.profesi.toLowerCase().includes('dokter') && !d.profesi.toLowerCase().includes('gigi'))).forEach(d => { const k = d.wilayah || 'Lain'; dokterKec[k] = (dokterKec[k] || 0) + 1; });
+            const ctxDK = document.getElementById('chartDokterKec');
+            if (ctxDK) { if (chartDokterKec) chartDokterKec.destroy(); chartDokterKec = new Chart(ctxDK, { type: 'bar', data: { labels: Object.keys(dokterKec), datasets: [{ label: 'Dokter', data: Object.values(dokterKec), backgroundColor: '#dc2626' }] } }); }
+            
+            // Dokter Gigi per Kecamatan
+            const dokterGigiKec = {};
+            sdmkData.filter(d => d.profesi && d.profesi.toLowerCase().includes('gigi')).forEach(d => { const k = d.wilayah || 'Lain'; dokterGigiKec[k] = (dokterGigiKec[k] || 0) + 1; });
+            const ctxDG = document.getElementById('chartDokterGigiKec');
+            if (ctxDG) { if (chartDokterGigiKec) chartDokterGigiKec.destroy(); chartDokterGigiKec = new Chart(ctxDG, { type: 'bar', data: { labels: Object.keys(dokterGigiKec), datasets: [{ label: 'Dokter Gigi', data: Object.values(dokterGigiKec), backgroundColor: '#f59e0b' }] } }); }
+            
+            // Perawat per Kecamatan
+            const perawatKec = {};
+            sdmkData.filter(d => d.profesi && d.profesi.toLowerCase().includes('perawat')).forEach(d => { const k = d.wilayah || 'Lain'; perawatKec[k] = (perawatKec[k] || 0) + 1; });
+            const ctxPK = document.getElementById('chartPerawatKec');
+            if (ctxPK) { if (chartPerawatKec) chartPerawatKec.destroy(); chartPerawatKec = new Chart(ctxPK, { type: 'bar', data: { labels: Object.keys(perawatKec), datasets: [{ label: 'Perawat', data: Object.values(perawatKec), backgroundColor: '#06b6d4' }] } }); }
+            
+            // Bidan per Kecamatan
+            const bidanKec = {};
+            sdmkData.filter(d => d.profesi && d.profesi.toLowerCase().includes('bidan')).forEach(d => { const k = d.wilayah || 'Lain'; bidanKec[k] = (bidanKec[k] || 0) + 1; });
+            const ctxBK = document.getElementById('chartBidanKec');
+            if (ctxBK) { if (chartBidanKec) chartBidanKec.destroy(); chartBidanKec = new Chart(ctxBK, { type: 'bar', data: { labels: Object.keys(bidanKec), datasets: [{ label: 'Bidan', data: Object.values(bidanKec), backgroundColor: '#8b5cf6' }] } }); }
         }
 
         function updateTable() {
