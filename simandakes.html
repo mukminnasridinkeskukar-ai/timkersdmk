@@ -304,7 +304,7 @@
                 <div id="adminContent" style="display:none">
                     <div class="admin-grid">
                         <div class="card"><div class="card-header"><h3 class="card-title"><i class="fas fa-users-cog"></i> Manajemen User</h3></div><div class="table-container"><table id="tableUsers" class="display" style="width:100%"><thead><tr><th>Username</th><th>Role</th><th>Last Login</th><th>Aksi</th></tr></thead><tbody id="tableUsersBody"></tbody></table></div><button class="btn btn-primary" style="margin-top:15px" onclick="addUser()"><i class="fas fa-plus"></i> Tambah User</button></div>
-                        <div class="card"><div class="card-header"><h3 class="card-title"><i class="fas fa-cog"></i> Pengaturan</h3></div><div class="settings-group"><div class="settings-title"><i class="fas fa-google"></i> Google Sheets</div><div class="form-group"><label class="form-label">Spreadsheet ID</label><input type="text" class="form-control" id="settingSpreadsheetId" placeholder="Masukkan Spreadsheet ID"></div><div class="form-group"><label class="form-label">Google Apps Script Web App URL</label><input type="text" class="form-control" id="settingWebAppUrl" placeholder="https://script.google.com/macros/s/.../exec"></div><div class="form-group"><label class="form-label">API Key</label><input type="password" class="form-control" id="settingApiKey" placeholder="Masukkan API Key"></div><button class="btn btn-primary" onclick="testConnection()"><i class="fas fa-plug"></i> Test Koneksi</button><button class="btn btn-primary" style="margin-left:10px" onclick="saveSettings()"><i class="fas fa-save"></i> Simpan</button></div><div class="settings-group"><div class="settings-title"><i class="fas fa-clock"></i> Auto Refresh</div><div class="form-group"><label class="form-label">Interval (menit)</label><select class="form-control" id="settingRefresh"><option value="1">1</option><option value="5" selected>5</option><option value="10">10</option></select></div></div></div></div>
+                        <div class="card"><div class="card-header"><h3 class="card-title"><i class="fas fa-cog"></i> Pengaturan</h3></div><div class="settings-group"><div class="settings-title"><i class="fas fa-google"></i> Google Sheets Integration</div><div class="form-group"><label class="form-label">Google Apps Script Web App URL <small>(Tanpa API Key dibutuhkan)</small></label><input type="text" class="form-control" id="settingWebAppUrl" placeholder="https://script.google.com/macros/s/.../exec"></div><div class="form-group"><label class="form-label">Spreadsheet ID (Opsional)</label><input type="text" class="form-control" id="settingSpreadsheetId" placeholder="ID dari URL Google Sheets"></div><button class="btn btn-primary" onclick="testConnection()"><i class="fas fa-plug"></i> Test Koneksi</button><button class="btn btn-primary" style="margin-left:10px" onclick="saveSettings()"><i class="fas fa-save"></i> Simpan</button></div><div class="settings-group"><div class="settings-title"><i class="fas fa-clock"></i> Auto Refresh</div><div class="form-group"><label class="form-label">Interval (menit)</label><select class="form-control" id="settingRefresh"><option value="1">1</option><option value="5" selected>5</option><option value="10">10</option></select></div></div></div></div>
                     </div>
                     <div class="card" style="margin-top:20px"><div class="card-header"><h3 class="card-title"><i class="fas fa-history"></i> Log Aktivitas</h3><button class="btn btn-secondary" onclick="exportLogs()"><i class="fas fa-download"></i> Export</button></div><div class="filters"><div class="filter-group"><label>Dari:</label><input type="date" class="form-control" id="logTglMulai"></div><div class="filter-group"><label>Sampai:</label><input type="date" class="form-control" id="logTglAkhir"></div><button class="btn btn-secondary" onclick="filterLogs()"><i class="fas fa-filter"></i> Filter</button></div><div class="table-container"><table id="tableLogs" class="display" style="width:100%"><thead><tr><th>Timestamp</th><th>User</th><th>Modul</th><th>Aksi</th><th>IP</th></tr></thead><tbody id="tableLogsBody"></tbody></table></div></div>
                     <button class="btn btn-danger" style="margin-top:20px" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
@@ -344,10 +344,25 @@
         </div>
     </div>
     <script>
+        // ============================================
+        // CONFIGURATION - Google Apps Script Integration
+        // ============================================
+        //
+        // CARA MENDAPATKAN WEB APP URL:
+        // 1. Buka https://script.google.com
+        // 2. Buat project baru, paste Code.gs
+        // 3. Ganti SPREADSHEET_ID dengan ID Google Sheets Anda
+        // 4. Deploy > New deployment > Web app
+        // 5. Execute as: Me, Who has access: Anyone
+        // 6. Copy Web App URL (https://script.google.com/macros/s/XXX/exec)
+        //
+        // TIDAK PERLU API KEY! Cukup Web App URL saja.
+        //
+        // ============================================
+        
         const AppConfig = { 
             // GANTI DENGAN GOOGLE APPS SCRIPT WEB APP URL ANDA
-            // Deploy Code.gs sebagai Web App, lalu copy URL-nya di sini
-            GOOGLE_SHEET_URL: 'https://script.google.com/macros/s/AKfycbwaeUzJUoxkPlIugoh7LPMyiw0-z5_gUZinO26zWonRUXzhxDxb6xf6LQgy0gY_1Kse/exec', 
+            GOOGLE_SHEET_URL: 'https://script.google.com/macros/s/AKfycbxhUb26Nfs399pGAR9L3yAcX8AYU3SNuLR7gTUn31NCc_SkJI_LSMkSoWwuAOFAJZu8/exec', 
             SPREADSHEET_ID: '1qpNL7fVvv2yvaEplPtxe-UMlN-8eQaa5HXqdjAy4gQc', 
             REFRESH_INTERVAL: 5 * 60 * 1000, 
             SESSION_TIMEOUT: 30 * 60 * 1000 
@@ -530,17 +545,14 @@
         function saveUser() { Swal.fire('Berhasil', 'User telah ditambahkan', 'success'); closeUserModal(); loadAdminData(); }
         function saveSettings() { 
             const spreadsheetId = document.getElementById('settingSpreadsheetId').value; 
-            const apiKey = document.getElementById('settingApiKey').value; 
             const refresh = document.getElementById('settingRefresh').value; 
             
             // Simpan ke localStorage
             localStorage.setItem('spreadsheetId', spreadsheetId); 
-            localStorage.setItem('apiKey', apiKey); 
             localStorage.setItem('refreshInterval', refresh * 60000); 
             
             // Update AppConfig
             AppConfig.SPREADSHEET_ID = spreadsheetId; 
-            AppConfig.GOOGLE_SHEET_API_KEY = apiKey; 
             AppConfig.REFRESH_INTERVAL = refresh * 60000; 
             
             // Jika URL Google Apps Script dikonfigurasi
