@@ -888,6 +888,10 @@
                 <i class="fas fa-user-shield"></i>
                 <span>Admin Panel</span>
             </a>
+            <a href="#" class="nav-item" data-page="penjelasan">
+                <i class="fas fa-comment-dots"></i>
+                <span>Penjelasan</span>
+            </a>
         </nav>
     </aside>
 
@@ -1193,6 +1197,75 @@
         </div>
     </div>
 
+    <!-- Penjelasan Section -->
+    <section class="form-section" id="penjelasanSection" style="display: none;">
+        <div class="section-header">
+            <h2><i class="fas fa-comment-dots"></i> Penjelasan & Tanggapan Laporan</h2>
+        </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Tanggal Laporan</th>
+                        <th>Pelapor</th>
+                        <th>Subjek</th>
+                        <th>Status</th>
+                        <th>Penjelasan</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="penjelasanTableBody">
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Penjelasan Modal -->
+    <div class="popup" id="penjelasanPopup">
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3><i class="fas fa-comment-dots"></i> Berikan Penjelasan</h3>
+                <button class="popup-close" id="penjelasanPopupClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="penjelasanForm" class="report-form">
+                <input type="hidden" id="penjelasanId">
+                <div class="form-group">
+                    <label>Pelapor</label>
+                    <input type="text" id="penjelasanPelapor" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Subjek Laporan</label>
+                    <input type="text" id="penjelasanSubjek" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Deskripsi Laporan</label>
+                    <textarea id="penjelasanDeskripsi" rows="3" disabled></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="isiPenjelasan">Penjelasan/Tanggapan <span class="required">*</span></label>
+                    <textarea id="isiPenjelasan" rows="5" required placeholder="Jelaskan tindakan yang telah dilakukan atau tanggapan terhadap laporan ini..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="penjelasanStatus">Update Status</label>
+                    <select id="penjelasanStatus">
+                        <option value="pending">Menunggu</option>
+                        <option value="proses">Sedang Diproses</option>
+                        <option value="selesai">Selesai</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="penjelasanCancelBtn">Batal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Simpan & Kirim WhatsApp
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Notification Toast -->
     <div class="toast" id="toast">
         <div class="toast-icon">
@@ -1215,7 +1288,7 @@
         // ==========================================
 
         // Google Apps Script Web App URL - GANTI DENGAN URL ANDA
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWvhRaMq59TWk8aCIV5QeK5rqhvHe4Kk_cJ2ekpk1JvBiEg0p4T0HMTRuTJI7SqH3eAA/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxHgmO1k-wNAkk1mByFt_5lM26LqGE0V2IHf0wi--_1fEGq03kCOHMHGshnls5VS1IvXA/exec';
 
         // Data storage (simulasi - bisa diganti dengan fetching dari Google Sheets)
         let laporanData = [];
@@ -1287,6 +1360,7 @@
             document.getElementById('adminSection').style.display = 'none';
             document.querySelector('.stats-container').style.display = 'none';
             document.getElementById('laporanSection').style.display = 'none';
+            document.getElementById('penjelasanSection').style.display = 'none';
             
             // Hide pengaturan if exists
             const pengaturanSection = document.getElementById('pengaturanSection');
@@ -1297,7 +1371,7 @@
             switch(page) {
                 case 'dashboard':
                     document.querySelector('.stats-container').style.display = 'grid';
-                    document.querySelector('.form-section:not(#adminSection):not(#laporanSection)').style.display = 'block';
+                    document.querySelector('.form-section:not(#adminSection):not(#laporanSection):not(#penjelasanSection)').style.display = 'block';
                     document.querySelector('.top-header h1').textContent = 'Dashboard KONTAK';
                     break;
                 case 'laporan':
@@ -1313,6 +1387,15 @@
                     }
                     document.querySelector('.top-header h1').textContent = 'Data Laporan';
                     break;
+                case 'penjelasan':
+                    if (isLoggedIn) {
+                        document.getElementById('penjelasanSection').style.display = 'block';
+                        renderPenjelasanTable();
+                    } else {
+                        openLoginPopup();
+                    }
+                    document.querySelector('.top-header h1').textContent = 'Penjelasan Laporan';
+                    break;
                 case 'pengaturan':
                     showPengaturanSection();
                     document.querySelector('.top-header h1').textContent = 'Pengaturan';
@@ -1327,7 +1410,7 @@
                     break;
                 default:
                     document.querySelector('.stats-container').style.display = 'grid';
-                    document.querySelector('.form-section:not(#adminSection):not(#laporanSection)').style.display = 'block';
+                    document.querySelector('.form-section:not(#adminSection):not(#laporanSection):not(#penjelasanSection)').style.display = 'block';
             }
         }
 
@@ -1600,6 +1683,19 @@
                 
                 hideLoading();
                 closePopup();
+                
+                // Tawarkan notifikasi WhatsApp ke pelapor
+                if (formData.telepon) {
+                    const kirimNotifikasi = confirm('Laporan berhasil dikirim!\n\nApakah Anda ingin menerima notifikasi melalui WhatsApp saat ada tanggapan dari Dinas Kesehatan?');
+                    if (kirimNotifikasi) {
+                        const pesan = `*Halo ${formData.pelapor},*\n\nTerima kasih telah mengajukan laporan:\n*${formData.subjek}*\n\nKami akan menindaklanjuti laporan Anda. Mohon tunggu tanggapan dari Dinas Kesehatan.`;
+                        const encodedPesan = encodeURIComponent(pesan);
+                        const formattedPhone = formData.telepon.replace(/[^0-9]/g, '');
+                        const phoneWithCountry = formattedPhone.startsWith('0') ? '62' + formattedPhone.substring(1) : formattedPhone;
+                        window.open(`https://wa.me/${phoneWithCountry}?text=${encodedPesan}`, '_blank');
+                    }
+                }
+                
                 showToast('Laporan berhasil dikirim!');
                 
             } catch (error) {
@@ -1777,6 +1873,139 @@
                 });
             });
         });
+
+        // ==========================================
+        // Penjelasan Functions
+        // ==========================================
+        
+        function renderPenjelasanTable() {
+            const tbody = document.getElementById('penjelasanTableBody');
+            if (!tbody) return;
+            
+            if (laporanData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Belum ada laporan</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = laporanData.map((laporan, index) => {
+                const statusClass = laporan.status === 'selesai' ? 'selesai' : 
+                                   laporan.status === 'proses' ? 'proses' : 'pending';
+                const statusText = laporan.status === 'selesai' ? 'Selesai' : 
+                                 laporan.status === 'proses' ? 'Proses' : 'Menunggu';
+                const penjelasan = laporan.penjelasan || '-';
+                
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${formatDate(laporan.tanggal)}</td>
+                        <td>${laporan.pelapor}</td>
+                        <td>${laporan.subjek}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>${penjelasan.substring(0, 50)}${penjelasan.length > 50 ? '...' : ''}</td>
+                        <td>
+                            <button class="action-btn" onclick="openPenjelasanModal(${laporan.id})" title="Berikan Penjelasan">
+                                <i class="fas fa-comment-dots"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openPenjelasanModal(id) {
+            const laporan = laporanData.find(l => l.id === id);
+            if (!laporan) return;
+
+            document.getElementById('penjelasanId').value = laporan.id;
+            document.getElementById('penjelasanPelapor').value = laporan.pelapor;
+            document.getElementById('penjelasanSubjek').value = laporan.subjek;
+            document.getElementById('penjelasanDeskripsi').value = laporan.deskripsi || '-';
+            document.getElementById('isiPenjelasan').value = laporan.penjelasan || '';
+            document.getElementById('penjelasanStatus').value = laporan.status || 'pending';
+
+            document.getElementById('penjelasanPopup').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closePenjelasanModal() {
+            document.getElementById('penjelasanPopup').classList.remove('active');
+            document.body.style.overflow = '';
+            document.getElementById('penjelasanForm').reset();
+        }
+
+        document.getElementById('penjelasanPopupClose').addEventListener('click', closePenjelasanModal);
+        document.getElementById('penjelasanCancelBtn').addEventListener('click', closePenjelasanModal);
+        document.getElementById('penjelasanPopup').addEventListener('click', function(e) {
+            if (e.target === document.getElementById('penjelasanPopup')) {
+                closePenjelasanModal();
+            }
+        });
+
+        // Penjelasan form submission
+        document.getElementById('penjelasanForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const id = parseInt(document.getElementById('penjelasanId').value);
+            const index = laporanData.findIndex(l => l.id === id);
+            
+            if (index !== -1) {
+                const penjelasan = document.getElementById('isiPenjelasan').value;
+                const newStatus = document.getElementById('penjelasanStatus').value;
+                const laporan = laporanData[index];
+                
+                laporanData[index] = {
+                    ...laporanData[index],
+                    penjelasan: penjelasan,
+                    status: newStatus,
+                    tanggalPenjelasan: new Date().toISOString()
+                };
+                
+                localStorage.setItem('kontak_laporan', JSON.stringify(laporanData));
+                renderPenjelasanTable();
+                renderAdminTable();
+                updateStats();
+                renderTable();
+                closePenjelasanModal();
+                
+                // Kirim WhatsApp ke pelapor
+                if (laporan.telepon) {
+                    sendWhatsAppNotification(laporan.telepon, laporan.pelapor, laporan.subjek, penjelasan, newStatus);
+                } else {
+                    showToast('Penjelasan disimpan! (No. WhatsApp tidak tersedia)');
+                }
+            }
+        });
+
+        // WhatsApp Notification Function
+        function sendWhatsAppNotification(telepon, nama, subjek, penjelasan, status) {
+            // Format nomor telepon (hapus karakter non-angka)
+            const formattedPhone = telepon.replace(/[^0-9]/g, '');
+            const phoneWithCountry = formattedPhone.startsWith('0') ? '62' + formattedPhone.substring(1) : formattedPhone;
+            
+            // Buat pesan
+            let pesan = `*Halo ${nama},*\n\n`;
+            pesan += `Terima kasih telah menyampaikan laporan kami. Berikut tanggapan dari Dinas Kesehatan:\n\n`;
+            pesan += `*Laporan:* ${subjek}\n`;
+            pesan += `*Status:* ${status === 'selesai' ? 'Selesai' : status === 'proses' ? 'Sedang Diproses' : 'Menunggu'}\n\n`;
+            pesan += `*Tanggapan:*\n${penjelasan}\n\n`;
+            pesan += `---\nDinas Kesehatan`;
+            
+            // Encode pesan untuk URL
+            const encodedPesan = encodeURIComponent(pesan);
+            
+            // Buka WhatsApp
+            const whatsappUrl = `https://wa.me/${phoneWithCountry}?text=${encodedPesan}`;
+            window.open(whatsappUrl, '_blank');
+            
+            showToast('Penjelasan disimpan! WhatsApp akan dibuka untuk mengirim notifikasi.');
+        }
 
         // ==========================================
         // Admin Authentication
