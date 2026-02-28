@@ -1187,7 +1187,7 @@
         // ==========================================
 
         // Google Apps Script Web App URL - GANTI DENGAN URL ANDA
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxWlVwcAWJDxCbKeVEbTxcM_wgI7kMGni3Nj4ZO-motlRjYZz7Lcj6YjJhkcjMwQG6_Sg/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxT1jD-54AKrBJx37kr5NHF8Q9HjhsVlnoptplZF_js_0C9tcW4fhzoxlbRSDrFhlywxg/exec';
 
         // Data storage (simulasi - bisa diganti dengan fetching dari Google Sheets)
         let laporanData = [];
@@ -1530,6 +1530,7 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             loadData();
+            checkAdminLogin();
             
             // Smooth scroll
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -1538,6 +1539,227 @@
                 });
             });
         });
+
+        // ==========================================
+        // Admin Authentication
+        // ==========================================
+        
+        // Default admin credentials (in production, use server-side auth)
+        const ADMIN_CREDENTIALS = {
+            username: 'admin',
+            password: 'admin123'
+        };
+
+        let isLoggedIn = false;
+
+        function checkAdminLogin() {
+            const loginStatus = localStorage.getItem('kontak_admin_logged_in');
+            if (loginStatus === 'true') {
+                isLoggedIn = true;
+                showAdminSection();
+            }
+        }
+
+        // Admin navigation click handler
+        document.getElementById('adminNavItem').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (isLoggedIn) {
+                showAdminSection();
+            } else {
+                openLoginPopup();
+            }
+            // Close sidebar on mobile
+            if (window.innerWidth <= 768) {
+                closeSidebarFunc();
+            }
+        });
+
+        function openLoginPopup() {
+            document.getElementById('loginPopup').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLoginPopup() {
+            document.getElementById('loginPopup').classList.remove('active');
+            document.body.style.overflow = '';
+            document.getElementById('loginForm').reset();
+        }
+
+        document.getElementById('loginPopupClose').addEventListener('click', closeLoginPopup);
+
+        // Login form submission
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('adminUsername').value;
+            const password = document.getElementById('adminPassword').value;
+
+            if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+                isLoggedIn = true;
+                localStorage.setItem('kontak_admin_logged_in', 'true');
+                closeLoginPopup();
+                showAdminSection();
+                showToast('Login berhasil! Selamat datang, Admin.');
+            } else {
+                showToast('Username atau password salah!', 'error');
+            }
+        });
+
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            isLoggedIn = false;
+            localStorage.removeItem('kontak_admin_logged_in');
+            hideAdminSection();
+            showToast('Logout berhasil!');
+            // Navigate to dashboard
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            document.querySelector('.nav-item[data-page="dashboard"]').classList.add('active');
+        });
+
+        function showAdminSection() {
+            document.getElementById('adminSection').style.display = 'block';
+            document.querySelector('.stats-container').style.display = 'none';
+            document.querySelector('.form-section:not(#adminSection)').style.display = 'none';
+            renderAdminTable();
+            
+            // Update nav active state
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            document.querySelector('.nav-item[data-page="admin"]').classList.add('active');
+        }
+
+        function hideAdminSection() {
+            document.getElementById('adminSection').style.display = 'none';
+            document.querySelector('.stats-container').style.display = 'grid';
+            document.querySelector('.form-section:not(#adminSection)').style.display = 'block';
+        }
+
+        // ==========================================
+        // Admin CRUD Operations
+        // ==========================================
+
+        function renderAdminTable() {
+            const tbody = document.getElementById('adminTableBody');
+            
+            if (laporanData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Belum ada data laporan</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = laporanData.map((laporan, index) => {
+                const statusClass = laporan.status === 'selesai' ? 'selesai' : 
+                                   laporan.status === 'proses' ? 'proses' : 'pending';
+                const statusText = laporan.status === 'selesai' ? 'Selesai' : 
+                                 laporan.status === 'proses' ? 'Proses' : 'Menunggu';
+                
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${formatDate(laporan.tanggal)}</td>
+                        <td>${laporan.pelapor}</td>
+                        <td>${laporan.email}</td>
+                        <td>${laporan.telepon || '-'}</td>
+                        <td>${laporan.subjek}</td>
+                        <td>${laporan.kategori || '-'}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>
+                            <button class="action-btn" onclick="openEditModal(${laporan.id})" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="action-btn" onclick="viewDetailAdmin(${laporan.id})" title="Lihat Detail">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="action-btn delete" onclick="deleteLaporanAdmin(${laporan.id})" title="Hapus">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openEditModal(id) {
+            const laporan = laporanData.find(l => l.id === id);
+            if (!laporan) return;
+
+            document.getElementById('editId').value = laporan.id;
+            document.getElementById('editPelapor').value = laporan.pelapor;
+            document.getElementById('editEmail').value = laporan.email;
+            document.getElementById('editTelepon').value = laporan.telepon || '';
+            document.getElementById('editSubjek').value = laporan.subjek;
+            document.getElementById('editKategori').value = laporan.kategori || '';
+            document.getElementById('editDeskripsi').value = laporan.deskripsi;
+            document.getElementById('editStatus').value = laporan.status;
+
+            document.getElementById('editPopup').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editPopup').classList.remove('active');
+            document.body.style.overflow = '';
+            document.getElementById('editForm').reset();
+        }
+
+        document.getElementById('editPopupClose').addEventListener('click', closeEditModal);
+        document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+        document.getElementById('editPopup').addEventListener('click', function(e) {
+            if (e.target === document.getElementById('editPopup')) {
+                closeEditModal();
+            }
+        });
+
+        // Edit form submission
+        document.getElementById('editForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const id = parseInt(document.getElementById('editId').value);
+            const index = laporanData.findIndex(l => l.id === id);
+            
+            if (index !== -1) {
+                laporanData[index] = {
+                    ...laporanData[index],
+                    pelapor: document.getElementById('editPelapor').value,
+                    email: document.getElementById('editEmail').value,
+                    telepon: document.getElementById('editTelepon').value,
+                    subjek: document.getElementById('editSubjek').value,
+                    kategori: document.getElementById('editKategori').value,
+                    deskripsi: document.getElementById('editDeskripsi').value,
+                    status: document.getElementById('editStatus').value
+                };
+                
+                localStorage.setItem('kontak_laporan', JSON.stringify(laporanData));
+                renderAdminTable();
+                updateStats();
+                renderTable();
+                closeEditModal();
+                showToast('Data berhasil diperbarui!');
+            }
+        });
+
+        function viewDetailAdmin(id) {
+            const laporan = laporanData.find(l => l.id === id);
+            if (laporan) {
+                alert(`Detail Laporan:\n\nID: ${laporan.id}\nPelapor: ${laporan.pelapor}\nEmail: ${laporan.email}\nTelepon: ${laporan.telepon || '-'}\nSubjek: ${laporan.subjek}\nKategori: ${laporan.kategori || '-'}\nDeskripsi: ${laporan.deskripsi}\nStatus: ${laporan.status}\nTanggal: ${formatDate(laporan.tanggal)}`);
+            }
+        }
+
+        function deleteLaporanAdmin(id) {
+            if (confirm('Apakah Anda yakin ingin menghapus laporan ini?')) {
+                laporanData = laporanData.filter(l => l.id !== id);
+                localStorage.setItem('kontak_laporan', JSON.stringify(laporanData));
+                renderAdminTable();
+                updateStats();
+                renderTable();
+                showToast('Laporan berhasil dihapus');
+            }
+        }
     </script>
 </body>
 </html>
