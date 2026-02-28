@@ -1076,6 +1076,34 @@
         </div>
     </div>
 
+    <!-- Laporan Section -->
+    <section class="form-section" id="laporanSection" style="display: none;">
+        <div class="section-header">
+            <h2><i class="fas fa-file-alt"></i> Daftar Laporan</h2>
+            <button class="btn btn-primary" id="openFormBtn2">
+                <i class="fas fa-plus"></i> Laporan Baru
+            </button>
+        </div>
+        
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Tanggal</th>
+                        <th>Pelapor</th>
+                        <th>Subjek</th>
+                        <th>Kategori</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="laporanTableBody">
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     <!-- Admin Panel Section (Hidden by default) -->
     <section class="form-section" id="adminSection" style="display: none;">
         <div class="section-header">
@@ -1199,6 +1227,7 @@
         const menuToggle = document.getElementById('menuToggle');
         const closeSidebar = document.getElementById('closeSidebar');
         const openFormBtn = document.getElementById('openFormBtn');
+        const openFormBtn2 = document.getElementById('openFormBtn2');
         const reportPopup = document.getElementById('reportPopup');
         const popupClose = document.getElementById('popupClose');
         const cancelBtn = document.getElementById('cancelBtn');
@@ -1237,8 +1266,13 @@
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function(e) {
                 e.preventDefault();
+                const page = this.getAttribute('data-page');
+                
                 document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
                 this.classList.add('active');
+                
+                // Handle page navigation
+                handleNavigation(page);
                 
                 // Close sidebar on mobile
                 if (window.innerWidth <= 768) {
@@ -1246,6 +1280,143 @@
                 }
             });
         });
+
+        // Fungsi navigasi halaman
+        function handleNavigation(page) {
+            // Hide all sections first
+            document.getElementById('adminSection').style.display = 'none';
+            document.querySelector('.stats-container').style.display = 'none';
+            document.getElementById('laporanSection').style.display = 'none';
+            
+            // Hide pengaturan if exists
+            const pengaturanSection = document.getElementById('pengaturanSection');
+            if (pengaturanSection) {
+                pengaturanSection.style.display = 'none';
+            }
+
+            switch(page) {
+                case 'dashboard':
+                    document.querySelector('.stats-container').style.display = 'grid';
+                    document.querySelector('.form-section:not(#adminSection):not(#laporanSection)').style.display = 'block';
+                    document.querySelector('.top-header h1').textContent = 'Dashboard KONTAK';
+                    break;
+                case 'laporan':
+                    document.getElementById('laporanSection').style.display = 'block';
+                    renderLaporanTable();
+                    document.querySelector('.top-header h1').textContent = 'Daftar Laporan';
+                    break;
+                case 'data':
+                    if (isLoggedIn) {
+                        showAdminSection();
+                    } else {
+                        openLoginPopup();
+                    }
+                    document.querySelector('.top-header h1').textContent = 'Data Laporan';
+                    break;
+                case 'pengaturan':
+                    showPengaturanSection();
+                    document.querySelector('.top-header h1').textContent = 'Pengaturan';
+                    break;
+                case 'admin':
+                    if (isLoggedIn) {
+                        showAdminSection();
+                    } else {
+                        openLoginPopup();
+                    }
+                    document.querySelector('.top-header h1').textContent = 'Admin Panel';
+                    break;
+                default:
+                    document.querySelector('.stats-container').style.display = 'grid';
+                    document.querySelector('.form-section:not(#adminSection):not(#laporanSection)').style.display = 'block';
+            }
+        }
+
+        // Show Pengaturan section
+        function showPengaturanSection() {
+            // Check if pengaturan section exists, if not create it
+            let pengaturanSection = document.getElementById('pengaturanSection');
+            if (!pengaturanSection) {
+                const formSection = document.querySelector('.form-section');
+                pengaturanSection = document.createElement('section');
+                pengaturanSection.id = 'pengaturanSection';
+                pengaturanSection.className = 'form-section';
+                pengaturanSection.style.display = 'none';
+                pengaturanSection.innerHTML = `
+                    <div class="section-header">
+                        <h2><i class="fas fa-cog"></i> Pengaturan Sistem</h2>
+                    </div>
+                    <div class="table-container" style="padding: 24px;">
+                        <div class="form-group">
+                            <label>Google Apps Script URL</label>
+                            <input type="text" id="configAppsScriptUrl" value="${GOOGLE_APPS_SCRIPT_URL}" placeholder="https://script.google.com/macros/s/...">
+                        </div>
+                        <div class="form-group">
+                            <label>Username Admin</label>
+                            <input type="text" id="configAdminUser" value="${ADMIN_CREDENTIALS.username}">
+                        </div>
+                        <div class="form-group">
+                            <label>Password Admin</label>
+                            <input type="password" id="configAdminPass" value="${ADMIN_CREDENTIALS.password}">
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-primary" onclick="simpanPengaturan()">
+                                <i class="fas fa-save"></i> Simpan Pengaturan
+                            </button>
+                            <button class="btn btn-secondary" onclick="resetData()" style="margin-left: 10px;">
+                                <i class="fas fa-trash"></i> Reset Semua Data
+                            </button>
+                        </div>
+                        <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
+                            <h4 style="margin-bottom: 10px;">Informasi Aplikasi</h4>
+                            <p><strong>Versi:</strong> 1.0.0</p>
+                            <p><strong>Developer:</strong> KONTAK Team</p>
+                            <p><strong>Deskripsi:</strong> Sistem Pelaporan Online dengan Admin Panel</p>
+                        </div>
+                    </div>
+                `;
+                document.querySelector('.main-content').appendChild(pengaturanSection);
+            }
+            
+            // Hide other sections
+            document.querySelector('.stats-container').style.display = 'none';
+            document.querySelectorAll('.form-section').forEach(section => {
+                if (section.id !== 'pengaturanSection') {
+                    section.style.display = 'none';
+                }
+            });
+            
+            document.getElementById('pengaturanSection').style.display = 'block';
+        }
+
+        // Simpan pengaturan
+        window.simpanPengaturan = function() {
+            const newUrl = document.getElementById('configAppsScriptUrl').value;
+            const newUser = document.getElementById('configAdminUser').value;
+            const newPass = document.getElementById('configAdminPass').value;
+            
+            if (newUrl) {
+                localStorage.setItem('kontak_apps_script_url', newUrl);
+            }
+            if (newUser && newPass) {
+                localStorage.setItem('kontak_admin_user', newUser);
+                localStorage.setItem('kontak_admin_pass', newPass);
+            }
+            
+            showToast('Pengaturan berhasil disimpan!');
+        };
+
+        // Reset semua data
+        window.resetData = function() {
+            if (confirm('Apakah Anda yakin ingin menghapus SEMUA data? Tindakan ini tidak dapat dibatalkan!')) {
+                if (confirm('Ini akan menghapus semua laporan. Lanjutkan?')) {
+                    laporanData = [];
+                    localStorage.setItem('kontak_laporan', JSON.stringify(laporanData));
+                    updateStats();
+                    renderTable();
+                    showToast('Semua data telah direset!');
+                }
+            }
+        };
 
         // ==========================================
         // Popup Functions
@@ -1264,6 +1435,9 @@
         }
 
         openFormBtn.addEventListener('click', openPopup);
+        if (openFormBtn2) {
+            openFormBtn2.addEventListener('click', openPopup);
+        }
         popupClose.addEventListener('click', closePopup);
         cancelBtn.addEventListener('click', closePopup);
 
@@ -1367,7 +1541,7 @@
         });
 
         // ==========================================
-        // Form Submission
+        // Form Submission with File Upload
         // ==========================================
 
         reportForm.addEventListener('submit', async function(e) {
@@ -1384,8 +1558,22 @@
                 kategori: document.getElementById('kategori').value,
                 deskripsi: document.getElementById('deskripsi').value,
                 tanggal: new Date().toISOString(),
-                status: 'pending'
+                status: 'pending',
+                lampiran: []
             };
+
+            // Proses file upload ke base64
+            const fileInput = document.getElementById('lampiran');
+            if (fileInput.files.length > 0) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    const base64 = await fileToBase64(file);
+                    formData.lampiran.push({
+                        fileName: file.name,
+                        base64: base64
+                    });
+                }
+            }
 
             try {
                 // Kirim ke Google Apps Script
@@ -1398,10 +1586,11 @@
                     body: JSON.stringify(formData)
                 });
 
-                // Simpan ke local storage untuk demo
+                // Simpan ke local storage untuk demo (dengan lampiran URL jika ada)
                 laporanData.unshift({
                     id: Date.now(),
-                    ...formData
+                    ...formData,
+                    lampiranUrl: ''
                 });
                 localStorage.setItem('kontak_laporan', JSON.stringify(laporanData));
 
@@ -1420,6 +1609,16 @@
             }
         });
 
+        // Fungsi konversi file ke base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
         // ==========================================
         // Data Management
         // ==========================================
@@ -1431,6 +1630,48 @@
             }
             updateStats();
             renderTable();
+            renderLaporanTable();
+        }
+
+        function renderLaporanTable() {
+            const tbody = document.getElementById('laporanTableBody');
+            
+            if (!tbody) return;
+            
+            if (laporanData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>Belum ada data laporan</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = laporanData.map((laporan, index) => {
+                const statusClass = laporan.status === 'selesai' ? 'selesai' : 
+                                   laporan.status === 'proses' ? 'proses' : 'pending';
+                const statusText = laporan.status === 'selesai' ? 'Selesai' : 
+                                 laporan.status === 'proses' ? 'Proses' : 'Menunggu';
+                
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${formatDate(laporan.tanggal)}</td>
+                        <td>${laporan.pelapor}</td>
+                        <td>${laporan.subjek}</td>
+                        <td>${laporan.kategori || '-'}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>
+                            <button class="action-btn" onclick="viewDetail(${laporan.id})" title="Lihat Detail">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function updateStats() {
@@ -1617,9 +1858,23 @@
         });
 
         function showAdminSection() {
-            document.getElementById('adminSection').style.display = 'block';
+            // Hide all sections
             document.querySelector('.stats-container').style.display = 'none';
-            document.querySelector('.form-section:not(#adminSection)').style.display = 'none';
+            document.getElementById('laporanSection').style.display = 'none';
+            
+            const pengaturanSection = document.getElementById('pengaturanSection');
+            if (pengaturanSection) {
+                pengaturanSection.style.display = 'none';
+            }
+            
+            // Hide default form section
+            document.querySelectorAll('.form-section').forEach(section => {
+                if (section.id !== 'adminSection') {
+                    section.style.display = 'none';
+                }
+            });
+            
+            document.getElementById('adminSection').style.display = 'block';
             renderAdminTable();
             
             // Update nav active state
