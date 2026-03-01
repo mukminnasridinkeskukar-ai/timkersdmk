@@ -1977,7 +1977,7 @@
         // ============================================
         // KONFIGURASI - PASTE GOOGLE APPS SCRIPT URL DI BAWAH INI
         // ============================================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyWdd73DGoUoczuHMmeJjAx3VOivI6yXu7KGgCsb6wh5h89EaiC5lBUCzSLeXPlWXuz/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycby5kZlCyOCJZFpb7yfDdXyRYxZXOyzrI9sOJVAyDeN3kkIhnvMhnl4WbsA89KJC2D9N/exec';
         
         // Set USE_GAS = true untuk menggunakan Google Sheets sebagai database
         // Set USE_GAS = false untuk menggunakan data local (JavaScript)
@@ -2348,7 +2348,10 @@
                 kategori: getElementValue('usulanKategori'),
                 jabatanDituju: getElementValue('usulanJabatanDituju'),
                 jenjangTujuan: getElementValue('usulanJenjangTujuan'),
-                status: 'Baru'
+                status: 'Baru',
+                fotoUrl: '',
+                dokumenUrl: '',
+                driveFileId: ''
             };
 
             try {
@@ -2358,52 +2361,51 @@
                     const dokumenFiles = document.getElementById('usulanDokumen').files;
                     
                     let uploadedFiles = [];
+                    const filesToUpload = [];
                     
                     // Upload photo
                     if (fotoFile) {
                         const fotoData = await fileToBase64(fotoFile);
-                        const fotoResult = await fetch(GAS_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                action: 'uploadFile',
-                                fileData: {
-                                    fileName: fotoFile.name,
-                                    mimeType: fotoFile.type,
-                                    data: fotoData
-                                },
-                                nik: nik
-                            })
-                        }).then(r => r.json());
-                        
-                        if (fotoResult.success) {
-                            uploadedFiles.push({ type: 'foto', ...fotoResult });
-                        }
+                        filesToUpload.push({
+                            type: 'foto',
+                            fileName: fotoFile.name,
+                            mimeType: fotoFile.type,
+                            data: fotoData
+                        });
                     }
                     
                     // Upload documents
                     for (let i = 0; i < dokumenFiles.length; i++) {
                         const docData = await fileToBase64(dokumenFiles[i]);
-                        const docResult = await fetch(GAS_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                action: 'uploadFile',
-                                fileData: {
-                                    fileName: dokumenFiles[i].name,
-                                    mimeType: dokumenFiles[i].type,
-                                    data: docData
-                                },
-                                nik: nik
-                            })
-                        }).then(r => r.json());
-                        
-                        if (docResult.success) {
-                            uploadedFiles.push({ type: 'dokumen', ...docResult });
-                        }
+                        filesToUpload.push({
+                            type: 'dokumen',
+                            fileName: dokumenFiles[i].name,
+                            mimeType: dokumenFiles[i].type,
+                            data: docData
+                        });
                     }
                     
-                    // Add file URLs to data
+                    // Upload all files at once
+                    const uploadResult = await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'uploadFiles',
+                            files: filesToUpload,
+                            nik: nik
+                        })
+                    }).then(r => r.json());
+                    
+                    if (uploadResult.success && uploadResult.files) {
+                        uploadedFiles = uploadResult.files;
+                    }
+                    
+                    // Send data to Google Sheets with file URLs
                     newUsulan.fotoUrl = uploadedFiles.find(f => f.type === 'foto')?.fileUrl || '';
                     newUsulan.dokumenUrl = JSON.stringify(uploadedFiles.filter(f => f.type === 'dokumen').map(f => f.fileUrl));
+                    newUsulan.driveFileId = uploadResult.folderId || '';
+                    
+                    // Add folder URL to documents for easy access
+                    const folderUrl = uploadResult.folderUrl || '';
                     
                     // Send data to Google Sheets
                     const response = await fetch(GAS_URL, {
@@ -2420,7 +2422,8 @@
                         // Refresh data from server
                         await loadDataFromServer();
                         
-                        alert('Usulan berhasil dikirim!\n\nNama: ' + newUsulan.nama + '\nStatus: Baru\n\nTim penilai akan memproses usulan Anda.');
+                        const folderUrl = uploadResult.folderUrl || '';
+                        alert('Usulan berhasil dikirim!\n\nNama: ' + newUsulan.nama + '\nStatus: Baru\n\nFile disimpan di: ' + folderUrl + '\n\nTim penilai akan memproses usulan Anda.');
                     } else {
                         alert('Gagal mengirim usulan: ' + result.message);
                     }
@@ -2428,11 +2431,15 @@
                     // Local mode - just save to local array
                     newUsulan.id = progressData.length + 1;
                     newUsulan.foto = '';
+                    newUsulan.fotoUrl = uploadedFiles.find(f => f.type === 'foto')?.fileUrl || '';
+                    newUsulan.dokumenUrl = JSON.stringify(uploadedFiles.filter(f => f.type === 'dokumen').map(f => f.fileUrl));
+                    newUsulan.driveFileId = uploadResult.folderId || '';
                     progressData.push(newUsulan);
                     updateStats();
                     renderTables();
                     
-                    alert('Usulan berhasil dikirim!\n\nNama: ' + newUsulan.nama + '\nStatus: Baru\n\nTim penilai akan memproses usulan Anda.\n\nCatatan: Data disimpan secara lokal. Set USE_GAS = true untuk menyimpan ke Google Sheets.');
+                    const folderUrl = uploadResult.folderUrl || '';
+                    alert('Usulan berhasil dikirim!\n\nNama: ' + newUsulan.nama + '\nStatus: Baru\n\nFile disimpan di: ' + folderUrl + '\n\nTim penilai akan memproses usulan Anda.');
                 }
             } catch (error) {
                 console.error('Error:', error);
