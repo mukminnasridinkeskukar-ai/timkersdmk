@@ -2,7 +2,9 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="screen-orientation" content="landscape">
+    <meta name="orientation" content="landscape">
     <title>JF Kesehatan - Dashboard Pengelolaan Jabatan Fungsional</title>
     <style>
         * {
@@ -33,14 +35,85 @@
         }
 
         .sidebar {
-            width: 280px;
+            width: 240px;
             background: linear-gradient(180deg, #1e3a5f 0%, #2d4a6f 100%);
             min-height: 100vh;
             position: fixed;
             left: 0;
             top: 0;
             z-index: 100;
-            transition: all 0.3s ease;
+        }
+
+        .main-content {
+            margin-left: 240px;
+            flex: 1;
+            min-height: 100vh;
+            width: calc(100% - 240px);
+        }
+
+        .content-area {
+            padding: 24px;
+            max-width: 100%;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .welcome-banner {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 100%);
+            border-radius: 12px;
+            padding: 28px 32px;
+            color: white;
+            margin-bottom: 24px;
+        }
+
+        .welcome-banner h1 {
+            font-size: 26px;
+            margin-bottom: 6px;
+        }
+
+        .welcome-banner p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .chart-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 20px;
+            height: 180px;
+            padding: 16px;
+            justify-content: center;
+        }
+
+        .chart-bar {
+            width: 60px;
+        }
+
+        @media (max-width: 1200px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         .sidebar-header {
@@ -666,8 +739,12 @@
             }
             .main-content {
                 margin-left: 0;
+                width: 100%;
             }
             .form-row, .form-row-3 {
+                grid-template-columns: 1fr;
+            }
+            .stats-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -713,6 +790,9 @@
                         <div class="submenu-item" onclick="showSection('progress-usulan', this)">
                             <span>📋</span> Progress Usulan
                         </div>
+                        <div class="submenu-item" onclick="showSection('login-users', this)">
+                            <span>🔐</span> Login Users
+                        </div>
                     </div>
                 </div>
 
@@ -724,9 +804,6 @@
                     <div class="submenu">
                         <div class="submenu-item" onclick="showSection('tim-penilai', this)">
                             <span>👥</span> Tim Penilai
-                        </div>
-                        <div class="submenu-item" onclick="showSection('login-users', this)">
-                            <span>🔐</span> Login Users
                         </div>
                         <div class="submenu-item" onclick="showSection('kelola-usulan', this)">
                             <span>📂</span> Kelola Usulan
@@ -1168,12 +1245,12 @@
                     </div>
                 </div>
 
-                <!-- Login Users (Admin Only) -->
-                <div id="login-users" class="section fade-in admin-only">
+                <!-- Login Users -->
+                <div id="login-users" class="section fade-in">
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">🔐 Manajemen User Login</h3>
-                            <button class="btn btn-primary btn-sm" onclick="openModal('modal-user')">➕ Tambah User</button>
+                            <button class="btn btn-primary btn-sm" id="addUserBtn" onclick="openModal('modal-user')" style="display: none;">➕ Tambah User</button>
                         </div>
                         <div class="card-body">
                             <div class="table-container">
@@ -1422,6 +1499,8 @@
                 document.getElementById('displayRole').textContent = user.role;
                 document.getElementById('userAvatar').textContent = user.nama.charAt(0).toUpperCase();
                 
+                // Show admin controls
+                document.getElementById('addUserBtn').style.display = 'block';
                 document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
                 
                 alert('Login berhasil! Selamat datang, ' + user.nama);
@@ -1440,6 +1519,7 @@
             document.getElementById('userDetails').style.display = 'none';
             document.getElementById('userAvatar').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('addUserBtn').style.display = 'none';
             
             document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
             showSection('dashboard-data', document.querySelector('.submenu-item'));
@@ -1453,7 +1533,10 @@
 
         function showSection(sectionId, element) {
             const section = document.getElementById(sectionId);
-            if (section && section.classList.contains('admin-only') && !currentUser) {
+            
+            // Check if trying to access admin-only sections
+            const adminOnlySections = ['tim-penilai', 'kelola-usulan'];
+            if (adminOnlySections.includes(sectionId) && !currentUser) {
                 alert('Silakan login terlebih dahulu untuk mengakses Panel Admin!');
                 return;
             }
@@ -1522,8 +1605,10 @@
                 </tr>
             `).join('');
 
-            // Users Table
+            // Users Table (show edit button only for admin)
             const usersTable = document.getElementById('usersTable');
+            const editButton = currentUser && currentUser.role === 'Admin' ? 
+                '<button class="btn btn-sm btn-warning" onclick="editUser(${item.id})">✏️ Edit</button>' : '-';
             usersTable.innerHTML = users.map((item, index) => `
                 <tr>
                     <td>${index + 1}</td>
@@ -1531,9 +1616,7 @@
                     <td>${item.nama}</td>
                     <td>${item.role}</td>
                     <td><span class="badge ${item.status === 'Aktif' ? 'badge-success' : 'badge-danger'}">${item.status}</span></td>
-                    <td>
-                        <button class="btn btn-sm btn-warning" onclick="editUser(${item.id})">✏️ Edit</button>
-                    </td>
+                    <td>${editButton}</td>
                 </tr>
             `).join('');
 
