@@ -2508,6 +2508,23 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
+// Convert Google Drive file ID to direct image URL
+function convertToImageUrl(fileIdOrUrl) {
+    if (!fileIdOrUrl) return '';
+    
+    // If it's already a full URL, return as is
+    if (fileIdOrUrl.startsWith('http://') || fileIdOrUrl.startsWith('https://')) {
+        return fileIdOrUrl;
+    }
+    
+    // If it's a Google Drive file ID (no slashes), convert to direct URL
+    if (!fileIdOrUrl.includes('/') && !fileIdOrUrl.includes('.')) {
+        return 'https://drive.google.com/uc?export=view&id=' + fileIdOrUrl;
+    }
+    
+    return fileIdOrUrl;
+}
+        
 // ========================================
 // API Functions
 // ========================================
@@ -2958,8 +2975,9 @@ function renderDatabaseTable(tabName) {
             
             if (tabName === 'praktikMandiri') {
                 const fotoUrl = row.fotoID || row.foto || row.fotoUrl || '';
+                const displayUrl = convertToImageUrl(fotoUrl);
                 const fotoCell = fotoUrl ? 
-                    `<img src="${fotoUrl}" alt="Foto" class="foto-thumbnail" onclick="showProfileModal('${row.id || row.timestamp}')" title="Klik untuk lihat profil">` :
+                    `<img src="${displayUrl}" alt="Foto" class="foto-thumbnail" onclick="showProfileModal('${row.id || row.timestamp}')" title="Klik untuk lihat profil" onerror="this.src='https://ui-avatars.com/api/?name=No+Image&background=cccccc&color=fff&size=200'">` :
                     `<div class="foto-thumbnail-placeholder" onclick="showProfileModal('${row.id || row.timestamp}')" title="Klik untuk lihat profil"><i class="fas fa-user"></i></div>`;
                 cells = `
                     <td>${rowNum}</td>
@@ -3394,10 +3412,11 @@ function openProfileModal(record) {
         ${dataRows}
     `;
     
-    // Build photo content (right side)
+        // Build photo content (right side)
     const fotoUrl = record.fotoID || record.foto || record.fotoUrl || '';
-    if (fotoUrl) {
-        photoContent.innerHTML = `<img src="${fotoUrl}" alt="Foto ${record.nama}">`;
+    const displayUrl = convertToImageUrl(fotoUrl);
+    if (displayUrl) {
+        photoContent.innerHTML = `<img src="${displayUrl}" alt="Foto ${record.nama}" onerror="this.parentElement.innerHTML='<div class=\"profile-photo-placeholder\"><i class=\"fas fa-user\"></i><p>Foto tidak tersedia</p></div>'">`;
     } else {
         photoContent.innerHTML = `
             <div class="profile-photo-placeholder">
