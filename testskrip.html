@@ -1977,7 +1977,7 @@
         // ============================================
         // KONFIGURASI - PASTE GOOGLE APPS SCRIPT URL DI BAWAH INI
         // ============================================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyF19-N47INEKdDn1_JHl2DE7c9cGK_w2sI3tg9K6LH4dnwBTo6ikhSqYS4QX1ry9A/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyWdd73DGoUoczuHMmeJjAx3VOivI6yXu7KGgCsb6wh5h89EaiC5lBUCzSLeXPlWXuz/exec';
         
         // Set USE_GAS = true untuk menggunakan Google Sheets sebagai database
         // Set USE_GAS = false untuk menggunakan data local (JavaScript)
@@ -2314,39 +2314,162 @@
         }
 
         // Form Submit
-        document.getElementById('usulanForm').addEventListener('submit', function(e) {
+        document.getElementById('usulanForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '⏳ Mengirim...';
+            submitBtn.disabled = true;
+            
+            const nik = document.getElementById('usulanNik').value;
+            
+            // Prepare data
             const newUsulan = {
-                id: progressData.length + 1,
+                timestamp: document.getElementById('usulanTimestamp').value,
+                periode: document.getElementById('usulanPeriode').value,
                 nama: document.getElementById('usulanNama').value,
-                nik: document.getElementById('usulanNik').value,
+                nik: nik,
                 nip: document.getElementById('usulanNip')?.value || '',
                 telepon: document.getElementById('usulanTelepon')?.value || '',
+                email: document.getElementById('usulanEmail')?.value || '',
                 unit: document.getElementById('usulanUnit').value,
-                jabatan: document.getElementById('usulanJabatan').value,
+                jenisJabatan: document.getElementById('usulanJabatan').value,
                 jenjang: document.getElementById('usulanJenjang').value,
                 pangkat: document.getElementById('usulanPangkat')?.value || '',
                 nilaiPak: document.getElementById('usulanNilaiPak')?.value || '',
-                str: document.getElementById('usulanStr')?.value || '',
+                noStr: document.getElementById('usulanStr')?.value || '',
                 kategori: document.getElementById('usulanJabatanDituju').value,
                 jabatanDituju: document.getElementById('usulanJabatanDituju').value,
                 jenjangTujuan: document.getElementById('usulanJenjangTujuan').value,
-                status: 'Baru',
-                foto: ''
+                status: 'Baru'
             };
+
+            try {
+                if (USE_GAS) {
+                    // Upload files to Google Drive
+                    const fotoFile = document.getElementById('usulanFoto').files[0];
+                    const dokumenFiles = document.getElementById('usulanDokumen').files;
+                    
+                    let uploadedFiles = [];
+                    
+                    // Upload photo
+                    if (fotoFile) {
+                        const fotoData = await fileToBase64(fotoFile);
+                        const fotoResult = await fetch(GAS_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                action: 'uploadFile',
+                                fileData: {
+                                    fileName: fotoFile.name,
+                                    mimeType: fotoFile.type,
+                                    data: fotoData
+                                },
+                                nik: nik
+                            })
+                        }).then(r => r.json());
+                        
+                        if (fotoResult.success) {
+                            uploadedFiles.push({ type: 'foto', ...fotoResult });
+                        }
+                    }
+                    
+                    // Upload documents
+                    for (let i = 0; i < dokumenFiles.length; i++) {
+                        const docData = await fileToBase64(dokumenFiles[i]);
+                        const docResult = await fetch(GAS_URL, {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                action: 'uploadFile',
+                                fileData: {
+                                    fileName: dokumenFiles[i].name,
+                                    mimeType: dokumenFiles[i].type,
+                                    data: docData
+                                },
+                                nik: nik
+                            })
+                        }).then(r => r.json());
+                        
+                        if (docResult.success) {
+                            uploadedFiles.push({ type: 'dokumen', ...docResult });
+                        }
+                    }
+                    
+                    // Add file URLs to data
+                    newUsulan.fotoUrl = uploadedFiles.find(f => f.type === 'foto')?.fileUrl || '';
+                    newUsulan.dokumenUrl = JSON.stringify(uploadedFiles.filter(f => f.type === 'dokumen').map(f => f.fileUrl));
+                    
+                    // Send data to Google Sheets
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'addUsulan',
+                            data: newUsulan
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Refresh data from server
+                        await loadDataFromServer();
+                        
+                        alert('Usulan berhasil dikirim!\n\nNama: ' + newUsulan.nama + '\nStatus: Baru\n\nTim penilai akan memproses usulan Anda.');
+                    } else {
+                        alert('Gagal mengirim usulan: ' + result.message);
+                    }
+                } else {
+                    // Local mode - just save to local array
+                    newUsulan.id = progressData.length + 1;
+                    newUsulan.foto = '';
+                    progressData.push(newUsulan);
+                    updateStats();
+                    renderTables();
+                    
+                    alert('Usulan berhasil dikirim!\n\nNama: ' + newUsulan.nama + '\nStatus: Baru\n\nTim penilai akan memproses usulan Anda.\n\nCatatan: Data disimpan secara lokal. Set USE_GAS = true untuk menyimpan ke Google Sheets.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Terjadi kesalahan saat mengirim data: ' + error.message);
+            }
             
-            progressData.push(newUsulan);
-            updateStats();
-            renderTables();
-            
-            alert('Usulan berhasil dikirim!\n\nNama: ' + newUsulan.nama + '\nStatus: Baru\n\nTim penilai akan memproses usulan Anda.');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
             this.reset();
             
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
             document.getElementById('usulanTimestamp').value = now.toISOString().slice(0, 16);
         });
+        
+        // Helper function to convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    // Remove data:mimeType;base64, prefix
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        // Function to load data from Google Sheets
+        async function loadDataFromServer() {
+            try {
+                const response = await fetch(GAS_URL + '?action=getUsulans');
+                const result = await response.json();
+                if (result.success) {
+                    progressData = result.data;
+                    renderTables();
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
 
         // Save Functions
         function saveUser() {
