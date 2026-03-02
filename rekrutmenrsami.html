@@ -4,26 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Informasi Rekrutmen Karyawan - RSUD Aji Muhammad Idris</title>
-    <meta name="description" content="Sistem Informasi Rekrutmen Karyawan RSUD Aji Muhammad Idris Kab. Kutai Kartanegara">
+    <meta name="description" content="Sistem Informasi Rekrutmen Karyawan RSUD Aji Muhammad Idris Gersik">
     
-    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%230D6EFD' rx='15' width='100' height='100'/%3E%3Cpath fill='white' d='M50 20v60M20 50h60' stroke='white' stroke-width='12' stroke-linecap='round'/%3E%3C/svg%3E">
     
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <style>
-/* ========================================
-   SIREK - Sistem Informasi Rekrutmen Karyawan
-   RSUD Aji Muhammad Idris
-   Glassmorphism + Clean Medical Theme
-   ======================================== */
-
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
@@ -35,15 +27,15 @@
     --pure-white: #FFFFFF;
     --light-gray: #F8FAFC;
     --soft-gray: #E2E8F0;
-    --border-glass: rgba(255, 255, 255, 0.3);
-    --shadow-blue: rgba(13, 110, 253, 0.15);
-    --font-primary: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --success: #10B981;
+    --font-primary: 'Plus Jakarta Sans', sans-serif;
     --transition-fast: 0.2s ease;
     --transition-normal: 0.3s ease;
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
-    --radius-xl: 24px;
     --sidebar-width: 260px;
     --sidebar-collapsed: 70px;
 }
@@ -60,10 +52,8 @@ body {
     overflow-x: hidden;
 }
 
-/* Dashboard Layout */
 .dashboard-wrapper { display: flex; min-height: 100vh; }
 
-/* Sidebar */
 .sidebar {
     width: var(--sidebar-width);
     background: linear-gradient(180deg, var(--deep-navy) 0%, #1e293b 100%);
@@ -89,18 +79,19 @@ body {
 }
 
 .sidebar-brand img { width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0; }
-
 .sidebar-brand-text { overflow: hidden; white-space: nowrap; transition: var(--transition-normal); }
 .sidebar.collapsed .sidebar-brand-text { opacity: 0; width: 0; }
-
 .sidebar-brand-text h2 { font-size: 1rem; font-weight: 700; color: var(--pure-white); }
 .sidebar-brand-text span { font-size: 0.7rem; color: rgba(255, 255, 255, 0.6); }
 
-.sidebar-menu { list-style: none; padding: 16px 12px; flex: 1; }
-
+.sidebar-menu { list-style: none; padding: 16px 12px; flex: 1; overflow-y: auto; }
 .sidebar-menu li { margin-bottom: 4px; }
 
-.sidebar-menu a {
+.sidebar-menu-item {
+    position: relative;
+}
+
+.sidebar-menu-toggle {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -109,27 +100,47 @@ body {
     border-radius: var(--radius-md);
     transition: var(--transition-fast);
     font-weight: 500;
+    cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
 }
 
-.sidebar-menu a:hover, .sidebar-menu a.active {
+.sidebar-menu-toggle:hover, .sidebar-menu-toggle.active {
     background: rgba(13, 110, 253, 0.2);
     color: var(--pure-white);
 }
 
-.sidebar-menu a.active { background: var(--primary-blue); }
+.sidebar-menu-toggle svg { width: 20px; height: 20px; flex-shrink: 0; }
 
-.sidebar-menu svg { width: 20px; height: 20px; flex-shrink: 0; }
-
-.sidebar.collapsed .sidebar-menu a span { opacity: 0; width: 0; }
-.sidebar.collapsed .sidebar-menu a { justify-content: center; padding: 12px; }
-
-.sidebar-toggle {
-    padding: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+.submenu {
+    list-style: none;
+    padding-left: 44px;
+    display: none;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
 }
 
+.submenu.show { display: block; max-height: 500px; }
+
+.submenu a {
+    display: block;
+    padding: 10px 16px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.9rem;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.submenu a:hover, .submenu a.active { color: var(--pure-white); background: rgba(255, 255, 255, 0.1); }
+
+.sidebar.collapsed .sidebar-menu-toggle span,
+.sidebar.collapsed .submenu { display: none; }
+
+.sidebar-toggle { padding: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 .sidebar-toggle button {
     width: 100%;
     padding: 10px;
@@ -142,23 +153,17 @@ body {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    transition: var(--transition-fast);
 }
 
-.sidebar-toggle button:hover { background: rgba(255, 255, 255, 0.2); }
-
-/* Main Content */
 .main-content {
     flex: 1;
     margin-left: var(--sidebar-width);
     transition: var(--transition-normal);
     min-height: 100vh;
-    background: var(--light-gray);
 }
 
 .sidebar.collapsed ~ .main-content { margin-left: var(--sidebar-collapsed); }
 
-/* Header */
 .header {
     background: var(--pure-white);
     padding: 16px 32px;
@@ -171,20 +176,9 @@ body {
     z-index: 100;
 }
 
-.header-left { display: flex; align-items: center; gap: 16px; }
 .header-left h1 { font-size: 1.25rem; font-weight: 700; }
-
 .header-right { display: flex; align-items: center; gap: 16px; }
-
-.header-user {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
-    background: var(--light-gray);
-    border-radius: var(--radius-md);
-}
-
+.header-user { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--light-gray); border-radius: var(--radius-md); }
 .header-user-avatar {
     width: 36px;
     height: 36px;
@@ -198,16 +192,9 @@ body {
     font-size: 0.9rem;
 }
 
-/* Dashboard Content */
 .dashboard-content { padding: 24px 32px; }
 
-/* Stats Grid */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-bottom: 24px;
-}
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 24px; }
 
 .stat-card {
     background: var(--pure-white);
@@ -219,115 +206,40 @@ body {
     overflow: hidden;
 }
 
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-}
-
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
 .stat-card.blue::before { background: var(--primary-blue); }
 .stat-card.green::before { background: var(--secondary-teal); }
 .stat-card.orange::before { background: #f97316; }
 .stat-card.purple::before { background: #8b5cf6; }
 .stat-card.red::before { background: #ef4444; }
-
 .stat-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1); }
 
-.stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 12px;
-}
-
+.stat-icon { width: 48px; height: 48px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
 .stat-icon.blue { background: rgba(13, 110, 253, 0.1); color: var(--primary-blue); }
 .stat-icon.green { background: rgba(32, 201, 151, 0.1); color: var(--secondary-teal); }
 .stat-icon.orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
 .stat-icon.purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
-.stat-icon.red { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
 
 .stat-value { font-size: 1.75rem; font-weight: 800; color: var(--deep-navy); line-height: 1; }
 .stat-label { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
 
-/* Chart Grid */
-.chart-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-    margin-bottom: 24px;
-}
+.chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 24px; }
+.chart-card { background: var(--pure-white); border-radius: var(--radius-lg); padding: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); }
+.chart-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
 
-.chart-card {
-    background: var(--pure-white);
-    border-radius: var(--radius-lg);
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.chart-card h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 16px;
-    color: var(--deep-navy);
-}
-
-/* Timeline */
-.timeline-card {
-    background: var(--pure-white);
-    border-radius: var(--radius-lg);
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    margin-bottom: 24px;
-}
-
+.timeline-card { background: var(--pure-white); border-radius: var(--radius-lg); padding: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); margin-bottom: 24px; }
 .timeline-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 20px; }
-
-.timeline {
-    position: relative;
-    padding-left: 30px;
-}
-
-.timeline::before {
-    content: '';
-    position: absolute;
-    left: 8px;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: #e2e8f0;
-}
-
-.timeline-item {
-    position: relative;
-    padding-bottom: 20px;
-}
-
+.timeline { position: relative; padding-left: 30px; }
+.timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+.timeline-item { position: relative; padding-bottom: 20px; }
 .timeline-item:last-child { padding-bottom: 0; }
-
-.timeline-dot {
-    position: absolute;
-    left: -26px;
-    top: 0;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 3px solid var(--pure-white);
-}
-
+.timeline-dot { position: absolute; left: -26px; top: 0; width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--pure-white); }
 .timeline-dot.completed { background: var(--secondary-teal); }
 .timeline-dot.active { background: var(--primary-blue); box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2); }
 .timeline-dot.pending { background: #cbd5e1; }
-
 .timeline-content h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
 .timeline-content p { font-size: 0.85rem; color: #64748b; }
 
-/* Countdown */
 .countdown-card {
     background: linear-gradient(135deg, var(--primary-blue), var(--primary-light));
     border-radius: var(--radius-lg);
@@ -338,63 +250,192 @@ body {
 }
 
 .countdown-card h3 { color: var(--pure-white); margin-bottom: 8px; font-size: 1rem; }
-
-.countdown-timer {
-    display: flex;
-    justify-content: center;
-    gap: 16px;
-    margin-top: 16px;
-}
-
-.countdown-item {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: var(--radius-md);
-    padding: 12px 16px;
-    min-width: 70px;
-}
-
+.countdown-timer { display: flex; justify-content: center; gap: 16px; margin-top: 16px; }
+.countdown-item { background: rgba(255, 255, 255, 0.2); border-radius: var(--radius-md); padding: 12px 16px; min-width: 70px; }
 .countdown-value { font-size: 1.75rem; font-weight: 800; }
 .countdown-label { font-size: 0.75rem; opacity: 0.9; }
 
-/* Loading Animation */
-.loading { animation: pulse 1.5s ease-in-out infinite; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-
-.skeleton {
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: var(--radius-sm);
+/* Registration Form Styles */
+.form-card {
+    background: var(--pure-white);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-/* Responsive */
-@media (max-width: 1024px) {
-    .chart-grid { grid-template-columns: 1fr; }
+.form-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--deep-navy);
 }
 
+.form-subtitle {
+    color: #64748b;
+    margin-bottom: 24px;
+    font-size: 0.95rem;
+}
+
+.form-section {
+    margin-bottom: 32px;
+}
+
+.form-section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary-blue);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary-blue);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.form-group { margin-bottom: 16px; }
+
+.form-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--deep-navy);
+    margin-bottom: 8px;
+}
+
+.form-label .required { color: var(--danger); }
+
+.form-control {
+    width: 100%;
+    padding: 12px 16px;
+    font-family: var(--font-primary);
+    font-size: 0.95rem;
+    color: var(--deep-navy);
+    background: var(--pure-white);
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    transition: var(--transition-fast);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+}
+
+.form-control.is-valid { border-color: var(--success); }
+.form-control.is-invalid { border-color: var(--danger); }
+
+.form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 40px;
+}
+
+.file-upload {
+    border: 2px dashed #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.file-upload:hover { border-color: var(--primary-blue); background: rgba(13, 110, 253, 0.02); }
+.file-upload.has-file { border-color: var(--success); background: rgba(16, 185, 129, 0.02); }
+
+.file-upload-icon { font-size: 2rem; color: #94a3b8; margin-bottom: 8px; }
+.file-upload-text { color: #64748b; font-size: 0.9rem; }
+.file-upload-name { color: var(--success); font-weight: 600; font-size: 0.9rem; display: none; }
+.file-upload.has-file .file-upload-name { display: block; }
+.file-upload.has-file .file-upload-text { display: none; }
+
+.str-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+.str-status.active { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+.str-status.expired { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    font-family: var(--font-primary);
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-blue), var(--primary-light));
+    color: var(--pure-white);
+    box-shadow: 0 4px 16px rgba(13, 110, 253, 0.3);
+}
+
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(13, 110, 253, 0.4); }
+
+.btn-secondary { background: var(--secondary-teal); color: var(--pure-white); }
+.btn-outline { background: transparent; border: 2px solid var(--primary-blue); color: var(--primary-blue); }
+.btn-outline:hover { background: var(--primary-blue); color: var(--pure-white); }
+.btn-lg { padding: 16px 32px; font-size: 1.1rem; }
+.btn-block { width: 100%; }
+
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+.badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+.badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+.registration-number {
+    background: linear-gradient(135deg, var(--primary-blue), var(--secondary-teal));
+    color: var(--pure-white);
+    padding: 16px 24px;
+    border-radius: var(--radius-md);
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.registration-number .label { font-size: 0.85rem; opacity: 0.9; }
+.registration-number .number { font-size: 1.5rem; font-weight: 800; letter-spacing: 2px; }
+
+.page-content { display: none; }
+.page-content.active { display: block; }
+
+@media (max-width: 1024px) { .chart-grid { grid-template-columns: 1fr; } }
 @media (max-width: 768px) {
     .sidebar { width: var(--sidebar-collapsed); }
-    .sidebar .sidebar-brand-text, 
-    .sidebar .sidebar-menu a span { display: none; }
-    .sidebar .sidebar-menu a { justify-content: center; padding: 12px; }
+    .sidebar .sidebar-brand-text, .sidebar .sidebar-menu-toggle span, .sidebar .submenu { display: none; }
     .main-content { margin-left: var(--sidebar-collapsed); }
     .dashboard-content { padding: 16px; }
     .header { padding: 12px 16px; }
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 480px) {
-    .stats-grid { grid-template-columns: 1fr; }
-    .countdown-timer { gap: 8px; }
-    .countdown-item { padding: 8px 12px; min-width: 55px; }
-    .countdown-value { font-size: 1.25rem; }
+    .form-grid { grid-template-columns: 1fr; }
 }
     </style>
 </head>
 <body>
-    <!-- Dashboard Layout -->
     <div class="dashboard-wrapper">
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
@@ -408,73 +449,51 @@ body {
             
             <ul class="sidebar-menu">
                 <li>
-                    <a href="#" class="active" onclick="showPage('dashboard')">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7"></rect>
-                            <rect x="14" y="3" width="7" height="7"></rect>
-                            <rect x="14" y="14" width="7" height="7"></rect>
-                            <rect x="3" y="14" width="7" height="7"></rect>
-                        </svg>
+                    <div class="sidebar-menu-toggle" onclick="showPage('dashboard')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                         <span>Dashboard</span>
-                    </a>
+                    </div>
                 </li>
+                
+                <li class="sidebar-menu-item">
+                    <div class="sidebar-menu-toggle" onclick="toggleSubmenu(this)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                        <span>Rekrutmen</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: auto;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+                    <ul class="submenu">
+                        <li><a href="#" onclick="showPage('pendaftaran')" class="active">A. Pendaftaran</a></li>
+                        <li><a href="#" onclick="showPage('verifikasi')">B. Verifikasi Berkas</a></li>
+                        <li><a href="#" onclick="showPage('seleksi')">C. Seleksi</a></li>
+                        <li><a href="#" onclick="showPage('hasil')">D. Hasil Rekrutmen</a></li>
+                    </ul>
+                </li>
+                
                 <li>
-                    <a href="#" onclick="showPage('pelamar')">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
+                    <div class="sidebar-menu-toggle" onclick="showPage('pelamar')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                         <span>Data Pelamar</span>
-                    </a>
+                    </div>
                 </li>
+                
                 <li>
-                    <a href="#" onclick="showPage('formasi')">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                        </svg>
-                        <span>Formasi Lowongan</span>
-                    </a>
+                    <div class="sidebar-menu-toggle" onclick="showPage('laporan')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                        <span>Laporan</span>
+                    </div>
                 </li>
+                
                 <li>
-                    <a href="#" onclick="showPage('seleksi')">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                        </svg>
-                        <span>Kelola Seleksi</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" onclick="showPage('pengumuman')">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                        </svg>
-                        <span>Pengumuman</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="#" onclick="showPage('pengaturan')">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                        </svg>
+                    <div class="sidebar-menu-toggle" onclick="showPage('pengaturan')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                         <span>Pengaturan</span>
-                    </a>
+                    </div>
                 </li>
             </ul>
             
             <div class="sidebar-toggle">
                 <button onclick="toggleSidebar()">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="11 17 6 12 11 7"></polyline>
-                        <polyline points="18 17 13 12 18 7"></polyline>
-                    </svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
                     <span>Collapse</span>
                 </button>
             </div>
@@ -482,17 +501,9 @@ body {
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Header -->
             <header class="header">
                 <div class="header-left">
-                    <button class="btn" onclick="toggleSidebar()" style="display: none;">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </button>
-                    <h1>Dashboard Rekrutmen Karyawan</h1>
+                    <h1 id="pageTitle">Dashboard Rekrutmen Karyawan</h1>
                 </div>
                 <div class="header-right">
                     <div class="header-user">
@@ -502,279 +513,465 @@ body {
                 </div>
             </header>
 
-            <!-- Dashboard Content -->
-            <div class="dashboard-content" id="dashboard-page">
-                <!-- Countdown -->
+            <!-- Dashboard Page -->
+            <div class="dashboard-content page-content active" id="page-dashboard">
                 <div class="countdown-card">
                     <h3>⏰ Pengumuman Hasil Rekrutmen</h3>
                     <p>Pengumuman akan dilakukan pada:</p>
-                    <div class="countdown-timer" id="countdown">
-                        <div class="countdown-item">
-                            <div class="countdown-value" id="days">00</div>
-                            <div class="countdown-label">Hari</div>
-                        </div>
-                        <div class="countdown-item">
-                            <div class="countdown-value" id="hours">00</div>
-                            <div class="countdown-label">Jam</div>
-                        </div>
-                        <div class="countdown-item">
-                            <div class="countdown-value" id="minutes">00</div>
-                            <div class="countdown-label">Menit</div>
-                        </div>
-                        <div class="countdown-item">
-                            <div class="countdown-value" id="seconds">00</div>
-                            <div class="countdown-label">Detik</div>
-                        </div>
+                    <div class="countdown-timer">
+                        <div class="countdown-item"><div class="countdown-value" id="days">00</div><div class="countdown-label">Hari</div></div>
+                        <div class="countdown-item"><div class="countdown-value" id="hours">00</div><div class="countdown-label">Jam</div></div>
+                        <div class="countdown-item"><div class="countdown-value" id="minutes">00</div><div class="countdown-label">Menit</div></div>
+                        <div class="countdown-item"><div class="countdown-value" id="seconds">00</div><div class="countdown-label">Detik</div></div>
                     </div>
                 </div>
 
-                <!-- Stats Grid -->
                 <div class="stats-grid">
                     <div class="stat-card blue">
-                        <div class="stat-icon blue">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="9" cy="7" r="4"></circle>
-                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                            </svg>
-                        </div>
+                        <div class="stat-icon blue"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg></div>
                         <div class="stat-value" data-count="247">0</div>
                         <div class="stat-label">Total Pelamar</div>
                     </div>
-                    
                     <div class="stat-card green">
-                        <div class="stat-icon green">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                        </div>
+                        <div class="stat-icon green"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div>
                         <div class="stat-value" data-count="89">0</div>
                         <div class="stat-label">Lolos Verifikasi</div>
                     </div>
-                    
                     <div class="stat-card red">
-                        <div class="stat-icon red">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="15" y1="9" x2="9" y2="15"></line>
-                                <line x1="9" y1="9" x2="15" y2="15"></line>
-                            </svg>
-                        </div>
+                        <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg></div>
                         <div class="stat-value" data-count="158">0</div>
                         <div class="stat-label">Tidak Lolos</div>
                     </div>
-                    
                     <div class="stat-card purple">
-                        <div class="stat-icon purple">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                            </svg>
-                        </div>
+                        <div class="stat-icon purple"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg></div>
                         <div class="stat-value" data-count="6">0</div>
                         <div class="stat-label">Formasi Dibuka</div>
                     </div>
-                    
-                    <div class="stat-card orange">
-                        <div class="stat-icon orange">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="8.5" cy="7" r="4"></circle>
-                                <line x1="20" y1="8" x2="20" y2="14"></line>
-                                <line x1="23" y1="11" x2="17" y2="11"></line>
-                            </svg>
-                        </div>
-                        <div class="stat-value" data-count="42">0</div>
-                        <div class="stat-label">Formasi Terisi</div>
-                    </div>
                 </div>
 
-                <!-- Charts -->
                 <div class="chart-grid">
-                    <div class="chart-card">
-                        <h3>📊 Pelamar per Formasi</h3>
-                        <canvas id="pelamarChart" height="200"></canvas>
-                    </div>
-                    <div class="chart-card">
-                        <h3>📈 Status Seleksi</h3>
-                        <canvas id="statusChart" height="200"></canvas>
-                    </div>
+                    <div class="chart-card"><h3>📊 Pelamar per Formasi</h3><canvas id="pelamarChart" height="200"></canvas></div>
+                    <div class="chart-card"><h3>📈 Status Seleksi</h3><canvas id="statusChart" height="200"></canvas></div>
                 </div>
 
-                <!-- Timeline -->
                 <div class="timeline-card">
                     <h3>📅 Timeline Tahapan Rekrutmen</h3>
                     <div class="timeline">
-                        <div class="timeline-item">
-                            <div class="timeline-dot completed"></div>
-                            <div class="timeline-content">
-                                <h4>Pendaftaran</h4>
-                                <p>1 Januari - 28 Februari 2026 ✓ Selesai</p>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-dot completed"></div>
-                            <div class="timeline-content">
-                                <h4>Verifikasi Berkas</h4>
-                                <p>1 - 15 Maret 2026 ✓ Selesai</p>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-dot active"></div>
-                            <div class="timeline-content">
-                                <h4>Seleksi Tes</h4>
-                                <p>20 Maret - 5 April 2026 🔄 Sedang Berlangsung</p>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-dot pending"></div>
-                            <div class="timeline-content">
-                                <h4>Wawancara</h4>
-                                <p>10 - 20 April 2026 ⏳ Menunggu</p>
-                            </div>
-                        </div>
-                        <div class="timeline-item">
-                            <div class="timeline-dot pending"></div>
-                            <div class="timeline-content">
-                                <h4>Pengumuman Hasil</h4>
-                                <p>30 April 2026 ⏳ Menunggu</p>
-                            </div>
-                        </div>
+                        <div class="timeline-item"><div class="timeline-dot completed"></div><div class="timeline-content"><h4>Pendaftaran</h4><p>1 Januari - 28 Februari 2026 ✓</p></div></div>
+                        <div class="timeline-item"><div class="timeline-dot completed"></div><div class="timeline-content"><h4>Verifikasi Berkas</h4><p>1 - 15 Maret 2026 ✓</p></div></div>
+                        <div class="timeline-item"><div class="timeline-dot active"></div><div class="timeline-content"><h4>Seleksi Tes</h4><p>20 Maret - 5 April 2026 🔄</p></div></div>
+                        <div class="timeline-item"><div class="timeline-dot pending"></div><div class="timeline-content"><h4>Wawancara</h4><p>10 - 20 April 2026 ⏳</p></div></div>
+                        <div class="timeline-item"><div class="timeline-dot pending"></div><div class="timeline-content"><h4>Pengumuman</h4><p>30 April 2026 ⏳</p></div></div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Pendaftaran Page -->
+            <div class="dashboard-content page-content" id="page-pendaftaran">
+                <div class="form-card">
+                    <div class="registration-number">
+                        <div class="label">Nomor Pendaftaran</div>
+                        <div class="number" id="registrationNumber">RSUD-AMI-2026-0001</div>
+                    </div>
+                    
+                    <h2 class="form-title">Formulir Pendaftaran</h2>
+                    <p class="form-subtitle">Isi data dengan lengkap dan benar. Tanda * wajib diisi.</p>
+                    
+                    <form id="registrationForm">
+                        <!-- Data Pribadi -->
+                        <div class="form-section">
+                            <h3 class="form-section-title">A. Data Pribadi</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Nama Lengkap <span class="required">*</span></label>
+                                    <input type="text" class="form-control" id="namaLengkap" placeholder="Contoh: dr. Ahmad Faisal, Sp.PD" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Gelar</label>
+                                    <input type="text" class="form-control" placeholder="Contoh: dr., Sp.PD, M.Kes">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">NIK <span class="required">*</span></label>
+                                    <input type="text" class="form-control" id="nik" maxlength="16" placeholder="16 digit NIK" required oninput="validateNIK(this)">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Tempat Lahir <span class="required">*</span></label>
+                                    <input type="text" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Tanggal Lahir <span class="required">*</span></label>
+                                    <input type="date" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Jenis Kelamin <span class="required">*</span></label>
+                                    <select class="form-control form-select" required>
+                                        <option value="">Pilih...</option>
+                                        <option value="Laki-laki">Laki-laki</option>
+                                        <option value="Perempuan">Perempuan</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Pendidikan Terakhir <span class="required">*</span></label>
+                                    <select class="form-control form-select" required>
+                                        <option value="">Pilih...</option>
+                                        <option value="SMA/SMK">SMA/SMK</option>
+                                        <option value="D3">D3</option>
+                                        <option value="S1">S1</option>
+                                        <option value="S2">S2</option>
+                                        <option value="S3">S3</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">No HP <span class="required">*</span></label>
+                                    <input type="tel" class="form-control" placeholder="0812xxxxxxx" required>
+                                </div>
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label class="form-label">Email <span class="required">*</span></label>
+                                    <input type="email" class="form-control" placeholder="email@anda.com" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Data Profesi -->
+                        <div class="form-section">
+                            <h3 class="form-section-title">B. Data Profesi</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Profesi yang Dilamar <span class="required">*</span></label>
+                                    <select class="form-control form-select" required>
+                                        <option value="">Pilih Profesi...</option>
+                                        <option value="Dokter Umum">Dokter Umum</option>
+                                        <option value="Dokter Gigi">Dokter Gigi</option>
+                                        <option value="Perawat">Perawat</option>
+                                        <option value="Bidan">Bidan</option>
+                                        <option value="Apoteker">Apoteker</option>
+                                        <option value="Farmasi">Farmasi</option>
+                                        <option value="Tenaga Laboratorium">Tenaga Laboratorium</option>
+                                        <option value="Radiologi">Radiologi</option>
+                                        <option value="Administrasi">Administrasi</option>
+                                        <option value="Keamanan">Keamanan</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Unit Penempatan <span class="required">*</span></label>
+                                    <select class="form-control form-select" required>
+                                        <option value="">Pilih Unit...</option>
+                                        <option value="IGD">IGD (Instalasi Gawat Darurat)</option>
+                                        <option value="Rawat Jalan">Rawat Jalan</option>
+                                        <option value="Rawat Inap">Rawat Inap</option>
+                                        <option value="Poliklinik">Poliklinik</option>
+                                        <option value="Laboratorium">Laboratorium</option>
+                                        <option value="Farmasi">Farmasi</option>
+                                        <option value="Radiologi">Radiologi</option>
+                                        <option value="Administrasi">Administrasi</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Nomor STR <span class="required">*</span></label>
+                                    <input type="text" class="form-control" id="strNumber" placeholder="Nomor STR" required oninput="checkSTR(this)">
+                                    <div id="strStatus" class="str-status" style="display: none;"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Masa Berlaku STR <span class="required">*</span></label>
+                                    <input type="date" class="form-control" id="strExpired" required onchange="checkSTRStatus()">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Upload Dokumen -->
+                        <div class="form-section">
+                            <h3 class="form-section-title">C. Upload Dokumen</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">KTP <span class="required">*</span></label>
+                                    <div class="file-upload" onclick="document.getElementById('ktp').click()">
+                                        <div class="file-upload-icon">📄</div>
+                                        <div class="file-upload-text">Klik untuk upload file<br><small>JPG/PNG/PDF max 2MB</small></div>
+                                        <div class="file-upload-name"></div>
+                                        <input type="file" id="ktp" accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="handleFile(this)">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Ijazah <span class="required">*</span></label>
+                                    <div class="file-upload" onclick="document.getElementById('ijazah').click()">
+                                        <div class="file-upload-icon">🎓</div>
+                                        <div class="file-upload-text">Klik untuk upload file<br><small>JPG/PNG/PDF max 5MB</small></div>
+                                        <div class="file-upload-name"></div>
+                                        <input type="file" id="ijazah" accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="handleFile(this)">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">STR <span class="required">*</span></label>
+                                    <div class="file-upload" onclick="document.getElementById('str').click()">
+                                        <div class="file-upload-icon">📋</div>
+                                        <div class="file-upload-text">Klik untuk upload file<br><small>JPG/PNG/PDF max 2MB</small></div>
+                                        <div class="file-upload-name"></div>
+                                        <input type="file" id="str" accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="handleFile(this)">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">CV</label>
+                                    <div class="file-upload" onclick="document.getElementById('cv').click()">
+                                        <div class="file-upload-icon">📝</div>
+                                        <div class="file-upload-text">Klik untuk upload file<br><small>PDF max 3MB</small></div>
+                                        <div class="file-upload-name"></div>
+                                        <input type="file" id="cv" accept=".pdf" style="display:none" onchange="handleFile(this)">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Sertifikat Pendukung</label>
+                                    <div class="file-upload" onclick="document.getElementById('sertifikat').click()">
+                                        <div class="file-upload-icon">🏆</div>
+                                        <div class="file-upload-text">Klik untuk upload file<br><small>JPG/PNG/PDF max 2MB</small></div>
+                                        <div class="file-upload-name"></div>
+                                        <input type="file" id="sertifikat" accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="handleFile(this)">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Pas Foto <span class="required">*</span></label>
+                                    <div class="file-upload" onclick="document.getElementById('foto').click()">
+                                        <div class="file-upload-icon">📷</div>
+                                        <div class="file-upload-text">Klik untuk upload file<br><small>JPG/PNG max 1MB</small></div>
+                                        <div class="file-upload-name"></div>
+                                        <input type="file" id="foto" accept=".jpg,.jpeg,.png" style="display:none" onchange="handleFile(this)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button type="button" class="btn btn-outline">Simpan Draft</button>
+                            <button type="submit" class="btn btn-primary btn-lg">Submit & Generate PDF</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Other Pages (placeholder) -->
+            <div class="dashboard-content page-content" id="page-verifikasi">
+                <div class="form-card"><h2>Verifikasi Berkas</h2><p>Halaman verifikasi berkas pelamar.</p></div>
+            </div>
+            <div class="dashboard-content page-content" id="page-seleksi">
+                <div class="form-card"><h2>Seleksi</h2><p>Halaman pengelolaan seleksi.</p></div>
+            </div>
+            <div class="dashboard-content page-content" id="page-hasil">
+                <div class="form-card"><h2>Hasil Rekrutmen</h2><p>Halaman hasil rekrutmen.</p></div>
+            </div>
+            <div class="dashboard-content page-content" id="page-pelamar">
+                <div class="form-card"><h2>Data Pelamar</h2><p>Halaman data pelamar.</p></div>
+            </div>
+            <div class="dashboard-content page-content" id="page-laporan">
+                <div class="form-card"><h2>Laporan</h2><p>Halaman laporan.</p></div>
+            </div>
+            <div class="dashboard-content page-content" id="page-pengaturan">
+                <div class="form-card"><h2>Pengaturan</h2><p>Halaman pengaturan sistem.</p></div>
             </div>
         </main>
     </div>
 
     <script>
-        // Toggle Sidebar
+        // Navigation
+        function showPage(page) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + page).classList.add('active');
+            
+            // Update title
+            const titles = {
+                'dashboard': 'Dashboard Rekrutmen Karyawan',
+                'pendaftaran': 'Formulir Pendaftaran',
+                'verifikasi': 'Verifikasi Berkas',
+                'seleksi': 'Kelola Seleksi',
+                'hasil': 'Hasil Rekrutmen',
+                'pelamar': 'Data Pelamar',
+                'laporan': 'Laporan',
+                'pengaturan': 'Pengaturan'
+            };
+            document.getElementById('pageTitle').innerText = titles[page] || 'Dashboard';
+            
+            // Close mobile menu
+            document.getElementById('sidebar').classList.remove('collapsed');
+            
+            // Initialize charts on dashboard
+            if (page === 'dashboard') {
+                setTimeout(initCharts, 100);
+                animateCounters();
+            }
+        }
+
+        function toggleSubmenu(el) {
+            el.nextElementSibling.classList.toggle('show');
+            event.stopPropagation();
+        }
+
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('collapsed');
         }
 
-        // Page Navigation (simulated)
-        function showPage(page) {
-            document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
-            event.target.closest('a').classList.add('active');
-            
-            // In a real app, this would load different pages
-            if (page === 'dashboard') {
-                document.getElementById('dashboard-page').style.display = 'block';
+        // Generate Registration Number
+        function generateRegNumber() {
+            const num = Math.floor(Math.random() * 9000) + 1000;
+            document.getElementById('registrationNumber').innerText = 'RSUD-AMI-2026-' + num;
+        }
+
+        // File Upload Handler
+        function handleFile(input) {
+            const file = input.files[0];
+            if (file) {
+                const container = input.parentElement;
+                container.classList.add('has-file');
+                container.querySelector('.file-upload-name').innerText = file.name;
             }
         }
 
-        // Animated Counter
+        // NIK Validation
+        function validateNIK(input) {
+            input.value = input.value.replace(/\D/g, '').substring(0, 16);
+            if (input.value.length === 16) {
+                input.classList.add('is-valid');
+                input.classList.remove('is-invalid');
+            } else if (input.value.length > 0) {
+                input.classList.add('is-invalid');
+                input.classList.remove('is-valid');
+            }
+        }
+
+        // STR Validation & Status Check
+        function checkSTR(input) {
+            if (input.value.length > 0) {
+                checkSTRStatus();
+            }
+        }
+
+        function checkSTRStatus() {
+            const strInput = document.getElementById('strNumber');
+            const expiredInput = document.getElementById('strExpired');
+            const statusDiv = document.getElementById('strStatus');
+            
+            if (strInput.value && expiredInput.value) {
+                const expiredDate = new Date(expiredInput.value);
+                const today = new Date();
+                
+                statusDiv.style.display = 'inline-flex';
+                
+                if (expiredDate > today) {
+                    statusDiv.className = 'str-status active';
+                    statusDiv.innerHTML = '✓ AKTIF';
+                } else {
+                    statusDiv.className = 'str-status expired';
+                    statusDiv.innerHTML = '✗ EXPIRED';
+                }
+            } else {
+                statusDiv.style.display = 'none';
+            }
+        }
+
+        // Generate PDF
+        document.getElementById('registrationForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const regNumber = document.getElementById('registrationNumber').innerText;
+            const nama = document.getElementById('namaLengkap').value;
+            
+            // Header
+            doc.setFillColor(13, 110, 253);
+            doc.rect(0, 0, 210, 30, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.text('RSUD AJI MUHAMMAD IDRIS', 105, 15, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text('Bukti Pendaftaran Rekrutmen Karyawan', 105, 22, { align: 'center' });
+            
+            // Registration Number
+            doc.setTextColor(13, 110, 253);
+            doc.setFontSize(14);
+            doc.text('Nomor Pendaftaran: ' + regNumber, 20, 45);
+            
+            // Info
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(11);
+            let y = 60;
+            
+            doc.text('Nama Lengkap', 20, y);
+            doc.text(': ' + nama, 80, y);
+            
+            y += 10;
+            doc.text('NIK', 20, y);
+            doc.text(': ' + document.getElementById('nik').value, 80, y);
+            
+            y += 10;
+            doc.text('Status', 20, y);
+            doc.text(': Menunggu Verifikasi', 80, y);
+            
+            // Footer
+            doc.setFontSize(9);
+            doc.setTextColor(128, 128, 128);
+            doc.text('Dicetak pada: ' + new Date().toLocaleString('id-ID'), 20, 270);
+            doc.text('Silakan simpan bukti ini sebagai referensi.', 20, 277);
+            
+            doc.save('Bukti_Pendaftaran_' + regNumber + '.pdf');
+            
+            alert('Pendaftaran berhasil! Bukti pendaftaran telah di-download.');
+        });
+
+        // Charts
+        function initCharts() {
+            if (document.getElementById('pelamarChart')) {
+                new Chart(document.getElementById('pelamarChart').getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['Dokter', 'Perawat', 'Apoteker', 'Admin', 'Keamanan', 'Lab'],
+                        datasets: [{ label: 'Jumlah Pelamar', data: [45, 78, 32, 28, 35, 29], backgroundColor: ['rgba(13,110,253,0.7)', 'rgba(32,201,151,0.7)', 'rgba(139,92,246,0.7)', 'rgba(249,115,22,0.7)', 'rgba(236,72,153,0.7)', 'rgba(20,184,166,0.7)'], borderRadius: 8 }]
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } } }
+                });
+
+                new Chart(document.getElementById('statusChart').getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Lolos', 'Tidak Lolos', 'Menunggu'],
+                        datasets: [{ data: [89, 158, 0], backgroundColor: ['#20C997', '#EF4444', '#3B82F6'], borderWidth: 0 }]
+                    },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+                });
+            }
+        }
+
         function animateCounters() {
-            const counters = document.querySelectorAll('.stat-value[data-count]');
-            counters.forEach(counter => {
+            document.querySelectorAll('.stat-value[data-count]').forEach(counter => {
                 const target = parseInt(counter.getAttribute('data-count'));
                 const duration = 1500;
                 const increment = target / (duration / 16);
                 let current = 0;
                 
-                const updateCounter = () => {
+                const update = () => {
                     current += increment;
-                    if (current < target) {
-                        counter.innerText = Math.floor(current);
-                        requestAnimationFrame(updateCounter);
-                    } else {
-                        counter.innerText = target;
-                    }
+                    counter.innerText = current < target ? Math.floor(current) : target;
+                    if (current < target) requestAnimationFrame(update);
                 };
-                
-                // Start animation when element is in view
-                const observer = new IntersectionObserver((entries) => {
-                    if (entries[0].isIntersecting) {
-                        updateCounter();
-                        observer.unobserve(counter);
-                    }
-                });
-                observer.observe(counter);
+                update();
             });
         }
 
-        // Countdown Timer
         function countdown() {
-            const targetDate = new Date('2026-04-30T00:00:00').getTime();
+            const target = new Date('2026-04-30').getTime();
             const now = new Date().getTime();
-            const distance = targetDate - now;
+            const d = Math.floor((target - now) / (1000 * 60 * 60 * 24));
+            const h = Math.floor(((target - now) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor(((target - now) % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor(((target - now) % (1000 * 60)) / 1000);
             
-            if (distance > 0) {
-                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                
-                document.getElementById('days').innerText = days.toString().padStart(2, '0');
-                document.getElementById('hours').innerText = hours.toString().padStart(2, '0');
-                document.getElementById('minutes').innerText = minutes.toString().padStart(2, '0');
-                document.getElementById('seconds').innerText = seconds.toString().padStart(2, '0');
-            }
-        }
-
-        // Charts
-        function initCharts() {
-            // Pelamar per Formasi Chart
-            const pelamarCtx = document.getElementById('pelamarChart').getContext('2d');
-            new Chart(pelamarCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['Dokter Umum', 'Perawat', 'Apoteker', 'Admin', 'Keamanan', 'Lab'],
-                    datasets: [{
-                        label: 'Jumlah Pelamar',
-                        data: [45, 78, 32, 28, 35, 29],
-                        backgroundColor: [
-                            'rgba(13, 110, 253, 0.7)',
-                            'rgba(32, 201, 151, 0.7)',
-                            'rgba(139, 92, 246, 0.7)',
-                            'rgba(249, 115, 22, 0.7)',
-                            'rgba(236, 72, 153, 0.7)',
-                            'rgba(20, 184, 166, 0.7)'
-                        ],
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: true, grid: { display: false } },
-                        x: { grid: { display: false } }
-                    }
-                }
-            });
-
-            // Status Seleksi Chart
-            const statusCtx = document.getElementById('statusChart').getContext('2d');
-            new Chart(statusCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Lolos', 'Tidak Lolos', 'Menunggu'],
-                    datasets: [{
-                        data: [89, 158, 0],
-                        backgroundColor: [
-                            '#20C997',
-                            '#EF4444',
-                            '#3B82F6'
-                        ],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
+            document.getElementById('days').innerText = d.toString().padStart(2,'0');
+            document.getElementById('hours').innerText = h.toString().padStart(2,'0');
+            document.getElementById('minutes').innerText = m.toString().padStart(2,'0');
+            document.getElementById('seconds').innerText = s.toString().padStart(2,'0');
         }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            generateRegNumber();
             animateCounters();
             initCharts();
             setInterval(countdown, 1000);
