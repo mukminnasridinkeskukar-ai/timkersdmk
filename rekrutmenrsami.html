@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Informasi Rekrutmen Karyawan - RSUD Aji Muhammad Idris</title>
-    <meta name="description" content="Sistem Informasi Rekrutmen Karyawan RSUD Aji Muhammad Idris Gersik - Bergabunglah dengan tim profesional healthcare kami">
+    <meta name="description" content="Sistem Informasi Rekrutmen Karyawan RSUD Aji Muhammad Idris Kab. Kutai Kartanegara">
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%230D6EFD' rx='15' width='100' height='100'/%3E%3Cpath fill='white' d='M50 20v60M20 50h60' stroke='white' stroke-width='12' stroke-linecap='round'/%3E%3C/svg%3E">
@@ -13,6 +13,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
 /* ========================================
@@ -26,14 +29,14 @@
 :root {
     --primary-blue: #0D6EFD;
     --primary-dark: #0a58ca;
+    --primary-light: #3b82f6;
     --secondary-teal: #20C997;
     --deep-navy: #0F172A;
     --pure-white: #FFFFFF;
     --light-gray: #F8FAFC;
-    --soft-blue-glass: rgba(255, 255, 255, 0.15);
+    --soft-gray: #E2E8F0;
     --border-glass: rgba(255, 255, 255, 0.3);
     --shadow-blue: rgba(13, 110, 253, 0.15);
-    --shadow-dark: rgba(15, 23, 42, 0.15);
     --font-primary: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --transition-fast: 0.2s ease;
     --transition-normal: 0.3s ease;
@@ -41,6 +44,8 @@
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-xl: 24px;
+    --sidebar-width: 260px;
+    --sidebar-collapsed: 70px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -55,1127 +60,617 @@ body {
     overflow-x: hidden;
 }
 
-body::before {
-    content: '';
+/* Dashboard Layout */
+.dashboard-wrapper { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+    width: var(--sidebar-width);
+    background: linear-gradient(180deg, var(--deep-navy) 0%, #1e293b 100%);
+    color: var(--pure-white);
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-        radial-gradient(ellipse at 20% 20%, rgba(13, 110, 253, 0.08) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 80%, rgba(32, 201, 151, 0.06) 0%, transparent 50%),
-        linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 50%, #F0FDFA 100%);
-    z-index: -1;
-}
-
-h1, h2, h3, h4, h5, h6 { font-weight: 700; line-height: 1.2; color: var(--deep-navy); }
-h1 { font-size: 3rem; }
-h2 { font-size: 2.25rem; }
-h3 { font-size: 1.5rem; }
-p { color: #475569; }
-a { text-decoration: none; color: var(--primary-blue); transition: var(--transition-fast); }
-a:hover { color: var(--primary-dark); }
-
-.glass-card {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
+    height: 100vh;
+    z-index: 1000;
     transition: var(--transition-normal);
+    display: flex;
+    flex-direction: column;
 }
 
-.glass-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(31, 38, 135, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08); }
+.sidebar.collapsed { width: var(--sidebar-collapsed); }
 
-.glass-card-solid {
-    background: var(--pure-white);
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.btn {
-    display: inline-flex;
+.sidebar-brand img { width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0; }
+
+.sidebar-brand-text { overflow: hidden; white-space: nowrap; transition: var(--transition-normal); }
+.sidebar.collapsed .sidebar-brand-text { opacity: 0; width: 0; }
+
+.sidebar-brand-text h2 { font-size: 1rem; font-weight: 700; color: var(--pure-white); }
+.sidebar-brand-text span { font-size: 0.7rem; color: rgba(255, 255, 255, 0.6); }
+
+.sidebar-menu { list-style: none; padding: 16px 12px; flex: 1; }
+
+.sidebar-menu li { margin-bottom: 4px; }
+
+.sidebar-menu a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    color: rgba(255, 255, 255, 0.7);
+    border-radius: var(--radius-md);
+    transition: var(--transition-fast);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sidebar-menu a:hover, .sidebar-menu a.active {
+    background: rgba(13, 110, 253, 0.2);
+    color: var(--pure-white);
+}
+
+.sidebar-menu a.active { background: var(--primary-blue); }
+
+.sidebar-menu svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+.sidebar.collapsed .sidebar-menu a span { opacity: 0; width: 0; }
+.sidebar.collapsed .sidebar-menu a { justify-content: center; padding: 12px; }
+
+.sidebar-toggle {
+    padding: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-toggle button {
+    width: 100%;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--pure-white);
+    cursor: pointer;
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 12px 24px;
-    font-family: var(--font-primary);
-    font-size: 0.95rem;
-    font-weight: 600;
-    border: none;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: var(--transition-normal);
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, #3b82f6 100%);
-    color: var(--pure-white);
-    box-shadow: 0 4px 16px rgba(13, 110, 253, 0.3);
-}
-
-.btn-primary:hover {
-    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-blue) 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(13, 110, 253, 0.4);
-    color: var(--pure-white);
-}
-
-.btn-secondary {
-    background: linear-gradient(135deg, var(--secondary-teal) 0%, #10b981 100%);
-    color: var(--pure-white);
-    box-shadow: 0 4px 16px rgba(32, 201, 151, 0.3);
-}
-
-.btn-secondary:hover {
-    background: linear-gradient(135deg, #0ea572 0%, var(--secondary-teal) 100%);
-    transform: translateY(-2px);
-    color: var(--pure-white);
-}
-
-.btn-outline {
-    background: transparent;
-    border: 2px solid var(--primary-blue);
-    color: var(--primary-blue);
-}
-
-.btn-outline:hover { background: var(--primary-blue); color: var(--pure-white); }
-
-.btn-glass {
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(8px);
-    border: 1px solid var(--border-glass);
-    color: var(--deep-navy);
-}
-
-.btn-glass:hover { background: rgba(255, 255, 255, 0.4); color: var(--primary-blue); }
-
-.btn-sm { padding: 8px 16px; font-size: 0.85rem; }
-.btn-lg { padding: 16px 32px; font-size: 1.1rem; }
-
-.navbar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
-    padding: 16px 0;
-    transition: var(--transition-normal);
-}
-
-.navbar.scrolled {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(12px);
-    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
-    padding: 12px 0;
-}
-
-.navbar-container {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 0 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.navbar-brand { display: flex; align-items: center; gap: 12px; }
-.navbar-brand img { width: 48px; height: 48px; object-fit: contain; }
-.navbar-brand-text h1 { font-size: 1.1rem; font-weight: 700; color: var(--deep-navy); line-height: 1.2; }
-.navbar-brand-text span { font-size: 0.75rem; color: #64748b; font-weight: 500; }
-
-.navbar-menu {
-    display: flex;
-    align-items: center;
-    gap: 32px;
-}
-
-.navbar-menu a {
-    font-weight: 500;
-    color: #475569;
-    position: relative;
-    padding: 4px 0;
-}
-
-.navbar-menu a::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background: var(--primary-blue);
     transition: var(--transition-fast);
 }
 
-.navbar-menu a:hover::after, .navbar-menu a.active::after { width: 100%; }
-.navbar-menu a:hover, .navbar-menu a.active { color: var(--primary-blue); }
+.sidebar-toggle button:hover { background: rgba(255, 255, 255, 0.2); }
 
-.navbar-actions { display: flex; align-items: center; gap: 12px; }
-
-.navbar-toggle {
-    display: none;
-    flex-direction: column;
-    gap: 5px;
-    cursor: pointer;
-    padding: 8px;
-}
-
-.navbar-toggle span {
-    width: 24px;
-    height: 2px;
-    background: var(--deep-navy);
-    transition: var(--transition-fast);
-}
-
-.hero {
+/* Main Content */
+.main-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    transition: var(--transition-normal);
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    padding: 120px 0 80px;
-    position: relative;
-    overflow: hidden;
+    background: var(--light-gray);
 }
 
-.hero::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -20%;
-    width: 80%;
-    height: 150%;
-    background: radial-gradient(ellipse, rgba(13, 110, 253, 0.1) 0%, transparent 70%);
-    animation: float 20s ease-in-out infinite;
-}
+.sidebar.collapsed ~ .main-content { margin-left: var(--sidebar-collapsed); }
 
-.hero::after {
-    content: '';
-    position: absolute;
-    bottom: -30%;
-    left: -10%;
-    width: 60%;
-    height: 100%;
-    background: radial-gradient(ellipse, rgba(32, 201, 151, 0.08) 0%, transparent 70%);
-    animation: float 25s ease-in-out infinite reverse;
-}
-
-@keyframes float { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(30px, 20px) rotate(5deg); } }
-
-.hero-content { position: relative; z-index: 1; }
-
-.hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: rgba(13, 110, 253, 0.1);
-    border: 1px solid rgba(13, 110, 253, 0.2);
-    border-radius: 50px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--primary-blue);
-    margin-bottom: 24px;
-    animation: fadeInDown 0.8s ease;
-}
-
-.hero-title {
-    font-size: 3.5rem;
-    font-weight: 800;
-    line-height: 1.1;
-    margin-bottom: 24px;
-    animation: fadeInUp 0.8s ease 0.2s both;
-}
-
-.hero-title span {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-teal) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.hero-subtitle {
-    font-size: 1.25rem;
-    color: #64748b;
-    max-width: 540px;
-    margin-bottom: 40px;
-    animation: fadeInUp 0.8s ease 0.4s both;
-}
-
-.hero-actions {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 60px;
-    animation: fadeInUp 0.8s ease 0.6s both;
-}
-
-.hero-stats { display: flex; gap: 48px; animation: fadeInUp 0.8s ease 0.8s both; }
-.hero-stat { text-align: left; }
-.hero-stat-number { font-size: 2.5rem; font-weight: 800; color: var(--primary-blue); line-height: 1; }
-.hero-stat-label { font-size: 0.9rem; color: #64748b; font-weight: 500; }
-
-@keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-.section { padding: 80px 0; }
-
-.section-header { text-align: center; max-width: 640px; margin: 0 auto 60px; }
-
-.section-badge {
-    display: inline-block;
-    padding: 6px 14px;
-    background: rgba(13, 110, 253, 0.1);
-    border-radius: 50px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--primary-blue);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 16px;
-}
-
-.section-title { font-size: 2.25rem; margin-bottom: 16px; }
-.section-subtitle { font-size: 1.1rem; color: #64748b; }
-
-.job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; }
-
-.job-card {
+/* Header */
+.header {
     background: var(--pure-white);
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-left h1 { font-size: 1.25rem; font-weight: 700; }
+
+.header-right { display: flex; align-items: center; gap: 16px; }
+
+.header-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: var(--light-gray);
+    border-radius: var(--radius-md);
+}
+
+.header-user-avatar {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--primary-blue), var(--secondary-teal));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--pure-white);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* Dashboard Content */
+.dashboard-content { padding: 24px 32px; }
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: var(--pure-white);
     border-radius: var(--radius-lg);
-    padding: 28px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     transition: var(--transition-normal);
     position: relative;
     overflow: hidden;
 }
 
-.job-card::before {
+.stat-card::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     width: 4px;
     height: 100%;
-    background: linear-gradient(180deg, var(--primary-blue), var(--secondary-teal));
-    opacity: 0;
-    transition: var(--transition-normal);
 }
 
-.job-card:hover { transform: translateY(-6px); box-shadow: 0 16px 48px rgba(15, 23, 42, 0.12); border-color: var(--primary-blue); }
-.job-card:hover::before { opacity: 1; }
+.stat-card.blue::before { background: var(--primary-blue); }
+.stat-card.green::before { background: var(--secondary-teal); }
+.stat-card.orange::before { background: #f97316; }
+.stat-card.purple::before { background: #8b5cf6; }
+.stat-card.red::before { background: #ef4444; }
 
-.job-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.stat-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1); }
 
-.job-department {
-    display: inline-block;
-    padding: 4px 12px;
-    background: rgba(13, 110, 253, 0.1);
-    border-radius: 50px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--primary-blue);
-    text-transform: uppercase;
-}
-
-.job-type {
-    display: inline-block;
-    padding: 4px 12px;
-    background: rgba(32, 201, 151, 0.1);
-    border-radius: 50px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--secondary-teal);
-}
-
-.job-card h3 { font-size: 1.25rem; margin-bottom: 12px; color: var(--deep-navy); }
-.job-card p { font-size: 0.95rem; color: #64748b; margin-bottom: 20px; line-height: 1.6; }
-
-.job-card-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid #e2e8f0; }
-
-.job-info { display: flex; gap: 16px; }
-.job-info-item { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #64748b; }
-.job-info-item svg { width: 16px; height: 16px; color: var(--primary-blue); }
-
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(4px);
-    z-index: 2000;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    opacity: 0;
-    transition: var(--transition-normal);
-}
-
-.modal-overlay.active { display: flex; opacity: 1; }
-
-.modal {
-    background: var(--pure-white);
-    border-radius: var(--radius-xl);
-    width: 100%;
-    max-width: 640px;
-    max-height: 90vh;
-    overflow-y: auto;
-    transform: scale(0.9) translateY(20px);
-    transition: var(--transition-normal);
-    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
-}
-
-.modal-overlay.active .modal { transform: scale(1) translateY(0); }
-
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 28px; border-bottom: 1px solid #e2e8f0; }
-.modal-header h3 { font-size: 1.25rem; }
-
-.modal-close {
-    width: 36px;
-    height: 36px;
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f1f5f9;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    transition: var(--transition-fast);
-    color: #64748b;
+    margin-bottom: 12px;
 }
 
-.modal-close:hover { background: #e2e8f0; color: var(--deep-navy); }
+.stat-icon.blue { background: rgba(13, 110, 253, 0.1); color: var(--primary-blue); }
+.stat-icon.green { background: rgba(32, 201, 151, 0.1); color: var(--secondary-teal); }
+.stat-icon.orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+.stat-icon.purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.stat-icon.red { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
 
-.modal-body { padding: 28px; }
+.stat-value { font-size: 1.75rem; font-weight: 800; color: var(--deep-navy); line-height: 1; }
+.stat-label { font-size: 0.85rem; color: #64748b; margin-top: 4px; }
 
-.modal-footer { display: flex; gap: 12px; justify-content: flex-end; padding: 20px 28px; border-top: 1px solid #e2e8f0; }
+/* Chart Grid */
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+}
 
-.footer { background: var(--deep-navy); color: rgba(255, 255, 255, 0.8); padding: 60px 0 24px; margin-top: 80px; }
-.footer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 40px; margin-bottom: 40px; }
-.footer-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.footer-brand img { width: 48px; height: 48px; border-radius: 8px; }
-.footer-brand h3 { color: var(--pure-white); font-size: 1.1rem; }
-.footer-about p { color: rgba(255, 255, 255, 0.6); font-size: 0.95rem; line-height: 1.7; }
-.footer-title { color: var(--pure-white); font-size: 1rem; margin-bottom: 20px; font-weight: 600; }
-.footer-links { list-style: none; }
-.footer-links li { margin-bottom: 12px; }
-.footer-links a { color: rgba(255, 255, 255, 0.6); transition: var(--transition-fast); }
-.footer-links a:hover { color: var(--pure-white); }
-.footer-contact li { display: flex; align-items: center; gap: 10px; color: rgba(255, 255, 255, 0.6); margin-bottom: 12px; }
-.footer-bottom { padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.1); text-align: center; color: rgba(255, 255, 255, 0.5); font-size: 0.9rem; }
+.chart-card {
+    background: var(--pure-white);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
 
-.text-center { text-align: center; }
-.mt-1 { margin-top: 8px; }
-.mt-2 { margin-top: 16px; }
-.mt-3 { margin-top: 24px; }
-.mt-4 { margin-top: 32px; }
-.mt-5 { margin-top: 48px; }
-.mb-1 { margin-bottom: 8px; }
-.mb-2 { margin-bottom: 16px; }
-.mb-3 { margin-bottom: 24px; }
-.mb-4 { margin-bottom: 32px; }
-.mb-5 { margin-bottom: 48px; }
-.p-1 { padding: 8px; }
-.p-2 { padding: 16px; }
-.p-3 { padding: 24px; }
-.p-4 { padding: 32px; }
-.p-5 { padding: 48px; }
-.d-flex { display: flex; }
-.d-grid { display: grid; }
-.d-block { display: block; }
-.d-none { display: none; }
-.align-center { align-items: center; }
-.justify-center { justify-content: center; }
-.justify-between { justify-content: space-between; }
-.gap-1 { gap: 8px; }
-.gap-2 { gap: 16px; }
-.gap-3 { gap: 24px; }
-.gap-4 { gap: 32px; }
-.w-100 { width: 100%; }
-.h-100 { height: 100%; }
+.chart-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--deep-navy);
+}
 
-.container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
-.row { display: flex; flex-wrap: wrap; margin: 0 -12px; }
-.col-lg-6, .col-12 { padding: 0 12px; }
-.col-lg-6 { flex: 0 0 50%; max-width: 50%; }
-.col-12 { flex: 0 0 100%; max-width: 100%; }
+/* Timeline */
+.timeline-card {
+    background: var(--pure-white);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    margin-bottom: 24px;
+}
 
+.timeline-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 20px; }
+
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e2e8f0;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.timeline-item:last-child { padding-bottom: 0; }
+
+.timeline-dot {
+    position: absolute;
+    left: -26px;
+    top: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 3px solid var(--pure-white);
+}
+
+.timeline-dot.completed { background: var(--secondary-teal); }
+.timeline-dot.active { background: var(--primary-blue); box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2); }
+.timeline-dot.pending { background: #cbd5e1; }
+
+.timeline-content h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
+.timeline-content p { font-size: 0.85rem; color: #64748b; }
+
+/* Countdown */
+.countdown-card {
+    background: linear-gradient(135deg, var(--primary-blue), var(--primary-light));
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    color: var(--pure-white);
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.countdown-card h3 { color: var(--pure-white); margin-bottom: 8px; font-size: 1rem; }
+
+.countdown-timer {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.countdown-item {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    min-width: 70px;
+}
+
+.countdown-value { font-size: 1.75rem; font-weight: 800; }
+.countdown-label { font-size: 0.75rem; opacity: 0.9; }
+
+/* Loading Animation */
+.loading { animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Responsive */
 @media (max-width: 1024px) {
-    .hero-title { font-size: 2.75rem; }
-    .hero-stats { gap: 32px; }
+    .chart-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {
-    h1 { font-size: 2.25rem; }
-    h2 { font-size: 1.75rem; }
-    .hero { padding: 100px 0 60px; text-align: center; }
-    .hero-title { font-size: 2rem; }
-    .hero-subtitle { font-size: 1rem; }
-    .hero-actions { flex-direction: column; align-items: center; }
-    .hero-stats { justify-content: center; }
-    .navbar-menu {
-        position: fixed;
-        top: 70px;
-        left: 0;
-        right: 0;
-        background: var(--pure-white);
-        flex-direction: column;
-        padding: 24px;
-        gap: 16px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        transform: translateY(-100%);
-        opacity: 0;
-        pointer-events: none;
-        transition: var(--transition-normal);
-    }
-    .navbar-menu.active { transform: translateY(0); opacity: 1; pointer-events: all; }
-    .navbar-toggle { display: flex; }
-    .job-grid { grid-template-columns: 1fr; }
-    .footer-grid { grid-template-columns: 1fr; }
-    .col-lg-6 { flex: 0 0 100%; max-width: 100%; }
+    .sidebar { width: var(--sidebar-collapsed); }
+    .sidebar .sidebar-brand-text, 
+    .sidebar .sidebar-menu a span { display: none; }
+    .sidebar .sidebar-menu a { justify-content: center; padding: 12px; }
+    .main-content { margin-left: var(--sidebar-collapsed); }
+    .dashboard-content { padding: 16px; }
+    .header { padding: 12px 16px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 480px) {
-    .hero-title { font-size: 1.75rem; }
-    .hero-stat-number { font-size: 2rem; }
-    .hero-stats { flex-direction: column; gap: 20px; }
-    .btn { width: 100%; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .countdown-timer { gap: 8px; }
+    .countdown-item { padding: 8px 12px; min-width: 55px; }
+    .countdown-value { font-size: 1.25rem; }
 }
-
-.stat-icon { width: 56px; height: 56px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; }
-.stat-icon.blue { background: rgba(13, 110, 253, 0.1); color: var(--primary-blue); }
-.stat-icon.teal { background: rgba(32, 201, 151, 0.1); color: var(--secondary-teal); }
-</style>
+    </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="navbar-container">
-            <a href="#" class="navbar-brand">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%230D6EFD' rx='15' width='100' height='100'/%3E%3Cpath fill='white' d='M50 20v60M20 50h60' stroke='white' stroke-width='12' stroke-linecap='round'/%3E%3C/svg%3E" alt="Logo RSUD AMI">
-                <div class="navbar-brand-text">
-                    <h1>RSUD Aji Muhammad Idris</h1>
-                    <span>Sistem Rekrutmen Karyawan</span>
-                </div>
-            </a>
-            
-            <ul class="navbar-menu" id="navbarMenu">
-                <li><a href="#beranda" class="active">Beranda</a></li>
-                <li><a href="#lowongan">Lowongan</a></li>
-                <li><a href="#tentang">Tentang</a></li>
-                <li><a href="#kontak">Kontak</a></li>
-            </ul>
-            
-            <div class="navbar-actions">
-                <button class="btn btn-glass btn-sm">Login Admin</button>
-                <button class="btn btn-primary btn-sm" id="openRegister">Daftar Sekarang</button>
-                <div class="navbar-toggle" id="navbarToggle">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+    <!-- Dashboard Layout -->
+    <div class="dashboard-wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23fff' rx='15' width='100' height='100'/%3E%3Cpath fill='%230D6EFD' d='M50 20v60M20 50h60' stroke='%230D6EFD' stroke-width='12' stroke-linecap='round'/%3E%3C/svg%3E" alt="Logo">
+                <div class="sidebar-brand-text">
+                    <h2>RSUD AMI</h2>
+                    <span>Sistem Rekrutmen</span>
                 </div>
             </div>
-        </div>
-    </nav>
+            
+            <ul class="sidebar-menu">
+                <li>
+                    <a href="#" class="active" onclick="showPage('dashboard')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showPage('pelamar')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span>Data Pelamar</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showPage('formasi')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                        </svg>
+                        <span>Formasi Lowongan</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showPage('seleksi')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                        <span>Kelola Seleksi</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showPage('pengumuman')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                        <span>Pengumuman</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showPage('pengaturan')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                        <span>Pengaturan</span>
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="sidebar-toggle">
+                <button onclick="toggleSidebar()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="11 17 6 12 11 7"></polyline>
+                        <polyline points="18 17 13 12 18 7"></polyline>
+                    </svg>
+                    <span>Collapse</span>
+                </button>
+            </div>
+        </aside>
 
-    <!-- Hero Section -->
-    <section id="beranda" class="hero">
-        <div class="container">
-            <div class="row align-center">
-                <div class="col-lg-6">
-                    <div class="hero-content">
-                        <div class="hero-badge">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <button class="btn" onclick="toggleSidebar()" style="display: none;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <h1>Dashboard Rekrutmen Karyawan</h1>
+                </div>
+                <div class="header-right">
+                    <div class="header-user">
+                        <div class="header-user-avatar">A</div>
+                        <span>Admin Sistem</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="dashboard-content" id="dashboard-page">
+                <!-- Countdown -->
+                <div class="countdown-card">
+                    <h3>⏰ Pengumuman Hasil Rekrutmen</h3>
+                    <p>Pengumuman akan dilakukan pada:</p>
+                    <div class="countdown-timer" id="countdown">
+                        <div class="countdown-item">
+                            <div class="countdown-value" id="days">00</div>
+                            <div class="countdown-label">Hari</div>
+                        </div>
+                        <div class="countdown-item">
+                            <div class="countdown-value" id="hours">00</div>
+                            <div class="countdown-label">Jam</div>
+                        </div>
+                        <div class="countdown-item">
+                            <div class="countdown-value" id="minutes">00</div>
+                            <div class="countdown-label">Menit</div>
+                        </div>
+                        <div class="countdown-item">
+                            <div class="countdown-value" id="seconds">00</div>
+                            <div class="countdown-label">Detik</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card blue">
+                        <div class="stat-icon blue">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-value" data-count="247">0</div>
+                        <div class="stat-label">Total Pelamar</div>
+                    </div>
+                    
+                    <div class="stat-card green">
+                        <div class="stat-icon green">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
                             </svg>
-                            Masih Buka!
                         </div>
-                        <h1 class="hero-title">
-                            Bergabung dengan <span>Tim Profesional</span> RSUD Aji Muhammad Idris
-                        </h1>
-                        <p class="hero-subtitle">
-                            Wujudkan karir di bidang kesehatan bersama Rumah Sakit Aji Muhammad Idris. 
-                            Kami mencari tenaga profesional yang berdedikasi untuk memberikan pelayanan sepenuh hati kepada masyarakat.
-                        </p>
-                        <div class="hero-actions">
-                            <a href="#lowongan" class="btn btn-primary btn-lg">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="11" cy="11" r="8"></circle>
-                                    <path d="m21 21-4.35-4.35"></path>
-                                </svg>
-                                Lihat Lowongan
-                            </a>
-                            <button class="btn btn-outline btn-lg" id="openRegister2">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="8.5" cy="7" r="4"></circle>
-                                    <line x1="20" y1="8" x2="20" y2="14"></line>
-                                    <line x1="23" y1="11" x2="17" y2="11"></line>
-                                </svg>
-                                Daftar
-                            </button>
-                        </div>
-                        <div class="hero-stats">
-                            <div class="hero-stat">
-                                <div class="hero-stat-number" data-target="6">0</div>
-                                <div class="hero-stat-label">Lowongan Aktif</div>
-                            </div>
-                            <div class="hero-stat">
-                                <div class="hero-stat-number" data-target="150">0</div>
-                                <div class="hero-stat-label">Pelamar</div>
-                            </div>
-                            <div class="hero-stat">
-                                <div class="hero-stat-number" data-target="500">0</div>
-                                <div class="hero-stat-label">Karyawan</div>
-                            </div>
-                        </div>
+                        <div class="stat-value" data-count="89">0</div>
+                        <div class="stat-label">Lolos Verifikasi</div>
                     </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="hero-image">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600'%3E%3Crect fill='%23f8fafc' width='800' height='600'/%3E%3Crect fill='%230D6EFD' x='200' y='100' width='400' height='400' rx='40' opacity='0.1'/%3E%3Ccircle fill='%2320C997' cx='400' cy='250' r='80' opacity='0.2'/%3E%3Cpath fill='%230D6EFD' d='M400 150 L440 200 L400 250 L360 200 Z'/%3E%3Crect fill='%230D6EFD' x='350' y='260' width='100' height='120' rx='10'/%3E%3Ctext x='400' y='340' text-anchor='middle' fill='white' font-family='sans-serif' font-size='14' font-weight='bold'%3ERSUD AMI%3C/text%3E%3C/svg%3E" alt="RSUD Aji Muhammad Idris" style="width: 100%; border-radius: 24px;">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Job Vacancies Section -->
-    <section id="lowongan" class="section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-badge">Rekrutmen</span>
-                <h2 class="section-title">Lowongan Kerja Tersedia</h2>
-                <p class="section-subtitle">
-                    Temukan posisi yang sesuai dengan keahlian dan passion Anda. 
-                    Daftar sekarang dan menjadi bagian dari tim healthcare terbaik.
-                </p>
-            </div>
-            
-            <div class="job-grid" id="job-list">
-                <!-- Job cards will be populated by JavaScript -->
-            </div>
-            
-            <div class="text-center mt-5">
-                <button class="btn btn-outline" id="viewAllJobs">Lihat Semua Lowongan</button>
-            </div>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section id="tentang" class="section" style="background: linear-gradient(135deg, rgba(13, 110, 253, 0.03) 0%, rgba(32, 201, 151, 0.03) 100%);">
-        <div class="container">
-            <div class="row align-center">
-                <div class="col-lg-6">
-                    <div class="glass-card p-4">
-                        <h2 class="mb-3">Tentang RSUD Aji Muhammad Idris</h2>
-                        <p class="mb-3">
-                            Rumah Sakit Umum Daerah (RSUD) Aji Muhammad Idris merupakan rumah sakit umum 
-                            yang terletak di Kabupaten Gersik, Jawa Timur. Kami berkomitmen memberikan 
-                            pelayanan kesehatan terbaik bagi masyarakat dengan dukungan tenaga medis profesional 
-                            dan fasilitas yang memadai.
-                        </p>
-                        <p class="mb-3">
-                            Sebagai rumah sakit type C, kami terus berkembang dan membutuhkan tenaga profesional 
-                            di berbagai bidang untuk meningkatkan kualitas layanan kami.
-                        </p>
-                        <div class="d-flex gap-3 mt-4">
-                            <div class="glass-card-solid p-3 text-center" style="flex: 1;">
-                                <h3 class="text-primary" style="color: var(--primary-blue);">24 Jam</h3>
-                                <p class="mb-0">Layanan Emergency</p>
-                            </div>
-                            <div class="glass-card-solid p-3 text-center" style="flex: 1;">
-                                <h3 class="text-teal" style="color: var(--secondary-teal);">150+</h3>
-                                <p class="mb-0">Tempat Tidur</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-6 mt-4 mt-lg-0">
-                    <div class="d-grid" style="grid-template-columns: repeat(2, 1fr); gap: 16px;">
-                        <div class="glass-card p-4 text-center">
-                            <div class="stat-icon blue mx-auto mb-3">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="9" cy="7" r="4"></circle>
-                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                </svg>
-                            </div>
-                            <h4>Tim Profesional</h4>
-                            <p class="mb-0" style="font-size: 0.9rem;">Dokter dan tenaga medis berpengalaman</p>
-                        </div>
-                        <div class="glass-card p-4 text-center">
-                            <div class="stat-icon teal mx-auto mb-3">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                                </svg>
-                            </div>
-                            <h4>Fasilitas Modern</h4>
-                            <p class="mb-0" style="font-size: 0.9rem;">Peralatan medis terbaru</p>
-                        </div>
-                        <div class="glass-card p-4 text-center">
-                            <div class="stat-icon" style="background: rgba(249, 115, 22, 0.1); color: #f97316;" class="mx-auto mb-3">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                                </svg>
-                            </div>
-                            <h4>Terakreditasi</h4>
-                            <p class="mb-0" style="font-size: 0.9rem;">Sertifikasi nasional</p>
-                        </div>
-                        <div class="glass-card p-4 text-center">
-                            <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;" class="mx-auto mb-3">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-                                    <line x1="9" y1="9" x2="9.01" y2="9"></line>
-                                    <line x1="15" y1="9" x2="15.01" y2="9"></line>
-                                </svg>
-                            </div>
-                            <h4>Pelayanan Prima</h4>
-                            <p class="mb-0" style="font-size: 0.9rem;">Prioritas pasien</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Contact Section -->
-    <section id="kontak" class="section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-badge">Hubungi Kami</span>
-                <h2 class="section-title">Kontak & Alamat</h2>
-                <p class="section-subtitle">
-                    Kami siap menjawab pertanyaan Anda tentang lowongan kerja dan penerimaan karyawan.
-                </p>
-            </div>
-            
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="glass-card p-5">
-                        <div class="row g-4">
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-start gap-3">
-                                    <div class="stat-icon blue" style="flex-shrink: 0;">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                            <circle cx="12" cy="10" r="3"></circle>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h4>Alamat</h4>
-                                        <p class="mb-0">Jl. Pahlawan No. 1<br>Gersik, Jawa Timur</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-start gap-3">
-                                    <div class="stat-icon teal" style="flex-shrink: 0;">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h4>Telepon</h4>
-                                        <p class="mb-0">(031) 123-4567</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-start gap-3">
-                                    <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; flex-shrink: 0;">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                            <polyline points="22,6 12,13 2,6"></polyline>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h4>Email</h4>
-                                        <p class="mb-0">rekrutmen@rsuid.ac.id</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="d-flex align-items-start gap-3">
-                                    <div class="stat-icon" style="background: rgba(249, 115, 22, 0.1); color: #f97316; flex-shrink: 0;">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <polyline points="12 6 12 12 16 14"></polyline>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h4>Jam Operasional</h4>
-                                        <p class="mb-0">Senin - Jumat: 08.00 - 16.00</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-grid">
-                <div class="footer-about">
-                    <div class="footer-brand">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23fff' rx='15' width='100' height='100'/%3E%3Cpath fill='%230D6EFD' d='M50 20v60M20 50h60' stroke='%230D6EFD' stroke-width='12' stroke-linecap='round'/%3E%3C/svg%3E" alt="Logo">
-                        <h3>RSUD Aji Muhammad Idris</h3>
-                    </div>
-                    <p>Menjadi rumah sakit pilihan utama masyarakat Gersik dengan pelayanan yang profesional, bermutu, dan terjangkau.</p>
-                </div>
-                
-                <div>
-                    <h4 class="footer-title">Tautan Cepat</h4>
-                    <ul class="footer-links">
-                        <li><a href="#beranda">Beranda</a></li>
-                        <li><a href="#lowongan">Lowongan Kerja</a></li>
-                        <li><a href="#tentang">Tentang Kami</a></li>
-                        <li><a href="#kontak">Kontak</a></li>
-                    </ul>
-                </div>
-                
-                <div>
-                    <h4 class="footer-title">Informasi</h4>
-                    <ul class="footer-links">
-                        <li><a href="#">Persyaratan Umum</a></li>
-                        <li><a href="#">Proses Rekrutmen</a></li>
-                        <li><a href="#">Jadwal Seleksi</a></li>
-                        <li><a href="#">FAQ</a></li>
-                    </ul>
-                </div>
-                
-                <div>
-                    <h4 class="footer-title">Hubungi Kami</h4>
-                    <ul class="footer-contact">
-                        <li>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                <circle cx="12" cy="10" r="3"></circle>
+                    
+                    <div class="stat-card red">
+                        <div class="stat-icon red">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
                             </svg>
-                            Jl. Pahlawan No. 1, Gersik
-                        </li>
-                        <li>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                        </div>
+                        <div class="stat-value" data-count="158">0</div>
+                        <div class="stat-label">Tidak Lolos</div>
+                    </div>
+                    
+                    <div class="stat-card purple">
+                        <div class="stat-icon purple">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
                             </svg>
-                            (031) 123-4567
-                        </li>
-                        <li>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                <polyline points="22,6 12,13 2,6"></polyline>
+                        </div>
+                        <div class="stat-value" data-count="6">0</div>
+                        <div class="stat-label">Formasi Dibuka</div>
+                    </div>
+                    
+                    <div class="stat-card orange">
+                        <div class="stat-icon orange">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="8.5" cy="7" r="4"></circle>
+                                <line x1="20" y1="8" x2="20" y2="14"></line>
+                                <line x1="23" y1="11" x2="17" y2="11"></line>
                             </svg>
-                            rekrutmen@rsuid.ac.id
-                        </li>
-                    </ul>
+                        </div>
+                        <div class="stat-value" data-count="42">0</div>
+                        <div class="stat-label">Formasi Terisi</div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="chart-grid">
+                    <div class="chart-card">
+                        <h3>📊 Pelamar per Formasi</h3>
+                        <canvas id="pelamarChart" height="200"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>📈 Status Seleksi</h3>
+                        <canvas id="statusChart" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Timeline -->
+                <div class="timeline-card">
+                    <h3>📅 Timeline Tahapan Rekrutmen</h3>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-dot completed"></div>
+                            <div class="timeline-content">
+                                <h4>Pendaftaran</h4>
+                                <p>1 Januari - 28 Februari 2026 ✓ Selesai</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot completed"></div>
+                            <div class="timeline-content">
+                                <h4>Verifikasi Berkas</h4>
+                                <p>1 - 15 Maret 2026 ✓ Selesai</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot active"></div>
+                            <div class="timeline-content">
+                                <h4>Seleksi Tes</h4>
+                                <p>20 Maret - 5 April 2026 🔄 Sedang Berlangsung</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot pending"></div>
+                            <div class="timeline-content">
+                                <h4>Wawancara</h4>
+                                <p>10 - 20 April 2026 ⏳ Menunggu</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-dot pending"></div>
+                            <div class="timeline-content">
+                                <h4>Pengumuman Hasil</h4>
+                                <p>30 April 2026 ⏳ Menunggu</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <div class="footer-bottom">
-                <p>&copy; 2026 RSUD Aji Muhammad Idris. All rights reserved. | Sistem Informasi Rekrutmen Karyawan</p>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Job Detail Modal -->
-    <div class="modal-overlay" id="job-detail">
-        <div class="modal">
-            <div class="modal-header">
-                <h3>Detail Lowongan</h3>
-                <button class="modal-close" id="closeModal">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body" id="job-detail-content">
-                <!-- Content loaded dynamically -->
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline" id="closeModal2">Tutup</button>
-                <button class="btn btn-primary" id="applyNow">Lamar Sekarang</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Registration Modal -->
-    <div class="modal-overlay" id="register-modal">
-        <div class="modal" style="max-width: 600px;">
-            <div class="modal-header">
-                <h3>Daftar sebagai Pelamar</h3>
-                <button class="modal-close" id="closeRegister">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="registrationForm">
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="form-group">
-                                <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 600; color: var(--deep-navy); margin-bottom: 8px;">NIK (16 Digit) *</label>
-                                <input type="text" class="form-control" style="width: 100%; padding: 14px 18px; font-family: var(--font-primary); font-size: 0.95rem; color: var(--deep-navy); background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(203, 213, 225, 0.6); border-radius: var(--radius-md);" placeholder="Masukkan 16 digit NIK" required maxlength="16">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="form-group">
-                                <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 600; color: var(--deep-navy); margin-bottom: 8px;">Nama Lengkap *</label>
-                                <input type="text" class="form-control" style="width: 100%; padding: 14px 18px; font-family: var(--font-primary); font-size: 0.95rem; color: var(--deep-navy); background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(203, 213, 225, 0.6); border-radius: var(--radius-md);" placeholder="Masukkan nama lengkap" required>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="form-group">
-                                <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 600; color: var(--deep-navy); margin-bottom: 8px;">Email *</label>
-                                <input type="email" class="form-control" style="width: 100%; padding: 14px 18px; font-family: var(--font-primary); font-size: 0.95rem; color: var(--deep-navy); background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(203, 213, 225, 0.6); border-radius: var(--radius-md);" placeholder="contoh@email.com" required>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="form-group">
-                                <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 600; color: var(--deep-navy); margin-bottom: 8px;">Nomor Telepon *</label>
-                                <input type="tel" class="form-control" style="width: 100%; padding: 14px 18px; font-family: var(--font-primary); font-size: 0.95rem; color: var(--deep-navy); background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(203, 213, 225, 0.6); border-radius: var(--radius-md);" placeholder="0812xxxxxxx" required>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="form-group">
-                                <label class="form-label" style="display: block; font-size: 0.9rem; font-weight: 600; color: var(--deep-navy); margin-bottom: 8px;">Lowongan yang Diminati</label>
-                                <select class="form-control" style="width: 100%; padding: 14px 18px; font-family: var(--font-primary); font-size: 0.95rem; color: var(--deep-navy); background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(203, 213, 225, 0.6); border-radius: var(--radius-md); appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center;" id="jobSelect">
-                                    <option value="">-- Pilih lowongan --</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100 btn-lg" style="margin-top: 16px;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="8.5" cy="7" r="4"></circle>
-                            <line x1="20" y1="8" x2="20" y2="14"></line>
-                            <line x1="23" y1="11" x2="17" y2="11"></line>
-                        </svg>
-                        Daftar Sekarang
-                    </button>
-                </form>
-            </div>
-        </div>
+        </main>
     </div>
 
     <script>
-        // Sample job data (simulating database)
-        const jobs = [
-            {
-                id: 1,
-                title: 'Dokter Umum',
-                department: 'Pelayanan Medis',
-                type: 'Full Time',
-                location: 'Kabupaten Gersik',
-                description: 'Melayani pasien rawat jalan dan rawat inap dengan standar pelayanan medis tertinggi.',
-                requirements: 'S1 Kedokteran, STR Aktif, memiliki pengalaman minimal 2 tahun di rumah sakit',
-                daysLeft: 90
-            },
-            {
-                id: 2,
-                title: 'Perawat Gigi',
-                department: 'Pelayanan Gigi',
-                type: 'Full Time',
-                location: 'Kabupaten Gersik',
-                description: 'Melakukan perawatan gigi dan mulut pasien sesuai prosedur standar.',
-                requirements: 'S1 Keperawatan Gigi, STR Aktif, pengalaman di klinik gigi',
-                daysLeft: 120
-            },
-            {
-                id: 3,
-                title: 'Apoteker',
-                department: 'Farmasi',
-                type: 'Full Time',
-                location: 'Kabupaten Gersik',
-                description: 'Melayani resep obat dan konsultasi obat kepada pasien.',
-                requirements: 'S1 Farmasi, SIPA Apoteker, pengalaman di apotek rumah sakit',
-                daysLeft: 150
-            },
-            {
-                id: 4,
-                title: 'Tenaga Laboratorium',
-                department: 'Laboratorium',
-                type: 'Full Time',
-                location: 'Kabupaten Gersik',
-                description: 'Melakukan pemeriksaan laboratorium sesuai standar Quality Control.',
-                requirements: 'D3/S1 Analis Kesehatan, pengalaman di laboratorium klinis',
-                daysLeft: 75
-            },
-            {
-                id: 5,
-                title: 'Staf Administrasi',
-                department: 'Administrasi',
-                type: 'Full Time',
-                location: 'Kabupaten Gersik',
-                description: 'Mengelola administrasi pasien dan dokumen rumah sakit.',
-                requirements: 'D3/S1 Administrasi/Perkantoran, MS Office',
-                daysLeft: 120
-            },
-            {
-                id: 6,
-                title: 'Petugas Keamanan',
-                department: 'Keamanan',
-                type: 'Full Time',
-                location: 'Kabupaten Gersik',
-                description: 'Menjaga keamanan dan ketertiban area rumah sakit.',
-                requirements: 'SMA/SMK, pengalaman security',
-                daysLeft: 300
+        // Toggle Sidebar
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        }
+
+        // Page Navigation (simulated)
+        function showPage(page) {
+            document.querySelectorAll('.sidebar-menu a').forEach(a => a.classList.remove('active'));
+            event.target.closest('a').classList.add('active');
+            
+            // In a real app, this would load different pages
+            if (page === 'dashboard') {
+                document.getElementById('dashboard-page').style.display = 'block';
             }
-        ];
-
-        // Render job cards
-        function renderJobs() {
-            const jobList = document.getElementById('job-list');
-            const jobSelect = document.getElementById('jobSelect');
-            
-            // Clear existing content
-            jobList.innerHTML = '';
-            
-            // Render job cards (show first 3 on landing page)
-            const displayJobs = window.location.hash === '#lowongan' ? jobs : jobs.slice(0, 3);
-            
-            displayJobs.forEach(job => {
-                const card = document.createElement('div');
-                card.className = 'job-card';
-                card.innerHTML = `
-                    <div class="job-card-header">
-                        <span class="job-department">${job.department}</span>
-                        <span class="job-type">${job.type}</span>
-                    </div>
-                    <h3>${job.title}</h3>
-                    <p>${job.description.substring(0, 100)}...</p>
-                    <div class="job-card-footer">
-                        <div class="job-info">
-                            <div class="job-info-item">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                    <circle cx="12" cy="10" r="3"></circle>
-                                </svg>
-                                ${job.location}
-                            </div>
-                            <div class="job-info-item">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                                </svg>
-                                ${job.daysLeft} hari lagi
-                            </div>
-                        </div>
-                        <button class="btn btn-primary btn-sm" onclick="showJobDetail(${job.id})">Lihat Detail</button>
-                    </div>
-                `;
-                jobList.appendChild(card);
-            });
-            
-            // Populate job select in registration form
-            jobs.forEach(job => {
-                const option = document.createElement('option');
-                option.value = job.id;
-                option.textContent = `${job.title} - ${job.department}`;
-                jobSelect.appendChild(option);
-            });
         }
 
-        // Show job detail modal
-        function showJobDetail(jobId) {
-            const job = jobs.find(j => j.id === jobId);
-            if (!job) return;
-            
-            const content = document.getElementById('job-detail-content');
-            content.innerHTML = `
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <div>
-                        <span class="job-department">${job.department}</span>
-                        <span class="job-type" style="margin-left: 8px;">${job.type}</span>
-                    </div>
-                </div>
-                
-                <h3 class="mb-3">${job.title}</h3>
-                
-                <div class="job-info mb-4" style="display: flex; gap: 20px; flex-wrap: wrap;">
-                    <div class="job-info-item">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                            <circle cx="12" cy="10" r="3"></circle>
-                        </svg>
-                        ${job.location}
-                    </div>
-                    <div class="job-info-item">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                        </svg>
-                        ${job.daysLeft} hari lagi
-                    </div>
-                </div>
-                
-                <div class="mb-4">
-                    <h4 class="mb-2" style="font-size: 1rem; color: var(--deep-navy); font-weight: 600;">Deskripsi Pekerjaan</h4>
-                    <p>${job.description}</p>
-                </div>
-                
-                <div class="mb-4">
-                    <h4 class="mb-2" style="font-size: 1rem; color: var(--deep-navy); font-weight: 600;">Persyaratan</h4>
-                    <p>${job.requirements}</p>
-                </div>
-                
-                <div style="padding: 12px 16px; background: rgba(13, 110, 253, 0.1); border-radius: 8px; display: flex; align-items: center; gap: 12px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-blue)" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="16" x2="12" y2="12"></line>
-                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                    </svg>
-                    <span style="font-size: 0.9rem; color: var(--primary-blue);">Pastikan Anda memenuhi persyaratan sebelum melamar.</span>
-                </div>
-            `;
-            
-            document.getElementById('job-detail').classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-
-        // Modal functions
-        function openModal(modalId) {
-            document.getElementById(modalId).classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        // Counter animation
+        // Animated Counter
         function animateCounters() {
-            const counters = document.querySelectorAll('.hero-stat-number');
+            const counters = document.querySelectorAll('.stat-value[data-count]');
             counters.forEach(counter => {
-                const target = parseInt(counter.getAttribute('data-target'));
-                const duration = 2000;
+                const target = parseInt(counter.getAttribute('data-count'));
+                const duration = 1500;
                 const increment = target / (duration / 16);
                 let current = 0;
                 
@@ -1189,73 +684,101 @@ a:hover { color: var(--primary-dark); }
                     }
                 };
                 
-                updateCounter();
+                // Start animation when element is in view
+                const observer = new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting) {
+                        updateCounter();
+                        observer.unobserve(counter);
+                    }
+                });
+                observer.observe(counter);
             });
         }
 
-        // Navbar scroll effect
-        window.addEventListener('scroll', function() {
-            const navbar = document.querySelector('.navbar');
-            if (window.scrollY > 50) {
-                navbar.classList.add('scrolled');
-            } else {
-                navbar.classList.remove('scrolled');
+        // Countdown Timer
+        function countdown() {
+            const targetDate = new Date('2026-04-30T00:00:00').getTime();
+            const now = new Date().getTime();
+            const distance = targetDate - now;
+            
+            if (distance > 0) {
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                document.getElementById('days').innerText = days.toString().padStart(2, '0');
+                document.getElementById('hours').innerText = hours.toString().padStart(2, '0');
+                document.getElementById('minutes').innerText = minutes.toString().padStart(2, '0');
+                document.getElementById('seconds').innerText = seconds.toString().padStart(2, '0');
             }
-        });
+        }
 
-        // Mobile menu toggle
-        document.getElementById('navbarToggle').addEventListener('click', function() {
-            document.getElementById('navbarMenu').classList.toggle('active');
-            this.classList.toggle('active');
-        });
-
-        // Close modal buttons
-        document.getElementById('closeModal').addEventListener('click', () => closeModal('job-detail'));
-        document.getElementById('closeModal2').addEventListener('click', () => closeModal('job-detail'));
-        
-        // Register modal
-        document.getElementById('openRegister').addEventListener('click', () => openModal('register-modal'));
-        document.getElementById('openRegister2').addEventListener('click', () => openModal('register-modal'));
-        document.getElementById('closeRegister').addEventListener('click', () => closeModal('register-modal'));
-        
-        // Apply now button
-        document.getElementById('applyNow').addEventListener('click', () => {
-            closeModal('job-detail');
-            openModal('register-modal');
-        });
-        
-        // Registration form submit
-        document.getElementById('registrationForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Pendaftaran berhasil! Tim rekrutmen akan menghubungi Anda.');
-            closeModal('register-modal');
-            this.reset();
-        });
-        
-        // Close modal on overlay click
-        document.querySelectorAll('.modal-overlay').forEach(overlay => {
-            overlay.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('active');
-                    document.body.style.overflow = '';
+        // Charts
+        function initCharts() {
+            // Pelamar per Formasi Chart
+            const pelamarCtx = document.getElementById('pelamarChart').getContext('2d');
+            new Chart(pelamarCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Dokter Umum', 'Perawat', 'Apoteker', 'Admin', 'Keamanan', 'Lab'],
+                    datasets: [{
+                        label: 'Jumlah Pelamar',
+                        data: [45, 78, 32, 28, 35, 29],
+                        backgroundColor: [
+                            'rgba(13, 110, 253, 0.7)',
+                            'rgba(32, 201, 151, 0.7)',
+                            'rgba(139, 92, 246, 0.7)',
+                            'rgba(249, 115, 22, 0.7)',
+                            'rgba(236, 72, 153, 0.7)',
+                            'rgba(20, 184, 166, 0.7)'
+                        ],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
                 }
             });
-        });
-        
-        // Close on Escape
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                document.querySelectorAll('.modal-overlay.active').forEach(modal => {
-                    modal.classList.remove('active');
-                });
-                document.body.style.overflow = '';
-            }
-        });
+
+            // Status Seleksi Chart
+            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Lolos', 'Tidak Lolos', 'Menunggu'],
+                    datasets: [{
+                        data: [89, 158, 0],
+                        backgroundColor: [
+                            '#20C997',
+                            '#EF4444',
+                            '#3B82F6'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            renderJobs();
             animateCounters();
+            initCharts();
+            setInterval(countdown, 1000);
+            countdown();
         });
     </script>
 </body>
