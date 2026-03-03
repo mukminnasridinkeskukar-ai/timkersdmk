@@ -494,7 +494,7 @@
     <div class="modal-overlay" id="modalTambahUser"><div class="modal modal-sm"><div class="modal-header"><h3 class="modal-title">Tambah User Admin</h3><button class="modal-close" onclick="closeModal('modalTambahUser')"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></div><div class="modal-body"><div class="form-group"><label class="form-label">Username</label><input type="text" class="form-control" id="userUsername" placeholder="Username"></div><div class="form-group"><label class="form-label">Password</label><input type="password" class="form-control" id="userPassword" placeholder="Password"></div><div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" class="form-control" id="userNama" placeholder="Nama Lengkap"></div><div class="form-group"><label class="form-label">Role</label><select class="form-control" id="userRole"><option value="ADMIN">Admin Utama</option><option value="VERIFIKATOR">Tim Verifikator</option><option value="ASESOR">Tim Asesor</option></select></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modalTambahUser')">Batal</button><button class="btn btn-primary" onclick="simpanUser()">Simpan</button></div></div></div>
     <div class="modal-overlay" id="modalConfirm"><div class="modal modal-sm"><div class="modal-body"><div class="confirm-dialog"><div class="confirm-icon warning" id="confirmIcon"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div><h3 class="confirm-title" id="confirmTitle">Konfirmasi</h3><p class="confirm-message" id="confirmMessage">Apakah Anda yakin?</p><div class="confirm-actions"><button class="btn btn-secondary" onclick="closeModal('modalConfirm')">Batal</button><button class="btn btn-danger" id="confirmBtn">Ya, Lanjutkan</button></div></div></div></div></div>
     <script>
-        const APP_CONFIG = { GAS_URL: 'https://script.google.com/macros/s/AKfycbwUW4gpAwxbPOL4ml3yOAu59T8KSzoiZqsakV-C8bTtHB2nBNgcabHLgsE9E8cG51d7/exec', TIMEOUT: 30000, REFRESH_INTERVAL: 30000 };
+        const APP_CONFIG = { GAS_URL: 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec', TIMEOUT: 30000, REFRESH_INTERVAL: 30000 };
         let appState = { session: null, user: null, isLoggedIn: false, currentMenu: 'dashboard', currentTab: 'pengumuman', adminTab: 'admin-dashboard', theme: 'light', dashboardData: null, formasiList: [], pengumumanList: [], pelamarList: [], userList: [], pagination: { formasi: { page: 1, limit: 10, total: 0 }, verifikasi: { page: 1, limit: 10, total: 0 }, nilai: { page: 1, limit: 10, total: 0 }, kesehatan: { page: 1, limit: 10, total: 0 }, hasil: { page: 1, limit: 10, total: 0 } } };
         let chartFormasi = null, chartStatus = null, chartAdminFormasi = null, chartAdminStatus = null;
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
@@ -510,7 +510,85 @@
         function closeModal(modalId) { document.getElementById(modalId).classList.remove('active'); document.body.style.overflow = 'auto'; }
         function showConfirm(title, message, type, onConfirm) { document.getElementById('confirmTitle').textContent = title; document.getElementById('confirmMessage').textContent = message; document.getElementById('confirmIcon').className = 'confirm-icon ' + type; const confirmBtn = document.getElementById('confirmBtn'); const newBtn = confirmBtn.cloneNode(true); confirmBtn.parentNode.replaceChild(newBtn, confirmBtn); document.getElementById('confirmBtn').onclick = () => { closeModal('modalConfirm'); onConfirm(); }; showModal('modalConfirm'); }
         function toggleDarkMode() { const body = document.body; if (appState.theme === 'light') { body.setAttribute('data-theme', 'dark'); appState.theme = 'dark'; document.getElementById('darkModeIcon').innerHTML = '<path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1z"/>'; } else { body.removeAttribute('data-theme'); appState.theme = 'light'; document.getElementById('darkModeIcon').innerHTML = '<path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>'; } updateCharts(); }
-        async function login(username, password) { const result = await apiRequest('login', { username, password }); if (result.success) { appState.session = { token: result.token, expired: result.expired }; appState.user = result.user; appState.isLoggedIn = true; document.getElementById('userName').textContent = result.user.nama; document.getElementById('userRole').textContent = getRoleName(result.user.role); document.getElementById('userAvatar').textContent = result.user.nama.charAt(0).toUpperCase(); if (result.user.role === 'ADMIN') document.getElementById('menuAdmin').style.display = 'flex'; showToast('success', 'Login Berhasil', 'Selamat datang, ' + result.user.nama + '!'); await loadDashboard(); } else { showToast('error', 'Login Gagal', result.message || 'Username atau password salah'); } return result.success; }
+        async function login(username, password) {
+            const result = await apiRequest('login', { username, password });
+            if (result.success) {
+                appState.session = { token: result.token, expired: result.expired };
+                appState.user = result.user;
+                appState.isLoggedIn = true;
+                
+                document.getElementById('userName').textContent = result.user.nama;
+                document.getElementById('userRole').textContent = getRoleName(result.user.role);
+                document.getElementById('userAvatar').textContent = result.user.nama.charAt(0).toUpperCase();
+                
+                // Show admin menu for all logged in users
+                document.getElementById('menuAdmin').style.display = 'flex';
+                
+                // Show admin panel and set role-based access
+                showAdminPanel(result.user.role);
+                
+                showToast('success', 'Login Berhasil', 'Selamat datang, ' + result.user.nama + '!');
+                await loadDashboard();
+            } else {
+                showToast('error', 'Login Gagal', result.message || 'Username atau password salah');
+            }
+            return result.success;
+        }
+        
+        function showAdminPanel(role) {
+            // Show admin content
+            document.getElementById('dashboardContent').classList.add('hidden');
+            document.getElementById('pelamarContent').classList.add('hidden');
+            document.getElementById('adminContent').classList.remove('hidden');
+            document.getElementById('pageTitle').textContent = 'Panel Admin';
+            
+            // Get all admin tabs
+            const adminTabs = document.querySelectorAll('#adminContent .tab-btn');
+            const adminTabContents = document.querySelectorAll('#adminContent .tab-content');
+            
+            // Reset all tabs visibility
+            adminTabs.forEach(tab => tab.style.display = '');
+            
+            // Role-based access
+            if (role === 'ADMIN') {
+                // Admin has full access - all tabs visible
+                document.getElementById('tab-admin-dashboard').style.display = '';
+                document.getElementById('tab-admin-formasi').style.display = '';
+                document.getElementById('tab-admin-pengumuman').style.display = '';
+                document.getElementById('tab-admin-verifikasi').style.display = '';
+                document.getElementById('tab-admin-tes').style.display = '';
+                document.getElementById('tab-admin-kesehatan').style.display = '';
+                document.getElementById('tab-admin-hasil').style.display = '';
+                document.getElementById('tab-admin-users').style.display = '';
+            } else if (role === 'VERIFIKATOR') {
+                // Verifikator only sees verifikasi tab
+                document.getElementById('tab-admin-formasi').style.display = 'none';
+                document.getElementById('tab-admin-pengumuman').style.display = 'none';
+                document.getElementById('tab-admin-tes').style.display = 'none';
+                document.getElementById('tab-admin-kesehatan').style.display = 'none';
+                document.getElementById('tab-admin-hasil').style.display = 'none';
+                document.getElementById('tab-admin-users').style.display = 'none';
+                
+                // Switch to verifikasi tab
+                document.querySelectorAll('#adminContent .tab-btn').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('#adminContent .tab-content').forEach(t => t.classList.remove('active'));
+                document.querySelector('#adminContent .tab-btn[data-tab="admin-verifikasi"]').classList.add('active');
+                document.getElementById('tab-admin-verifikasi').classList.add('active');
+            } else if (role === 'ASESOR') {
+                // Asesor sees tes and kesehatan tabs
+                document.getElementById('tab-admin-formasi').style.display = 'none';
+                document.getElementById('tab-admin-pengumuman').style.display = 'none';
+                document.getElementById('tab-admin-verifikasi').style.display = 'none';
+                document.getElementById('tab-admin-hasil').style.display = 'none';
+                document.getElementById('tab-admin-users').style.display = 'none';
+                
+                // Switch to tes tab
+                document.querySelectorAll('#adminContent .tab-btn').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('#adminContent .tab-content').forEach(t => t.classList.remove('active'));
+                document.querySelector('#adminContent .tab-btn[data-tab="admin-tes"]').classList.add('active');
+                document.getElementById('tab-admin-tes').classList.add('active');
+            }
+        }
         function logout() { showConfirm('Logout', 'Apakah Anda yakin ingin logout?', 'warning', () => { appState.session = null; appState.user = null; appState.isLoggedIn = false; document.getElementById('loginPage').style.display = 'flex'; document.getElementById('mainApp').style.display = 'none'; document.getElementById('menuAdmin').style.display = 'none'; showToast('info', 'Logout', 'Anda telah logout'); }); }
         function getRoleName(role) { const roles = { 'ADMIN': 'Administrator', 'VERIFIKATOR': 'Tim Verifikator', 'ASESOR': 'Tim Asesor' }; return roles[role] || role; }
         function checkSession() { if (!appState.session || !appState.isLoggedIn) return false; const expired = new Date(appState.session.expired); if (expired < new Date()) { logout(); return false; } return true; }
