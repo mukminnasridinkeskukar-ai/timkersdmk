@@ -1233,7 +1233,7 @@ s;
                 </div>
                 <div class="submenu-item" data-page="formasi">
                     <i class="fas fa-users-cog"></i>
-                    <span>Formasi/Lowongan</span>
+                    <span>Formasi</span>
                 </div>
                 <div class="submenu-item" data-page="tahapan">
                     <i class="fas fa-tasks"></i>
@@ -1369,8 +1369,8 @@ s;
                 <div class="filter-bar">
                     <select id="periodeFilter">
                         <option value="all">Semua Periode</option>
-                        <option value="2026">2026</option>
-                        <option value="2027">2027</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
                     </select>
                     <button class="btn btn-secondary" id="autoRefreshBtn">
                         <i class="fas fa-sync"></i> Auto Refresh (60s)
@@ -2097,7 +2097,7 @@ s;
     <script>
         // ==================== CONFIGURATION ====================
         // Replace with your Google Apps Script Web App URL
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwodvkuxGzhjJtF_k4UXFx1_pf4pjis_UeW8TeE6ERppgiunAjLVjA8RsOb7pw7gq6h/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyucMQbTCv22nWvM6RfW-mAqgKX5nkc_5dWlm36P98n-LQHmL_wXKVu9ZwZJYUHP8M3/exec';
         
         // NIK yang sudah terdaftar (stored in localStorage for demo)
         const REGISTERED_NIKS_KEY = 'sirek_registered_niks';
@@ -2727,33 +2727,40 @@ s;
             submitBtn.disabled = true;
 
             try {
-                // Prepare data for submission
-                const data = {
-                    action: 'submit_pendaftaran',
-                    nama: formData.get('nama'),
-                    nik: formData.get('nik'),
-                    email: formData.get('email'),
-                    nohp: formData.get('nohp'),
-                    jeniskelamin: formData.get('jeniskelamin'),
-                    pendidikan: formData.get('pendidikan'),
-                    posisi: formData.get('posisi'),
-                    alamat: formData.get('alamat'),
-                    cv: await fileToBase64(formData.get('cv')),
-                    ijazah: await fileToBase64(formData.get('ijazah')),
-                    str: await fileToBase64(formData.get('str')),
-                    ktp: await fileToBase64(formData.get('ktp')),
-                    foto: await fileToBase64(formData.get('foto'))
-                };
-
+                // Convert files to base64
+                const cvBase64 = await fileToBase64(formData.get('cv'));
+                const ijazahBase64 = await fileToBase64(formData.get('ijazah'));
+                const strBase64 = await fileToBase64(formData.get('str'));
+                const ktpBase64 = await fileToBase64(formData.get('ktp'));
+                const fotoBase64 = await fileToBase64(formData.get('foto'));
+                
+                console.log('Files converted to base64');
+                
+                // Build URL with query parameters (GET request approach)
+                const params = new URLSearchParams();
+                params.set('action', 'submit_pendaftaran');
+                params.set('nama', formData.get('nama') || '');
+                params.set('nik', formData.get('nik') || '');
+                params.set('email', formData.get('email') || '');
+                params.set('nohp', formData.get('nohp') || '');
+                params.set('jeniskelamin', formData.get('jeniskelamin') || '');
+                params.set('pendidikan', formData.get('pendidikan') || '');
+                params.set('posisi', formData.get('posisi') || '');
+                params.set('alamat', formData.get('alamat') || '');
+                params.set('cv', cvBase64);
+                params.set('ijazah', ijazahBase64);
+                params.set('str', strBase64);
+                params.set('ktp', ktpBase64);
+                params.set('foto', fotoBase64);
+                
                 console.log('Sending data to server...');
                 
-                // Send to Google Apps Script using redirect-free approach
-                const response = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8'
-                    },
-                    body: JSON.stringify(data)
+                // Use GET request with query parameters (works better with CORS)
+                const url = WEB_APP_URL + '?' + params.toString();
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors'
                 });
 
                 console.log('Response status:', response.status);
@@ -2780,7 +2787,7 @@ s;
                 
             } catch (error) {
                 console.error('Error:', error);
-                showToast('error', 'Pendaftaran Gagal', 'Tidak dapat terhubung ke server. Pastikan Web App URL sudah benar dan Spreadsheet ID sudah dikonfigurasi.');
+                showToast('error', 'Pendaftaran Gagal', 'Tidak dapat terhubung ke server. Pastikan Web App URL sudah benar.');
             } finally {
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
