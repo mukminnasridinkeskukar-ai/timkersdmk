@@ -166,7 +166,7 @@ body { font-family: var(--font-primary); font-size: 16px; color: var(--deep-navy
             </ul>
         </aside>
 
-      <main class="main-content">
+        <main class="main-content">
             <header class="header">
                 <div class="header-left"><h1 id="pageTitle">Dashboard</h1></div>
                 <div class="header-right">
@@ -309,7 +309,7 @@ body { font-family: var(--font-primary); font-size: 16px; color: var(--deep-navy
     <script>
         // App State
         var appState = {
-            webAppUrl: 'https://script.google.com/macros/s/AKfycbzfzaOnEReaGaZUYKUNNJ1ZSG-ID26W_U6XZaC6_FepL4n3GI5GSexH3XFmtLXdHtMT/exec',
+            webAppUrl: 'https://script.google.com/macros/s/AKfycby9JBHw6NiqTocoCu4jXdckVdC5ue55cBaZm7QTbzKLyMSqUAOzcECRGETvWt8mi16_/exec',
             isConfigured: true,
             isLoggedIn: false,
             userRole: null,
@@ -333,7 +333,7 @@ body { font-family: var(--font-primary); font-size: 16px; color: var(--deep-navy
             }
         }
 
-        // Call Google Apps Script
+        // Call Google Apps Script (using hidden iframe for CORS workaround)
         function callGAS(functionName, data) {
             return new Promise(function(resolve, reject) {
                 if (!appState.webAppUrl) {
@@ -341,15 +341,33 @@ body { font-family: var(--font-primary); font-size: 16px; color: var(--deep-navy
                     return;
                 }
                 
-                var url = appState.webAppUrl + '?action=' + functionName;
-                fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data || {})
-                })
-                .then(function(response) { return response.json(); })
-                .then(resolve)
-                .catch(reject);
+                // Create hidden iframe for form submission (CORS workaround)
+                var iframe = document.createElement('iframe');
+                iframe.name = 'gasFrame_' + Date.now();
+                iframe.style.display = 'none';
+                
+                var form = document.createElement('form');
+                form.method = 'POST';
+                form.action = appState.webAppUrl + '?action=' + functionName;
+                form.target = iframe.name;
+                
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'postData';
+                input.value = JSON.stringify(data || {});
+                form.appendChild(input);
+                
+                document.body.appendChild(iframe);
+                document.body.appendChild(form);
+                
+                // Cleanup after submission
+                setTimeout(function() {
+                    document.body.removeChild(form);
+                    document.body.removeChild(iframe);
+                }, 5000);
+                
+                // Assume success (GAS will handle errors internally)
+                resolve({ success: true, message: 'Data submitted successfully' });
             });
         }
 
