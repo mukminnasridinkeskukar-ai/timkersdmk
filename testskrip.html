@@ -494,7 +494,7 @@
     <div class="modal-overlay" id="modalTambahUser"><div class="modal modal-sm"><div class="modal-header"><h3 class="modal-title">Tambah User Admin</h3><button class="modal-close" onclick="closeModal('modalTambahUser')"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button></div><div class="modal-body"><div class="form-group"><label class="form-label">Username</label><input type="text" class="form-control" id="userUsername" placeholder="Username"></div><div class="form-group"><label class="form-label">Password</label><input type="password" class="form-control" id="userPassword" placeholder="Password"></div><div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" class="form-control" id="userNama" placeholder="Nama Lengkap"></div><div class="form-group"><label class="form-label">Role</label><select class="form-control" id="userRole"><option value="ADMIN">Admin Utama</option><option value="VERIFIKATOR">Tim Verifikator</option><option value="ASESOR">Tim Asesor</option></select></div></div><div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('modalTambahUser')">Batal</button><button class="btn btn-primary" onclick="simpanUser()">Simpan</button></div></div></div>
     <div class="modal-overlay" id="modalConfirm"><div class="modal modal-sm"><div class="modal-body"><div class="confirm-dialog"><div class="confirm-icon warning" id="confirmIcon"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div><h3 class="confirm-title" id="confirmTitle">Konfirmasi</h3><p class="confirm-message" id="confirmMessage">Apakah Anda yakin?</p><div class="confirm-actions"><button class="btn btn-secondary" onclick="closeModal('modalConfirm')">Batal</button><button class="btn btn-danger" id="confirmBtn">Ya, Lanjutkan</button></div></div></div></div></div>
     <script>
-        const APP_CONFIG = { GAS_URL: 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec', TIMEOUT: 30000, REFRESH_INTERVAL: 30000 };
+        const APP_CONFIG = { GAS_URL: 'https://script.google.com/macros/s/AKfycbwUW4gpAwxbPOL4ml3yOAu59T8KSzoiZqsakV-C8bTtHB2nBNgcabHLgsE9E8cG51d7/exec', TIMEOUT: 30000, REFRESH_INTERVAL: 30000 };
         let appState = { session: null, user: null, isLoggedIn: false, currentMenu: 'dashboard', currentTab: 'pengumuman', adminTab: 'admin-dashboard', theme: 'light', dashboardData: null, formasiList: [], pengumumanList: [], pelamarList: [], userList: [], pagination: { formasi: { page: 1, limit: 10, total: 0 }, verifikasi: { page: 1, limit: 10, total: 0 }, nilai: { page: 1, limit: 10, total: 0 }, kesehatan: { page: 1, limit: 10, total: 0 }, hasil: { page: 1, limit: 10, total: 0 } } };
         let chartFormasi = null, chartStatus = null, chartAdminFormasi = null, chartAdminStatus = null;
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
@@ -557,7 +557,72 @@
         document.getElementById('btnDarkMode').addEventListener('click', toggleDarkMode);
         document.getElementById('btnLogout').addEventListener('click', logout);
         document.getElementById('btnRefresh').addEventListener('click', async () => { showToast('info', 'Refresh', 'Memperbarui data...'); await loadDashboard(); await loadFormasi(); await loadPengumuman(); await loadPelamar(); await loadUsers(); showToast('success', 'Berhasil', 'Data diperbarui'); });
-        document.getElementById('pendaftaranForm').addEventListener('submit', async (e) => { e.preventDefault(); const nik = document.getElementById('nik').value; if (nik.length !== 16) { showToast('error', 'Error', 'NIK harus 16 digit'); return; } showLoading(); const checkResult = await apiRequest('checkNIK', { nik }); if (checkResult.success && checkResult.registered) { hideLoading(); showToast('error', 'NIK Sudah Terdaftar', 'NIK ini sudah digunakan dan tidak dapat digunakan kembali.'); return; } const formData = { nik, email: document.getElementById('email').value, nama: document.getElementById('namaLengkap').value, tempatLahir: document.getElementById('tempatLahir').value, tanggalLahir: document.getElementById('tanggalLahir').value, jenisKelamin: document.getElementById('jenisKelamin').value, noHp: document.getElementById('noHp').value, alamat: document.getElementById('alamat').value, pendidikan: document.getElementById('pendidikan').value, ipk: document.getElementById('ipk').value, formasi: document.getElementById('formasiDipilih').value, status: 'MENUNGGU VERIFIKASI' }; const result = await apiRequest('register', formData); hideLoading(); if (result.success) { showToast('success', 'Pendaftaran Berhasil', 'Data Anda telah disimpan dan menunggu verifikasi.'); resetForm(); } else { showToast('error', 'Pendaftaran Gagal', result.message || 'Silakan coba lagi.'); } });
+        document.getElementById('pendaftaranForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nik = document.getElementById('nik').value;
+            if (nik.length !== 16) { showToast('error', 'Error', 'NIK harus 16 digit'); return; }
+            showLoading();
+            
+            // Check NIK first
+            const checkResult = await apiRequest('checkNIK', { nik });
+            if (checkResult.success && checkResult.registered) {
+                hideLoading();
+                showToast('error', 'NIK Sudah Terdaftar', 'NIK ini sudah digunakan dan tidak dapat digunakan kembali.');
+                return;
+            }
+            
+            // Prepare form data with files
+            const formData = new FormData();
+            formData.append('action', 'register');
+            formData.append('nik', nik);
+            formData.append('email', document.getElementById('email').value);
+            formData.append('nama', document.getElementById('namaLengkap').value);
+            formData.append('tempatLahir', document.getElementById('tempatLahir').value);
+            formData.append('tanggalLahir', document.getElementById('tanggalLahir').value);
+            formData.append('jenisKelamin', document.getElementById('jenisKelamin').value);
+            formData.append('noHp', document.getElementById('noHp').value);
+            formData.append('alamat', document.getElementById('alamat').value);
+            formData.append('pendidikan', document.getElementById('pendidikan').value);
+            formData.append('ipk', document.getElementById('ipk').value);
+            formData.append('formasi', document.getElementById('formasiDipilih').value);
+            
+            // Add files
+            const fileIds = ['fileKtp', 'fileIjazah', 'fileTranskrip', 'fileStr', 'fileSertifikat', 'fileFoto'];
+            const fileKeys = ['ktp', 'ijazah', 'transkrip', 'str', 'sertifikat', 'foto'];
+            
+            for (let i = 0; i < fileIds.length; i++) {
+                const fileInput = document.getElementById(fileIds[i]);
+                if (fileInput && fileInput.files[0]) {
+                    formData.append(fileKeys[i], fileInput.files[0]);
+                }
+            }
+            
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.TIMEOUT);
+                
+                const response = await fetch(APP_CONFIG.GAS_URL, {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                const result = await response.json();
+                hideLoading();
+                
+                if (result.success) {
+                    showToast('success', 'Pendaftaran Berhasil', 'Data dan berkas Anda telah disimpan.');
+                    resetForm();
+                } else {
+                    showToast('error', 'Pendaftaran Gagal', result.message || 'Silakan coba lagi.');
+                }
+            } catch (error) {
+                hideLoading();
+                console.error('Upload error:', error);
+                showToast('error', 'Error', 'Gagal upload berkas. Silakan coba lagi.');
+            }
+        });
         document.getElementById('searchFormasi').addEventListener('input', (e) => { const search = e.target.value.toLowerCase(); const filtered = appState.formasiList.filter(f => f.nama.toLowerCase().includes(search) || f.kode.toLowerCase().includes(search) || f.unit.toLowerCase().includes(search)); renderFormasi(filtered); });
         document.getElementById('btnExportFormasi').addEventListener('click', () => { const data = appState.formasiList.map(f => ({ Kode: f.kode, 'Nama Jabatan': f.nama, Unit: f.unit, Kebutuhan: f.kebutuhan, Status: f.status })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Formasi'); XLSX.writeFile(wb, 'Data_Formasi_SIREK.xlsx'); showToast('success', 'Export Berhasil', 'File Excel berhasil diunduh'); });
         let refreshInterval = setInterval(async () => { if (appState.isLoggedIn) await loadDashboard(); }, APP_CONFIG.REFRESH_INTERVAL);
