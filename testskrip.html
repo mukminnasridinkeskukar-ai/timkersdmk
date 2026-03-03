@@ -1574,6 +1574,44 @@
             font-weight: 500;
             color: var(--gray-700);
         }
+
+        /* Pelamar View Mode */
+        .pelamar-only {
+            display: none;
+        }
+
+        .main-header.pelamar-view .user-dropdown {
+            background: var(--primary-light);
+            border-color: var(--primary);
+        }
+
+        .main-header.pelamar-view .user-dropdown .name,
+        .main-header.pelamar-view .user-dropdown .role {
+            color: var(--primary);
+        }
+
+        .view-only-table .action-btn.edit,
+        .view-only-table .action-btn.delete {
+            display: none;
+        }
+
+        .view-only-table .table-header .btn {
+            display: none;
+        }
+
+        /* Hide admin elements for pelamar */
+        .admin-only-col {
+            display: table-cell;
+        }
+
+        body.pelamar-view .admin-only-col,
+        body.pelamar-view .admin-only {
+            display: none !important;
+        }
+
+        body.pelamar-view #pelamarFilters {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -1786,8 +1824,33 @@
             </header>
 
             <main class="page-content">
+                <!-- Rekrutmen Page -->
+                <div id="rekrutmenPage" class="page" style="display: none;">
+                    <div class="table-card">
+                        <div class="table-header">
+                            <h3 class="table-title">Menu Rekrutmen</h3>
+                        </div>
+                        <div style="padding: 30px; text-align: center;">
+                            <i class="fas fa-folder-open" style="font-size: 60px; color: var(--gray-300); margin-bottom: 20px;"></i>
+                            <h3 style="margin-bottom: 10px;">Pilih Sub Menu</h3>
+                            <p style="color: var(--gray-500);">Silakan pilih sub menu dari sidebar untuk melihat konten</p>
+                            <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                                <button class="btn btn-primary" onclick="showSubPage('pengumuman')">
+                                    <i class="fas fa-bullhorn"></i> Pengumuman
+                                </button>
+                                <button class="btn btn-primary" onclick="showSubPage('timeline')">
+                                    <i class="fas fa-calendar-alt"></i> Timeline
+                                </button>
+                                <button class="btn btn-primary" onclick="showSubPage('formulir-online')">
+                                    <i class="fas fa-file-alt"></i> Daftar Sekarang
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Dashboard Page -->
-                <div id="dashboardPage" class="page">
+                <div id="dashboardPage" class="page" style="display: none;">
                     <!-- Stats Grid -->
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -2389,7 +2452,7 @@
                     <div class="table-card">
                         <div class="table-header">
                             <h3 class="table-title">Data Pelamar</h3>
-                            <div class="table-filters">
+                            <div class="table-filters" id="pelamarFilters" style="display: none;">
                                 <input type="text" placeholder="Cari pelamar...">
                                 <select>
                                     <option>Semua Formasi</option>
@@ -2402,7 +2465,7 @@
                                 </button>
                             </div>
                         </div>
-                        <table class="data-table">
+                        <table class="data-table" id="pelamarTable">
                             <thead>
                                 <tr>
                                     <th>No. Registrasi</th>
@@ -2411,7 +2474,7 @@
                                     <th>Formasi</th>
                                     <th>Tgl Lamar</th>
                                     <th>Status</th>
-                                    <th>Aksi</th>
+                                    <th class="admin-only-col">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2422,7 +2485,7 @@
                                     <td>Perawat</td>
                                     <td>02 Mar 2026</td>
                                     <td><span class="status-badge processing">Verifikasi</span></td>
-                                    <td>
+                                    <td class="admin-only-col">
                                         <div class="action-btns">
                                             <button class="action-btn view" onclick="showLightbox()"><i class="fas fa-eye"></i></button>
                                             <button class="action-btn edit"><i class="fas fa-edit"></i></button>
@@ -2679,7 +2742,53 @@
             document.getElementById('userRoleLabel').textContent = 'Pelamar';
             document.getElementById('headerRole').textContent = 'Pelamar';
             document.getElementById('userAvatar').textContent = 'A';
+            
+            // Setup role-based menu access
+            setupMenuAccess();
+            
+            // Show rekrutmen page by default for pelamar
+            showPage('rekrutmen');
         });
+
+        // Setup menu access based on role
+        function setupMenuAccess() {
+            const sidebarNav = document.getElementById('sidebarNav');
+            const navItems = sidebarNav.querySelectorAll('.nav-item');
+            
+            if (currentRole === 'pelamar') {
+                // Add pelamar class to body for CSS styling
+                document.body.classList.add('pelamar-view');
+                
+                // Pelamar: Only show Rekrutmen menu
+                navItems.forEach((item, index) => {
+                    if (index === 0) {
+                        // Dashboard - hide completely for pelamar
+                        item.style.display = 'none';
+                    } else if (index === 1) {
+                        // Rekrutmen - show but modify submenu
+                        item.style.display = 'block';
+                        // Expand by default
+                        item.classList.add('expanded');
+                    } else if (index === 2) {
+                        // Panel Admin - hide for pelamar
+                        item.style.display = 'none';
+                    }
+                });
+                
+                // Add view-only class to header
+                document.querySelector('.main-header').classList.add('pelamar-view');
+            }
+        }
+
+        // Check if pelamar can access certain submenu
+        function canAccessSubmenu(submenuName) {
+            const allowedForPelamar = ['pengumuman', 'timeline', 'formulir-online'];
+            
+            if (currentRole === 'pelamar') {
+                return allowedForPelamar.includes(submenuName);
+            }
+            return true;
+        }
 
         // Login Form
         document.getElementById('loginForm').addEventListener('submit', function(e) {
@@ -2747,17 +2856,24 @@
             });
         }
 
-        // Page Navigation
+        // Page Navigation with Role Check
         function showPage(page) {
+            // Check if pelamar is trying to access admin pages
+            if (currentRole === 'pelamar' && page !== 'rekrutmen') {
+                showToast('Anda tidak memiliki akses ke menu ini', 'error');
+                showPage('rekrutmen');
+                return;
+            }
+            
             document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
             
             const pageMap = {
                 'dashboard': 'dashboardPage',
-                'rekrutmen': 'dataPelamarPage',
+                'rekrutmen': 'rekrutmenPage',
                 'panel-admin': 'otherPage'
             };
             
-            const targetPage = pageMap[page] || 'dashboardPage';
+            const targetPage = pageMap[page] || 'rekrutmenPage';
             document.getElementById(targetPage).style.display = 'block';
             
             const pageTitles = {
@@ -2766,11 +2882,27 @@
                 'panel-admin': 'Panel Admin'
             };
             
-            document.getElementById('pageTitle').textContent = pageTitles[page] || 'Dashboard';
-            document.getElementById('breadcrumbText').textContent = pageTitles[page] || 'Dashboard';
+            document.getElementById('pageTitle').textContent = pageTitles[page] || 'Rekrutmen';
+            document.getElementById('breadcrumbText').textContent = pageTitles[page] || 'Rekrutmen';
         }
 
         function showSubPage(subpage) {
+            // Check access for pelamar
+            if (currentRole === 'pelamar') {
+                const allowedSubpages = ['pengumuman', 'timeline', 'formulir-online', 'data-pelamar', 'verifikasi-berkas', 'uji-kompetensi', 'wawancara', 'tes-kesehatan', 'pengumuman-akhir'];
+                
+                if (!allowedSubpages.includes(subpage)) {
+                    showToast('Anda tidak memiliki akses ke menu ini', 'error');
+                    return;
+                }
+            }
+            
+            // For pelamar, show view-only versions of these submenus
+            if (currentRole === 'pelamar' && ['verifikasi-berkas', 'uji-kompetensi', 'wawancara', 'tes-kesehatan', 'pengumuman-akhir'].includes(subpage)) {
+                showViewOnlyPage(subpage);
+                return;
+            }
+            
             document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
             
             const subPageMap = {
@@ -2780,8 +2912,8 @@
                 'lolos-tidak': { page: 'dashboardPage', title: 'Pelamar Lolos / Tidak' },
                 'monitoring-str': { page: 'dashboardPage', title: 'Monitoring STR Expired' },
                 'monitoring-dokumen': { page: 'dashboardPage', title: 'Monitoring Dokumen' },
-                'pengumuman': { page: 'otherPage', title: 'Pengumuman' },
-                'timeline': { page: 'otherPage', title: 'Timeline Seleksi' },
+                'pengumuman': { page: 'rekrutmenPage', title: 'Pengumuman' },
+                'timeline': { page: 'rekrutmenPage', title: 'Timeline Seleksi' },
                 'formulir-online': { page: 'formulirOnlinePage', title: 'Formulir Pendaftaran Online' },
                 'data-pelamar': { page: 'dataPelamarPage', title: 'Data Pelamar' },
                 'verifikasi-berkas': { page: 'otherPage', title: 'Verifikasi Berkas' },
@@ -2799,7 +2931,7 @@
                 'audit-log': { page: 'otherPage', title: 'Audit Log System' }
             };
             
-            const config = subPageMap[subpage] || { page: 'dashboardPage', title: 'Dashboard' };
+            const config = subPageMap[subpage] || { page: 'rekrutmenPage', title: 'Rekrutmen' };
             
             document.getElementById(config.page).style.display = 'block';
             document.getElementById('pageTitle').textContent = config.title;
@@ -2816,6 +2948,135 @@
             // Update active nav
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
             event.target.closest('.nav-link')?.classList.add('active');
+        }
+
+        // Show view-only page for pelamar
+        function showViewOnlyPage(subpage) {
+            document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+            
+            const viewOnlyTitles = {
+                'verifikasi-berkas': 'Status Verifikasi Berkas',
+                'uji-kompetensi': 'Hasil Uji Kompetensi',
+                'wawancara': 'Hasil Wawancara',
+                'tes-kesehatan': 'Hasil Tes Kesehatan',
+                'pengumuman-akhir': 'Pengumuman Akhir Seleksi'
+            };
+            
+            const title = viewOnlyTitles[subpage] || 'Status';
+            
+            // Create view-only content
+            const viewOnlyContent = document.getElementById('viewOnlyPage');
+            if (!viewOnlyContent) {
+                // Create the element if not exists
+                const newDiv = document.createElement('div');
+                newDiv.id = 'viewOnlyPage';
+                newDiv.className = 'page';
+                newDiv.style.display = 'block';
+                document.querySelector('.page-content').appendChild(newDiv);
+            }
+            
+            const viewPage = document.getElementById('viewOnlyPage');
+            viewPage.style.display = 'block';
+            
+            // Sample status data for pelamar
+            const statusData = [
+                { no: 'RSUD-2026-PERAWAT-0021', nama: 'Ahmad Fauzi', status: 'Lolos', tanggal: '15 Feb 2026' },
+                { no: 'RSUD-2026-PERAWAT-0022', nama: 'Siti Rahayu', status: 'Lolos', tanggal: '16 Feb 2026' },
+                { no: 'RSUD-2026-PERAWAT-0023', nama: 'Budi Santoso', status: 'Tidak Lolos', tanggal: '17 Feb 2026' }
+            ];
+            
+            let statusBadge = '';
+            if (subpage === 'pengumuman-akhir') {
+                statusBadge = '<span class="status-badge approved">Lolos</span>';
+            } else {
+                statusBadge = '<span class="status-badge processing">Dalam Proses</span>';
+            }
+            
+            viewPage.innerHTML = `
+                <div class="profile-card">
+                    <div class="profile-header">
+                        <div class="profile-avatar" style="width: 60px; height: 60px; font-size: 24px;">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div>
+                            <h3 class="profile-name">${title}</h3>
+                            <p class="profile-email">Berikut adalah status seleksi Anda</p>
+                        </div>
+                    </div>
+                    <div class="profile-stats">
+                        <div class="profile-stat">
+                            <div class="profile-stat-value">1</div>
+                            <div class="profile-stat-label">No. Registrasi</div>
+                        </div>
+                        <div class="profile-stat">
+                            <div class="profile-stat-value">Lolos</div>
+                            <div class="profile-stat-label">Status</div>
+                        </div>
+                        <div class="profile-stat">
+                            <div class="profile-stat-value">Perawat</div>
+                            <div class="profile-stat-label">Formasi</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-card view-only-table">
+                    <div class="table-header">
+                        <h3 class="table-title">Riwayat Seleksi</h3>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>No. Registrasi</th>
+                                <th>Nama Pelamar</th>
+                                <th>Tahapan</th>
+                                <th>Status</th>
+                                <th>Tanggal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>RSUD-2026-PERAWAT-0021</strong></td>
+                                <td>Ahmad Fauzi</td>
+                                <td>Verifikasi Berkas</td>
+                                <td><span class="status-badge approved">Lolos</span></td>
+                                <td>20 Feb 2026</td>
+                            </tr>
+                            <tr>
+                                <td><strong>RSUD-2026-PERAWAT-0021</strong></td>
+                                <td>Ahmad Fauzi</td>
+                                <td>Uji Kompetensi</td>
+                                <td><span class="status-badge approved">Lolos</span></td>
+                                <td>25 Feb 2026</td>
+                            </tr>
+                            <tr>
+                                <td><strong>RSUD-2026-PERAWAT-0021</strong></td>
+                                <td>Ahmad Fauzi</td>
+                                <td>Wawancara</td>
+                                <td><span class="status-badge approved">Lolos</span></td>
+                                <td>28 Feb 2026</td>
+                            </tr>
+                            <tr>
+                                <td><strong>RSUD-2026-PERAWAT-0021</strong></td>
+                                <td>Ahmad Fauzi</td>
+                                <td>Tes Kesehatan</td>
+                                <td><span class="status-badge processing">${subpage === 'pengumuman-akhir' ? '<span class="status-badge approved">Lolos</span>' : 'Dalam Proses'}</span></td>
+                                <td>01 Mar 2026</td>
+                            </tr>
+                            ${subpage === 'pengumuman-akhir' ? `
+                            <tr>
+                                <td><strong>RSUD-2026-PERAWAT-0021</strong></td>
+                                <td>Ahmad Fauzi</td>
+                                <td><strong>Pengumuman Akhir</strong></td>
+                                <td><span class="status-badge approved"><strong>LOLOS</strong></span></td>
+                                <td>03 Mar 2026</td>
+                            </tr>
+                            ` : ''}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            document.getElementById('pageTitle').textContent = title;
+            document.getElementById('breadcrumbText').textContent = title;
         }
 
         // Charts Initialization
