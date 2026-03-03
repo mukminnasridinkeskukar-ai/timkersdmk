@@ -1974,6 +1974,273 @@ function initializeData() {
 initializeData();
 
 // ========================================
+// GOOGLE APPS SCRIPT API LAYER
+// ========================================
+// Mode: 'google' for Google Apps Script, 'mock' for local data
+const API_MODE = 'https://script.google.com/macros/s/AKfycbyrHQH3j47j-G5pdBEE8NojCWWA7XM1iddktAE-E7XvhwOAFGp9LqpftKz6FsYCmGie/exec'; // Change to 'mock' for development without GAS
+
+const GASApi = {
+    // Generic handler for Google Apps Script calls
+    async call(functionName, data = null) {
+        if (API_MODE === 'mock') {
+            return this.mockHandler(functionName, data);
+        }
+        
+        return new Promise((resolve, reject) => {
+            google.script.run
+                .withSuccessHandler(result => {
+                    if (result && result.error) {
+                        reject(result.error);
+                    } else {
+                        resolve(result);
+                    }
+                })
+                .withFailureHandler(error => {
+                    console.error('GAS Error:', error);
+                    reject(error);
+                })
+                .handleRequest({ action: functionName, data: JSON.stringify(data) });
+        });
+    },
+    
+    // Mock fallback when Google Apps Script is unavailable
+    mockHandler(functionName, data) {
+        console.log(`[MOCK] ${functionName}:`, data);
+        return Promise.resolve({ message: 'Mock mode' });
+    },
+    
+    // Data fetching functions
+    async getUsers() {
+        try {
+            return await this.call('getUsers');
+        } catch (e) {
+            console.warn('Using local data for users');
+            return db.users;
+        }
+    },
+    
+    async getAnnouncements() {
+        try {
+            return await this.call('getAnnouncements');
+        } catch (e) {
+            console.warn('Using local data for announcements');
+            return db.announcements;
+        }
+    },
+    
+    async getFormasi() {
+        try {
+            return await this.call('getFormasi');
+        } catch (e) {
+            console.warn('Using local data for formasi');
+            return db.formasi;
+        }
+    },
+    
+    async getPelamar() {
+        try {
+            return await this.call('getPelamar');
+        } catch (e) {
+            console.warn('Using local data for pelamar');
+            return db.pelamar;
+        }
+    },
+    
+    async getSeleksiBerkas() {
+        try {
+            return await this.call('getSeleksiBerkas');
+        } catch (e) {
+            console.warn('Using local data for seleksiBerkas');
+            return db.seleksiBerkas;
+        }
+    },
+    
+    async getNilaiKompetensi() {
+        try {
+            return await this.call('getNilaiKompetensi');
+        } catch (e) {
+            console.warn('Using local data for nilaiKompetensi');
+            return db.nilaiKompetensi;
+        }
+    },
+    
+    async getNilaiWawancara() {
+        try {
+            return await this.call('getNilaiWawancara');
+        } catch (e) {
+            console.warn('Using local data for nilaiWawancara');
+            return db.nilaiWawancara;
+        }
+    },
+    
+    async getTesKesehatan() {
+        try {
+            return await this.call('getTesKesehatan');
+        } catch (e) {
+            console.warn('Using local data for tesKesehatan');
+            return db.tesKesehatan;
+        }
+    },
+    
+    async getAuditLog() {
+        try {
+            return await this.call('getAuditLog');
+        } catch (e) {
+            console.warn('Using local data for auditLog');
+            return db.auditLog;
+        }
+    },
+    
+    // Data mutation functions
+    async addUser(userData) {
+        try {
+            return await this.call('addUser', userData);
+        } catch (e) {
+            // Fallback to local
+            userData.id = db.users.length + 1;
+            db.users.push(userData);
+            return { success: true, id: userData.id };
+        }
+    },
+    
+    async addPelamar(pelamarData) {
+        try {
+            return await this.call('addPelamar', pelamarData);
+        } catch (e) {
+            pelamarData.id = db.pelamar.length + 1;
+            db.pelamar.push(pelamarData);
+            return { success: true, id: pelamarData.id };
+        }
+    },
+    
+    async addFormasi(formasiData) {
+        try {
+            return await this.call('addFormasi', formasiData);
+        } catch (e) {
+            formasiData.id = db.formasi.length + 1;
+            formasiData.terisi = 0;
+            db.formasi.push(formasiData);
+            return { success: true, id: formasiData.id };
+        }
+    },
+    
+    async updateSeleksiBerkas(id, data) {
+        try {
+            return await this.call('updateSeleksiBerkas', { id, ...data });
+        } catch (e) {
+            const idx = db.seleksiBerkas.findIndex(b => b.id === id);
+            if (idx > -1) {
+                db.seleksiBerkas[idx] = { ...db.seleksiBerkas[idx], ...data };
+            }
+            return { success: true };
+        }
+    },
+    
+    async addNilaiKompetensi(data) {
+        try {
+            return await this.call('addNilaiKompetensi', data);
+        } catch (e) {
+            data.id = db.nilaiKompetensi.length + 1;
+            db.nilaiKompetensi.push(data);
+            return { success: true, id: data.id };
+        }
+    },
+    
+    async addNilaiWawancara(data) {
+        try {
+            return await this.call('addNilaiWawancara', data);
+        } catch (e) {
+            data.id = db.nilaiWawancara.length + 1;
+            data.tanggal = new Date().toISOString().split('T')[0];
+            db.nilaiWawancara.push(data);
+            return { success: true, id: data.id };
+        }
+    },
+    
+    async addAuditLog(logData) {
+        try {
+            return await this.call('addAuditLog', logData);
+        } catch (e) {
+            logData.waktu = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            db.auditLog.unshift(logData);
+            return { success: true };
+        }
+    },
+    
+    async addAnnouncement(data) {
+        try {
+            return await this.call('addAnnouncement', data);
+        } catch (e) {
+            data.id = db.announcements.length + 1;
+            data.tanggal = new Date().toISOString().split('T')[0];
+            db.announcements.push(data);
+            return { success: true, id: data.id };
+        }
+    },
+    
+    // Load all data from server
+    async loadAllData() {
+        try {
+            if (API_MODE === 'mock') {
+                console.log('Running in MOCK mode - using local data');
+                return;
+            }
+            
+            showLoading('Memuat data...');
+            
+            const [users, announcements, formasi, pelamar, seleksiBerkas, nilaiKompetensi, nilaiWawancara, tesKesehatan, auditLog] = await Promise.all([
+                this.getUsers(),
+                this.getAnnouncements(),
+                this.getFormasi(),
+                this.getPelamar(),
+                this.getSeleksiBerkas(),
+                this.getNilaiKompetensi(),
+                this.getNilaiWawancara(),
+                this.getTesKesehatan(),
+                this.getAuditLog()
+            ]);
+            
+            db.users = users || [];
+            db.announcements = announcements || [];
+            db.formasi = formasi || [];
+            db.pelamar = pelamar || [];
+            db.seleksiBerkas = seleksiBerkas || [];
+            db.nilaiKompetensi = nilaiKompetensi || [];
+            db.nilaiWawancara = nilaiWawancara || [];
+            db.tesKesehatan = tesKesehatan || [];
+            db.auditLog = auditLog || [];
+            
+            console.log('All data loaded from Google Sheets');
+            hideLoading();
+        } catch (error) {
+            console.error('Error loading data:', error);
+            console.log('Falling back to local mock data');
+            hideLoading();
+        }
+    }
+};
+
+// Helper function to show loading
+function showLoading(message = 'Loading...') {
+    let loader = document.getElementById('globalLoader');
+    if (!loader) {
+        loader = document.createElement('div');
+        loader.id = 'globalLoader';
+        loader.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        loader.innerHTML = '<div style="background:white;padding:20px 40px;border-radius:8px;text-align:center;"><i class="fas fa-spinner fa-spin" style="font-size:24px;color:#0F4C81;"></i><p style="margin-top:10px;">'+message+'</p></div>';
+        document.body.appendChild(loader);
+    } else {
+        loader.querySelector('p').textContent = message;
+        loader.style.display = 'flex';
+    }
+}
+
+function hideLoading() {
+    const loader = document.getElementById('globalLoader');
+    if (loader) loader.style.display = 'none';
+}
+
+// ========================================
 // GLOBAL STATE
 // ========================================
 let currentUser = null;
@@ -2187,7 +2454,26 @@ function renderKelolaUser() { const tbody = document.getElementById('tableUsersB
 
 function showAddUserForm() { const body = document.getElementById('crudBody'); document.getElementById('crudTitle').textContent = 'Tambah User'; body.innerHTML = `<form onsubmit="saveUser(event)"><div class="form-group" style="margin-bottom: 15px;"><label>Username</label><input type="text" id="userUsername" required style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Nama</label><input type="text" id="userNama" required style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Password</label><input type="password" id="userPassword" required style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Role</label><select id="userRole" required style="width: 100%;"><option value="admin">Admin Utama</option><option value="tim_seleksi">Tim Seleksi</option><option value="asesor">Asesor Kompetensi</option><option value="wawancara">Tim Wawancara</option></select></div><div style="display: flex; gap: 10px; justify-content: flex-end;"><button type="button" class="btn-secondary" onclick="closeModal('crudModal')">Batal</button><button type="submit" class="btn-primary">Simpan</button></div></form>`; openModal('crudModal'); }
 
-function saveUser(e) { e.preventDefault(); const newId = db.users.length + 1; db.users.push({ id: newId, username: document.getElementById('userUsername').value, password: document.getElementById('userPassword').value, nama: document.getElementById('userNama').value, role: document.getElementById('userRole').value, status: 'active', lastLogin: '-' }); addAuditLog('create', 'Kelola User', `Tambah user: ${document.getElementById('userUsername').value}`); closeModal('crudModal'); renderKelolaUser(); showModal('success', 'Berhasil', 'User berhasil ditambahkan'); }
+function saveUser(e) { 
+    e.preventDefault(); 
+    const userData = { 
+        username: document.getElementById('userUsername').value, 
+        password: document.getElementById('userPassword').value, 
+        nama: document.getElementById('userNama').value, 
+        role: document.getElementById('userRole').value, 
+        status: 'active', 
+        lastLogin: '-' 
+    };
+    GASApi.addUser(userData).then(() => {
+        addAuditLog('create', 'Kelola User', `Tambah user: ${userData.username}`);
+        closeModal('crudModal');
+        renderKelolaUser();
+        showModal('success', 'Berhasil', 'User berhasil ditambahkan');
+    }).catch(err => {
+        console.error('Error adding user:', err);
+        showModal('error', 'Error', 'Gagal menambahkan user');
+    });
+}
 
 function editUser(id) { const user = db.users.find(u => u.id === id); if (!user) return; const body = document.getElementById('crudBody'); document.getElementById('crudTitle').textContent = 'Edit User'; body.innerHTML = `<form onsubmit="updateUser(event, ${id})"><div class="form-group" style="margin-bottom: 15px;"><label>Username</label><input type="text" id="userUsername" value="${user.username}" required style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Nama</label><input type="text" id="userNama" value="${user.nama}" required style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Password Baru</label><input type="password" id="userPassword" style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Role</label><select id="userRole" required style="width: 100%;"><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin Utama</option><option value="tim_seleksi" ${user.role === 'tim_seleksi' ? 'selected' : ''}>Tim Seleksi</option><option value="asesor" ${user.role === 'asesor' ? 'selected' : ''}>Asesor Kompetensi</option><option value="wawancara" ${user.role === 'wawancara' ? 'selected' : ''}>Tim Wawancara</option></select></div><div style="display: flex; gap: 10px; justify-content: flex-end;"><button type="button" class="btn-secondary" onclick="closeModal('crudModal')">Batal</button><button type="submit" class="btn-primary">Simpan</button></div></form>`; openModal('crudModal'); }
 
@@ -2211,7 +2497,24 @@ function renderKelolaFormasi() { const grid = document.getElementById('formasiGr
 
 function showAddFormasiForm() { const body = document.getElementById('crudBody'); document.getElementById('crudTitle').textContent = 'Tambah Formasi'; body.innerHTML = `<form onsubmit="saveFormasi(event)"><div class="form-group" style="margin-bottom: 15px;"><label>Posisi</label><input type="text" id="formPosisi" required style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Kuota</label><input type="number" id="formCuota" required min="1" style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Periode</label><select id="formPeriode" required style="width: 100%;"><option value="2026">2026</option><option value="2025">2025</option></select></div><div style="display: flex; gap: 10px; justify-content: flex-end;"><button type="button" class="btn-secondary" onclick="closeModal('crudModal')">Batal</button><button type="submit" class="btn-primary">Simpan</button></div></form>`; openModal('crudModal'); }
 
-function saveFormasi(e) { e.preventDefault(); const newId = db.formasi.length + 1; const cuota = parseInt(document.getElementById('formCuota').value); db.formasi.push({ id: newId, posisi: document.getElementById('formPosisi').value, cuota: cuota, terisi: 0, periode: document.getElementById('formPeriode').value, status: 'open' }); addAuditLog('create', 'Kelola Formasi', `Tambah formasi: ${document.getElementById('formPosisi').value}`); closeModal('crudModal'); renderKelolaFormasi(); showModal('success', 'Berhasil', 'Formasi berhasil ditambahkan'); }
+function saveFormasi(e) { 
+    e.preventDefault(); 
+    const formasiData = { 
+        posisi: document.getElementById('formPosisi').value, 
+        cuota: parseInt(document.getElementById('formCuota').value), 
+        periode: document.getElementById('formPeriode').value, 
+        status: 'open' 
+    };
+    GASApi.addFormasi(formasiData).then(() => {
+        addAuditLog('create', 'Kelola Formasi', `Tambah formasi: ${formasiData.posisi}`);
+        closeModal('crudModal');
+        renderKelolaFormasi();
+        showModal('success', 'Berhasil', 'Formasi berhasil ditambahkan');
+    }).catch(err => {
+        console.error('Error adding formasi:', err);
+        showModal('error', 'Error', 'Gagal menambahkan formasi');
+    });
+}
 
 function editFormasi(id) { const form = db.formasi.find(f => f.id === id); if (!form) return; const body = document.getElementById('crudBody'); document.getElementById('crudTitle').textContent = 'Edit Formasi'; body.innerHTML = `<form onsubmit="updateFormasi(event, ${id})"><div class="form-group" style="margin-bottom: 15px;"><label>Posisi</label><input type="text" id="formPosisi" value="${form.posisi}" required style="width: 100%;"></div><div class="form-group" style="margin-bottom: 15px;"><label>Kuota</label><input type="number" id="formCuota" value="${form.cuota}" required min="1" style="width: 100%;"></div><div style="display: flex; gap: 10px; justify-content: flex-end;"><button type="button" class="btn-secondary" onclick="closeModal('crudModal')">Batal</button><button type="submit" class="btn-primary">Simpan</button></div></form>`; openModal('crudModal'); }
 
@@ -2258,7 +2561,49 @@ function addAuditLog(aksi, modul, detail) { if (!currentUser) return; db.auditLo
 // ========================================
 function updateKuota() { const posisi = document.getElementById('regPosisi').value; const info = document.getElementById('kuotaInfo'); if (!posisi) { info.textContent = ''; return; } const form = db.formasi.find(f => f.posisi === posisi); if (form) { const sisa = form.cuota - form.terisi; if (sisa > 0) { info.textContent = `Kuota tersedia: ${sisa} orang`; info.style.color = 'var(--success)'; } else { info.textContent = 'Kuota sudah penuh!'; info.style.color = 'var(--danger)'; } } }
 
-function submitRegistration(e) { e.preventDefault(); const posisi = document.getElementById('regPosisi').value; const nama = document.getElementById('regNama').value; const form = db.formasi.find(f => f.posisi === posisi); if (!form) { showModal('error', 'Error', 'Formasi tidak valid'); return; } const newId = db.pelamar.length + 1; db.pelamar.push({ id: newId, nama: nama, posisi: posisi, nik: document.getElementById('regNIK').value, status: 'Menunggu Verifikasi' }); db.seleksiBerkas.push({ id: newId, idPelamar: newId, nama: nama, posisi: posisi, kelengkapan: 'Lengkap', status: 'Menunggu', catatan: '-', tanggalUpdate: '-' }); form.terisi++; closeModal('confirmModal'); document.getElementById('successMessage').textContent = `Pendaftaran berhasil! ID Pelamar Anda: PEL${String(newId).padStart(4, '0')}`; openModal('successModal'); document.getElementById('registrationForm').reset(); showModal('success', 'Berhasil', `Pendaftaran berhasil! ID Pelamar: PEL${String(newId).padStart(4, '0')}`); }
+function submitRegistration(e) { 
+    e.preventDefault(); 
+    const posisi = document.getElementById('regPosisi').value; 
+    const nama = document.getElementById('regNama').value; 
+    const form = db.formasi.find(f => f.posisi === posisi); 
+    if (!form) { 
+        showModal('error', 'Error', 'Formasi tidak valid'); 
+        return; 
+    } 
+    
+    const pelamarData = { 
+        nama: nama, 
+        posisi: posisi, 
+        nik: document.getElementById('regNIK').value, 
+        status: 'Menunggu Verifikasi' 
+    };
+    
+    GASApi.addPelamar(pelamarData).then(result => {
+        const newId = result.id || (db.pelamar.length + 1);
+        // Add initial seleksi berkas entry
+        db.seleksiBerkas.push({ 
+            id: newId, 
+            idPelamar: newId, 
+            nama: nama, 
+            posisi: posisi, 
+            kelengkapan: 'Lengkap', 
+            status: 'Menunggu', 
+            catatan: '-', 
+            tanggalUpdate: '-' 
+        });
+        // Update formasi terisi count
+        form.terisi++;
+        
+        closeModal('confirmModal');
+        document.getElementById('successMessage').textContent = `Pendaftaran berhasil! ID Pelamar Anda: PEL${String(newId).padStart(4, '0')}`;
+        openModal('successModal');
+        document.getElementById('registrationForm').reset();
+        showModal('success', 'Berhasil', `Pendaftaran berhasil! ID Pelamar: PEL${String(newId).padStart(4, '0')}`);
+    }).catch(err => {
+        console.error('Error submitting registration:', err);
+        showModal('error', 'Error', 'Gagal提交 pendaftaran');
+    });
+}
 
 // ========================================
 // CHARTS
