@@ -496,14 +496,44 @@
     <div class="modal-overlay" id="modalConfirm"><div class="modal modal-sm"><div class="modal-body"><div class="confirm-dialog"><div class="confirm-icon warning" id="confirmIcon"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div><h3 class="confirm-title" id="confirmTitle">Konfirmasi</h3><p class="confirm-message" id="confirmMessage">Apakah Anda yakin?</p><div class="confirm-actions"><button class="btn btn-secondary" onclick="closeModal('modalConfirm')">Batal</button><button class="btn btn-danger" id="confirmBtn">Ya, Lanjutkan</button></div></div></div></div></div>
     <script>
         const APP_CONFIG = { GAS_URL: 'https://script.google.com/macros/s/AKfycbyuXVACKkMtHqO_lR1lzKNo0xtfKdkJ1RToNIOqsRntgF4isa105FTnvtjm1sO6UMOw/exec', TIMEOUT: 30000, REFRESH_INTERVAL: 30000 };
-        let appState = { session: null, user: null, isLoggedIn: false, currentMenu: 'dashboard', currentTab: 'pengumuman', adminTab: 'admin-dashboard', theme: 'light', dashboardData: null, formasiList: [], pengumumanList: [], pelamarList: [], userList: [], pagination: { formasi: { page: 1, limit: 10, total: 0 }, verifikasi: { page: 1, limit: 10, total: 0 }, nilai: { page: 1, limit: 10, total: 0 }, kesehatan: { page: 1, limit: 10, total: 0 }, hasil: { page: 1, limit: 10, total: 0 } } };
+      let appState = { session: null, user: null, isLoggedIn: false, currentMenu: 'dashboard', currentTab: 'pengumuman', adminTab: 'admin-dashboard', theme: 'light', dashboardData: null, formasiList: [], pengumumanList: [], pelamarList: [], userList: [], pagination: { formasi: { page: 1, limit: 10, total: 0 }, verifikasi: { page: 1, limit: 10, total: 0 }, nilai: { page: 1, limit: 10, total: 0 }, kesehatan: { page: 1, limit: 10, total: 0 }, hasil: { page: 1, limit: 10, total: 0 } } };
+        // Convert file to base64 for upload to Google Apps Script
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    // Remove data URL prefix (e.g., "data:application/pdf;base64,")
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // Initialize pagination with safety check
+        function initPagination() {
+            if (!appState.pagination) {
+                appState.pagination = {};
+            }
+            var paginations = ['formasi', 'verifikasi', 'nilai', 'kesehatan', 'hasil'];
+            paginations.forEach(function(key) {
+                if (!appState.pagination[key]) {
+                    appState.pagination[key] = { page: 1, limit: 10, total: 0 };
+                }
+            });
+        }
+        
+        // Initialize on load
+        initPagination();
+        
         let chartFormasi = null, chartStatus = null, chartAdminFormasi = null, chartAdminStatus = null;
         function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
         function formatDate(dateStr) { if (!dateStr) return '-'; const date = new Date(dateStr); return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }); }
         function formatDateTime(dateStr) { if (!dateStr) return '-'; const date = new Date(dateStr); return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
         function getBadgeClass(status) { const statusMap = { 'DITERIMA': 'badge-success', 'LULUS': 'badge-success', 'LOLOS': 'badge-success', 'CADANGAN': 'badge-info', 'TIDAK LULUS': 'badge-danger', 'TIDAK LOLOS': 'badge-danger', 'PROSES': 'badge-warning', 'MENUNGGU': 'badge-warning', 'MENUNGGU VERIFIKASI': 'badge-warning', 'AKTIF': 'badge-success', 'TIDAK AKTIF': 'badge-secondary' }; return statusMap[status] || 'badge-primary'; }
         async function apiRequest(action, data = {}) { showLoading(); try { const formData = new FormData(); formData.append('action', action); Object.keys(data).forEach(key => formData.append(key, data[key])); const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.TIMEOUT); const response = await fetch(APP_CONFIG.GAS_URL, { method: 'POST', body: formData, signal: controller.signal }); clearTimeout(timeoutId); if (!response.ok) throw new Error('Network response was not ok'); const result = await response.json(); hideLoading(); return result; } catch (error) { hideLoading(); console.error('API Error:', error); return getMockData(action, data); } }
-        function getMockData(action, data) { console.log('Using mock data for:', action); switch(action) { case 'login': if (data.username === 'admin' && data.password === 'admin123') return { success: true, token: 'mock_token_' + Date.now(), user: { id: '1', username: 'admin', nama: 'Administrator', role: 'ADMIN' }, expired: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() }; return { success: false, message: 'Username atau password salah' }; case 'getDashboard': return { success: true, data: { formasiAktif: 5, totalPelamar: 127, menungguVerifikasi: 45, lolosBerkas: 82, lolosTesKompetensi: 65, lolosWawancara: 48, lolosKesehatan: 42, diterima: 35, tidakLulus: 92, grafikFormasi: [{ nama: 'Dokter Umum', jumlah: 25 }, { nama: 'Perawat', jumlah: 45 }, { nama: 'Bidan', jumlah: 20 }, { nama: 'Apoteker', jumlah: 12 }, { nama: 'Admin', jumlah: 25 }], grafikStatus: [{ status: 'Menunggu Verifikasi', jumlah: 45 }, { status: 'Lolos Berkas', jumlah: 37 }, { status: 'Lolos Tes', jumlah: 17 }, { status: 'Lolos Wawancara', jumlah: 6 }, { status: 'Diterima', jumlah: 35 }] } }; case 'getFormasi': return { success: true, data: [{ id: '1', kode: 'FRM-001', nama: 'Dokter Umum', unit: 'IGD', kebutuhan: 5, terdaftar: 25, status: 'AKTIF', deskripsi: 'Dokter Umum', persyaratan: 'S1 Kedokteran' }, { id: '2', kode: 'FRM-002', nama: 'Perawat', unit: 'Rawat Inap', kebutuhan: 20, terdaftar: 45, status: 'AKTIF', deskripsi: 'Perawat', persyaratan: 'D3/S1 Keperawatan' }, { id: '3', kode: 'FRM-003', nama: 'Bidan', unit: 'Poli Kandungan', kebutuhan: 10, terdaftar: 20, status: 'AKTIF', deskripsi: 'Bidan', persyaratan: 'D3/S1 Kebidanan' }, { id: '4', kode: 'FRM-004', nama: 'Apoteker', unit: 'Farmasi', kebutuhan: 5, terdaftar: 12, status: 'AKTIF', deskripsi: 'Apoteker', persyaratan: 'S1 Farmasi' }, { id: '5', kode: 'FRM-005', nama: 'Admin', unit: 'TU', kebutuhan: 10, terdaftar: 25, status: 'AKTIF', deskripsi: 'Admin', persyaratan: 'D3/S1' }] }; case 'getPengumuman': return { success: true, data: [{ id: '1', judul: 'PENERIMAAN KARYAWAN BARU 2026', konten: 'RSUD Aji Muhammad Idris membuka penerimaan karyawan baru untuk beberapa formasi.', tanggalMulai: '2026-01-15', tanggalSelesai: '2026-02-28', status: 'AKTIF' }, { id: '2', judul: 'JADWAL TES KOMPETENSI', konten: 'Tes kompetensi akan dilaksanakan pada tanggal 15 Maret 2026.', tanggalMulai: '2026-02-01', tanggalSelesai: '2026-03-20', status: 'AKTIF' }, { id: '3', judul: 'HASIL VERIFIKASI BERKAS', konten: 'Pengumuman hasil verifikasi berkas dapat dilihat di website ini.', tanggalMulai: '2026-03-01', tanggalSelesai: '2026-04-30', status: 'AKTIF' }] }; case 'getPelamar': return { success: true, data: [{ id: '1', nik: '1234567890123456', nama: 'Ahmad Fauzi', email: 'ahmad@test.com', formasi: 'Dokter Umum', status: 'MENUNGGU VERIFIKASI', tanggalDaftar: '2026-01-20', nilaiKompetensi: null, nilaiWawancara: null, kesehatan: 'BELUM TES', hasilAkhir: 'PROSES' }, { id: '2', nik: '1234567890123457', nama: 'Siti Rahayu', email: 'siti@test.com', formasi: 'Perawat', status: 'LOLOS BERKAS', tanggalDaftar: '2026-01-21', nilaiKompetensi: 85, nilaiWawancara: 90, kesehatan: 'LULUS TES KESEHATAN', hasilAkhir: 'DITERIMA' }] }; case 'checkNIK': return { success: true, registered: false }; case 'getUser': return { success: true, data: [{ id: '1', username: 'admin', nama: 'Administrator', role: 'ADMIN', status: 'AKTIF' }, { id: '2', username: 'verifikator1', nama: 'Budi Santoso', role: 'VERIFIKATOR', status: 'AKTIF' }, { id: '3', username: 'asesor1', nama: 'Dr. Wijaya', role: 'ASESOR', status: 'AKTIF' }] }; default: return { success: true }; } }
+        function getMockData(action, data) { console.log('Using mock data for:', action); switch(action) { case 'login': if (data.username === 'admin' && data.password === 'admin123') return { success: true, token: 'mock_token_' + Date.now(), user: { id: '1', username: 'admin', nama: 'Administrator', role: 'ADMIN' }, expired: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() }; if (data.username === 'verifikator' && data.password === 'verifikator123') return { success: true, token: 'mock_token_' + Date.now(), user: { id: '2', username: 'verifikator', nama: 'Tim Verifikator', role: 'VERIFIKATOR' }, expired: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() }; if (data.username === 'asesor' && data.password === 'asesor123') return { success: true, token: 'mock_token_' + Date.now(), user: { id: '3', username: 'asesor', nama: 'Tim Asesor', role: 'ASESOR' }, expired: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() }; return { success: false, message: 'Username atau password salah' }; case 'getDashboard': return { success: true, data: { formasiAktif: 5, totalPelamar: 127, menungguVerifikasi: 45, lolosBerkas: 82, lolosTesKompetensi: 65, lolosWawancara: 48, lolosKesehatan: 42, diterima: 35, tidakLulus: 92, grafikFormasi: [{ nama: 'Dokter Umum', jumlah: 25 }, { nama: 'Perawat', jumlah: 45 }, { nama: 'Bidan', jumlah: 20 }, { nama: 'Apoteker', jumlah: 12 }, { nama: 'Admin', jumlah: 25 }], grafikStatus: [{ status: 'Menunggu Verifikasi', jumlah: 45 }, { status: 'Lolos Berkas', jumlah: 37 }, { status: 'Lolos Tes', jumlah: 17 }, { status: 'Lolos Wawancara', jumlah: 6 }, { status: 'Diterima', jumlah: 35 }] } }; case 'getFormasi': return { success: true, data: [{ id: '1', kode: 'FRM-001', nama: 'Dokter Umum', unit: 'IGD', kebutuhan: 5, terdaftar: 25, status: 'AKTIF', deskripsi: 'Dokter Umum', persyaratan: 'S1 Kedokteran' }, { id: '2', kode: 'FRM-002', nama: 'Perawat', unit: 'Rawat Inap', kebutuhan: 20, terdaftar: 45, status: 'AKTIF', deskripsi: 'Perawat', persyaratan: 'D3/S1 Keperawatan' }, { id: '3', kode: 'FRM-003', nama: 'Bidan', unit: 'Poli Kandungan', kebutuhan: 10, terdaftar: 20, status: 'AKTIF', deskripsi: 'Bidan', persyaratan: 'D3/S1 Kebidanan' }, { id: '4', kode: 'FRM-004', nama: 'Apoteker', unit: 'Farmasi', kebutuhan: 5, terdaftar: 12, status: 'AKTIF', deskripsi: 'Apoteker', persyaratan: 'S1 Farmasi' }, { id: '5', kode: 'FRM-005', nama: 'Admin', unit: 'TU', kebutuhan: 10, terdaftar: 25, status: 'AKTIF', deskripsi: 'Admin', persyaratan: 'D3/S1' }] }; case 'getPengumuman': return { success: true, data: [{ id: '1', judul: 'PENERIMAAN KARYAWAN BARU 2026', konten: 'RSUD Aji Muhammad Idris membuka penerimaan karyawan baru untuk beberapa formasi.', tanggalMulai: '2026-01-15', tanggalSelesai: '2026-02-28', status: 'AKTIF' }, { id: '2', judul: 'JADWAL TES KOMPETENSI', konten: 'Tes kompetensi akan dilaksanakan pada tanggal 15 Maret 2026.', tanggalMulai: '2026-02-01', tanggalSelesai: '2026-03-20', status: 'AKTIF' }, { id: '3', judul: 'HASIL VERIFIKASI BERKAS', konten: 'Pengumuman hasil verifikasi berkas dapat dilihat di website ini.', tanggalMulai: '2026-03-01', tanggalSelesai: '2026-04-30', status: 'AKTIF' }] }; case 'getPelamar': return { success: true, data: [{ id: '1', nik: '1234567890123456', nama: 'Ahmad Fauzi', email: 'ahmad@test.com', formasi: 'Dokter Umum', status: 'MENUNGGU VERIFIKASI', tanggalDaftar: '2026-01-20', nilaiKompetensi: null, nilaiWawancara: null, kesehatan: 'BELUM TES', hasilAkhir: 'PROSES' }, { id: '2', nik: '1234567890123457', nama: 'Siti Rahayu', email: 'siti@test.com', formasi: 'Perawat', status: 'LOLOS BERKAS', tanggalDaftar: '2026-01-21', nilaiKompetensi: 85, nilaiWawancara: 90, kesehatan: 'LULUS TES KESEHATAN', hasilAkhir: 'DITERIMA' }] }; case 'checkNIK': return { success: true, registered: false }; case 'getUser': return { success: true, data: [{ id: '1', username: 'admin', nama: 'Administrator', role: 'ADMIN', status: 'AKTIF' }, { id: '2', username: 'verifikator1', nama: 'Budi Santoso', role: 'VERIFIKATOR', status: 'AKTIF' }, { id: '3', username: 'asesor1', nama: 'Dr. Wijaya', role: 'ASESOR', status: 'AKTIF' }] }; default: return { success: true }; } }
         function showLoading() { document.getElementById('loadingOverlay').classList.add('active'); }
         function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
         function showToast(type, title, message) { const container = document.getElementById('toastContainer'); const toast = document.createElement('div'); toast.className = 'toast ' + type; const icons = { success: '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>', error: '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>', warning: '<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>', info: '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>' }; toast.innerHTML = '<div class="toast-icon">' + icons[type] + '</div><div class="toast-content"><div class="toast-title">' + title + '</div><div class="toast-message">' + message + '</div></div><button class="toast-close" onclick="this.parentElement.remove()"><svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>'; container.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, 5000); }
@@ -650,39 +680,48 @@
                 return;
             }
             
-            // Prepare form data with files
-            const formData = new FormData();
-            formData.append('action', 'register');
-            formData.append('nik', nik);
-            formData.append('email', document.getElementById('email').value);
-            formData.append('nama', document.getElementById('namaLengkap').value);
-            formData.append('tempatLahir', document.getElementById('tempatLahir').value);
-            formData.append('tanggalLahir', document.getElementById('tanggalLahir').value);
-            formData.append('jenisKelamin', document.getElementById('jenisKelamin').value);
-            formData.append('noHp', document.getElementById('noHp').value);
-            formData.append('alamat', document.getElementById('alamat').value);
-            formData.append('pendidikan', document.getElementById('pendidikan').value);
-            formData.append('ipk', document.getElementById('ipk').value);
-            formData.append('formasi', document.getElementById('formasiDipilih').value);
+            // Collect all form data
+            const formData = {
+                action: 'register',
+                nik: nik,
+                email: document.getElementById('email').value,
+                nama: document.getElementById('namaLengkap').value,
+                tempatLahir: document.getElementById('tempatLahir').value,
+                tanggalLahir: document.getElementById('tanggalLahir').value,
+                jenisKelamin: document.getElementById('jenisKelamin').value,
+                noHp: document.getElementById('noHp').value,
+                alamat: document.getElementById('alamat').value,
+                pendidikan: document.getElementById('pendidikan').value,
+                ipk: document.getElementById('ipk').value,
+                formasi: document.getElementById('formasiDipilih').value
+            };
             
-            // Add files
+            // Convert files to base64 and add to form data
             const fileIds = ['fileKtp', 'fileIjazah', 'fileTranskrip', 'fileStr', 'fileSertifikat', 'fileFoto'];
             const fileKeys = ['ktp', 'ijazah', 'transkrip', 'str', 'sertifikat', 'foto'];
             
-            for (let i = 0; i < fileIds.length; i++) {
-                const fileInput = document.getElementById(fileIds[i]);
-                if (fileInput && fileInput.files[0]) {
-                    formData.append(fileKeys[i], fileInput.files[0]);
-                }
-            }
-            
             try {
+                for (let i = 0; i < fileIds.length; i++) {
+                    const fileInput = document.getElementById(fileIds[i]);
+                    if (fileInput && fileInput.files[0]) {
+                        const base64Data = await fileToBase64(fileInput.files[0]);
+                        const file = fileInput.files[0];
+                        formData[fileKeys[i]] = base64Data;
+                        formData[fileKeys[i] + '_name'] = file.name;
+                        formData[fileKeys[i] + '_type'] = file.type;
+                    }
+                }
+                
+                // Send data as JSON
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), APP_CONFIG.TIMEOUT);
                 
                 const response = await fetch(APP_CONFIG.GAS_URL, {
                     method: 'POST',
-                    body: formData,
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify(formData),
                     signal: controller.signal
                 });
                 
