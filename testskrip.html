@@ -1474,6 +1474,9 @@ s;
                 <div class="card">
                     <div class="card-header">
                         <h3 class="card-title">Daftar Formasi Lowongan</h3>
+                        <button class="btn btn-secondary" onclick="loadFormasi()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
                     </div>
                     <div class="table-container">
                         <table>
@@ -1488,66 +1491,15 @@ s;
                             </thead>
                             <tbody id="formasiTable">
                                 <tr>
-                                    <td>1</td>
-                                    <td>Perawat</td>
-                                    <td>D3 Keperawatan</td>
-                                    <td>15</td>
-                                    <td><span class="badge badge-success">Dibuka</span></td>
+                                    <td colspan="5" style="text-align: center;">
+                                        <i class="fas fa-spinner fa-spin"></i> Memuat data...
+                                    </td>
                                 </tr>
-                                <tr>
-                                    <td>2</td>
-                                    <td>Perawat</td>
-                                    <td>S1 Keperawatan</td>
-                                    <td>10</td>
-                                    <td><span class="badge badge-success">Dibuka</span></td>
-                                </tr>
-                                <tr>
-                                    <td>3</td>
-                                    <td>Dokter Umum</td>
-                                    <td>Profesi Dokter</td>
-                                    <td>5</td>
-                                    <td><span class="badge badge-success">Dibuka</span></td>
-                                </tr>
-                                <tr>
-                                    <td>4</td>
-                                    <td>Apoteker</td>
-                                    <td>S1 Farmasi</td>
-                                    <td>3</td>
-                                    <td><span class="badge badge-success">Dibuka</span></td>
-                                </tr>
-                                <tr>
-                                    <td>5</td>
-                                    <td>Ahli Gizi</td>
-                                    <td>S1 Gizi</td>
-                                    <td>2</td>
-                                    <td><span class="badge badge-success">Dibuka</span></td>
-                                </tr>
-                                <tr>
-                                    <td>6</td>
-                                    <td>Fisioterapis</td>
-                                    <td>D3/S1 Fisioterapi</td>
-                                    <td>2</td>
-                                    <td><span class="badge badge-success">Dibuka</span></td>
-                                </tr>
-                                <tr>
-                                    <td>7</td>
-                                    <td>Tenaga IT</td>
-                                    <td>S1 Teknik Informatika</td>
-                                    <td>2</td>
-                                    <td><span class="badge badge-warning">Terbatas</span></td>
-                                </tr>
-                                <tr>
-                                    <td>8</td>
-                                    <td>Administrasi</td>
-                                    <td>D3/S1 Administrasi</td>
-                                    <td>3</td>
-                                    <td><span class="badge badge-success">Dibuka</span></td>
-                                </tr>
-                                <tr>
-                                    <td>9</td>
-                                    <td>Cleaning Service</td>
-                                    <td>SMA/SMK</td>
-                                    <td>10</td>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
                                     <td><span class="badge badge-success">Dibuka</span></td>
                                 </tr>
                                 <tr>
@@ -2097,7 +2049,7 @@ s;
     <script>
         // ==================== CONFIGURATION ====================
         // Replace with your Google Apps Script Web App URL
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyfiEvX6a_pulAL6GPHICjYcjxVt9EPw_PjIqz7QsmCkqUcQkkMLI759ezaZkzA8tlK/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzIDsPy6p4em4npt4qeoxl6IQPZchJlCh7Jp16B-3KJ96aptn8u_YnNrh1hq4vgFPTF/exec';
         
         // NIK yang sudah terdaftar (stored in localStorage for demo)
         const REGISTERED_NIKS_KEY = 'sirek_registered_niks';
@@ -2234,6 +2186,11 @@ s;
             }
 
             updateBreadcrumb(pageId);
+            
+            // Load formasi data when page is shown
+            if (pageId === 'formasi') {
+                loadFormasi();
+            }
         }
 
         function updateBreadcrumb(page) {
@@ -2819,126 +2776,233 @@ s;
         }
 
         // ==================== CEK HASIL ====================
-        function cekBerkas() {
+        async function cekBerkas() {
             const nik = document.getElementById('nikCekBerkas').value;
             if (!nik) {
                 showToast('warning', 'Peringatan', 'Masukkan NIK terlebih dahulu');
                 return;
             }
 
-            // Demo result - in production would fetch from database
-            const result = document.getElementById('resultBerkas');
-            const icon = document.getElementById('iconBerkas');
-            const title = document.getElementById('titleBerkas');
-            const subtitle = document.getElementById('subtitleBerkas');
+            try {
+                const url = WEB_APP_URL + '?action=cek_nik&nik=' + encodeURIComponent(nik);
+                const response = await fetch(url);
+                const result = await response.json();
 
-            // Random result for demo
-            const statuses = ['lolos', 'tidak_lolos', 'perbaikan'];
-            const status = statuses[Math.floor(Math.random() * statuses.length)];
+                const resultDiv = document.getElementById('resultBerkas');
+                const icon = document.getElementById('iconBerkas');
+                const title = document.getElementById('titleBerkas');
+                const subtitle = document.getElementById('subtitleBerkas');
 
-            result.style.display = 'block';
-            
-            if (status === 'lolos') {
-                icon.className = 'result-icon success';
-                icon.innerHTML = '<i class="fas fa-check"></i>';
-                title.textContent = 'Lolos';
-                title.style.color = 'var(--success)';
-                subtitle.textContent = 'Selamat! Berkas Anda telah diverifikasi dan dinyatakan lengkap.';
-            } else if (status === 'perbaikan') {
-                icon.className = 'result-icon warning';
-                icon.innerHTML = '<i class="fas fa-exclamation"></i>';
-                title.textContent = 'Perlu Perbaikan';
-                title.style.color = 'var(--warning)';
-                subtitle.textContent = 'Silakan lengkapi dokumen yang diperlukan.';
-            } else {
-                icon.className = 'result-icon danger';
-                icon.innerHTML = '<i class="fas fa-times"></i>';
-                title.textContent = 'Tidak Lolos';
-                title.style.color = 'var(--danger)';
-                subtitle.textContent = 'Mohon maaf, Berkas Anda tidak memenuhi persyaratan.';
+                resultDiv.style.display = 'block';
+
+                if (result.success && result.data) {
+                    const status = result.data.statusBerkas;
+                    if (status === 'Lolos') {
+                        icon.className = 'result-icon success';
+                        icon.innerHTML = '<i class="fas fa-check"></i>';
+                        title.textContent = 'Lolos';
+                        title.style.color = 'var(--success)';
+                        subtitle.textContent = 'Selamat! Berkas Anda telah diverifikasi dan dinyatakan lengkap.';
+                    } else if (status === 'Perbaikan' || status === 'perbaikan') {
+                        icon.className = 'result-icon warning';
+                        icon.innerHTML = '<i class="fas fa-exclamation"></i>';
+                        title.textContent = 'Perlu Perbaikan';
+                        title.style.color = 'var(--warning)';
+                        subtitle.textContent = 'Silakan lengkapi dokumen yang diperlukan.';
+                    } else {
+                        icon.className = 'result-icon danger';
+                        icon.innerHTML = '<i class="fas fa-times"></i>';
+                        title.textContent = 'Menunggu';
+                        title.style.color = 'var(--danger)';
+                        subtitle.textContent = 'Berkas Anda masih dalam proses verifikasi.';
+                    }
+                } else {
+                    icon.className = 'result-icon danger';
+                    icon.innerHTML = '<i class="fas fa-times"></i>';
+                    title.textContent = 'Tidak Ditemukan';
+                    title.style.color = 'var(--danger)';
+                    subtitle.textContent = 'NIK tidak ditemukan dalam sistem.';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('error', 'Error', 'Tidak dapat terhubung ke server.');
             }
         }
 
-        function cekKompetensi() {
+        async function cekKompetensi() {
             const nik = document.getElementById('nikCekKompetensi').value;
             if (!nik) {
                 showToast('warning', 'Peringatan', 'Masukkan NIK terlebih dahulu');
                 return;
             }
 
-            const result = document.getElementById('resultKompetensi');
-            result.style.display = 'block';
+            try {
+                const url = WEB_APP_URL + '?action=cek_nik&nik=' + encodeURIComponent(nik);
+                const response = await fetch(url);
+                const result = await response.json();
 
-            // Demo values
-            document.getElementById('nilaiKompetensi').textContent = Math.floor(Math.random() * 30) + 70;
-            document.getElementById('nilaiWawancara').textContent = Math.floor(Math.random() * 30) + 70;
-            document.getElementById('statusKompetensi').innerHTML = '<span class="badge badge-success">Lolos</span>';
+                const resultDiv = document.getElementById('resultKompetensi');
+                resultDiv.style.display = 'block';
+
+                if (result.success && result.data) {
+                    document.getElementById('nilaiKompetensi').textContent = result.data.nilaiKompetensi || '-';
+                    document.getElementById('nilaiWawancara').textContent = result.data.nilaiWawancara || '-';
+                    
+                    const statusHtml = result.data.statusKompetensi === 'Lolos' 
+                        ? '<span class="badge badge-success">Lolos</span>' 
+                        : result.data.statusKompetensi === 'Tidak Lolos'
+                        ? '<span class="badge badge-danger">Tidak Lolos</span>'
+                        : '<span class="badge badge-warning">Menunggu</span>';
+                    document.getElementById('statusKompetensi').innerHTML = statusHtml;
+                } else {
+                    showToast('error', 'Error', 'Data tidak ditemukan');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('error', 'Error', 'Tidak dapat terhubung ke server.');
+            }
         }
 
-        function cekKesehatan() {
+        async function cekKesehatan() {
             const nik = document.getElementById('nikCekKesehatan').value;
             if (!nik) {
                 showToast('warning', 'Peringatan', 'Masukkan NIK terlebih dahulu');
                 return;
             }
 
-            const result = document.getElementById('resultKesehatan');
-            const icon = document.getElementById('iconKesehatan');
-            const title = document.getElementById('titleKesehatan');
-            const subtitle = document.getElementById('subtitleKesehatan');
+            try {
+                const url = WEB_APP_URL + '?action=cek_nik&nik=' + encodeURIComponent(nik);
+                const response = await fetch(url);
+                const result = await response.json();
 
-            const isSehat = Math.random() > 0.3;
-            result.style.display = 'block';
+                const resultDiv = document.getElementById('resultKesehatan');
+                const icon = document.getElementById('iconKesehatan');
+                const title = document.getElementById('titleKesehatan');
+                const subtitle = document.getElementById('subtitleKesehatan');
 
-            if (isSehat) {
-                icon.className = 'result-icon success';
-                icon.innerHTML = '<i class="fas fa-heart"></i>';
-                title.textContent = 'Sehat';
-                title.style.color = 'var(--success)';
-                subtitle.textContent = 'Hasil tes kesehatan Anda dinyatakan sehat.';
-            } else {
-                icon.className = 'result-icon danger';
-                icon.innerHTML = '<i class="fas fa-heart-broken"></i>';
-                title.textContent = 'Tidak Sehat';
-                title.style.color = 'var(--danger)';
-                subtitle.textContent = 'Mohon maaf, hasil tes kesehatan tidak memenuhi persyaratan.';
+                resultDiv.style.display = 'block';
+
+                if (result.success && result.data) {
+                    const status = result.data.statusKesehatan;
+                    if (status === 'Lolos') {
+                        icon.className = 'result-icon success';
+                        icon.innerHTML = '<i class="fas fa-heart"></i>';
+                        title.textContent = 'Sehat';
+                        title.style.color = 'var(--success)';
+                        subtitle.textContent = 'Hasil tes kesehatan Anda dinyatakan sehat.';
+                    } else if (status === 'Tidak Lolos' || status === 'tidak_lolos') {
+                        icon.className = 'result-icon danger';
+                        icon.innerHTML = '<i class="fas fa-heart-broken"></i>';
+                        title.textContent = 'Tidak Sehat';
+                        title.style.color = 'var(--danger)';
+                        subtitle.textContent = 'Mohon maaf, hasil tes kesehatan tidak memenuhi persyaratan.';
+                    } else {
+                        icon.className = 'result-icon warning';
+                        icon.innerHTML = '<i class="fas fa-hourglass-half"></i>';
+                        title.textContent = 'Menunggu';
+                        title.style.color = 'var(--warning)';
+                        subtitle.textContent = 'Tes kesehatan belum dilakukan.';
+                    }
+                } else {
+                    icon.className = 'result-icon danger';
+                    icon.innerHTML = '<i class="fas fa-times"></i>';
+                    title.textContent = 'Tidak Ditemukan';
+                    title.style.color = 'var(--danger)';
+                    subtitle.textContent = 'NIK tidak ditemukan dalam sistem.';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('error', 'Error', 'Tidak dapat terhubung ke server.');
             }
         }
 
-        function cekAkhir() {
+        async function cekAkhir() {
             const nik = document.getElementById('nikCekAkhir').value;
             if (!nik) {
                 showToast('warning', 'Peringatan', 'Masukkan NIK terlebih dahulu');
                 return;
             }
 
-            const result = document.getElementById('resultAkhir');
-            const icon = document.getElementById('iconAkhir');
-            const title = document.getElementById('titleAkhir');
-            const subtitle = document.getElementById('subtitleAkhir');
+            try {
+                const url = WEB_APP_URL + '?action=cek_nik&nik=' + encodeURIComponent(nik);
+                const response = await fetch(url);
+                const result = await response.json();
 
-            const statuses = ['diterima', 'cadangan', 'tidak_diterima'];
-            const status = statuses[Math.floor(Math.random() * statuses.length)];
-            result.style.display = 'block';
+                const resultDiv = document.getElementById('resultAkhir');
+                const icon = document.getElementById('iconAkhir');
+                const title = document.getElementById('titleAkhir');
+                const subtitle = document.getElementById('subtitleAkhir');
 
-            if (status === 'diterima') {
-                icon.className = 'result-icon success';
-                icon.innerHTML = '<i class="fas fa-trophy"></i>';
-                title.textContent = 'DITERIMA';
-                title.style.color = 'var(--success)';
-                subtitle.textContent = 'Selamat! Anda telah diterima di RSUD Aji Muhammad Idris.';
-            } else if (status === 'cadangan') {
-                icon.className = 'result-icon warning';
-                icon.innerHTML = '<i class="fas fa-clock"></i>';
-                title.textContent = 'CADANGAN';
-                title.style.color = 'var(--warning)';
-                subtitle.textContent = 'Anda masuk dalam daftar cadangan. Harap menunggu informasi lebih lanjut.';
-            } else {
-                icon.className = 'result-icon danger';
-                icon.innerHTML = '<i class="fas fa-sad-tear"></i>';
-                title.textContent = 'TIDAK DITERIMA';
-                title.style.color = 'var(--danger)';
-                subtitle.textContent = 'Mohon maaf, Anda belum lolos seleksi. Tetap semangat dan coba lagi dilain waktu.';
+                resultDiv.style.display = 'block';
+
+                if (result.success && result.data) {
+                    const status = result.data.statusAkhir;
+                    if (status === 'Diterima') {
+                        icon.className = 'result-icon success';
+                        icon.innerHTML = '<i class="fas fa-trophy"></i>';
+                        title.textContent = 'DITERIMA';
+                        title.style.color = 'var(--success)';
+                        subtitle.textContent = 'Selamat! Anda telah diterima di RSUD Aji Muhammad Idris.';
+                    } else if (status === 'Cadangan') {
+                        icon.className = 'result-icon warning';
+                        icon.innerHTML = '<i class="fas fa-clock"></i>';
+                        title.textContent = 'CADANGAN';
+                        title.style.color = 'var(--warning)';
+                        subtitle.textContent = 'Anda masuk dalam daftar cadangan. Harap menunggu informasi lebih lanjut.';
+                    } else {
+                        icon.className = 'result-icon danger';
+                        icon.innerHTML = '<i class="fas fa-sad-tear"></i>';
+                        title.textContent = 'TIDAK DITERIMA';
+                        title.style.color = 'var(--danger)';
+                        subtitle.textContent = 'Mohon maaf, Anda belum lolos seleksi. Tetap semangat dan coba lagi dilain waktu.';
+                    }
+                } else {
+                    icon.className = 'result-icon danger';
+                    icon.innerHTML = '<i class="fas fa-times"></i>';
+                    title.textContent = 'TIDAK DITEMUKAN';
+                    title.style.color = 'var(--danger)';
+                    subtitle.textContent = 'NIK tidak ditemukan dalam sistem.';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('error', 'Error', 'Tidak dapat terhubung ke server.');
+            }
+        }
+
+        // ==================== LOAD DATA FROM GOOGLE SHEET ====================
+        
+        // Load formasi data from Google Sheet
+        async function loadFormasi() {
+            const tableBody = document.getElementById('formasiTable');
+            
+            // Show loading
+            tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr>';
+            
+            try {
+                const url = WEB_APP_URL + '?action=get_formasi';
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    let html = '';
+                    result.data.forEach(item => {
+                        const badgeClass = item.keterangan === 'Dibuka' ? 'badge-success' : 
+                                         item.keterangan === 'Terbatas' ? 'badge-warning' : 'badge-danger';
+                        html += `<tr>
+                            <td>${item.no}</td>
+                            <td>${item.jenisLayanan}</td>
+                            <td>${item.pendidikan}</td>
+                            <td>${item.jumlah}</td>
+                            <td><span class="badge ${badgeClass}">${item.keterangan}</span></td>
+                        </tr>`;
+                    });
+                    tableBody.innerHTML = html;
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Tidak ada data formasi</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading formasi:', error);
+                tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: red;">Gagal memuat data</td></tr>';
             }
         }
 
