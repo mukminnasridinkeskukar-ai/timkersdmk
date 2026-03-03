@@ -1435,7 +1435,7 @@ s;
                             <tbody id="pengumumanTable">
                                 <tr>
                                     <td>1</td>
-                                    <td>Rekrutmen Karyawan Tahun 2026</td>
+                                    <td>Rekrutmen Tenaga Kesehatan Tahun 2025</td>
                                     <td>01 Maret 2025</td>
                                     <td><span class="badge badge-success">Aktif</span></td>
                                     <td><button class="btn btn-secondary" onclick="showLightbox('pengumuman1')">Lihat</button></td>
@@ -1565,8 +1565,8 @@ s;
                                 <label class="form-label">Posisi Dilamar <span>*</span></label>
                                 <select class="form-control" name="posisi" required>
                                     <option value="">Pilih Posisi</option>
-                                    <option value="Admin Rawat Jalan">Admin Rawat Jalan (S1 Kesehatan)</option>
-                                    <option value="Pendaftaran">Dokter</option>
+                                    <option value="Perawat">Perawat</option>
+                                    <option value="Dokter">Dokter</option>
                                     <option value="Apoteker">Apoteker</option>
                                     <option value="Tenaga IT">Tenaga IT</option>
                                     <option value="Administrasi">Administrasi</option>
@@ -1994,7 +1994,10 @@ s;
     <script>
         // ==================== CONFIGURATION ====================
         // Replace with your Google Apps Script Web App URL
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwcguvDbWRlK4p8sG9P_UtwsW33FvUu5XP75FEmGeQoe9eEQVwYkSzWEL3vWlCjYA2q/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyYsAM88AAZ471tTtg2bPhxfcg_L7l-Db1_4YmIlIZe8Wnrd6lrt4orTmNFTXxwPJ0P/exec';
+        
+        // NIK yang sudah terdaftar (stored in localStorage for demo)
+        const REGISTERED_NIKS_KEY = 'sirek_registered_niks';
         
         // Admin credentials (SHA-256 hashed)
         const ADMIN_USERS = {
@@ -2325,6 +2328,21 @@ s;
                     uploadDiv.querySelector('p').textContent = fileName;
                 });
             });
+            
+            // NIK validation on input
+            const nikInput = document.querySelector('input[name="nik"]');
+            if (nikInput) {
+                nikInput.addEventListener('blur', function() {
+                    const nik = this.value;
+                    if (nik.length === 16) {
+                        if (isNIKRegistered(nik)) {
+                            showToast('warning', 'Peringatan', 'NIK ini sudah terdaftar! Silakan gunakan NIK lain.');
+                            this.value = '';
+                            this.focus();
+                        }
+                    }
+                });
+            }
 
             // Close modal on overlay click
             document.querySelectorAll('.modal-overlay').forEach(overlay => {
@@ -2566,9 +2584,39 @@ s;
         }
 
         // ==================== PENDAFTARAN ====================
+        
+        // Get registered NIKs from localStorage
+        function getRegisteredNIKs() {
+            const stored = localStorage.getItem(REGISTERED_NIKS_KEY);
+            return stored ? JSON.parse(stored) : [];
+        }
+        
+        // Save NIK to registered list
+        function saveNIK(nik) {
+            const nikList = getRegisteredNIKs();
+            nikList.push({
+                nik: nik,
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem(REGISTERED_NIKS_KEY, JSON.stringify(nikList));
+        }
+        
+        // Check if NIK already registered
+        function isNIKRegistered(nik) {
+            const nikList = getRegisteredNIKs();
+            return nikList.some(item => item.nik === nik);
+        }
+        
         async function submitPendaftaran() {
             const form = document.getElementById('pendaftaranForm');
             const formData = new FormData(form);
+            const nik = formData.get('nik');
+            
+            // Check if NIK already registered
+            if (isNIKRegistered(nik)) {
+                showToast('error', 'Pendaftaran Gagal', 'NIK ini sudah terdaftar! Setiap NIK hanya dapat mendaftar 1 kali.');
+                return;
+            }
 
             // Show loading
             const submitBtn = form.querySelector('button[type="submit"]');
@@ -2577,26 +2625,80 @@ s;
             submitBtn.disabled = true;
 
             try {
-                // In production, this would send to Google Apps Script
-                // For demo, simulate success
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Prepare data for submission
+                const data = {
+                    action: 'submit_pendaftaran',
+                    nama: formData.get('nama'),
+                    nik: formData.get('nik'),
+                    email: formData.get('email'),
+                    nohp: formData.get('nohp'),
+                    jeniskelamin: formData.get('jeniskelamin'),
+                    pendidikan: formData.get('pendidikan'),
+                    posisi: formData.get('posisi'),
+                    alamat: formData.get('alamat'),
+                    cv: await fileToBase64(formData.get('cv')),
+                    ijazah: await fileToBase64(formData.get('ijazah')),
+                    str: await fileToBase64(formData.get('str')),
+                    ktp: await fileToBase64(formData.get('ktp')),
+                    foto: await fileToBase64(formData.get('foto'))
+                };
 
-                showToast('success', 'Pendaftaran Berhasil', 'Data Anda telah berhasil submit!');
-                form.reset();
-                
-                // Reset file upload text
-                document.querySelectorAll('.file-upload p').forEach(p => {
-                    if (p.textContent.includes('Max')) return;
-                    if (p.textContent.includes('Klik')) return;
-                    p.textContent = p.textContent;
+                // Send to Google Apps Script
+                const response = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(data)
                 });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('success', 'Pendaftaran Berhasil', 'Data Anda telah berhasil disubmit ke Google Sheet!');
+                    
+                    // Save NIK to prevent duplicate registration
+                    saveNIK(nik);
+                    form.reset();
+                    
+                    // Reset file upload text
+                    document.querySelectorAll('.file-upload p').forEach(p => {
+                        if (p.textContent.includes('Max')) return;
+                        if (p.textContent.includes('Klik')) return;
+                        p.textContent = p.textContent;
+                    });
+                } else {
+                    showToast('error', 'Pendaftaran Gagal', result.message || 'Silakan coba lagi nanti');
+                }
                 
             } catch (error) {
-                showToast('error', 'Pendaftaran Gagal', 'Silakan coba lagi nanti');
+                console.error('Error:', error);
+                showToast('error', 'Pendaftaran Gagal', 'Tidak dapat terhubung ke server. Pastikan Web App URL sudah benar.');
             } finally {
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             }
+        }
+
+        // Convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                if (!file || !file.name) {
+                    resolve('');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    // Extract base64 data (remove data:mimeType;base64, prefix)
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        // Get file extension from filename
+        function getFileExtension(filename) {
+            const parts = filename.split('.');
+            return parts.length > 1 ? '.' + parts[parts.length - 1] : '';
         }
 
         // ==================== CEK HASIL ====================
