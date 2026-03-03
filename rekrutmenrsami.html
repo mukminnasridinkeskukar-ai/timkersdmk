@@ -309,8 +309,6 @@ body { font-family: var(--font-primary); font-size: 16px; color: var(--deep-navy
     <script>
         // App State
         var appState = {
-            webAppUrl: 'https://script.google.com/macros/s/AKfycbznH6-9MDQHcbj3xS8cJaOgZPoI4oy8OABNf_8YP2zaWmVoDw1Ch1MtiSzkpn72batB/exec',
-            isConfigured: true,
             isLoggedIn: false,
             userRole: null,
             pelamar: []
@@ -333,52 +331,24 @@ body { font-family: var(--font-primary); font-size: 16px; color: var(--deep-navy
             }
         }
 
-        // Call Google Apps Script (using hidden iframe for CORS workaround)
+        // Call Google Apps Script
         function callGAS(functionName, data) {
             return new Promise(function(resolve, reject) {
-                if (!appState.webAppUrl) {
-                    reject('Web App URL belum dikonfigurasi');
-                    return;
-                }
-                
-                // Create hidden iframe for form submission (CORS workaround)
-                var iframe = document.createElement('iframe');
-                iframe.name = 'gasFrame_' + Date.now();
-                iframe.style.display = 'none';
-                
-                var form = document.createElement('form');
-                form.method = 'POST';
-                form.action = appState.webAppUrl + '?action=' + functionName;
-                form.target = iframe.name;
-                
-                var input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'postData';
-                input.value = JSON.stringify(data || {});
-                form.appendChild(input);
-                
-                document.body.appendChild(iframe);
-                document.body.appendChild(form);
-                
-                // Cleanup after submission
-                setTimeout(function() {
-                    document.body.removeChild(form);
-                    document.body.removeChild(iframe);
-                }, 5000);
-                
-                // Assume success (GAS will handle errors internally)
-                resolve({ success: true, message: 'Data submitted successfully' });
+                // Use google.script.run - works when HTML is served from GAS
+                google.script.run
+                    .withSuccessHandler(function(result) {
+                        resolve(result);
+                    })
+                    .withFailureHandler(function(error) {
+                        reject(error.message || error);
+                    })
+                    [functionName](data || {});
             });
         }
 
         // Registration form submit
         document.getElementById('regForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            if (!appState.isConfigured) {
-                document.getElementById('formAlert').innerHTML = '<div class="alert alert-error">Sistem belum terhubung. Silakan klik tombol Hubungkan di pojok kanan atas.</div>';
-                return;
-            }
             
             var regNum = document.getElementById('regNum').innerText;
             var data = {
@@ -397,10 +367,13 @@ body { font-family: var(--font-primary); font-size: 16px; color: var(--deep-navy
                 str_expired: document.getElementById('str_expired').value
             };
             
+            // Show loading
+            document.getElementById('formAlert').innerHTML = '<div class="alert alert-info">Mengirim data...</div>';
+            
             // Send to Google Apps Script
             callGAS('addPelamar', data).then(function(result) {
                 if (result.success) {
-                    document.getElementById('formAlert').innerHTML = '<div class="alert alert-success"><strong>Pendaftaran berhasil!</strong><br>Nomor Pendaftaran: ' + regNum + '<br><br><small>Data tersimpan di Google Sheets.</small></div>';
+                    document.getElementById('formAlert').innerHTML = '<div class="alert alert-success"><strong>Pendaftaran berhasil!</strong><br>Nomor Pendaftaran: ' + (result.registrationNumber || regNum) + '<br><br><small>Data tersimpan di Google Sheets.</small></div>';
                     
                     document.getElementById('regForm').reset();
                     document.getElementById('regNum').innerText = 'RSUD-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random() * 9000) + 1000);
@@ -412,7 +385,7 @@ body { font-family: var(--font-primary); font-size: 16px; color: var(--deep-navy
                     document.getElementById('formAlert').innerHTML = '<div class="alert alert-error">Error: ' + result.error + '</div>';
                 }
             }).catch(function(err) {
-                document.getElementById('formAlert').innerHTML = '<div class="alert alert-error">Gagal terhubung ke server. Cek Web App URL.</div>';
+                document.getElementById('formAlert').innerHTML = '<div class="alert alert-error">Gagal terhubung: ' + err + '</div>';
             });
         });
 
