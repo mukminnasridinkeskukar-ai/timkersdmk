@@ -2049,10 +2049,7 @@ s;
     <script>
         // ==================== CONFIGURATION ====================
         // Replace with your Google Apps Script Web App URL
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzIDsPy6p4em4npt4qeoxl6IQPZchJlCh7Jp16B-3KJ96aptn8u_YnNrh1hq4vgFPTF/exec';
-        
-        // NIK yang sudah terdaftar (stored in localStorage for demo)
-        const REGISTERED_NIKS_KEY = 'sirek_registered_niks';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyQcG1oHmpcXazaMKqdEfqSw1wwhAx1-yScEY_spsVu6cRTLYe03Wogp7GHB0igd1o5/exec';
         
         // Admin credentials (plain text for simple comparison)
         const ADMIN_USERS = {
@@ -2393,10 +2390,11 @@ s;
             // NIK validation on input
             const nikInput = document.querySelector('input[name="nik"]');
             if (nikInput) {
-                nikInput.addEventListener('blur', function() {
+                nikInput.addEventListener('blur', async function() {
                     const nik = this.value;
                     if (nik.length === 16) {
-                        if (isNIKRegistered(nik)) {
+                        const registered = await isNIKRegistered(nik);
+                        if (registered) {
                             showToast('warning', 'Peringatan', 'NIK ini sudah terdaftar! Silakan gunakan NIK lain.');
                             this.value = '';
                             this.focus();
@@ -2641,26 +2639,17 @@ s;
 
         // ==================== PENDAFTARAN ====================
         
-        // Get registered NIKs from localStorage
-        function getRegisteredNIKs() {
-            const stored = localStorage.getItem(REGISTERED_NIKS_KEY);
-            return stored ? JSON.parse(stored) : [];
-        }
-        
-        // Save NIK to registered list
-        function saveNIK(nik) {
-            const nikList = getRegisteredNIKs();
-            nikList.push({
-                nik: nik,
-                timestamp: new Date().toISOString()
-            });
-            localStorage.setItem(REGISTERED_NIKS_KEY, JSON.stringify(nikList));
-        }
-        
-        // Check if NIK already registered
-        function isNIKRegistered(nik) {
-            const nikList = getRegisteredNIKs();
-            return nikList.some(item => item.nik === nik);
+        // Check if NIK already registered (from Google Sheets)
+        async function isNIKRegistered(nik) {
+            try {
+                const url = WEB_APP_URL + '?action=cek_nik&nik=' + encodeURIComponent(nik);
+                const response = await fetch(url);
+                const result = await response.json();
+                return result.success && result.data;
+            } catch (error) {
+                console.error('Error checking NIK:', error);
+                return false;
+            }
         }
         
         async function submitPendaftaran() {
@@ -2671,8 +2660,9 @@ s;
             console.log('Form submitted, NIK:', nik);
             console.log('WEB_APP_URL:', WEB_APP_URL);
             
-            // Check if NIK already registered
-            if (isNIKRegistered(nik)) {
+            // Check if NIK already registered (from Google Sheets)
+            const alreadyRegistered = await isNIKRegistered(nik);
+            if (alreadyRegistered) {
                 showToast('error', 'Pendaftaran Gagal', 'NIK ini sudah terdaftar! Setiap NIK hanya dapat mendaftar 1 kali.');
                 return;
             }
@@ -2728,8 +2718,6 @@ s;
                 if (result.success) {
                     showToast('success', 'Pendaftaran Berhasil', 'Data Anda telah berhasil disubmit ke Google Sheet!');
                     
-                    // Save NIK to prevent duplicate registration
-                    saveNIK(nik);
                     form.reset();
                     
                     // Reset file upload text
