@@ -1167,12 +1167,52 @@
                     loginLoading.value = true;
                     loginError.value = '';
                     
+                    const username = loginForm.value.username.trim();
+                    const password = loginForm.value.password;
+                    
+                    if (!username || !password) {
+                        loginError.value = 'Username dan password harus diisi';
+                        loginLoading.value = false;
+                        return;
+                    }
+                    
                     try {
-                        const response = await fetch(API_URL + '?action=login&username=' + loginForm.value.username + '&password=' + loginForm.value.password, { redirect: 'follow' });
-                        const data = await response.json();
+                        const url = API_URL + '?action=login&username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password);
+                        const response = await fetch(url, { redirect: 'follow' });
+                        const text = await response.text();
                         
-                        if (data.status === 'success' && data.data?.user) {
-                            currentUser.value = data.data.user;
+                        console.log('Login raw response:', text.substring(0, 500));
+                        
+                        let data;
+                        try {
+                            data = JSON.parse(text);
+                        } catch (parseError) {
+                            console.log('JSON parse error, trying demo mode');
+                            throw new Error('Invalid JSON response');
+                        }
+                        
+                        console.log('Login parsed data:', JSON.stringify(data));
+                        
+                        // Check for successful login - multiple formats
+                        let user = null;
+                        
+                        if (data.status === 'success') {
+                            // Format 1: { status: 'success', data: { user: {...} } }
+                            if (data.data?.user) {
+                                user = data.data.user;
+                            }
+                            // Format 2: { status: 'success', user: {...} }
+                            else if (data.user) {
+                                user = data.user;
+                            }
+                            // Format 3: { status: 'success', data: {...} } with user inside
+                            else if (data.data?.nama || data.data?.username) {
+                                user = data.data;
+                            }
+                        }
+                        
+                        if (user) {
+                            currentUser.value = user;
                             isLoggedIn.value = true;
                             showLoginModal.value = false;
                             loginForm.value = { username: '', password: '' };
@@ -1183,12 +1223,26 @@
                             loginError.value = data.message || 'Username atau password salah';
                         }
                     } catch (error) {
-                        // Demo mode
-                        if (loginForm.value.username && loginForm.value.password) {
+                        console.log('Login error:', error.message);
+                        
+                        // Check if API is connected by testing another endpoint
+                        try {
+                            const testResponse = await fetch(API_URL + '?action=getUsers', { redirect: 'follow', timeout: 5000 });
+                            const testText = await testResponse.text();
+                            
+                            if (testText.includes('success') || testText.includes('user')) {
+                                // API is working but login failed - wrong credentials
+                                loginError.value = 'Username atau password salah';
+                            } else {
+                                throw new Error('API response invalid');
+                            }
+                        } catch (apiError) {
+                            // API not connected - go to demo mode
+                            loginError.value = 'API tidak terhubung - menggunakan mode demo';
                             currentUser.value = {
                                 id: '1',
                                 nama: 'Administrator',
-                                username: loginForm.value.username,
+                                username: username,
                                 role: 'ADMINISTRATOR'
                             };
                             isLoggedIn.value = true;
@@ -1197,8 +1251,6 @@
                             activeMenu.value = 'admin';
                             showToast('Login berhasil! (Demo Mode)', 'success');
                             await loadAdminData();
-                        } else {
-                            loginError.value = 'Terjadi kesalahan. Silakan coba lagi.';
                         }
                     } finally {
                         loginLoading.value = false;
