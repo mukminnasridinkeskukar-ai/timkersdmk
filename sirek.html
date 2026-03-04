@@ -1168,11 +1168,11 @@
                     loginError.value = '';
                     
                     try {
-                        const response = await fetch(API_URL + '?action=login&username=' + loginForm.value.username + '&password=' + loginForm.value.password);
+                        const response = await fetch(API_URL + '?action=login&username=' + loginForm.value.username + '&password=' + loginForm.value.password, { redirect: 'follow' });
                         const data = await response.json();
                         
-                        if (data.status === 'success') {
-                            currentUser.value = data.user;
+                        if (data.status === 'success' && data.data?.user) {
+                            currentUser.value = data.data.user;
                             isLoggedIn.value = true;
                             showLoginModal.value = false;
                             loginForm.value = { username: '', password: '' };
@@ -1183,7 +1183,7 @@
                             loginError.value = data.message || 'Username atau password salah';
                         }
                     } catch (error) {
-                        // Demo mode - accept any login
+                        // Demo mode
                         if (loginForm.value.username && loginForm.value.password) {
                             currentUser.value = {
                                 id: '1',
@@ -1221,26 +1221,33 @@
                 
                 // API Calls
                 const loadDashboard = async () => {
-                    isLoading.value = true;
-                    try {
-                        const response = await fetch(API_URL + '?action=getDashboard');
-                        const data = await response.json();
-                        dashboardData.value = data;
-                        updateCharts();
-                    } catch (error) {
-                        // Demo data
-                        dashboardData.value = {
-                            jumlahLowongan: 5,
-                            jumlahFormasi: 45,
-                            jumlahPelamar: 127,
-                            lolosBerkas: 89,
-                            lulusKompetensi: 65,
-                            lulusWawancara: 42
-                        };
-                        updateCharts();
-                    } finally {
-                        isLoading.value = false;
+                  isLoading.value = true;
+                  try {
+                    const response = await fetch(API_URL + '?action=getDashboard', {
+                      method: 'GET',
+                      redirect: 'follow'
+                    });
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                      dashboardData.value = data.data;
+                    } else {
+                      throw new Error(data.message || 'Unknown error');
                     }
+                    updateCharts();
+                  } catch (error) {
+                    console.log('Using demo data - API not connected');
+                    dashboardData.value = {
+                      jumlahLowongan: 5,
+                      jumlahFormasi: 45,
+                      jumlahPelamar: 127,
+                      lolosBerkas: 89,
+                      lulusKompetensi: 65,
+                      lulusWawancara: 42
+                    };
+                    updateCharts();
+                  } finally {
+                    isLoading.value = false;
+                  }
                 };
                 
                 const loadAdminData = async () => {
@@ -1254,40 +1261,52 @@
                 
                 const loadPelamar = async () => {
                     try {
-                        const response = await fetch(API_URL + '?action=getPelamar');
+                        const response = await fetch(API_URL + '?action=getPelamar', { redirect: 'follow' });
                         const data = await response.json();
-                        pelamarList.value = data;
+                        if (data.status === 'success' && data.data) {
+                            pelamarList.value = data.data;
+                        } else {
+                            pelamarList.value = [];
+                        }
                     } catch (error) {
                         // Demo data
                         pelamarList.value = [
-                            { id: '1', nama: 'Ahmad Fauzi', nik: '6403012345678901', formasi: 'Perawat', pendidikan: 'S1', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'LULUS', hasilAkhir: 'DITERIMA' },
-                            { id: '2', nama: 'Siti Rahayu', nik: '6403012345678902', formasi: 'Bidan', pendidikan: 'D3', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'TIDAK LULUS', hasilAkhir: 'TIDAK LULUS' },
-                            { id: '3', nama: 'Budi Santoso', nik: '6403012345678903', formasi: 'Dokter', pendidikan: 'Profesi', statusBerkas: 'LULUS', statusKompetensi: 'MENUNGGU VERIFIKASI', statusWawancara: 'MENUNGGU', hasilAkhir: 'MENUNGGU' },
-                            { id: '4', nama: 'Dewi Lestari', nik: '6403012345678904', formasi: 'Apoteker', pendidikan: 'S1', statusBerkas: 'TIDAK LULUS', statusKompetensi: '-', statusWawancara: '-', hasilAkhir: 'TIDAK LULUS' },
-                            { id: '5', nama: 'Rudi Hermawan', nik: '6403012345678905', formasi: 'Administrasi', pendidikan: 'S1', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'LULUS', hasilAkhir: 'CADANGAN' },
+                            { id: '1', nama: 'Ahmad Fauzi', nik: '6403012345678901', formasi: 'PRW-001', pendidikan: 'S1', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'LULUS', hasilAkhir: 'DITERIMA' },
+                            { id: '2', nama: 'Siti Rahayu', nik: '6403012345678902', formasi: 'BID-001', pendidikan: 'D3', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'TIDAK LULUS', hasilAkhir: 'TIDAK LULUS' },
+                            { id: '3', nama: 'Budi Santoso', nik: '6403012345678903', formasi: 'DOC-001', pendidikan: 'Profesi', statusBerkas: 'LULUS', statusKompetensi: 'MENUNGGU', statusWawancara: 'MENUNGGU', hasilAkhir: 'MENUNGGU' },
+                            { id: '4', nama: 'Dewi Lestari', nik: '6403012345678904', formasi: 'APK-001', pendidikan: 'S1', statusBerkas: 'TIDAK LULUS', statusKompetensi: '-', statusWawancara: '-', hasilAkhir: 'TIDAK LULUS' },
+                            { id: '5', nama: 'Rudi Hermawan', nik: '6403012345678905', formasi: 'ADM-001', pendidikan: 'S1', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'LULUS', hasilAkhir: 'CADANGAN' },
                         ];
                     }
                 };
                 
                 const loadLowongans = async () => {
                     try {
-                        const response = await fetch(API_URL + '?action=getLowongan');
+                        const response = await fetch(API_URL + '?action=getLowongan', { redirect: 'follow' });
                         const data = await response.json();
-                        lowongans.value = data;
+                        if (data.status === 'success' && data.data) {
+                            lowongans.value = data.data;
+                        } else {
+                            lowongans.value = [];
+                        }
                     } catch (error) {
                         lowongans.value = [
-                            { id: '1', nama: 'Dokter Spesialis', jumlahFormasi: 3, tanggalBuka: '2024-01-01', tanggalTutup: '2024-01-31', status: 'TUTUP' },
-                            { id: '2', nama: 'Perawat', jumlahFormasi: 20, tanggalBuka: '2024-02-01', tanggalTutup: '2024-02-28', status: 'AKTIF' },
-                            { id: '3', nama: 'Bidan', jumlahFormasi: 10, tanggalBuka: '2024-02-01', tanggalTutup: '2024-02-28', status: 'AKTIF' },
+                            { id: '1', nama: 'Dokter Spesialis', jumlahFormasi: 3, status: 'TUTUP' },
+                            { id: '2', nama: 'Perawat', jumlahFormasi: 20, status: 'AKTIF' },
+                            { id: '3', nama: 'Bidan', jumlahFormasi: 10, status: 'AKTIF' },
                         ];
                     }
                 };
                 
                 const loadUsers = async () => {
                     try {
-                        const response = await fetch(API_URL + '?action=getUsers');
+                        const response = await fetch(API_URL + '?action=getUsers', { redirect: 'follow' });
                         const data = await response.json();
-                        adminUsers.value = data;
+                        if (data.status === 'success' && data.data) {
+                            adminUsers.value = data.data;
+                        } else {
+                            adminUsers.value = [];
+                        }
                     } catch (error) {
                         adminUsers.value = [
                             { id: '1', nama: 'Admin Utama', username: 'admin', role: 'ADMINISTRATOR' },
@@ -1300,9 +1319,13 @@
                 
                 const loadLogs = async () => {
                     try {
-                        const response = await fetch(API_URL + '?action=getLogs');
+                        const response = await fetch(API_URL + '?action=getLogs', { redirect: 'follow' });
                         const data = await response.json();
-                        logs.value = data;
+                        if (data.status === 'success' && data.data) {
+                            logs.value = data.data;
+                        } else {
+                            logs.value = [];
+                        }
                     } catch (error) {
                         logs.value = [
                             { id: '1', tanggal: '2024-02-15 10:30:00', user: 'admin', aktivitas: 'Login', keterangan: 'Login ke sistem' },
@@ -1329,11 +1352,11 @@
                     
                     isLoading.value = true;
                     try {
-                        const response = await fetch(API_URL + '?action=cekNIK&nik=' + searchNIK.value);
+                        const response = await fetch(API_URL + '?action=cekNIK&nik=' + searchNIK.value, { redirect: 'follow' });
                         const data = await response.json();
                         
-                        if (data.status === 'success') {
-                            resultData.value = data.pelamar;
+                        if (data.status === 'success' && data.data?.pelamar) {
+                            resultData.value = data.data.pelamar;
                         } else {
                             showToast('Data tidak ditemukan', 'error');
                             resultData.value = null;
@@ -1343,7 +1366,7 @@
                         resultData.value = {
                             nama: 'Demo Pelamar',
                             nik: searchNIK.value,
-                            formasi: 'Perawat',
+                            formasi: 'PRW-001',
                             tanggalDaftar: '15-02-2024',
                             statusBerkas: 'LULUS',
                             nilaiKompetensi: '85.50',
