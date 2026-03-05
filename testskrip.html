@@ -876,33 +876,67 @@
                         let data;
                         try { data = JSON.parse(text); } catch (e) { throw new Error('Invalid JSON'); }
                         if (data.status === 'success' && data.data) {
-                            profilList.value = data.data.map(item => ({
-                                id: item['ID'] || item.id || '',
-                                nama: item['Nama'] || item.nama || '',
-                                nik: item['NIK'] || item.nik || '',
-                                foto: item['Link Foto (Drive)'] || item['foto'] || item['Foto'] || '',
-                                jenisKelamin: item['Jenis Kelamin'] || item.jenisKelamin || '',
-                                alamatKTP: item['Alamat Sesuai KTP'] || item['Alamat KTP'] || item.alamatKTP || '',
-                                alamatDomisili: item['Alamat Domisili'] || item.alamatDomisili || '',
-                                pendidikan: item['Pendidikan'] || item.pendidikan || '',
-                                ipk: item['IPK'] || item.ipk || '',
-                                formasi: item['Formasi'] || item.formasi || '',
-                                tanggalDaftar: item['Tanggal Daftar'] || item.tanggalDaftar || ''
-                            }));
+                            // Generate SVG avatar as fallback
+                            const generateAvatar = (name, jk) => {
+                                const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                                const bgColor = jk && jk.toLowerCase().includes('perempuan') ? 'EC4899' : '0D8ABC';
+                                return 'data:image/svg+xml,' + encodeURIComponent(
+                                    '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150">' +
+                                    '<rect width="150" height="150" fill="#' + bgColor + '"/>' +
+                                    '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial" font-size="48" font-weight="bold">' + initials + '</text>' +
+                                    '</svg>'
+                                );
+                            };
+                            
+                            // Process each item - convert Drive URLs or use avatar
+                            profilList.value = data.data.map(item => {
+                                let fotoUrl = item['Link Foto (Drive)'] || item['foto'] || item['Foto'] || '';
+                                
+                                // If no photo, generate SVG avatar with initials
+                                if (!fotoUrl) {
+                                    fotoUrl = generateAvatar(item['Nama'] || item.nama || 'User', item['Jenis Kelamin'] || item.jenisKelamin);
+                                }
+                                
+                                return {
+                                    id: item['ID'] || item.id || '',
+                                    nama: item['Nama'] || item.nama || '',
+                                    nik: item['NIK'] || item.nik || '',
+                                    foto: fotoUrl,
+                                    jenisKelamin: item['Jenis Kelamin'] || item.jenisKelamin || '',
+                                    alamatKTP: item['Alamat Sesuai KTP'] || item['Alamat KTP'] || item.alamatKTP || '',
+                                    alamatDomisili: item['Alamat Domisili'] || item.alamatDomisili || '',
+                                    pendidikan: item['Pendidikan'] || item.pendidikan || '',
+                                    ipk: item['IPK'] || item.ipk || '',
+                                    formasi: item['Formasi'] || item.formasi || '',
+                                    tanggalDaftar: item['Tanggal Daftar'] || item.tanggalDaftar || ''
+                                };
+                            });
                         } else { profilList.value = []; }
                     } catch (error) {
-                        // Demo data with sample placeholder images
+                        console.log('loadProfil - Error:', error);
+                        // Generate SVG avatar as data URL
+                        const generateAvatar = (name, jk) => {
+                            const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                            const bgColor = jk.toLowerCase().includes('perempuan') ? 'EC4899' : '0D8ABC';
+                            return 'data:image/svg+xml,' + encodeURIComponent(
+                                '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150">' +
+                                '<rect width="150" height="150" fill="#' + bgColor + '"/>' +
+                                '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial" font-size="48" font-weight="bold">' + initials + '</text>' +
+                                '</svg>'
+                            );
+                        };
+                        // Demo data with SVG avatar images
                         profilList.value = [
-                            { id: '1', nama: 'Ahmad Fauzi', nik: '6403012345678901', foto: 'https://ui-avatars.com/api/?name=Ahmad+Fauzi&background=0D8ABC&color=fff&size=150', jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Ahmad Yani No. 45, Samarinda', alamatDomisili: 'Jl. P. Diponegoro No. 12, Samarinda', pendidikan: 'S1 Keperawatan', ipk: '3.75', formasi: 'PRW-001', tanggalDaftar: '15-02-2024' },
-                            { id: '2', nama: 'Siti Rahayu', nik: '6403012345678902', foto: 'https://ui-avatars.com/api/?name=Siti+Rahayu&background=EC4899&color=fff&size=150', jenisKelamin: 'Perempuan', alamatKTP: 'Jl. Gatot Subroto No. 78, Bontang', alamatDomisili: 'Jl. MT Haryono No. 34, Bontang', pendidikan: 'D3 Keperawatan', ipk: '3.50', formasi: 'NRS-001', tanggalDaftar: '16-02-2024' },
-                            { id: '3', nama: 'Budi Santoso', nik: '6403012345678903', foto: 'https://ui-avatars.com/api/?name=Budi+Santoso&background=0D8ABC&color=fff&size=150', jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Sudirman No. 23, Tenggarong', alamatDomisili: 'Jl. P. Antasari No. 56, Tenggarong', pendidikan: 'Profesi Ners', ipk: '3.90', formasi: 'NRS-002', tanggalDaftar: '17-02-2024' },
-                            { id: '4', nama: 'Dewi Lestari', nik: '6403012345678904', foto: 'https://ui-avatars.com/api/?name=Dewi+Lestari&background=EC4899&color=fff&size=150', jenisKelamin: 'Perempuan', alamatKTP: 'Jl. Pattimura No. 89, Sangatta', alamatDomisili: 'Jl. P. Dewantara No. 45, Sangatta', pendidikan: 'S1 Farmasi', ipk: '3.65', formasi: 'APT-001', tanggalDaftar: '18-02-2024' },
-                            { id: '5', nama: 'Rudi Hermawan', nik: '6403012345678905', foto: 'https://ui-avatars.com/api/?name=Rudi+Hermawan&background=0D8ABC&color=fff&size=150', jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. WR. Supratman No. 67, Balikpapan', alamatDomisili: 'Jl. Jend. Sudirman No. 78, Balikpapan', pendidikan: 'S1 Sistem Informasi', ipk: '3.80', formasi: 'IT-001', tanggalDaftar: '19-02-2024' },
-                            { id: '6', nama: 'Maya Wardani', nik: '6403012345678906', foto: 'https://ui-avatars.com/api/?name=Maya+Wardani&background=EC4899&color=fff&size=150', jenisKelamin: 'Perempuan', alamatKTP: 'Jl. P. Mangkubumi No. 34, Samarinda', alamatDomisili: 'Jl. P. Sudirman No. 90, Samarinda', pendidikan: 'D3 Kebidanan', ipk: '3.55', formasi: 'BDN-001', tanggalDaftar: '20-02-2024' },
-                            { id: '7', nama: 'Lisa Kurniawati', nik: '6403012345678908', foto: 'https://ui-avatars.com/api/?name=Lisa+Kurniawati&background=EC4899&color=fff&size=150', jenisKelamin: 'Perempuan', alamatKTP: 'Jl. A. Yani KM.5 No. 12, Bontang', alamatDomisili: 'Jl. P. Husni Thamrin No. 23, Bontang', pendidikan: 'S1 Kedokteran', ipk: '3.95', formasi: 'DU-001', tanggalDaftar: '21-02-2024' },
-                            { id: '8', nama: 'Joko Pramono', nik: '6403012345678909', foto: 'https://ui-avatars.com/api/?name=Joko+Pramono&background=0D8ABC&color=fff&size=150', jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. P. Diponegoro No. 56, Tenggarong', alamatDomisili: 'Jl. P. Imam Bonjol No. 78, Tenggarong', pendidikan: 'D3 Teknologi Laboratorium Medis', ipk: '3.60', formasi: 'TLM-001', tanggalDaftar: '22-02-2024' },
-                            { id: '9', nama: 'Nurul Hidayah', nik: '6403012345678910', foto: 'https://ui-avatars.com/api/?name=Nurul+Hidayah&background=EC4899&color=fff&size=150', jenisKelamin: 'Perempuan', alamatKTP: 'Jl. P. Dewantara No. 45, Sangatta', alamatDomisili: 'Jl. Pattimura No. 67, Sangatta', pendidikan: 'S1 Psikologi', ipk: '3.70', formasi: 'ADM-001', tanggalDaftar: '23-02-2024' },
-                            { id: '10', nama: 'Andi Wijaya', nik: '6403012345678911', foto: 'https://ui-avatars.com/api/?name=Andi+Wijaya&background=0D8ABC&color=fff&size=150', jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Jend. A. Yani No. 89, Balikpapan', alamatDomisili: 'Jl. MT Haryono No. 12, Balikpapan', pendidikan: 'D3 Radiologi', ipk: '3.45', formasi: 'RAD-001', tanggalDaftar: '24-02-2024' }
+                            { id: '1', nama: 'Ahmad Fauzi', nik: '6403012345678901', foto: generateAvatar('Ahmad Fauzi', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Ahmad Yani No. 45, Samarinda', alamatDomisili: 'Jl. P. Diponegoro No. 12, Samarinda', pendidikan: 'S1 Keperawatan', ipk: '3.75', formasi: 'PRW-001', tanggalDaftar: '15-02-2024' },
+                            { id: '2', nama: 'Siti Rahayu', nik: '6403012345678902', foto: generateAvatar('Siti Rahayu', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. Gatot Subroto No. 78, Bontang', alamatDomisili: 'Jl. MT Haryono No. 34, Bontang', pendidikan: 'D3 Keperawatan', ipk: '3.50', formasi: 'NRS-001', tanggalDaftar: '16-02-2024' },
+                            { id: '3', nama: 'Budi Santoso', nik: '6403012345678903', foto: generateAvatar('Budi Santoso', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Sudirman No. 23, Tenggarong', alamatDomisili: 'Jl. P. Antasari No. 56, Tenggarong', pendidikan: 'Profesi Ners', ipk: '3.90', formasi: 'NRS-002', tanggalDaftar: '17-02-2024' },
+                            { id: '4', nama: 'Dewi Lestari', nik: '6403012345678904', foto: generateAvatar('Dewi Lestari', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. Pattimura No. 89, Sangatta', alamatDomisili: 'Jl. P. Dewantara No. 45, Sangatta', pendidikan: 'S1 Farmasi', ipk: '3.65', formasi: 'APT-001', tanggalDaftar: '18-02-2024' },
+                            { id: '5', nama: 'Rudi Hermawan', nik: '6403012345678905', foto: generateAvatar('Rudi Hermawan', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. WR. Supratman No. 67, Balikpapan', alamatDomisili: 'Jl. Jend. Sudirman No. 78, Balikpapan', pendidikan: 'S1 Sistem Informasi', ipk: '3.80', formasi: 'IT-001', tanggalDaftar: '19-02-2024' },
+                            { id: '6', nama: 'Maya Wardani', nik: '6403012345678906', foto: generateAvatar('Maya Wardani', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. P. Mangkubumi No. 34, Samarinda', alamatDomisili: 'Jl. P. Sudirman No. 90, Samarinda', pendidikan: 'D3 Kebidanan', ipk: '3.55', formasi: 'BDN-001', tanggalDaftar: '20-02-2024' },
+                            { id: '7', nama: 'Lisa Kurniawati', nik: '6403012345678908', foto: generateAvatar('Lisa Kurniawati', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. A. Yani KM.5 No. 12, Bontang', alamatDomisili: 'Jl. P. Husni Thamrin No. 23, Bontang', pendidikan: 'S1 Kedokteran', ipk: '3.95', formasi: 'DU-001', tanggalDaftar: '21-02-2024' },
+                            { id: '8', nama: 'Joko Pramono', nik: '6403012345678909', foto: generateAvatar('Joko Pramono', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. P. Diponegoro No. 56, Tenggarong', alamatDomisili: 'Jl. P. Imam Bonjol No. 78, Tenggarong', pendidikan: 'D3 Teknologi Laboratorium Medis', ipk: '3.60', formasi: 'TLM-001', tanggalDaftar: '22-02-2024' },
+                            { id: '9', nama: 'Nurul Hidayah', nik: '6403012345678910', foto: generateAvatar('Nurul Hidayah', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. P. Dewantara No. 45, Sangatta', alamatDomisili: 'Jl. Pattimura No. 67, Sangatta', pendidikan: 'S1 Psikologi', ipk: '3.70', formasi: 'ADM-001', tanggalDaftar: '23-02-2024' },
+                            { id: '10', nama: 'Andi Wijaya', nik: '6403012345678911', foto: generateAvatar('Andi Wijaya', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Jend. A. Yani No. 89, Balikpapan', alamatDomisili: 'Jl. MT Haryono No. 12, Balikpapan', pendidikan: 'D3 Radiologi', ipk: '3.45', formasi: 'RAD-001', tanggalDaftar: '24-02-2024' }
                         ];
                     }
                 };
