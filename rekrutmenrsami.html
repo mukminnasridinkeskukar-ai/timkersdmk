@@ -638,9 +638,9 @@
         <div class="logo">
             <i class="fas fa-hospital"></i>
         </div>
-        <h1>FORMULIR PENDAFTARAN REKRUTMEN</h1>
+        <h1>FORMULIR PENDAFTARAN REKRUTMEN KARYAWAN</h1>
         <h2>RSUD AJI MUHAMMAD IDRIS</h2>
-        <p>Silakan isi formulir dengan data yang benar dan lengkap</p>
+        <p>Silakan isi formulir dengan data yang benar dan lengkap, Kekurangan dan Kesalahan dalam pendaftaran menjadi tanggungjawab pelamar</p>
     </header>
 
     <!-- Form Container -->
@@ -1034,7 +1034,7 @@
         </div>
         <h4>Lamaran Anda Berhasil Dikirim</h4>
         <p>Terima kasih telah mendaftar di<br><strong>RSUD Aji Muhammad Idris</strong></p>
-        <p>Silakan memantau proses seleksi melalui dashboard pelamar atau pantau di website https://dinkes.kukarkab.go.id/.</p>
+        <p id="successMessage">Silakan memantau proses seleksi melalui dashboard pelamar.</p>
         <button type="button" class="modal-btn" onclick="closeModal('successModal')">Tutup</button>
     </div>
 </div>
@@ -1064,7 +1064,7 @@
     // GOOGLE APPS SCRIPT WEB APP CONFIGURATION
     // =====================================================
     // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbymMsayjIw0Nz2WKKimlrGjIixo4RcL_4pkeQV3mcJkvx_VGbAaEY52nOvpVurBl91A/exec';
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEIX0FA8Hjh2lbFlSEvsBKwD03Y9fXy7Kg9YtB8YIcTJwpwTrPM9EoFaoCSto3t1Fv/exec';
     
     // File configurations
     const fileConfigs = {
@@ -1221,7 +1221,7 @@ r\n
 
     // Generate random captcha
     function generateCaptcha() {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const chars = 'https://script.google.com/macros/s/AKfycbyTNMDyAcl-6YXOMMDJhzTucevIZLwZv01hrHTGK4RUh4_lw8hzIsyYNMDN1wr4aTNn/exec';
         let result = '';
         for (let i = 0; i < 6; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -1334,8 +1334,58 @@ r\n
 
     // NIK Validation
     document.getElementById('nik').addEventListener('input', function() {
-        this.value = this.value.replace(/\D/g, '').slice(0, 16);
+        // Remove previous error
+        this.classList.remove('is-invalid');
+        document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback').textContent = 'NIK harus terdiri dari 16 digit';
+        
+        if (this.value.length === 16) {
+            checkNIKExists(this.value);
+        }
     });
+    
+    // Check if NIK already exists in database (for info only, not blocking)
+    async function checkNIKExists(nik) {
+        try {
+            const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
+            const text = await response.text();
+            let data;
+            try { data = JSON.parse(text); } catch (e) { return; }
+            
+            if (data.status === 'success' && data.data && data.data.exists) {
+                const nikInput = document.getElementById('nik');
+                // Show info message instead of error - allow re-application
+                const feedback = document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback');
+                feedback.textContent = 'NIK sudah terdaftar. Anda dapat memperbarui data lamaran Anda.';
+                feedback.style.display = 'block';
+                nikInput.classList.remove('is-invalid');
+                nikInput.classList.add('nik-exists');
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.log('NIK check error (can be ignored):', error);
+            return false;
+        }
+    }
+    
+    // Final check before submit
+    async function checkNIKBeforeSubmit(nik) {
+        try {
+            const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
+            const text = await response.text();
+            let data;
+            try { data = JSON.parse(text); } catch (e) { return false; }
+            
+            return data.status === 'success' && data.data && data.data.exists;
+        } catch (error) {
+            console.log('NIK check error:', error);
+            return false;
+        }
+    }
+    
+    function validateNIKLength() {
+        const nik = document.getElementById('nik').value;
+    }
 
     document.getElementById('nik').addEventListener('blur', function() {
         if (this.value.length !== 16 && this.value.length > 0) {
@@ -1379,6 +1429,13 @@ r\n
             isValid = false;
         }
 
+        // Check if NIK is invalid (already exists)
+        const nikInput = document.getElementById('nik');
+        if (nikInput.classList.contains('is-invalid')) {
+            showError('NIK ini sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran.');
+            isValid = false;
+        }
+
         return isValid;
     }
 
@@ -1410,6 +1467,13 @@ r\n
         if (!validateForm()) {
             showError('Data belum lengkap. Silakan lengkapi semua kolom.');
             return;
+        }
+
+        // Final check: Get NIK info (allow re-application)
+        const nik = document.getElementById('nik').value;
+        if (nik.length === 16) {
+            // Allow submission even if NIK exists - backend will update existing record
+            console.log('NIK entered: ' + nik + ' - proceeding with submission (update if exists)');
         }
 
         // Anti double submit
@@ -1464,7 +1528,12 @@ r\n
             if (response.status === 'success') {
                 console.log('Data berhasil disimpan ke Google Sheets');
                 console.log('File links:', response.links);
-                showSuccess();
+                // Show appropriate message based on whether it was update or create
+                if (response.data && response.data.updated) {
+                    showSuccess('Data lamaran berhasil diperbarui!');
+                } else {
+                    showSuccess();
+                }
             } else {
                 throw new Error(response.message || 'Gagal menyimpan data');
             }
@@ -1554,7 +1623,13 @@ r\n
     }
 
     // Show success modal
-    function showSuccess() {
+    function showSuccess(customMessage) {
+        const successMessageEl = document.getElementById('successMessage');
+        if (customMessage) {
+            successMessageEl.textContent = customMessage;
+        } else {
+            successMessageEl.textContent = 'Pendaftaran berhasil! Silakan menunggu informasi selanjutnya melalui email yang telah terdaftar.';
+        }
         document.getElementById('successModal').classList.add('show');
     }
 
