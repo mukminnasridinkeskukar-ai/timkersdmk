@@ -604,7 +604,21 @@
   <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 lg:hidden hidden"></div>
 
   <script>
-    // Data mock untuk demo
+    // ============================================
+    // KONFIGURASI GOOGLE APPS SCRIPT
+    // ============================================
+    // GANTI DENGAN URL ANDA:
+    // 1. Buat Google Sheets
+    // 2. Extensions > Apps Script
+    // 3. Copy kode Apps Script (lihat di bawah)
+    // 4. Deploy > New deployment > Web app
+    // 5. Copy URL dan paste di bawah ini
+    // ============================================
+    
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8Zdn2QaIsXCNyQFMTukw1G3b29Cfru33GIbASEijRKcQpboyyWZCjdUs_Oj2sgcV4sw/exec';
+    const DRIVE_FOLDER_ID = '1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF'; // ID folder Google Drive untuk upload
+
+    // Data mock untuk demo (tanpa koneksi)
     const mockFormasi = [
       { no: 1, nama: 'Dokter Gigi', jenjang: 'Ahli Pertama', unit: 'RSUD Dr. Soetomo', jumlah: 25, tahun: 2024, status: 'Aktif' },
       { no: 2, nama: 'Perawat', jenjang: 'Terampil', unit: 'RSUD Dr. Soetomo', jumlah: 150, tahun: 2024, status: 'Aktif' },
@@ -622,6 +636,48 @@
     ];
 
     let isLoggedIn = false;
+    let useMockData = true; // Set ke false jika sudah konek ke Google Sheets
+
+    // Fungsi Upload ke Google Drive via Apps Script
+    async function uploadToDrive(file, folderId) {
+      const reader = new FileReader();
+      return new Promise((resolve, reject) => {
+        reader.onload = async function(e) {
+          const base64 = e.target.result.split(',')[1];
+          const fileName = file.name;
+          
+          try {
+            const response = await fetch(SCRIPT_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: `action=upload&fileName=${encodeURIComponent(fileName)}&fileData=${encodeURIComponent(base64)}&folderId=${encodeURIComponent(folderId)}`
+            });
+            const result = await response.json();
+            resolve(result.fileUrl);
+          } catch (error) {
+            console.error('Upload error:', error);
+            resolve(null); // Return null jika gagal
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Fungsi Simpan ke Google Sheets via Apps Script
+    async function saveToSheet(data) {
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `action=save&data=${encodeURIComponent(JSON.stringify(data))}`
+        });
+        const result = await response.json();
+        return result.success;
+      } catch (error) {
+        console.error('Save error:', error);
+        return false;
+      }
+    }
 
     // Toggle Sidebar
     function toggleSidebar() {
@@ -797,11 +853,89 @@
       animateCounters();
     }
 
-    // Pendaftaran Form
-    document.getElementById('pendaftaranForm').addEventListener('submit', function(e) {
+    // Pendaftaran Form - dengan Google Sheets & Drive
+    document.getElementById('pendaftaranForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-      alert('Pendaftaran berhasil! Anda akan menerima email konfirmasi.');
-      this.reset();
+      
+      const formData = new FormData(this);
+      const submitBtn = this.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      
+      // Tampilkan loading
+      submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Mengirim... ';
+      submitBtn.disabled = true;
+      
+      try {
+        // Kumpulkan data formulir
+        const data = {
+          timestamp: new Date().toISOString(),
+          periode: formData.get('periode'),
+          nama_lengkap: formData.get('nama'),
+          nik: formData.get('nik'),
+          nip: formData.get('nip'),
+          nomor_telpon: formData.get('nomor_hp'),
+          email: formData.get('email'),
+          unit_kerja: formData.get('unit_kerja'),
+          jenis_jabatan: formData.get('jenis_jabatan'),
+          jenjang_jabatan: formData.get('jenjang'),
+          pangkat_gol: formData.get('pangkat_gol'),
+          nilai_pak: formData.get('nilai_pak'),
+          nomor_str: formData.get('nomor_str'),
+          kategori_penjenjangan: formData.get('kategori_penjenjangan'),
+          jabfung_tujuan: formData.get('jabfung_tujuan'),
+          jenjang_tujuan: formData.get('jenjang_tujuan'),
+          foto_url: '',
+          dokumen_url: ''
+        };
+        
+        // Upload foto ke Google Drive
+        const fotoFile = formData.get('foto');
+        if (fotoFile && fotoFile.name) {
+          if (useMockData) {
+            data.foto_url = 'https://drive.google.com/placeholder/' + fotoFile.name;
+          } else {
+            const fotoUrl = await uploadToDrive(fotoFile, DRIVE_FOLDER_ID);
+            data.foto_url = fotoUrl || 'Upload gagal';
+          }
+        }
+        
+        // Upload dokumen ke Google Drive
+        const dokumenFiles = formData.getAll('dokumen');
+        if (dokumenFiles.length > 0 && dokumenFiles[0].name) {
+          const uploadedDocs = [];
+          for (const file of dokumenFiles) {
+            if (useMockData) {
+              uploadedDocs.push('https://drive.google.com/placeholder/' + file.name);
+            } else {
+              const docUrl = await uploadToDrive(file, DRIVE_FOLDER_ID);
+              uploadedDocs.push(docUrl || file.name);
+            }
+          }
+          data.dokumen_url = uploadedDocs.join(', ');
+        }
+        
+        // Simpan ke Google Sheets
+        if (useMockData) {
+          // Demo mode - simulasi berhasil
+          alert('Pendaftaran berhasil!\n\nData: ' + JSON.stringify(data, null, 2));
+          document.getElementById('pendaftaranForm').reset();
+        } else {
+          // Mode Production - simpan ke Google Sheets
+          const saved = await saveToSheet(data);
+          if (saved) {
+            alert('Pendaftaran berhasil! Data telah disimpan ke Google Sheets.');
+            document.getElementById('pendaftaranForm').reset();
+          } else {
+            alert('Gagal menyimpan data. Silakan coba lagi.');
+          }
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan: ' + error.message);
+      } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+      }
     });
 
     // Initialize
