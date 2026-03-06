@@ -698,7 +698,7 @@
         <div class="locked-notice" id="lockedNotice">
             <i class="fas fa-lock"></i>
             <h5>Formulir Dikunci</h5>
-            <p>NIK Anda sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran. Anda tidak dapat melakukan perubahan data setelah terkirim.</p>
+            <p>NIK Anda sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran. Silakan hubungi administrator untuk perubahan data.</p>
         </div>
 
         <form id="applicationForm" enctype="multipart/form-data">
@@ -1132,7 +1132,7 @@
     // GOOGLE APPS SCRIPT WEB APP CONFIGURATION
     // =====================================================
     // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEIX0FA8Hjh2lbFlSEvsBKwD03Y9fXy7Kg9YtB8YIcTJwpwTrPM9EoFaoCSto3t1Fv/exec';
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxY5EkTowiHo1Ku13-SWCuI5lkecygA1N961ptz0SVHL5n8suwSV8CqJUhW-nC5jPH-/exec';
     
     // File configurations
     const fileConfigs = {
@@ -1289,7 +1289,7 @@
 
     // Generate random captcha
     function generateCaptcha() {
-        const chars = 'https://script.google.com/macros/s/AKfycbyTNMDyAcl-6YXOMMDJhzTucevIZLwZv01hrHTGK4RUh4_lw8hzIsyYNMDN1wr4aTNn/exec';
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let result = '';
         for (let i = 0; i < 6; i++) {
             result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -1430,6 +1430,7 @@
             try { data = JSON.parse(text); } catch (e) { 
                 feedback.textContent = 'Gagal memvalidasi NIK. Silakan coba lagi.';
                 feedback.style.display = 'block';
+                // On error, don't block - let user try submitting
                 return false; 
             }
             
@@ -1457,7 +1458,8 @@
             }
         } catch (error) {
             console.log('NIK check error:', error);
-            // On error, allow submission (don't block)
+            // On error, don't block - let user try submitting
+            submitBtn.disabled = false;
             return false;
         }
     }
@@ -1511,7 +1513,9 @@
         const form = document.getElementById('applicationForm');
         const requiredFields = form.querySelectorAll('[required]');
         let isValid = true;
+        let errorMessage = '';
 
+        // Check all required fields
         requiredFields.forEach(field => {
             if (!field.value.trim()) {
                 field.classList.add('is-invalid');
@@ -1521,18 +1525,27 @@
             }
         });
 
-        // Check captcha
-        const captchaInput = document.getElementById('captchaInput').value.toUpperCase();
+        // Check captcha - case insensitive
+        const captchaInput = document.getElementById('captchaInput').value.toUpperCase().trim();
+        const captchaEl = document.getElementById('captchaInput');
+        console.log('Captcha input:', captchaInput, 'Generated:', captchaGenerated);
         if (captchaInput !== captchaGenerated) {
-            showError('Kode captcha tidak sesuai');
+            captchaEl.classList.add('is-invalid');
+            errorMessage = 'Kode captcha tidak sesuai. Pastikan huruf besar/kecil benar.';
+            isValid = false;
+        } else {
+            captchaEl.classList.remove('is-invalid');
+        }
+
+        // Check if NIK has error class (already registered)
+        const nikInput = document.getElementById('nik');
+        if (nikInput.classList.contains('is-invalid')) {
+            errorMessage = 'NIK sudah terdaftar pada sistem.';
             isValid = false;
         }
 
-        // Check if NIK is invalid (already exists)
-        const nikInput = document.getElementById('nik');
-        if (nikInput.classList.contains('is-invalid')) {
-            showError('NIK ini sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran.');
-            isValid = false;
+        if (!isValid && errorMessage) {
+            showError(errorMessage);
         }
 
         return isValid;
@@ -1582,7 +1595,6 @@
         isSubmitting = true;
         const submitBtn = document.getElementById('submitBtn');
         submitBtn.classList.add('loading');
-        submitBtn.disabled = true;
 
         try {
             // Prepare form data
