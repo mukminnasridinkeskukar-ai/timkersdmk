@@ -622,15 +622,20 @@
     // ============================================
     // KONFIGURASI GOOGLE APPS SCRIPT
     // ============================================
-    // GANTI DENGAN URL ANDA:
-    // 1. Buat Google Sheets
-    // 2. Extensions > Apps Script
-    // 3. Copy kode Apps Script (lihat di bawah)
-    // 4. Deploy > New deployment > Web app
-    // 5. Copy URL dan paste di bawah ini
+    // INSTRUKSI PENGGUNAAN:
+    // 1. Buka https://script.google.com
+    // 2. Buat Project Baru
+    // 3. Copy kode dari file GoogleAppsScript.gs
+    // 4. Update SPREADSHEET_ID dan DRIVE_FOLDER_ID di dalam kode
+    // 5. Deploy > New Deployment > Web App
+    // 6. Isi: Execute as: Me, Who has access: Anyone
+    // 7. Copy Deployment URL dan paste di bawah ini
     // ============================================
     
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbya5sSlj_HpHvxp5NO4ePoerpmLENtEBGNEcNpwXuDePpOhdbmNUgp7ky0XDqELwXDetg/exec';
+    // Spreadsheet ID: 1Ox0u5WMWcpqk5u1rHvQ5x1doZn9787FZGf_zGRDVUOo
+    // Drive Folder ID: 1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF
+    
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyuDevkP0kOUV4w4b1v3jYyGehpliZP7yTlSDltxO4UmAgW2oz_OG0qCle2W4yp5kVuww/exec';
     const DRIVE_FOLDER_ID = '1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF'; // ID folder Google Drive untuk upload
 
     // Data akan diambil dari Google Sheets
@@ -667,17 +672,24 @@
     ];
 
     let isLoggedIn = false;
-    let useMockData = true; // Set ke false jika sudah konek ke Google Sheets
+    let useMockData = false; // Set ke false jika sudah konek ke Google Sheets
 
-    // Fungsi Ambil Data dari Google Sheets
+    // Fungsi Ambil Data dari Google Sheets (using POST)
     async function fetchFromSheet(sheetName) {
       try {
-        const response = await fetch(SCRIPT_URL + '?action=getData&sheet=' + sheetName);
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'action=getData&sheet=' + encodeURIComponent(sheetName)
+        });
         const result = await response.json();
+        console.log('Fetch ' + sheetName + ' response:', result);
         if (result.success) {
           return result.data;
+        } else {
+          console.error('Error fetching ' + sheetName + ':', result.message);
+          return null;
         }
-        return null;
       } catch (error) {
         console.error('Error fetching from sheet:', error);
         return null;
@@ -793,7 +805,9 @@
     }
 
     // Fungsi Upload ke Google Drive via Apps Script
+    // Returns object with url and fileId
     async function uploadToDrive(file, folderId) {
+      console.log('Uploading file:', file.name);
       const reader = new FileReader();
       return new Promise((resolve, reject) => {
         reader.onload = async function(e) {
@@ -801,16 +815,27 @@
           const fileName = file.name;
           
           try {
+            console.log('Sending to:', SCRIPT_URL);
             const response = await fetch(SCRIPT_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
               body: `action=upload&fileName=${encodeURIComponent(fileName)}&fileData=${encodeURIComponent(base64)}&folderId=${encodeURIComponent(folderId)}`
             });
+            
             const result = await response.json();
-            resolve(result.fileUrl);
+            console.log('Upload response:', result);
+            
+            if (result.success) {
+              resolve({ url: result.fileUrl, id: result.fileId });
+            } else {
+              console.error('Upload failed:', result.message);
+              alert('Gagal upload file ' + fileName + ': ' + result.message);
+              resolve(null);
+            }
           } catch (error) {
             console.error('Upload error:', error);
-            resolve(null); // Return null jika gagal
+            alert('Error upload file: ' + error.message + '\n\nPastikan Google Apps Script sudah di-deploy dengan benar!');
+            resolve(null);
           }
         };
         reader.readAsDataURL(file);
@@ -820,15 +845,26 @@
     // Fungsi Simpan ke Google Sheets via Apps Script
     async function saveToSheet(data) {
       try {
+        console.log('Saving to sheet:', data);
         const response = await fetch(SCRIPT_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: `action=save&data=${encodeURIComponent(JSON.stringify(data))}`
         });
+        
         const result = await response.json();
-        return result.success;
+        console.log('Save response:', result);
+        
+        if (result.success) {
+          return true;
+        } else {
+          console.error('Save failed:', result.message);
+          alert('Gagal menyimpan data: ' + result.message);
+          return false;
+        }
       } catch (error) {
         console.error('Save error:', error);
+        alert('Error menyimpan data: ' + error.message + '\n\nPastikan Google Apps Script sudah di-deploy dengan benar!\n\nBuka Console (F12) untuk melihat detail error.');
         return false;
       }
     }
@@ -903,17 +939,47 @@
     // Load Tables
     function loadFormasiTable() {
       const tbody = document.getElementById('formasiTable');
-      tbody.innerHTML = mockFormasi.map((item, i) => `
-        <tr class="hover:bg-gray-50">
-          <td class="px-6 py-4 text-sm">${i+1}</td>
-          <td class="px-6 py-4 text-sm font-medium">${item.nama}</td>
-          <td class="px-6 py-4 text-sm">${item.jenjang}</td>
-          <td class="px-6 py-4 text-sm">${item.unit}</td>
-          <td class="px-6 py-4 text-sm font-semibold">${item.jumlah}</td>
-          <td class="px-6 py-4 text-sm">${item.tahun}</td>
-          <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${item.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">${item.status}</span></td>
-        </tr>
-      `).join('');
+      
+      if (useMockData) {
+        tbody.innerHTML = demoFormasi.map((item, i) => `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 text-sm">${i+1}</td>
+            <td class="px-6 py-4 text-sm font-medium">${item.nama}</td>
+            <td class="px-6 py-4 text-sm">${item.jenjang}</td>
+            <td class="px-6 py-4 text-sm">${item.unit}</td>
+            <td class="px-6 py-4 text-sm font-semibold">${item.jumlah}</td>
+            <td class="px-6 py-4 text-sm">${item.tahun}</td>
+            <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${item.status === 'Aktif' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">${item.status}</span></td>
+          </tr>
+        `).join('');
+      } else {
+        loadFormasiFromSheet(tbody);
+      }
+    }
+    
+    async function loadFormasiFromSheet(tbody) {
+      try {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">Memuat data...</td></tr>';
+        const data = await fetchFromSheet('Formasi');
+        if (data && data.length > 0) {
+          tbody.innerHTML = data.map((row, i) => `
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 text-sm">${i+1}</td>
+              <td class="px-6 py-4 text-sm font-medium">${row[1] || ''}</td>
+              <td class="px-6 py-4 text-sm">${row[2] || ''}</td>
+              <td class="px-6 py-4 text-sm">${row[0] || ''}</td>
+              <td class="px-6 py-4 text-sm font-semibold">${row[4] || ''}</td>
+              <td class="px-6 py-4 text-sm">${row[3] || ''}</td>
+              <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">Aktif</span></td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data</td></tr>';
+        }
+      } catch (error) {
+        console.error('Error loading formasi:', error);
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
+      }
     }
 
     function loadPesertaTable() {
@@ -921,17 +987,53 @@
       const statusVerif = { 'Belum Diverifikasi': 'bg-yellow-100 text-yellow-800', 'Lolos Administrasi': 'bg-green-100 text-green-800', 'Tidak Lolos': 'bg-red-100 text-red-800' };
       const statusUjian = { 'Belum Ujian': 'bg-gray-100 text-gray-800', 'Sedang Ujian': 'bg-blue-100 text-blue-800', 'Lulus': 'bg-green-100 text-green-800', 'Tidak Lulus': 'bg-red-100 text-red-800' };
       
-      tbody.innerHTML = mockPeserta.map(item => `
-        <tr class="hover:bg-gray-50">
-          <td class="px-6 py-4 text-sm font-mono">${item.nik}</td>
-          <td class="px-6 py-4 text-sm font-medium">${item.nama}</td>
-          <td class="px-6 py-4 text-sm">${item.jabfung}</td>
-          <td class="px-6 py-4 text-sm">${item.instansi}</td>
-          <td class="px-6 py-4 text-sm">${item.daftar}</td>
-          <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${statusVerif[item.verif]}">${item.verif}</span></td>
-          <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${statusUjian[item.ujian]}">${item.ujian}</span></td>
-        </tr>
-      `).join('');
+      if (useMockData) {
+        tbody.innerHTML = demoPeserta.map(item => `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 text-sm font-mono">${item.nik}</td>
+            <td class="px-6 py-4 text-sm font-medium">${item.nama}</td>
+            <td class="px-6 py-4 text-sm">${item.jabfung}</td>
+            <td class="px-6 py-4 text-sm">${item.instansi}</td>
+            <td class="px-6 py-4 text-sm">${item.daftar}</td>
+            <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${statusVerif[item.verif] || 'bg-gray-100 text-gray-800'}">${item.verif}</span></td>
+            <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${statusUjian[item.ujian] || 'bg-gray-100 text-gray-800'}">${item.ujian}</span></td>
+          </tr>
+        `).join('');
+      } else {
+        loadPesertaFromSheet(tbody);
+      }
+    }
+    
+    async function loadPesertaFromSheet(tbody) {
+      try {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">Memuat data...</td></tr>';
+        const data = await fetchFromSheet('Peserta');
+        const statusVerif = { 'Belum Diverifikasi': 'bg-yellow-100 text-yellow-800', 'Lolos Administrasi': 'bg-green-100 text-green-800', 'Tidak Lolos': 'bg-red-100 text-red-800' };
+        const statusUjian = { 'Belum Ujian': 'bg-gray-100 text-gray-800', 'Sedang Ujian': 'bg-blue-100 text-blue-800', 'Lulus': 'bg-green-100 text-green-800', 'Tidak Lulus': 'bg-red-100 text-red-800' };
+        
+        if (data && data.length > 0) {
+          tbody.innerHTML = data.map(row => {
+            const verif = row[18] || 'Belum Diverifikasi';
+            const ujian = row[19] || 'Belum Ujian';
+            return `
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 text-sm font-mono">${row[3] || ''}</td>
+                <td class="px-6 py-4 text-sm font-medium">${row[2] || ''}</td>
+                <td class="px-6 py-4 text-sm">${row[14] || ''}</td>
+                <td class="px-6 py-4 text-sm">${row[7] || ''}</td>
+                <td class="px-6 py-4 text-sm">${row[0] ? new Date(row[0]).toLocaleDateString() : ''}</td>
+                <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${statusVerif[verif] || 'bg-gray-100 text-gray-800'}">${verif}</span></td>
+                <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${statusUjian[ujian] || 'bg-gray-100 text-gray-800'}">${ujian}</span></td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data</td></tr>';
+        }
+      } catch (error) {
+        console.error('Error loading peserta:', error);
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
+      }
     }
 
     // Animated Counters
@@ -1044,12 +1146,15 @@
         
         // Upload foto ke Google Drive
         const fotoFile = formData.get('foto');
+        let fotoId = '';
         if (fotoFile && fotoFile.name) {
           if (useMockData) {
             data.foto_url = 'https://drive.google.com/placeholder/' + fotoFile.name;
+            fotoId = 'mock_' + fotoFile.name;
           } else {
-            const fotoUrl = await uploadToDrive(fotoFile, DRIVE_FOLDER_ID);
-            data.foto_url = fotoUrl || 'Upload gagal';
+            const fotoResult = await uploadToDrive(fotoFile, DRIVE_FOLDER_ID);
+            data.foto_url = fotoResult ? fotoResult.url : 'Upload gagal';
+            fotoId = fotoResult ? fotoResult.id : '';
           }
         }
         
@@ -1061,12 +1166,15 @@
             if (useMockData) {
               uploadedDocs.push('https://drive.google.com/placeholder/' + file.name);
             } else {
-              const docUrl = await uploadToDrive(file, DRIVE_FOLDER_ID);
-              uploadedDocs.push(docUrl || file.name);
+              const docResult = await uploadToDrive(file, DRIVE_FOLDER_ID);
+              uploadedDocs.push(docResult ? docResult.url : file.name);
             }
           }
           data.dokumen_url = uploadedDocs.join(', ');
         }
+        
+        // Add foto ID
+        data.foto_id = fotoId;
         
         // Simpan ke Google Sheets
         if (useMockData) {
