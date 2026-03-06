@@ -4,7 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIKOMJAKES - Sistem Kompetensi Jabatan Kesehatan</title>
+  
+  <!-- Tailwind CSS (Production Build - Inline) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a' },
+            health: { 50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4', 400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e', 800: '#115e59', 900: '#134e4a' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -615,11 +630,27 @@
     // 5. Copy URL dan paste di bawah ini
     // ============================================
     
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8Zdn2QaIsXCNyQFMTukw1G3b29Cfru33GIbASEijRKcQpboyyWZCjdUs_Oj2sgcV4sw/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbya5sSlj_HpHvxp5NO4ePoerpmLENtEBGNEcNpwXuDePpOhdbmNUgp7ky0XDqELwXDetg/exec';
     const DRIVE_FOLDER_ID = '1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF'; // ID folder Google Drive untuk upload
 
-    // Data mock untuk demo (tanpa koneksi)
-    const mockFormasi = [
+    // Data akan diambil dari Google Sheets
+    // Untuk demo, gunakan data di bawah ini
+    const demoStats = {
+      totalPeserta: 12458,
+      totalJabfung: 156,
+      totalFormasi: 8924,
+      pesertaLulus: 8234,
+      pesertaTidakLulus: 4224
+    };
+
+    const demoChartData = {
+      tahun: [1200, 1450, 1680, 2100, 2580, 3100, 3800, 4500, 5200, 5800, 6500, 7200],
+      jabfung: { labels: ['Perawat', 'Bidan', 'Dokter Gigi', 'Apoteker', 'Analis Kesehatan'], values: [3200, 4500, 2100, 1500, 800] },
+      kelulusan: { lulus: 8234, tidakLulus: 4224, belumUjian: 0 },
+      provinsi: { labels: ['Jawa Timur', 'Jawa Barat', 'Jawa Tengah', 'DKI Jakarta', 'Lainnya'], values: [3500, 2800, 2200, 1500, 2458] }
+    };
+
+    const demoFormasi = [
       { no: 1, nama: 'Dokter Gigi', jenjang: 'Ahli Pertama', unit: 'RSUD Dr. Soetomo', jumlah: 25, tahun: 2024, status: 'Aktif' },
       { no: 2, nama: 'Perawat', jenjang: 'Terampil', unit: 'RSUD Dr. Soetomo', jumlah: 150, tahun: 2024, status: 'Aktif' },
       { no: 3, nama: 'Bidan', jenjang: 'Terampil', unit: 'Puskesmas Kec. Wonokromo', jumlah: 30, tahun: 2024, status: 'Aktif' },
@@ -627,7 +658,7 @@
       { no: 5, nama: 'Analis Kesehatan', jenjang: 'Terampil', unit: 'Dinkes Provinsi Jawa Timur', jumlah: 15, tahun: 2024, status: 'Nonaktif' },
     ];
 
-    const mockPeserta = [
+    const demoPeserta = [
       { nik: '1234567890123456', nama: 'Ahmad Fauzi', jabfung: 'Perawat', instansi: 'RSUD Dr. Soetomo', daftar: '2024-01-15', verif: 'Belum Diverifikasi', ujian: 'Belum Ujian' },
       { nik: '2345678901234567', nama: 'Siti Aminah', jabfung: 'Bidan', instansi: 'Puskesmas Wonokromo', daftar: '2024-01-16', verif: 'Lolos Administrasi', ujian: 'Lulus' },
       { nik: '3456789012345678', nama: 'Budi Santoso', jabfung: 'Dokter Gigi', instansi: 'RSUPN Dr. Cipto M.', daftar: '2024-01-17', verif: 'Lolos Administrasi', ujian: 'Tidak Lulus' },
@@ -637,6 +668,129 @@
 
     let isLoggedIn = false;
     let useMockData = true; // Set ke false jika sudah konek ke Google Sheets
+
+    // Fungsi Ambil Data dari Google Sheets
+    async function fetchFromSheet(sheetName) {
+      try {
+        const response = await fetch(SCRIPT_URL + '?action=getData&sheet=' + sheetName);
+        const result = await response.json();
+        if (result.success) {
+          return result.data;
+        }
+        return null;
+      } catch (error) {
+        console.error('Error fetching from sheet:', error);
+        return null;
+      }
+    }
+
+    // Fungsi Load Data Dashboard
+    async function loadDashboardData() {
+      if (useMockData) {
+        // Gunakan data demo
+        updateDashboard(demoStats, demoChartData);
+        return;
+      }
+      
+      try {
+        // Ambil data dari Google Sheets
+        const statsData = await fetchFromSheet('Stats');
+        const chartData = await fetchFromSheet('Chart');
+        
+        if (statsData && chartData) {
+          // Parse data dari sheet
+          const stats = {
+            totalPeserta: parseInt(statsData[0]?.[1]) || 0,
+            totalJabfung: parseInt(statsData[1]?.[1]) || 0,
+            totalFormasi: parseInt(statsData[2]?.[1]) || 0,
+            pesertaLulus: parseInt(statsData[3]?.[1]) || 0,
+            pesertaTidakLulus: parseInt(statsData[4]?.[1]) || 0
+          };
+          
+          const charts = {
+            tahun: chartData.tahun || demoChartData.tahun,
+            jabfung: chartData.jabfung || demoChartData.jabfung,
+            kelulusan: chartData.kelulusan || demoChartData.kelulusan,
+            provinsi: chartData.provinsi || demoChartData.provinsi
+          };
+          
+          updateDashboard(stats, charts);
+        }
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+        updateDashboard(demoStats, demoChartData);
+      }
+    }
+
+    // Fungsi Update Dashboard dengan Data
+    function updateDashboard(stats, charts) {
+      // Update counters
+      document.querySelector('[data-count="totalPeserta"]').dataset.count = stats.totalPeserta;
+      document.querySelector('[data-count="totalJabfung"]').dataset.count = stats.totalJabfung;
+      document.querySelector('[data-count="totalFormasi"]').dataset.count = stats.totalFormasi;
+      document.querySelector('[data-count="pesertaLulus"]').dataset.count = stats.pesertaLulus;
+      document.querySelector('[data-count="pesertaTidakLulus"]').dataset.count = stats.pesertaTidakLulus;
+      
+      animateCounters();
+      
+      // Update charts
+      updateCharts(charts);
+    }
+
+    // Update Charts
+    function updateCharts(charts) {
+      // Chart Tahun
+      const chartTahun = new ApexCharts(document.querySelector("#chartTahun"), {
+        chart: { type: 'area', toolbar: { show: false }, height: 300 },
+        series: [{ name: 'Peserta', data: charts.tahun }],
+        colors: ['#3b82f6'],
+        stroke: { curve: 'smooth', width: 2 },
+        fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.1 } },
+        xaxis: { categories: ['2013','2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024'] }
+      });
+      chartTahun.render();
+
+      // Chart Jabfung
+      const chartJabfung = new ApexCharts(document.querySelector("#chartJabfung"), {
+        chart: { type: 'bar', toolbar: { show: false }, height: 300 },
+        series: [{ name: 'Peserta', data: charts.jabfung.values }],
+        colors: ['#14b8a6'],
+        plotOptions: { bar: { borderRadius: 8, horizontal: true } },
+        xaxis: { categories: charts.jabfung.labels }
+      });
+      chartJabfung.render();
+
+      // Chart Kelulusan
+      const total = charts.kelulusan.lulus + charts.kelulusan.tidakLulus;
+      const belum = stats.totalPeserta - total;
+      const chartKelulusan = new ApexCharts(document.querySelector("#chartKelulusan"), {
+        chart: { type: 'donut', height: 300 },
+        series: [charts.kelulusan.lulus, charts.kelulusan.tidakLulus, Math.max(0, belum)],
+        labels: ['Lulus', 'Tidak Lulus', 'Belum Ujian'],
+        colors: ['#22c55e', '#ef4444', '#94a3b8'],
+        legend: { position: 'bottom' }
+      });
+      chartKelulusan.render();
+
+      // Chart Provinsi
+      const chartProvinsi = new ApexCharts(document.querySelector("#chartProvinsi"), {
+        chart: { type: 'pie', height: 300 },
+        series: charts.provinsi.values,
+        labels: charts.provinsi.labels,
+        colors: ['#3b82f6', '#14b8a6', '#8b5cf6', '#f59e0b', '#6b7280']
+      });
+      chartProvinsi.render();
+
+      // Chart SDM Bazzetting
+      const chartSDM = new ApexCharts(document.querySelector("#chartSDM"), {
+        chart: { type: 'donut', height: 300 },
+        series: [78, 47],
+        labels: ['Terpenuhi', 'Kekurangan'],
+        colors: ['#22c55e', '#ef4444'],
+        legend: { position: 'bottom' }
+      });
+      chartSDM.render();
+    }
 
     // Fungsi Upload ke Google Drive via Apps Script
     async function uploadToDrive(file, folderId) {
@@ -716,7 +870,7 @@
       // Load page-specific data
       if (page === 'formasi') loadFormasiTable();
       if (page === 'peserta') loadPesertaTable();
-      if (page === 'dashboard') initCharts();
+      if (page === 'dashboard') loadDashboardData();
     }
 
     // Login Functions
