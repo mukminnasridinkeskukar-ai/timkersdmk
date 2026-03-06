@@ -89,6 +89,41 @@
             padding: 40px;
         }
 
+        /* Locked State */
+        .form-locked .form-control,
+        .form-locked .form-select,
+        .form-locked .file-input,
+        .form-locked .file-upload-box,
+        .form-locked .captcha-container {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .locked-notice {
+            background: #f8d7da;
+            border: 1px solid #f5c2c7;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #842029;
+            display: none;
+        }
+
+        .locked-notice.show {
+            display: block;
+        }
+
+        .locked-notice i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .locked-notice h5 {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
         /* Section Styles */
         .form-section {
             margin-bottom: 40px;
@@ -138,6 +173,11 @@
 
         .form-control.is-invalid {
             border-color: var(--danger-red);
+            background-image: none;
+        }
+
+        .form-control.is-valid {
+            border-color: var(--health-green);
             background-image: none;
         }
 
@@ -466,6 +506,10 @@
             border-top: 5px solid var(--health-green);
         }
 
+        .modal-content.locked {
+            border-top: 5px solid var(--warning-yellow);
+        }
+
         .modal-content .modal-icon {
             width: 80px;
             height: 80px;
@@ -485,6 +529,11 @@
         .modal-content.success .modal-icon {
             background: #d1e7dd;
             color: var(--health-green);
+        }
+
+        .modal-content.locked .modal-icon {
+            background: #fff3cd;
+            color: var(--warning-yellow);
         }
 
         .modal-content h4 {
@@ -644,7 +693,14 @@
     </header>
 
     <!-- Form Container -->
-    <div class="form-container">
+    <div class="form-container" id="formContainer">
+        <!-- Locked Notice -->
+        <div class="locked-notice" id="lockedNotice">
+            <i class="fas fa-lock"></i>
+            <h5>Formulir Dikunci</h5>
+            <p>NIK Anda sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran. Anda tidak dapat melakukan perubahan data setelah terkirim.</p>
+        </div>
+
         <form id="applicationForm" enctype="multipart/form-data">
             
             <!-- Section 1: Data Pribadi -->
@@ -1039,6 +1095,18 @@
     </div>
 </div>
 
+<!-- Locked Modal -->
+<div class="modal-overlay" id="lockedModal">
+    <div class="modal-content locked">
+        <div class="modal-icon">
+            <i class="fas fa-lock"></i>
+        </div>
+        <h4>Formulir Dikunci</h4>
+        <p id="lockedMessage">NIK ini sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran.</p>
+        <button type="button" class="modal-btn" onclick="closeModal('lockedModal')">Tutup</button>
+    </div>
+</div>
+
 <!-- Lightbox Modal for Preview -->
 <div class="modal fade" id="lightboxModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -1155,8 +1223,8 @@
                 // Get file content (after double line break)
                 var contentStart = part.indexOf('\r\n\r\n');
                 if (contentStart > -1) {
-                  var fileContent = part.substring(contentStart                  // Remove trailing \ + 4);
-r\n
+                  var fileContent = part.substring(contentStart + 4);
+                  // Remove trailing \r\n
                   fileContent = fileContent.replace(/\r\n$/, '');
                   
                   // Decode base64
@@ -1332,43 +1400,69 @@ r\n
         else return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     }
 
-    // NIK Validation
+    // NIK Validation and Check for Duplicates
     document.getElementById('nik').addEventListener('input', function() {
-        // Remove previous error
-        this.classList.remove('is-invalid');
-        document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback').textContent = 'NIK harus terdiri dari 16 digit';
+        // Reset validation state
+        this.classList.remove('is-invalid', 'is-valid');
+        const feedback = document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback');
+        feedback.textContent = 'NIK harus terdiri dari 16 digit';
+        feedback.style.display = 'none';
+        
+        // Reset submit button
+        document.getElementById('submitBtn').disabled = false;
         
         if (this.value.length === 16) {
+            // Check NIK in real-time
             checkNIKExists(this.value);
         }
     });
     
-    // Check if NIK already exists in database (for info only, not blocking)
+    // Check if NIK already exists in database - BLOCK if exists
     async function checkNIKExists(nik) {
+        const nikInput = document.getElementById('nik');
+        const feedback = document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback');
+        const submitBtn = document.getElementById('submitBtn');
+        
         try {
             const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
             const text = await response.text();
             let data;
-            try { data = JSON.parse(text); } catch (e) { return; }
+            try { data = JSON.parse(text); } catch (e) { 
+                feedback.textContent = 'Gagal memvalidasi NIK. Silakan coba lagi.';
+                feedback.style.display = 'block';
+                return false; 
+            }
             
             if (data.status === 'success' && data.data && data.data.exists) {
-                const nikInput = document.getElementById('nik');
-                // Show info message instead of error - allow re-application
-                const feedback = document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback');
-                feedback.textContent = 'NIK sudah terdaftar. Anda dapat memperbarui data lamaran Anda.';
+                // NIK exists - BLOCK submission!
+                nikInput.classList.add('is-invalid');
+                nikInput.classList.remove('is-valid');
+                feedback.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> NIK sudah terdaftar pada sistem. Silakan periksa kembali atau gunakan akun yang sudah ada.';
                 feedback.style.display = 'block';
-                nikInput.classList.remove('is-invalid');
-                nikInput.classList.add('nik-exists');
+                
+                // Disable submit button
+                submitBtn.disabled = true;
+                
                 return true;
+            } else {
+                // NIK valid - not registered
+                nikInput.classList.remove('is-invalid');
+                nikInput.classList.add('is-valid');
+                feedback.style.display = 'none';
+                
+                // Enable submit button
+                submitBtn.disabled = false;
+                
+                return false;
             }
-            return false;
         } catch (error) {
-            console.log('NIK check error (can be ignored):', error);
+            console.log('NIK check error:', error);
+            // On error, allow submission (don't block)
             return false;
         }
     }
     
-    // Final check before submit
+    // Final check before submit - BLOCK if NIK exists
     async function checkNIKBeforeSubmit(nik) {
         try {
             const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
@@ -1382,17 +1476,22 @@ r\n
             return false;
         }
     }
-    
-    function validateNIKLength() {
-        const nik = document.getElementById('nik').value;
-    }
 
-    document.getElementById('nik').addEventListener('blur', function() {
+    document.getElementById('nik').addEventListener('blur', async function() {
         if (this.value.length !== 16 && this.value.length > 0) {
             showError('NIK harus terdiri dari 16 digit');
             this.classList.add('is-invalid');
+        } else if (this.value.length === 16) {
+            // Check if NIK exists in database
+            const exists = await checkNIKExists(this.value);
+            if (exists) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
         } else {
-            this.classList.remove('is-invalid');
+            this.classList.remove('is-invalid', 'is-valid');
         }
     });
 
@@ -1469,11 +1568,14 @@ r\n
             return;
         }
 
-        // Final check: Get NIK info (allow re-application)
+        // Final NIK check before submit - BLOCK if already exists
         const nik = document.getElementById('nik').value;
         if (nik.length === 16) {
-            // Allow submission even if NIK exists - backend will update existing record
-            console.log('NIK entered: ' + nik + ' - proceeding with submission (update if exists)');
+            const nikExists = await checkNIKBeforeSubmit(nik);
+            if (nikExists) {
+                showError('NIK ini sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran.');
+                return;
+            }
         }
 
         // Anti double submit
@@ -1528,12 +1630,7 @@ r\n
             if (response.status === 'success') {
                 console.log('Data berhasil disimpan ke Google Sheets');
                 console.log('File links:', response.links);
-                // Show appropriate message based on whether it was update or create
-                if (response.data && response.data.updated) {
-                    showSuccess('Data lamaran berhasil diperbarui!');
-                } else {
-                    showSuccess();
-                }
+                showSuccess();
             } else {
                 throw new Error(response.message || 'Gagal menyimpan data');
             }
@@ -1547,6 +1644,21 @@ r\n
             submitBtn.disabled = false;
         }
     });
+
+    // Final check before submit
+    async function checkNIKBeforeSubmit(nik) {
+        try {
+            const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
+            const text = await response.text();
+            let data;
+            try { data = JSON.parse(text); } catch (e) { return false; }
+            
+            return data.status === 'success' && data.data && data.data.exists;
+        } catch (error) {
+            console.log('NIK check error:', error);
+            return false;
+        }
+    }
 
     // Submit to Google Apps Script
     async function submitToGoogleSheets(formData) {
@@ -1655,47 +1767,6 @@ r\n
             }
         });
     });
-
-    // Download template surat pernyataan
-    function downloadTemplate() {
-        const template = `SURAT PERNYATAAN
-
-Saya yang bertanda tangan di bawah ini:
-
-Nama : ${document.getElementById('nama').value || '................'}
-NIK : ${document.getElementById('nik').value || '................'}
-Tempat/Tanggal Lahir : ................/.........
-Alamat : ..........................
-
-Dengan ini menyatakan bahwa seluruh dokumen yang saya unggah dalam proses rekrutmen RSUD Aji Muhammad Idris adalah benar dan dapat dipertanggungjawabkan.
-
-Apabila dikemudian hari ditemukan ketidaksesuaian data maka saya bersedia dinyatakan gugur dari proses seleksi.
-
-Samarinda, ……………….
-
-Pelamar
-
-( Tanda tangan )`;
-
-        const blob = new Blob([template], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'Template_Surat_Pernyataan.txt';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // Lightbox configuration - disabled by default (uncomment if needed)
-    // if (typeof lightbox !== 'undefined') {
-    //   lightbox.option({
-    //     'resizeDuration': 200,
-    //     'wrapAround': true,
-    //     'alwaysShowNavOnTouchDevices': true
-    //   });
-    // }
 
     // Add drag and drop support
     document.querySelectorAll('.file-upload-box').forEach(box => {
