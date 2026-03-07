@@ -34,7 +34,7 @@
     <script>
         const originalWarn = console.warn;
         console.warn = function(...args) {
-            if (args[0] && args[0].includes && args[0].includes('cdn.tailwindcss.com')) return;
+            if (args[0] && args[0].includes && (args[0].includes('cdn.tailwindcss.com') || args[0].includes('dn.tailwindcss.com') || args[0].includes('Tailwind CSS'))) return;
             originalWarn.apply(console, args);
         };
     </script>
@@ -582,7 +582,7 @@
                             <i class="fas fa-bars"></i>
                         </button>
                         <div>
-                            <h1 class="font-bold text-lg text-medical-600">SIREK v1.1</h1>
+                            <h1 class="font-bold text-lg text-medical-600">SIREK</h1>
                             <p class="text-xs text-gray-500">Enterprise v1.1</p>
                         </div>
                     </div>
@@ -1446,7 +1446,7 @@
                     
                     // API URL - GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
                     // Deploy: Extensions > Apps Script > Deploy > New deployment > Web app
-                    API_URL: 'https://script.google.com/macros/s/AKfycbw1KpLa0_l_MVgXLpKJJ9ChCYGr06ex1oIh1ao_ARgpnxxP1fY8Ri__YarmXRwbfZpb/exec'
+                    API_URL: 'https://script.google.com/macros/s/AKfycby_MfcV54vgqpv7xPGQbVGTiRm7R98GRTlP54DY-U8TRfNSSEj5fJQ09O3fPuiJ4P1n/exec'
                 }
             },
             mounted() {
@@ -1520,19 +1520,67 @@
                         const response = await fetch(this.API_URL + '?action=getDashboard');
                         const result = await response.json();
                         
-                        if (result.success) {
-                            this.stats = result.stats;
-                            this.initCharts();
+                        if (result.success && result.data) {
+                            // Map API response to stats object
+                            this.stats = {
+                                totalPelamar: result.data.totalPelamar || 0,
+                                lolosBerkas: result.data.lolosBerkas || 0,
+                                aktifFormasi: result.data.formasiAktif || 0,
+                                diterima: result.data.diterima || 0
+                            };
+                            this.initCharts(result.data);
+                        } else {
+                            // API returned error, use demo data
+                            this.useDemoData();
                         }
                     } catch (error) {
                         console.error('Failed to load dashboard:', error);
-                        // Use demo data
-                        this.stats = { totalPelamar: 156, lolosBerkas: 89, aktifFormasi: 28, diterima: 45 };
-                        this.initCharts();
+                        // Use demo data when API fails
+                        this.useDemoData();
                     }
                 },
                 
-                initCharts() {
+                useDemoData() {
+                    this.stats = { totalPelamar: 156, lolosBerkas: 89, aktifFormasi: 28, diterima: 45 };
+                    this.initCharts(null);
+                },
+                
+                initCharts(data) {
+                    // Use demo data if no real data
+                    const demoFormasi = ['Dokter Umum', 'Ners', 'Perawat', 'Bidan', 'Apoteker', 'Farmasi', 'Laboratorium', 'IT'];
+                    const demoFormasiData = [25, 35, 42, 28, 12, 18, 22, 15];
+                    const demoPendidikan = ['S1 Kedokteran', 'Profesi Ners', 'D3 Keperawatan', 'Profesi Bidan', 'D3 Farmasi', 'S1 Farmasi', 'Lainnya'];
+                    const demoPendidikanData = [15, 25, 35, 20, 18, 12, 31];
+                    const demoStatus = ['Menunggu', 'Lolos Berkas', 'Tidak Lolos', 'Diterima', 'Tidak Diterima'];
+                    const demoStatusData = [25, 45, 30, 35, 21];
+                    
+                    // Get real data or use demo
+                    let formasiLabels, formasiData, pendidikanLabels, pendidikanData, statusLabels, statusData;
+                    
+                    if (data && data.grafikFormasi && data.grafikFormasi.length > 0) {
+                        formasiLabels = data.grafikFormasi.map(f => f.nama);
+                        formasiData = data.grafikFormasi.map(f => f.jumlah);
+                    } else {
+                        formasiLabels = demoFormasi;
+                        formasiData = demoFormasiData;
+                    }
+                    
+                    if (data && data.grafikPendidikan && data.grafikPendidikan.length > 0) {
+                        pendidikanLabels = data.grafikPendidikan.map(p => p.nama);
+                        pendidikanData = data.grafikPendidikan.map(p => p.jumlah);
+                    } else {
+                        pendidikanLabels = demoPendidikan;
+                        pendidikanData = demoPendidikanData;
+                    }
+                    
+                    if (data && data.grafikStatus && data.grafikStatus.length > 0) {
+                        statusLabels = data.grafikStatus.map(s => s.status);
+                        statusData = data.grafikStatus.map(s => s.jumlah);
+                    } else {
+                        statusLabels = demoStatus;
+                        statusData = demoStatusData;
+                    }
+                    
                     this.$nextTick(() => {
                         // Destroy existing charts
                         Object.values(this.charts).forEach(chart => chart?.destroy());
@@ -1543,10 +1591,10 @@
                             this.charts.formasi = new Chart(ctxFormasi, {
                                 type: 'bar',
                                 data: {
-                                    labels: ['Dokter Umum', 'Ners', 'Perawat', 'Bidan', 'Apoteker', 'Farmasi', 'Laboratorium', 'IT'],
+                                    labels: formasiLabels,
                                     datasets: [{
                                         label: 'Jumlah Pelamar',
-                                        data: [25, 35, 42, 28, 12, 18, 22, 15],
+                                        data: formasiData,
                                         backgroundColor: 'rgba(0, 86, 179, 0.7)',
                                         borderColor: '#0056b3',
                                         borderWidth: 1,
@@ -1571,9 +1619,9 @@
                             this.charts.pendidikan = new Chart(ctxPendidikan, {
                                 type: 'doughnut',
                                 data: {
-                                    labels: ['S1 Kedokteran', 'Profesi Ners', 'D3 Keperawatan', 'Profesi Bidan', 'D3 Farmasi', 'S1 Farmasi', 'Lainnya'],
+                                    labels: pendidikanLabels,
                                     datasets: [{
-                                        data: [15, 25, 35, 20, 18, 12, 31],
+                                        data: pendidikanData,
                                         backgroundColor: ['#0056b3', '#1a75ff', '#4d94ff', '#80b3ff', '#b3d1ff', '#1e40af', '#64748b'],
                                         borderWidth: 0
                                     }]
@@ -1592,9 +1640,9 @@
                             this.charts.status = new Chart(ctxStatus, {
                                 type: 'pie',
                                 data: {
-                                    labels: ['Menunggu', 'Lolos Berkas', 'Tidak Lolos', 'Diterima', 'Tidak Diterima'],
+                                    labels: statusLabels,
                                     datasets: [{
-                                        data: [25, 45, 30, 35, 21],
+                                        data: statusData,
                                         backgroundColor: ['#94a3b8', '#22c55e', '#ef4444', '#3b82f6', '#f97316'],
                                         borderWidth: 0
                                     }]
