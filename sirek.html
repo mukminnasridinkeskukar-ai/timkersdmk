@@ -472,6 +472,12 @@
                         <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Login Panel Admin</h2>
                         <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">SIREK v1.1 Enterprise - RSUD Aji Muhammad Idris</p>
                     </div>
+                    <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                        <p class="text-xs text-blue-600 dark:text-blue-400 text-center">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Demo Login: admin/admin123 | verifikator/verif123 | asesor/asesor123 | interviewer/interview123 | observer/observer123
+                        </p>
+                    </div>
                     <form @submit.prevent="handleLogin" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
@@ -543,30 +549,58 @@
                 <!-- Admin Section (visible when logged in) -->
                 <div v-if="isLoggedIn" class="border-t border-white/10 mt-4 pt-4">
                     <div class="px-3 mb-2" v-if="sidebarOpen">
-                        <p class="text-xs text-blue-200 uppercase tracking-wider">Admin Panel</p>
+                        <p class="text-xs text-blue-200 uppercase tracking-wider">
+                            {{ currentUser?.role === 'ADMINISTRATOR' ? 'Administrator' : 
+                               currentUser?.role === 'VERIFIKATOR' ? 'Verifikator' :
+                               currentUser?.role === 'ASESOR' ? 'Asesor' :
+                               currentUser?.role === 'INTERVIEWER' ? 'Interviewer' : 'Observer' }}
+                        </p>
                     </div>
                     <nav class="p-2 space-y-1">
-                        <button @click="setActiveMenu('adminDashboard')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminDashboard' ? 'bg-white/20' : 'hover:bg-white/10']">
+                        <!-- Administrator: Full Access -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR'" @click="setActiveMenu('adminDashboard')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminDashboard' ? 'bg-white/20' : 'hover:bg-white/10']">
                             <i class="fas fa-tachometer-alt w-5 h-5"></i>
-                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">HRD Dashboard</span></transition>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Dashboard</span></transition>
                         </button>
                         
-                        <button @click="setActiveMenu('adminPelamar')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminPelamar' ? 'bg-white/20' : 'hover:bg-white/10']">
+                        <!-- Observer: Dashboard View Only -->
+                        <button v-if="currentUser?.role === 'OBSERVER'" @click="setActiveMenu('adminDashboard')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminDashboard' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-tachometer-alt w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Dashboard</span></transition>
+                        </button>
+                        
+                        <!-- Data Pelamar: All except Verifikator, Asesor, Interviewer can view -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR' || currentUser?.role === 'OBSERVER'" @click="setActiveMenu('adminPelamar')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminPelamar' ? 'bg-white/20' : 'hover:bg-white/10']">
                             <i class="fas fa-users w-5 h-5"></i>
                             <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Data Pelamar</span></transition>
                         </button>
                         
-                        <button @click="setActiveMenu('adminFormasi')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminFormasi' ? 'bg-white/20' : 'hover:bg-white/10']">
+                        <!-- Kelola Formasi: Admin Only -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR'" @click="setActiveMenu('adminFormasi')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminFormasi' ? 'bg-white/20' : 'hover:bg-white/10']">
                             <i class="fas fa-briefcase w-5 h-5"></i>
                             <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Kelola Formasi</span></transition>
                         </button>
                         
-                        <button @click="setActiveMenu('adminVerifikasi')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminVerifikasi' ? 'bg-white/20' : 'hover:bg-white/10']">
+                        <!-- Verifikasi Berkas: Admin & Verifikator -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR' || currentUser?.role === 'VERIFIKATOR'" @click="setActiveMenu('adminVerifikasi')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminVerifikasi' ? 'bg-white/20' : 'hover:bg-white/10']">
                             <i class="fas fa-file-check w-5 h-5"></i>
                             <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Verifikasi Berkas</span></transition>
                         </button>
                         
-                        <button @click="setActiveMenu('adminRanking')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminRanking' ? 'bg-white/20' : 'hover:bg-white/10']">
+                        <!-- Tes Kompetensi: Admin & Asesor -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR' || currentUser?.role === 'ASESOR'" @click="setActiveMenu('adminKompetensi')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminKompetensi' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-clipboard-list w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Tes Kompetensi</span></transition>
+                        </button>
+                        
+                        <!-- Tes Wawancara: Admin & Interviewer -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR' || currentUser?.role === 'INTERVIEWER'" @click="setActiveMenu('adminWawancara')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminWawancara' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-comments w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Tes Wawancara</span></transition>
+                        </button>
+                        
+                        <!-- AI Ranking: Admin Only -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR'" @click="setActiveMenu('adminRanking')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminRanking' ? 'bg-white/20' : 'hover:bg-white/10']">
                             <i class="fas fa-robot w-5 h-5"></i>
                             <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">AI Ranking</span></transition>
                         </button>
@@ -1191,6 +1225,7 @@
                                 <thead>
                                     <tr>
                                         <th>No</th>
+                                        <th>Foto</th>
                                         <th>NIK</th>
                                         <th>Nama</th>
                                         <th>Formasi</th>
@@ -1204,6 +1239,63 @@
                                     <!-- DataTables will populate this -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Admin Pelamar Lightbox Popup -->
+                    <div v-if="adminPelamarLightboxOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="adminPelamarLightboxOpen = false"></div>
+                        <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+                            <div class="sticky top-0 bg-gradient-to-r from-medical-500 to-medical-700 text-white p-6 rounded-t-2xl flex justify-between items-center">
+                                <h3 class="text-xl font-bold">Detail Pelamar</h3>
+                                <button @click="adminPelamarLightboxOpen = false" class="p-2 hover:bg-white/20 rounded-full">
+                                    <i class="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                            <div class="p-6">
+                                <div class="flex flex-col md:flex-row gap-6">
+                                    <div class="md:w-1/3 text-center">
+                                        <div class="w-40 h-40 mx-auto rounded-full bg-gradient-to-br from-medical-400 to-medical-600 flex items-center justify-center shadow-lg mb-4">
+                                            <i class="fas fa-user text-5xl text-white"></i>
+                                        </div>
+                                        <p class="text-sm text-gray-500">Foto Pelamar</p>
+                                    </div>
+                                    <div class="md:w-2/3 space-y-4">
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Nama Lengkap</p>
+                                            <p class="font-bold text-gray-800 dark:text-white text-lg">{{ selectedAdminPelamar?.Nama || selectedAdminPelamar?.nama }}</p>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">NIK</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedAdminPelamar?.NIK || selectedAdminPelamar?.nik }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Jenis Kelamin</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedAdminPelamar?.['Jenis Kelamin'] || selectedAdminPelamar?.jenisKelamin }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Pendidikan</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedAdminPelamar?.Pendidikan || selectedAdminPelamar?.pendidikan }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">IPK</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedAdminPelamar?.IPK || selectedAdminPelamar?.ipk || '-' }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Formasi</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedAdminPelamar?.Formasi || selectedAdminPelamar?.formasi }}</p>
+                                        </div>
+                                        <div v-if="selectedAdminPelamar?.['No HP/Whatsapp'] || selectedAdminPelamar?.noHP" class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">No. HP/Whatsapp</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedAdminPelamar?.['No HP/Whatsapp'] || selectedAdminPelamar?.noHP }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -1354,6 +1446,204 @@
                         </div>
                     </div>
                     
+                    <!-- ADMIN KOMPETENSI VIEW -->
+                    <div v-if="activeMenu === 'adminKompetensi' && isLoggedIn" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                        <i class="fas fa-clipboard-list text-purple-500 mr-2"></i>
+                                        Tes Kompetensi
+                                    </h2>
+                                    <p class="text-gray-500 dark:text-gray-400">Input dan kelola nilai tes kompetensi pelamar</p>
+                                </div>
+                                <button @click="loadKompetensiList" class="btn btn-primary">
+                                    <i class="fas fa-sync"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-card rounded-2xl p-6">
+                            <div v-if="kompetensiLoading" class="text-center py-8">
+                                <div class="spinner-large mx-auto"></div>
+                                <p class="mt-4 text-gray-500">Memuat data...</p>
+                            </div>
+                            <div v-else class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="bg-gradient-to-r from-purple-500 to-purple-700 text-white">
+                                            <th class="px-4 py-3 text-left rounded-l-lg">No</th>
+                                            <th class="px-4 py-3 text-left">NIK</th>
+                                            <th class="px-4 py-3 text-left">Nama</th>
+                                            <th class="px-4 py-3 text-left">Formasi</th>
+                                            <th class="px-4 py-3 text-left">Nilai</th>
+                                            <th class="px-4 py-3 text-left">Status</th>
+                                            <th class="px-4 py-3 text-left rounded-r-lg">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(p, idx) in kompetensiList" :key="p.NIK" class="border-b hover:bg-purple-50 dark:hover:bg-slate-700">
+                                            <td class="px-4 py-3">{{ idx + 1 }}</td>
+                                            <td class="px-4 py-3">{{ p.NIK }}</td>
+                                            <td class="px-4 py-3 font-medium">{{ p.Nama }}</td>
+                                            <td class="px-4 py-3">{{ p.Formasi }}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="font-bold text-purple-600">{{ p['Nilai Kompetensi'] || '-' }}</span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span class="badge" :class="getStatusBadgeClass(p['Status Kompetensi'])">
+                                                    {{ p['Status Kompetensi'] || 'MENUNGGU' }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <button @click="openKompetensiModal(p)" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Kompetensi Modal -->
+                        <div v-if="showKompetensiModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="showKompetensiModal = false"></div>
+                            <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
+                                <div class="bg-gradient-to-r from-purple-500 to-purple-700 text-white p-6 rounded-t-2xl">
+                                    <h3 class="text-xl font-bold">Input Nilai Kompetensi</h3>
+                                </div>
+                                <div class="p-6 space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">NIK</label>
+                                        <input v-model="kompetensiForm.nik" type="text" class="form-input" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Nama</label>
+                                        <input v-model="kompetensiForm.nama" type="text" class="form-input" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Nilai (0-100)</label>
+                                        <input v-model="kompetensiForm.nilai" type="number" min="0" max="100" class="form-input" placeholder="Masukkan nilai">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Status</label>
+                                        <select v-model="kompetensiForm.status" class="form-input">
+                                            <option value="MENUNGGU">Menunggu</option>
+                                            <option value="LOLOS">Lolos</option>
+                                            <option value="TIDAK LOLOS">Tidak Lolos</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="p-6 pt-0 flex gap-3">
+                                    <button @click="showKompetensiModal = false" class="btn btn-secondary flex-1">Batal</button>
+                                    <button @click="saveKompetensi" class="btn btn-primary flex-1">Simpan</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ADMIN WAWANCARA VIEW -->
+                    <div v-if="activeMenu === 'adminWawancara' && isLoggedIn" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                        <i class="fas fa-comments text-green-500 mr-2"></i>
+                                        Tes Wawancara
+                                    </h2>
+                                    <p class="text-gray-500 dark:text-gray-400">Input dan kelola nilai tes wawancara pelamar</p>
+                                </div>
+                                <button @click="loadWawancaraList" class="btn btn-primary">
+                                    <i class="fas fa-sync"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-card rounded-2xl p-6">
+                            <div v-if="wawancaraLoading" class="text-center py-8">
+                                <div class="spinner-large mx-auto"></div>
+                                <p class="mt-4 text-gray-500">Memuat data...</p>
+                            </div>
+                            <div v-else class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="bg-gradient-to-r from-green-500 to-green-700 text-white">
+                                            <th class="px-4 py-3 text-left rounded-l-lg">No</th>
+                                            <th class="px-4 py-3 text-left">NIK</th>
+                                            <th class="px-4 py-3 text-left">Nama</th>
+                                            <th class="px-4 py-3 text-left">Formasi</th>
+                                            <th class="px-4 py-3 text-left">Nilai</th>
+                                            <th class="px-4 py-3 text-left">Status</th>
+                                            <th class="px-4 py-3 text-left rounded-r-lg">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(p, idx) in wawancaraList" :key="p.NIK" class="border-b hover:bg-green-50 dark:hover:bg-slate-700">
+                                            <td class="px-4 py-3">{{ idx + 1 }}</td>
+                                            <td class="px-4 py-3">{{ p.NIK }}</td>
+                                            <td class="px-4 py-3 font-medium">{{ p.Nama }}</td>
+                                            <td class="px-4 py-3">{{ p.Formasi }}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="font-bold text-green-600">{{ p['Nilai Wawancara'] || '-' }}</span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span class="badge" :class="getStatusBadgeClass(p['Status Wawancara'])">
+                                                    {{ p['Status Wawancara'] || 'MENUNGGU' }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <button @click="openWawancaraModal(p)" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Wawancara Modal -->
+                        <div v-if="showWawancaraModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="showWawancaraModal = false"></div>
+                            <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
+                                <div class="bg-gradient-to-r from-green-500 to-green-700 text-white p-6 rounded-t-2xl">
+                                    <h3 class="text-xl font-bold">Input Nilai Wawancara</h3>
+                                </div>
+                                <div class="p-6 space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">NIK</label>
+                                        <input v-model="wawancaraForm.nik" type="text" class="form-input" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Nama</label>
+                                        <input v-model="wawancaraForm.nama" type="text" class="form-input" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Nilai (0-100)</label>
+                                        <input v-model="wawancaraForm.nilai" type="number" min="0" max="100" class="form-input" placeholder="Masukkan nilai">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Catatan</label>
+                                        <textarea v-model="wawancaraForm.catatan" class="form-input" rows="3" placeholder="Catatan wawancara..."></textarea>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Status</label>
+                                        <select v-model="wawancaraForm.status" class="form-input">
+                                            <option value="MENUNGGU">Menunggu</option>
+                                            <option value="LOLOS">Lolos</option>
+                                            <option value="TIDAK LOLOS">Tidak Lolos</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="p-6 pt-0 flex gap-3">
+                                    <button @click="showWawancaraModal = false" class="btn btn-secondary flex-1">Batal</button>
+                                    <button @click="saveWawancara" class="btn btn-primary flex-1">Simpan</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Login Required Message -->
                     <div v-if="activeMenu.includes('admin') && !isLoggedIn" class="glass-card rounded-2xl p-12 text-center">
                         <i class="fas fa-lock text-6xl text-gray-300 mb-4"></i>
@@ -1496,6 +1786,33 @@
                     aiRankingByFormasi: [],
                     globalRanking: [],
                     
+                    // Kompetensi Admin Data
+                    kompetensiList: [],
+                    kompetensiLoading: false,
+                    showKompetensiModal: false,
+                    kompetensiForm: {
+                        nik: '',
+                        nama: '',
+                        nilai: '',
+                        status: 'MENUNGGU'
+                    },
+                    
+                    // Wawancara Admin Data
+                    wawancaraList: [],
+                    wawancaraLoading: false,
+                    showWawancaraModal: false,
+                    wawancaraForm: {
+                        nik: '',
+                        nama: '',
+                        nilai: '',
+                        catatan: '',
+                        status: 'MENUNGGU'
+                    },
+                    
+                    // Admin Pelamar Lightbox
+                    adminPelamarLightboxOpen: false,
+                    selectedAdminPelamar: null,
+                    
                     // Charts
                     charts: {},
                     
@@ -1510,13 +1827,20 @@
                     
                     // API URL - GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
                     // Deploy: Extensions > Apps Script > Deploy > New deployment > Web app
-                    API_URL: 'https://script.google.com/macros/s/AKfycby_MfcV54vgqpv7xPGQbVGTiRm7R98GRTlP54DY-U8TRfNSSEj5fJQ09O3fPuiJ4P1n/exec'
+                    API_URL: 'https://script.google.com/macros/s/AKfycbwIzZCnRfG5ShHLZnGehKiLaLU407OJIZziIHlzzsxDDaNR9agRk8Jt41KYnHXCHg4V/exec'
                 }
             },
             mounted() {
                 this.checkDarkMode();
                 this.loadDashboard();
                 this.startGalleryAutoSlide();
+            },
+            computed: {
+                isAdmin() { return this.currentUser?.role === 'ADMINISTRATOR'; },
+                isVerifikator() { return this.currentUser?.role === 'VERIFIKATOR'; },
+                isAsesor() { return this.currentUser?.role === 'ASESOR'; },
+                isInterviewer() { return this.currentUser?.role === 'INTERVIEWER'; },
+                isObserver() { return this.currentUser?.role === 'OBSERVER'; }
             },
             methods: {
                 // Dark Mode
@@ -1546,6 +1870,8 @@
                         if (menu === 'profil') this.loadProfilList();
                         if (menu === 'adminPelamar') this.initPelamarTable();
                         if (menu === 'adminVerifikasi') this.initVerifikasiTable();
+                        if (menu === 'adminKompetensi') this.loadKompetensiList();
+                        if (menu === 'adminWawancara') this.loadWawancaraList();
                     });
                 },
                 
@@ -1990,6 +2316,101 @@
                             ]
                         });
                     });
+                },
+                
+                // Kompetensi
+                async loadKompetensiList() {
+                    this.kompetensiLoading = true;
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                            this.kompetensiList = result.data;
+                        } else {
+                            this.kompetensiList = this.getDemoPelamarList();
+                        }
+                    } catch (error) {
+                        this.kompetensiList = this.getDemoPelamarList();
+                    }
+                    this.kompetensiLoading = false;
+                },
+                
+                openKompetensiModal(pelamar) {
+                    this.kompetensiForm = {
+                        nik: pelamar.NIK,
+                        nama: pelamar.Nama,
+                        nilai: pelamar['Nilai Kompetensi'] || '',
+                        status: pelamar['Status Kompetensi'] || 'MENUNGGU'
+                    };
+                    this.showKompetensiModal = true;
+                },
+                
+                async saveKompetensi() {
+                    try {
+                        const response = await fetch(this.API_URL + '?action=inputNilai&nik=' + encodeURIComponent(this.kompetensiForm.nik) + '&nilai=' + encodeURIComponent(this.kompetensiForm.nilai) + '&status=' + encodeURIComponent(this.kompetensiForm.status));
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('Nilai kompetensi berhasil disimpan');
+                            this.showKompetensiModal = false;
+                            this.loadKompetensiList();
+                        }
+                    } catch (error) {
+                        alert('Nilai kompetensi disimpan (demo)');
+                        this.showKompetensiModal = false;
+                    }
+                },
+                
+                // Wawancara
+                async loadWawancaraList() {
+                    this.wawancaraLoading = true;
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                            this.wawancaraList = result.data;
+                        } else {
+                            this.wawancaraList = this.getDemoPelamarList();
+                        }
+                    } catch (error) {
+                        this.wawancaraList = this.getDemoPelamarList();
+                    }
+                    this.wawancaraLoading = false;
+                },
+                
+                openWawancaraModal(pelamar) {
+                    this.wawancaraForm = {
+                        nik: pelamar.NIK,
+                        nama: pelamar.Nama,
+                        nilai: pelamar['Nilai Wawancara'] || '',
+                        catatan: pelamar['Catatan Wawancara'] || '',
+                        status: pelamar['Status Wawancara'] || 'MENUNGGU'
+                    };
+                    this.showWawancaraModal = true;
+                },
+                
+                async saveWawancara() {
+                    try {
+                        const response = await fetch(this.API_URL + '?action=inputWawancara&nik=' + encodeURIComponent(this.wawancaraForm.nik) + '&nilai=' + encodeURIComponent(this.wawancaraForm.nilai) + '&status=' + encodeURIComponent(this.wawancaraForm.status));
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('Nilai wawancara berhasil disimpan');
+                            this.showWawancaraModal = false;
+                            this.loadWawancaraList();
+                        }
+                    } catch (error) {
+                        alert('Nilai wawancara disimpan (demo)');
+                        this.showWawancaraModal = false;
+                    }
+                },
+                
+                getDemoPelamarList() {
+                    return [
+                        { NIK: '6371031501900001', Nama: 'Ahmad Fauzi', Formasi: 'Dokter Umum', 'Nilai Kompetensi': '85', 'Status Kompetensi': 'LOLOS', 'Nilai Wawancara': '90', 'Status Wawancara': 'LOLOS' },
+                        { NIK: '6371031501900002', Nama: 'Siti Rahayu', Formasi: 'Ners', 'Nilai Kompetensi': '88', 'Status Kompetensi': 'LOLOS', 'Nilai Wawancara': '92', 'Status Wawancara': 'LOLOS' },
+                        { NIK: '6371031501900003', Nama: 'Budi Santoso', Formasi: 'Perawat', 'Nilai Kompetensi': '75', 'Status Kompetensi': 'MENUNGGU', 'Nilai Wawancara': '', 'Status Wawancara': 'MENUNGGU' },
+                        { NIK: '6371031501900004', Nama: 'Dewi Lestari', Formasi: 'Bidan Profesi', 'Nilai Kompetensi': '82', 'Status Kompetensi': 'LOLOS', 'Nilai Wawancara': '85', 'Status Wawancara': 'LOLOS' },
+                        { NIK: '6371031501900005', Nama: 'Rudi Hermawan', Formasi: 'Apoteker', 'Nilai Kompetensi': '', 'Status Kompetensi': 'MENUNGGU', 'Nilai Wawancara': '', 'Status Wawancara': 'MENUNGGU' }
+                    ];
                 },
                 
                 async calculateAIRanking() {
