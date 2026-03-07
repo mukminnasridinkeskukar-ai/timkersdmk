@@ -89,6 +89,41 @@
             padding: 40px;
         }
 
+        /* Locked State */
+        .form-locked .form-control,
+        .form-locked .form-select,
+        .form-locked .file-input,
+        .form-locked .file-upload-box,
+        .form-locked .captcha-container {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .locked-notice {
+            background: #f8d7da;
+            border: 1px solid #f5c2c7;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #842029;
+            display: none;
+        }
+
+        .locked-notice.show {
+            display: block;
+        }
+
+        .locked-notice i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .locked-notice h5 {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
         /* Section Styles */
         .form-section {
             margin-bottom: 40px;
@@ -138,6 +173,11 @@
 
         .form-control.is-invalid {
             border-color: var(--danger-red);
+            background-image: none;
+        }
+
+        .form-control.is-valid {
+            border-color: var(--health-green);
             background-image: none;
         }
 
@@ -466,6 +506,10 @@
             border-top: 5px solid var(--health-green);
         }
 
+        .modal-content.locked {
+            border-top: 5px solid var(--warning-yellow);
+        }
+
         .modal-content .modal-icon {
             width: 80px;
             height: 80px;
@@ -485,6 +529,11 @@
         .modal-content.success .modal-icon {
             background: #d1e7dd;
             color: var(--health-green);
+        }
+
+        .modal-content.locked .modal-icon {
+            background: #fff3cd;
+            color: var(--warning-yellow);
         }
 
         .modal-content h4 {
@@ -628,6 +677,67 @@
             color: #842029;
             border: 1px solid #f5c2c7;
         }
+
+        /* NIK Validation Status */
+        .nik-validation-status {
+            display: inline-block;
+            margin-left: 10px;
+            font-size: 0.85rem;
+        }
+
+        .nik-validation-status.valid {
+            color: var(--health-green);
+        }
+
+        .nik-validation-status.invalid {
+            color: var(--danger-red);
+        }
+
+        .nik-validation-status.checking {
+            color: var(--primary-blue);
+        }
+
+        /* Already Registered Banner */
+        .already-registered-banner {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+            border: 2px solid #ffc107;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            display: none;
+        }
+
+        .already-registered-banner.show {
+            display: block;
+        }
+
+        .already-registered-banner i {
+            font-size: 2.5rem;
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .already-registered-banner h5 {
+            color: #856404;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .already-registered-banner p {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .already-registered-banner .btn-contact {
+            background: #856404;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 500;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -638,13 +748,28 @@
         <div class="logo">
             <i class="fas fa-hospital"></i>
         </div>
-        <h1>FORMULIR PENDAFTARAN REKRUTMEN</h1>
+        <h1>FORMULIR PENDAFTARAN REKRUTMEN KARYAWAN</h1>
         <h2>RSUD AJI MUHAMMAD IDRIS</h2>
-        <p>Silakan isi formulir dengan data yang benar dan lengkap</p>
+        <p>Silakan isi formulir dengan data yang benar dan lengkap, Kekurangan dan Kesalahan dalam pendaftaran menjadi tanggungjawab pelamar</p>
     </header>
 
     <!-- Form Container -->
-    <div class="form-container">
+    <div class="form-container" id="formContainer">
+        <!-- Locked Notice -->
+        <div class="locked-notice" id="lockedNotice">
+            <i class="fas fa-lock"></i>
+            <h5>Formulir Dikunci</h5>
+            <p>NIK Anda sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran. Silakan hubungi administrator untuk perubahan data.</p>
+        </div>
+
+        <!-- Already Registered Banner -->
+        <div class="already-registered-banner" id="alreadyRegisteredBanner">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h5>NIK Sudah Terdaftar</h5>
+            <p>Nomor NIK Anda (<strong id="registeredNik"></strong>) sudah terdaftar dalam sistem. Setiap NIK hanya dapat mengajukan 1 kali lamaran.</p>
+            <p>Silakan hubungi administrator jika Anda mengalami masalah dengan pendaftaran sebelumnya.</p>
+        </div>
+
         <form id="applicationForm" enctype="multipart/form-data">
             
             <!-- Section 1: Data Pribadi -->
@@ -670,6 +795,7 @@
                             <span class="input-group-text"><i class="fas fa-id-card"></i></span>
                         </div>
                         <div class="invalid-feedback">NIK harus terdiri dari 16 digit</div>
+                        <span class="nik-validation-status" id="nikStatus"></span>
                     </div>
                 </div>
 
@@ -734,12 +860,30 @@
                         <label class="form-label">Pendidikan Terakhir <span class="required">*</span></label>
                         <select class="form-select" id="pendidikan" name="pendidikan" required>
                             <option value="">Pilih Pendidikan</option>
-                            <option value="SMA/SMK">SMA/SMK</option>
-                            <option value="D3">D3</option>
-                            <option value="D4">D4</option>
-                            <option value="S1">S1</option>
-                            <option value="S2">S2</option>
-                            <option value="S3">S3</option>
+                            <option value="S1 Kedokteran + Profesi Dokter">S1 Kedokteran + Profesi Dokter</option>
+<option value="Profesi Ners">Profesi Ners</option>
+<option value="D3 Keperawatan">D3 Keperawatan</option>
+<option value="Profesi Bidan">Profesi Bidan</option>
+<option value="D3 Kebidanan">D3 Kebidanan</option>
+<option value="S1 Farmasi + Profesi Apoteker">S1 Farmasi + Profesi Apoteker</option>
+<option value="D3 Kefarmasian">D3 Kefarmasian</option>
+<option value="S1 Gizi + Profesi Dietesien">S1 Gizi + Profesi Dietesien</option>
+<option value="D3 Nutrisionis">D3 Nutrisionis</option>
+<option value="D3 Radiografer">D3 Radiografer</option>
+<option value="D3 Elektromedik">D3 Elektromedik</option>
+<option value="D3 Perekam Medis dan Informasi Kesehatan">D3 Perekam Medis dan Informasi Kesehatan</option>
+<option value="D3 Ahli Tenaga Laboratorium Medik (ATLM)">D3 Ahli Tenaga Laboratorium Medik (ATLM)</option>
+<option value="D3 Kesehatan Lingkungan">D3 Kesehatan Lingkungan</option>
+<option value="D IV Penata Anestesi">D IV Penata Anestesi</option>
+<option value="S1 Kesehatan Masyarakat (Konsentrasi Promkes)">S1 Kesehatan Masyarakat (Konsentrasi Promkes)</option>
+<option value="S1 Akuntansi">S1 Akuntansi</option>
+<option value="S1 Hukum">S1 Hukum</option>
+<option value="S1 Kesehatan">S1 Kesehatan</option>
+<option value="S1 Ekonomi">S1 Ekonomi</option>
+<option value="S1 Teknik Mesin">S1 Teknik Mesin</option>
+<option value="S1 Teknik Elektro">S1 Teknik Elektro</option>
+<option value="S1 Teknik Informatika">S1 Teknik Informatika</option>
+<option value="D3/D4/S1 Ilmu lainnya">D3/D4/S1 Ilmu lainnya</option>
                         </select>
                         <div class="invalid-feedback">Pendidikan wajib dipilih</div>
                     </div>
@@ -762,13 +906,33 @@
                         <select class="form-select" id="formasi" name="formasi" required>
                             <option value="">Pilih Formasi</option>
                             <option value="Dokter Umum">Dokter Umum</option>
-                            <option value="Perawat">Perawat</option>
-                            <option value="Bidan">Bidan</option>
-                            <option value="Apoteker">Apoteker</option>
-                            <option value="Tenaga Gizi">Tenaga Gizi</option>
-                            <option value="Analis Kesehatan">Analis Kesehatan</option>
-                            <option value="Radiografer">Radiografer</option>
-                            <option value="Tenaga Administrasi">Tenaga Administrasi</option>
+<option value="Ners">Ners</option>
+<option value="Perawat">Perawat</option>
+<option value="Bidan Profesi">Bidan Profesi</option>
+<option value="Bidan">Bidan</option>
+<option value="Apoteker">Apoteker</option>
+<option value="Tenaga Vokasi Kefarmasian">Tenaga Vokasi Kefarmasian</option>
+<option value="Dietesien">Dietesien</option>
+<option value="Nutrisionis Terampil">Nutrisionis Terampil</option>
+<option value="Radiografer">Radiografer</option>
+<option value="Elektromedis">Elektromedis</option>
+<option value="Perekam Medis dan Informasi Kesehatan">Perekam Medis dan Informasi Kesehatan</option>
+<option value="Tenaga Teknologi Laboratorium Medik">Tenaga Teknologi Laboratorium Medik</option>
+<option value="Tenaga Sanitasi Lingkungan">Tenaga Sanitasi Lingkungan</option>
+<option value="Penata Anestesi">Penata Anestesi</option>
+<option value="Tenaga Promosi Kesehatan dan Ilmu Perilaku">Tenaga Promosi Kesehatan dan Ilmu Perilaku</option>
+<option value="Public Safety Centre">Public Safety Centre</option>
+<option value="Perencanaan & Evapor, Verifikasi & Akuntansi">Perencanaan & Evapor, Verifikasi & Akuntansi</option>
+<option value="Kepegawaian, Pengembangan SDM & TU, Hukum, Humas & Kerjasama">Kepegawaian, Pengembangan SDM & TU, Hukum, Humas & Kerjasama</option>
+<option value="Urusan Rumah Tangga RS">Urusan Rumah Tangga RS</option>
+<option value="Pelayanan Medik, Pelayanan Keperawatan">Pelayanan Medik, Pelayanan Keperawatan</option>
+<option value="Penunjang Medik, Penunjang Non Medik">Penunjang Medik, Penunjang Non Medik</option>
+<option value="Admisi Rawat Jalan, Pendaftaran UGD & Informasi">Admisi Rawat Jalan, Pendaftaran UGD & Informasi</option>
+<option value="Admin UGD, Admisi Rawat Inap">Admin UGD, Admisi Rawat Inap</option>
+<option value="Admin Ruang Kebidanan & Perina, Admin Ruang Rawat Inap">Admin Ruang Kebidanan & Perina, Admin Ruang Rawat Inap</option>
+<option value="Kasir UGD & Rawat Inap, Kasir Rawat Jalan">Kasir UGD & Rawat Inap, Kasir Rawat Jalan</option>
+<option value="Petugas PSRS/Mekanik">Petugas PSRS/Mekanik</option>
+<option value="Tenaga Informasi dan Teknologi (IT)">Tenaga Informasi dan Teknologi (IT)</option>
                         </select>
                         <div class="invalid-feedback">Formasi wajib dipilih</div>
                     </div>
@@ -929,7 +1093,7 @@
                         Upload Berurutan Dokumen Berikut Dalam 1 File PDF <span class="required">*</span>
                     </label>
                     <p class="text-muted small mb-3">
-                        <strong>Isi dokumen:</strong> 1 KTP | 2 Ijazah | 3 Transkrip Nilai | 4 STR (jika tenaga kesehatan) | 5 Sertifikat pendukung | 6 Surat pengalaman kerja (jika ada)
+                        <strong>Isi dokumen:</strong> 1. Keterangan Sehat dari Puskesmas milik Pemerintah, 2. KTP, 3. Ijazah, 4. Transkrip Nilai, 5. STR aktif khusus bagi Named dan Nakes tertentu, 6. Sertifikat pendukung, dan 7. Surat pengalaman kerja (jika ada)
                     </p>
                     <div class="file-upload-wrapper">
                         <div class="file-upload-box" id="dokumenGabunganUploadBox">
@@ -1001,6 +1165,18 @@
     </div>
 </div>
 
+<!-- Locked Modal -->
+<div class="modal-overlay" id="lockedModal">
+    <div class="modal-content locked">
+        <div class="modal-icon">
+            <i class="fas fa-lock"></i>
+        </div>
+        <h4>Formulir Dikunci</h4>
+        <p id="lockedMessage">NIK ini sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran.</p>
+        <button type="button" class="modal-btn" onclick="closeModal('lockedModal')">Tutup</button>
+    </div>
+</div>
+
 <!-- Lightbox Modal for Preview -->
 <div class="modal fade" id="lightboxModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -1023,10 +1199,19 @@
 
 <script>
     // =====================================================
-    // GOOGLE APPS SCRIPT WEB APP CONFIGURATION
+    // ANTI DOUBLE SUBMIT + ANTI REFRESH + AUTO LOCK SYSTEM
     // =====================================================
-    // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE
-    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTNMDyAcl-6YXOMMDJhzTucevIZLwZv01hrHTGK4RUh4_lw8hzIsyYNMDN1wr4aTNn/exec';
+    
+    // Storage keys
+    const STORAGE_KEYS = {
+        SUBMITTED_NIKS: 'sirek_submitted_niks',
+        FORM_LOCKED: 'sirek_form_locked',
+        LOCKED_NIK: 'sirek_locked_nik',
+        LOCKED_TIMESTAMP: 'sirek_locked_timestamp'
+    };
+
+    // Google Apps Script URL
+    const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxY5EkTowiHo1Ku13-SWCuI5lkecygA1N961ptz0SVHL5n8suwSV8CqJUhW-nC5jPH-/exec';
     
     // File configurations
     const fileConfigs = {
@@ -1039,149 +1224,244 @@
 
     let isSubmitting = false;
     let captchaGenerated = '';
+    let isFormLocked = false;
 
     // =====================================================
-    // GOOGLE APPS SCRIPT CODE (DEPLOY THIS IN GOOGLE SCRIPT EDITOR)
+    // LOCAL STORAGE MANAGEMENT - ANTI DOUBLE SUBMIT
     // =====================================================
-    /*
-    
-    COPY THE CODE BELOW AND PASTE INTO GOOGLE APPS SCRIPT EDITOR:
-    https://script.google.com/
-    
-    1. Create new project
-    2. Paste code below
-    3. Deploy as Web App
-    4. Copy the Web App URL
-    5. Replace GOOGLE_APPS_SCRIPT_URL above with your URL
-    
-    ---------------------------------------------------
-    GOOGLE APPS SCRIPT CODE - PASTE INTO SCRIPT EDITOR:
-    ---------------------------------------------------
-    
-    const SS_ID = 'YOUR_SPREADSHEET_ID'; // Replace with your Google Sheet ID
-    const FOLDER_ID = 'YOUR_DRIVE_FOLDER_ID'; // Replace with your Google Drive Folder ID
 
-    function doPost(e) {
-      return handleRequest(e);
+    // Get all submitted NIKs from localStorage
+    function getSubmittedNIKs() {
+        const niks = localStorage.getItem(STORAGE_KEYS.SUBMITTED_NIKS);
+        return niks ? JSON.parse(niks) : [];
     }
 
-    function doGet(e) {
-      return handleRequest(e);
+    // Save submitted NIK to localStorage
+    function saveSubmittedNIK(nik) {
+        const niks = getSubmittedNIKs();
+        if (!niks.includes(nik)) {
+            niks.push(nik);
+            localStorage.setItem(STORAGE_KEYS.SUBMITTED_NIKS, JSON.stringify(niks));
+        }
     }
 
-    function handleRequest(e) {
-      try {
-        var formData = e.parameter;
-        var files = e.parameter.files;
+    // Check if NIK has already been submitted (localStorage)
+    function isNIKAlreadySubmitted(nik) {
+        const niks = getSubmittedNIKs();
+        return niks.includes(nik);
+    }
+
+    // Lock the form (called after successful submission)
+    function lockForm(nik) {
+        isFormLocked = true;
+        localStorage.setItem(STORAGE_KEYS.FORM_LOCKED, 'true');
+        localStorage.setItem(STORAGE_KEYS.LOCKED_NIK, nik);
+        localStorage.setItem(STORAGE_KEYS.LOCKED_TIMESTAMP, new Date().toISOString());
         
-        // Get or create spreadsheet
-        var sheet = SpreadsheetApp.openById(SS_ID).getSheetByName('pelamar');
-        if (!sheet) {
-          sheet = SpreadsheetApp.openById(SS_ID).insertSheet('pelamar');
-          // Create headers
-          var headers = ['Timestamp', 'Email', 'NIK', 'Nama', 'Pendidikan', 'IPK', 'Formasi', 
-                        'Tanggal Daftar', 'Foto', 'Surat Pernyataan', 'Surat Lamaran', 
-                        'CV', 'Dokumen Gabungan', 'Drive Links'];
-          sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        // Add locked class to form container
+        document.getElementById('formContainer').classList.add('form-locked');
+        document.getElementById('lockedNotice').classList.add('show');
+        
+        // Disable all form inputs
+        const form = document.getElementById('applicationForm');
+        const inputs = form.querySelectorAll('input, select, textarea, button[type="submit"]');
+        inputs.forEach(input => {
+            input.disabled = true;
+        });
+        
+        console.log('Form has been locked for NIK:', nik);
+    }
+
+    // Check if form was locked from previous session
+    function checkLockedForm() {
+        const isLocked = localStorage.getItem(STORAGE_KEYS.FORM_LOCKED);
+        const lockedNik = localStorage.getItem(STORAGE_KEYS.LOCKED_NIK);
+        
+        if (isLocked === 'true' && lockedNik) {
+            isFormLocked = true;
+            document.getElementById('formContainer').classList.add('form-locked');
+            document.getElementById('lockedNotice').classList.add('show');
+            document.getElementById('registeredNik').textContent = lockedNik;
+            document.getElementById('alreadyRegisteredBanner').classList.add('show');
+            
+            // Disable all form inputs
+            const form = document.getElementById('applicationForm');
+            const inputs = form.querySelectorAll('input, select, textarea, button[type="submit"]');
+            inputs.forEach(input => {
+                input.disabled = true;
+            });
+            
+            // Show locked modal on page load
+            setTimeout(() => {
+                showLockedModal('Anda sudah pernah提交 lamaran. Formulir telah dikunci untuk mencegah提交 ganda.');
+            }, 500);
+            
+            return true;
+        }
+        return false;
+    }
+
+    // Clear form lock (for testing/admin purposes)
+    function clearFormLock() {
+        localStorage.removeItem(STORAGE_KEYS.FORM_LOCKED);
+        localStorage.removeItem(STORAGE_KEYS.LOCKED_NIK);
+        localStorage.removeItem(STORAGE_KEYS.LOCKED_TIMESTAMP);
+        isFormLocked = false;
+    }
+
+    // =====================================================
+    // NIK VALIDATION - CHECK DUPLICATES
+    // =====================================================
+
+    // Real-time NIK validation
+    document.getElementById('nik').addEventListener('input', function() {
+        // Reset validation state
+        this.classList.remove('is-invalid', 'is-valid');
+        const feedback = document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback');
+        const statusEl = document.getElementById('nikStatus');
+        
+        feedback.textContent = 'NIK harus terdiri dari 16 digit';
+        feedback.style.display = 'none';
+        statusEl.textContent = '';
+        statusEl.className = 'nik-validation-status';
+        
+        // Reset locked banner
+        document.getElementById('alreadyRegisteredBanner').classList.remove('show');
+        
+        // Reset submit button
+        document.getElementById('submitBtn').disabled = false;
+        
+        if (this.value.length === 16) {
+            // Show checking status
+            statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memeriksa...';
+            statusEl.classList.add('checking');
+            
+            // Check NIK exists
+            checkNIKExists(this.value);
+        }
+    });
+
+    // Check if NIK already exists (local + server)
+    async function checkNIKExists(nik) {
+        const nikInput = document.getElementById('nik');
+        const feedback = document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback');
+        const statusEl = document.getElementById('nikStatus');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        // First check localStorage (fast)
+        if (isNIKAlreadySubmitted(nik)) {
+            nikInput.classList.add('is-invalid');
+            nikInput.classList.remove('is-valid');
+            feedback.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> NIK sudah terdaftar pada sistem. Silakan periksa kembali atau gunakan akun yang sudah ada.';
+            feedback.style.display = 'block';
+            statusEl.innerHTML = '<i class="fas fa-times-circle"></i> Sudah terdaftar';
+            statusEl.className = 'nik-validation-status invalid';
+            
+            // Show banner
+            document.getElementById('registeredNik').textContent = nik;
+            document.getElementById('alreadyRegisteredBanner').classList.add('show');
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            
+            return true;
         }
         
-        // Get folder
-        var folder = DriveApp.getFolderById(FOLDER_ID);
-        
-        // Create subfolder for this applicant
-        var applicantFolder = folder.createFolder(formData.nik + '_' + formData.nama);
-        
-        // Process uploaded files
-        var driveLinks = {};
-        
-        // Parse multipart data manually (files come as blob)
-        var contentType = e.postData.contents;
-        
-        // Get the boundary from content type
-        var boundary = e.parameter.boundary;
-        
-        if (boundary && e.postData) {
-          var parts = Utilities.newBlob(e.postData.contents).getDataAsString().split('--' + boundary);
-          
-          for (var i = 0; i < parts.length; i++) {
-            var part = parts[i];
-            if (part.indexOf('Content-Type:') > -1) {
-              // Extract field name and file
-              var fieldMatch = part.match(/name="([^"]+)"/);
-              var filenameMatch = part.match(/filename="([^"]+)"/);
-              
-              if (fieldMatch && filenameMatch) {
-                var fieldName = fieldMatch[1];
-                var filename = filenameMatch[1];
-                
-                // Get file content (after double line break)
-                var contentStart = part.indexOf('\r\n\r\n');
-                if (contentStart > -1) {
-                  var fileContent = part.substring(contentStart                  // Remove trailing \ + 4);
-r\n
-                  fileContent = fileContent.replace(/\r\n$/, '');
-                  
-                  // Decode base64
-                  var decoded = Utilities.base64Decode(fileContent);
-                  var blob = Utilities.newBlob(decoded).setName(filename);
-                  
-                  // Upload to Drive
-                  var file = applicantFolder.createFile(blob);
-                  driveLinks[fieldName] = file.getUrl();
-                }
-              }
+        // Then check server (async)
+        try {
+            const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
+            const text = await response.text();
+            let data;
+            try { data = JSON.parse(text); } catch (e) { 
+                // Server error - allow local check only
+                statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Valid';
+                statusEl.className = 'nik-validation-status valid';
+                return false; 
             }
-          }
+            
+            if (data.status === 'success' && data.data && data.data.exists) {
+                // NIK exists in server - BLOCK submission!
+                nikInput.classList.add('is-invalid');
+                nikInput.classList.remove('is-valid');
+                feedback.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> NIK sudah terdaftar pada sistem. Setiap NIK hanya dapat mengajukan 1 kali lamaran.';
+                feedback.style.display = 'block';
+                statusEl.innerHTML = '<i class="fas fa-times-circle"></i> Sudah terdaftar';
+                statusEl.className = 'nik-validation-status invalid';
+                
+                // Show banner
+                document.getElementById('registeredNik').textContent = nik;
+                document.getElementById('alreadyRegisteredBanner').classList.add('show');
+                
+                // Disable submit button
+                submitBtn.disabled = true;
+                
+                return true;
+            } else {
+                // NIK valid - not registered
+                nikInput.classList.remove('is-invalid');
+                nikInput.classList.add('is-valid');
+                feedback.style.display = 'none';
+                statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Valid';
+                statusEl.className = 'nik-validation-status valid';
+                
+                // Enable submit button
+                submitBtn.disabled = false;
+                
+                return false;
+            }
+        } catch (error) {
+            console.log('NIK check error:', error);
+            // On error, use local check result
+            statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Valid (lokal)';
+            statusEl.className = 'nik-validation-status valid';
+            submitBtn.disabled = false;
+            return false;
+        }
+    }
+
+    // Final check before submit
+    async function checkNIKBeforeSubmit(nik) {
+        // Check localStorage first
+        if (isNIKAlreadySubmitted(nik)) {
+            return true; // Block - already submitted
         }
         
-        // Format date
-        var today = new Date();
-        var tanggalDaftar = Utilities.formatDate(today, 'Asia/Makassar', 'dd-MM-yyyy');
-        
-        // Prepare row data
-        var rowData = [
-          new Date(),
-          formData.email,
-          formData.nik,
-          formData.nama,
-          formData.pendidikan,
-          formData.ipk || '',
-          formData.formasi,
-          tanggalDaftar,
-          driveLinks['foto'] || '',
-          driveLinks['suratPernyataan'] || '',
-          driveLinks['suratLamaran'] || '',
-          driveLinks['cv'] || '',
-          driveLinks['dokumenGabungan'] || '',
-          JSON.stringify(driveLinks)
-        ];
-        
-        // Append to sheet
-        sheet.appendRow(rowData);
-        
-        // Return success
-        return ContentService.createTextOutput(JSON.stringify({
-          'status': 'success',
-          'message': 'Lamaran berhasil disimpan',
-          'links': driveLinks
-        })).setMimeType(ContentService.MimeType.JSON);
-        
-      } catch (error) {
-        return ContentService.createTextOutput(JSON.stringify({
-          'status': 'error',
-          'message': error.toString()
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
+        // Check server
+        try {
+            const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
+            const text = await response.text();
+            let data;
+            try { data = JSON.parse(text); } catch (e) { return false; }
+            
+            return data.status === 'success' && data.data && data.data.exists;
+        } catch (error) {
+            console.log('NIK check error:', error);
+            return false;
+        }
     }
-    
-    ---------------------------------------------------
-    */
-    
+
+    // NIK blur validation
+    document.getElementById('nik').addEventListener('blur', async function() {
+        if (this.value.length !== 16 && this.value.length > 0) {
+            showError('NIK harus terdiri dari 16 digit');
+            this.classList.add('is-invalid');
+        } else if (this.value.length === 16) {
+            const exists = await checkNIKExists(this.value);
+            if (exists) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        } else {
+            this.classList.remove('is-invalid', 'is-valid');
+        }
+    });
+
     // =====================================================
-    // END GOOGLE APPS SCRIPT CODE
+    // CAPTCHA SYSTEM
     // =====================================================
 
-    // Generate random captcha
     function generateCaptcha() {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let result = '';
@@ -1200,7 +1480,10 @@ r\n
     // Initialize captcha on load
     generateCaptcha();
 
-    // File upload handling
+    // =====================================================
+    // FILE UPLOAD HANDLING
+    // =====================================================
+
     document.querySelectorAll('.file-input').forEach(input => {
         input.addEventListener('change', function() {
             handleFileSelect(this);
@@ -1294,69 +1577,9 @@ r\n
         else return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     }
 
-    // NIK Validation
-    document.getElementById('nik').addEventListener('input', function() {
-        // Remove previous error
-        this.classList.remove('is-invalid');
-        document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback').textContent = 'NIK harus terdiri dari 16 digit';
-        
-        if (this.value.length === 16) {
-            checkNIKExists(this.value);
-        }
-    });
-    
-    // Check if NIK already exists in database (for info only, not blocking)
-    async function checkNIKExists(nik) {
-        try {
-            const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
-            const text = await response.text();
-            let data;
-            try { data = JSON.parse(text); } catch (e) { return; }
-            
-            if (data.status === 'success' && data.data && data.data.exists) {
-                const nikInput = document.getElementById('nik');
-                // Show info message instead of error - allow re-application
-                const feedback = document.querySelector('#nik').closest('.mb-3').querySelector('.invalid-feedback');
-                feedback.textContent = 'NIK sudah terdaftar. Anda dapat memperbarui data lamaran Anda.';
-                feedback.style.display = 'block';
-                nikInput.classList.remove('is-invalid');
-                nikInput.classList.add('nik-exists');
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.log('NIK check error (can be ignored):', error);
-            return false;
-        }
-    }
-    
-    // Final check before submit
-    async function checkNIKBeforeSubmit(nik) {
-        try {
-            const response = await fetch(GOOGLE_APPS_SCRIPT_URL + '?action=checkNIK&nik=' + nik, { redirect: 'follow' });
-            const text = await response.text();
-            let data;
-            try { data = JSON.parse(text); } catch (e) { return false; }
-            
-            return data.status === 'success' && data.data && data.data.exists;
-        } catch (error) {
-            console.log('NIK check error:', error);
-            return false;
-        }
-    }
-    
-    function validateNIKLength() {
-        const nik = document.getElementById('nik').value;
-    }
-
-    document.getElementById('nik').addEventListener('blur', function() {
-        if (this.value.length !== 16 && this.value.length > 0) {
-            showError('NIK harus terdiri dari 16 digit');
-            this.classList.add('is-invalid');
-        } else {
-            this.classList.remove('is-invalid');
-        }
-    });
+    // =====================================================
+    // FORM VALIDATION
+    // =====================================================
 
     // IPK Validation
     document.getElementById('ipk').addEventListener('blur', function() {
@@ -1369,12 +1592,13 @@ r\n
         }
     });
 
-    // Form validation
     function validateForm() {
         const form = document.getElementById('applicationForm');
         const requiredFields = form.querySelectorAll('[required]');
         let isValid = true;
+        let errorMessage = '';
 
+        // Check all required fields
         requiredFields.forEach(field => {
             if (!field.value.trim()) {
                 field.classList.add('is-invalid');
@@ -1384,24 +1608,36 @@ r\n
             }
         });
 
-        // Check captcha
-        const captchaInput = document.getElementById('captchaInput').value.toUpperCase();
+        // Check captcha - case insensitive
+        const captchaInput = document.getElementById('captchaInput').value.toUpperCase().trim();
+        const captchaEl = document.getElementById('captchaInput');
+        console.log('Captcha input:', captchaInput, 'Generated:', captchaGenerated);
         if (captchaInput !== captchaGenerated) {
-            showError('Kode captcha tidak sesuai');
+            captchaEl.classList.add('is-invalid');
+            errorMessage = 'Kode captcha tidak sesuai. Pastikan huruf besar/kecil benar.';
+            isValid = false;
+        } else {
+            captchaEl.classList.remove('is-invalid');
+        }
+
+        // Check if NIK has error class (already registered)
+        const nikInput = document.getElementById('nik');
+        if (nikInput.classList.contains('is-invalid')) {
+            errorMessage = 'NIK sudah terdaftar pada sistem.';
             isValid = false;
         }
 
-        // Check if NIK is invalid (already exists)
-        const nikInput = document.getElementById('nik');
-        if (nikInput.classList.contains('is-invalid')) {
-            showError('NIK ini sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran.');
-            isValid = false;
+        if (!isValid && errorMessage) {
+            showError(errorMessage);
         }
 
         return isValid;
     }
 
-    // Generate filename based on NIK_Nama_Formasi
+    // =====================================================
+    // FILE NAME GENERATOR
+    // =====================================================
+
     function generateFileName(originalName, extension) {
         const nik = document.getElementById('nik').value || 'UNKNOWN';
         const nama = document.getElementById('nama').value.replace(/[^a-zA-Z0-9]/g, '') || 'Unknown';
@@ -1410,7 +1646,6 @@ r\n
         return `${nik}_${nama}_${formasi}.${extension}`;
     }
 
-    // Convert file to base64
     function fileToBase64(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -1420,25 +1655,50 @@ r\n
         });
     }
 
-    // Form submission with Google Sheets/Drive integration
+    // =====================================================
+    // FORM SUBMISSION - WITH ANTI DOUBLE SUBMIT
+    // =====================================================
+
     document.getElementById('applicationForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        if (isSubmitting) return;
+        // Check if form is already locked
+        if (isFormLocked) {
+            showLockedModal('Formulir sudah dikunci. Anda tidak dapat提交 lamaran lagi.');
+            return;
+        }
+
+        if (isSubmitting) {
+            showError('Permintaan sedang diproses. Silakan tunggu...');
+            return;
+        }
 
         if (!validateForm()) {
             showError('Data belum lengkap. Silakan lengkapi semua kolom.');
             return;
         }
 
-        // Final check: Get NIK info (allow re-application)
+        // Final NIK check before submit - BLOCK if already exists
         const nik = document.getElementById('nik').value;
         if (nik.length === 16) {
-            // Allow submission even if NIK exists - backend will update existing record
-            console.log('NIK entered: ' + nik + ' - proceeding with submission (update if exists)');
+            const nikExists = await checkNIKBeforeSubmit(nik);
+            if (nikExists) {
+                showError('NIK ini sudah terdaftar. Setiap NIK hanya dapat mengajukan 1 kali lamaran.');
+                
+                // Lock form if NIK exists
+                lockForm(nik);
+                return;
+            }
+            
+            // Also check localStorage
+            if (isNIKAlreadySubmitted(nik)) {
+                showError('NIK ini sudah terdaftar di browser ini. Setiap NIK hanya dapat提交 1 kali.');
+                lockForm(nik);
+                return;
+            }
         }
 
-        // Anti double submit
+        // Anti double submit - prevent multiple clicks
         isSubmitting = true;
         const submitBtn = document.getElementById('submitBtn');
         submitBtn.classList.add('loading');
@@ -1490,12 +1750,14 @@ r\n
             if (response.status === 'success') {
                 console.log('Data berhasil disimpan ke Google Sheets');
                 console.log('File links:', response.links);
-                // Show appropriate message based on whether it was update or create
-                if (response.data && response.data.updated) {
-                    showSuccess('Data lamaran berhasil diperbarui!');
-                } else {
-                    showSuccess();
-                }
+                
+                // SAVE NIK TO LOCALSTORAGE - CRITICAL FOR ANTI DOUBLE SUBMIT
+                saveSubmittedNIK(nik);
+                
+                // LOCK THE FORM - AUTO LOCK AFTER SUBMIT
+                lockForm(nik);
+                
+                showSuccess();
             } else {
                 throw new Error(response.message || 'Gagal menyimpan data');
             }
@@ -1510,7 +1772,10 @@ r\n
         }
     });
 
-    // Submit to Google Apps Script
+    // =====================================================
+    // GOOGLE SHEETS SUBMISSION
+    // =====================================================
+
     async function submitToGoogleSheets(formData) {
         // Create a simple object to send
         const data = {};
@@ -1540,21 +1805,16 @@ r\n
             }
         }
 
-        // Send using fetch with no-cors mode for file uploads
-        // Note: This requires CORS-enabled Google Apps Script
-        
         try {
             const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors', // This allows the request to complete without CORS errors
+                mode: 'no-cors',
                 body: JSON.stringify(data),
                 headers: {
                     'Content-Type': 'application/json'
                 }
             });
             
-            // Since mode is 'no-cors', we can't read the response
-            // Assume success if no network error
             return { 
                 status: 'success', 
                 message: 'Lamaran berhasil dikirim',
@@ -1562,12 +1822,7 @@ r\n
             };
             
         } catch (error) {
-            // Fallback: Log data locally for demo purposes
             console.log('Form data prepared for submission:', data);
-            console.log('To enable Google Sheets integration:');
-            console.log('1. Create a Google Apps Script project');
-            console.log('2. Deploy as Web App with "Anyone" access');
-            console.log('3. Update GOOGLE_APPS_SCRIPT_URL variable');
             
             // For demo purposes, simulate success
             return {
@@ -1578,34 +1833,36 @@ r\n
         }
     }
 
-    // Show error modal
+    // =====================================================
+    // MODAL FUNCTIONS
+    // =====================================================
+
     function showError(message) {
         document.getElementById('errorMessage').textContent = message;
         document.getElementById('errorModal').classList.add('show');
     }
 
-    // Show success modal
     function showSuccess(customMessage) {
         const successMessageEl = document.getElementById('successMessage');
         if (customMessage) {
             successMessageEl.textContent = customMessage;
         } else {
-            successMessageEl.textContent = 'Pendaftaran berhasil! Silakan menunggu informasi selanjutnya melalui email yang telah terdaftar.';
+            successMessageEl.textContent = 'Pendaftaran berhasil! NIK Anda telah terdaftar dan form telah dikunci untuk mencegah提交 ganda.';
         }
         document.getElementById('successModal').classList.add('show');
     }
 
-    // Close modal
+    function showLockedModal(message) {
+        document.getElementById('lockedMessage').textContent = message || 'NIK ini sudah terdaftar. Setiap NIK hanya dapat提交 1 kali lamaran.';
+        document.getElementById('lockedModal').classList.add('show');
+    }
+
     function closeModal(modalId) {
         document.getElementById(modalId).classList.remove('show');
         
-        // If success modal closed, reset form
+        // If success modal closed, form should remain locked
         if (modalId === 'successModal') {
-            document.getElementById('applicationForm').reset();
-            document.querySelectorAll('.file-info').forEach(el => el.classList.remove('show'));
-            document.querySelectorAll('.image-preview').forEach(el => el.classList.remove('show'));
-            document.querySelectorAll('.upload-progress').forEach(el => el.classList.remove('show'));
-            refreshCaptcha();
+            // Form remains locked
         }
     }
 
@@ -1613,53 +1870,19 @@ r\n
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', function(e) {
             if (e.target === this) {
+                // Don't close locked modal
+                if (this.id === 'lockedModal' && isFormLocked) {
+                    return;
+                }
                 this.classList.remove('show');
             }
         });
     });
 
-    // Download template surat pernyataan
-    function downloadTemplate() {
-        const template = `SURAT PERNYATAAN
+    // =====================================================
+    // DRAG AND DROP SUPPORT
+    // =====================================================
 
-Saya yang bertanda tangan di bawah ini:
-
-Nama : ${document.getElementById('nama').value || '................'}
-NIK : ${document.getElementById('nik').value || '................'}
-Tempat/Tanggal Lahir : ................/.........
-Alamat : ..........................
-
-Dengan ini menyatakan bahwa seluruh dokumen yang saya unggah dalam proses rekrutmen RSUD Aji Muhammad Idris adalah benar dan dapat dipertanggungjawabkan.
-
-Apabila dikemudian hari ditemukan ketidaksesuaian data maka saya bersedia dinyatakan gugur dari proses seleksi.
-
-Samarinda, ……………….
-
-Pelamar
-
-( Tanda tangan )`;
-
-        const blob = new Blob([template], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'Template_Surat_Pernyataan.txt';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // Lightbox configuration - disabled by default (uncomment if needed)
-    // if (typeof lightbox !== 'undefined') {
-    //   lightbox.option({
-    //     'resizeDuration': 200,
-    //     'wrapAround': true,
-    //     'alwaysShowNavOnTouchDevices': true
-    //   });
-    // }
-
-    // Add drag and drop support
     document.querySelectorAll('.file-upload-box').forEach(box => {
         box.addEventListener('dragover', function(e) {
             e.preventDefault();
@@ -1686,13 +1909,28 @@ Pelamar
         });
     });
 
+    // =====================================================
+    // ANTI REFRESH - PREVENT FORM RESUBMISSION
+    // =====================================================
+
     // Prevent form resubmission on page refresh
     if (window.history.replaceState) {
         window.history.replaceState(null, null, window.location.href);
     }
 
+    // Detect page refresh and check lock status
+    window.addEventListener('load', function() {
+        // Check if form should be locked
+        checkLockedForm();
+        
+        // Log current status
+        console.log('=== ANTI DOUBLE SUBMIT SYSTEM ACTIVE ===');
+        console.log('Form Locked:', isFormLocked);
+        console.log('Submitted NIKs:', getSubmittedNIKs());
+    });
+
     // =====================================================
-    // INSTRUCTIONS FOR GOOGLE SHEETS/DRIVE INTEGRATION
+    // GOOGLE APPS SCRIPT INSTRUCTIONS
     // =====================================================
     /*
     
