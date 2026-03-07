@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIREK - Sistem Rekrutmen Karyawan RSUD Aji Muhammad Idris</title>
+    <title>SIREK v1.1 Enterprise - Sistem Rekrutmen Karyawan RSUD Aji Muhammad Idris</title>
     
     <!-- Vue.js 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
@@ -11,8 +11,16 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <!-- DataTables -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- jsPDF for PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -24,7 +32,15 @@
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+            if (args[0] && args[0].includes && args[0].includes('cdn.tailwindcss.com')) return;
+            originalWarn.apply(console, args);
+        };
+    </script>
+    <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -39,10 +55,35 @@
                             700: '#002b5f',
                             800: '#001536',
                             900: '#00000c',
+                        },
+                        enterprise: {
+                            gold: '#fbbf24',
+                            platinum: '#a78bfa',
+                            diamond: '#06b6d4',
                         }
                     },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'slide-down': 'slideDown 0.3s ease-out',
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { transform: 'translateY(10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                        slideDown: {
+                            '0%': { transform: 'translateY(-10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        }
                     }
                 }
             }
@@ -50,82 +91,406 @@
     </script>
     
     <style>
+        :root {
+            --primary: #0056b3;
+            --primary-light: #1a75ff;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.3);
+        }
+        
+        .dark {
+            --glass-bg: rgba(15, 23, 42, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+        
         .glass {
-            background: rgba(255, 255, 255, 0.85);
+            background: var(--glass-bg);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid var(--glass-border);
         }
+        
         .glass-dark {
             background: rgba(0, 86, 179, 0.15);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .dark .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0, 86, 179, 0.15);
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-track { background: #1e293b; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-        .sidebar { transition: all 0.3s ease; }
+        
+        .sidebar { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        
         .stat-card { transition: all 0.3s ease; }
         .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0, 86, 179, 0.15); }
+        
         .spinner {
             border: 3px solid rgba(0, 86, 179, 0.1);
             border-radius: 50%;
             border-top: 3px solid #0056b3;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
+            width: 20px;
+            height: 20px;
+            animation: spin 0.8s linear infinite;
         }
+        
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .badge { padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+        
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
         .badge-success { background: #dcfce7; color: #166534; }
         .badge-danger { background: #fee2e2; color: #991b1b; }
         .badge-warning { background: #fef3c7; color: #92400e; }
         .badge-info { background: #dbeafe; color: #1e40af; }
+        .badge-purple { background: #f3e8ff; color: #7c3aed; }
+        .badge-cyan { background: #cffafe; color: #0e7490; }
+        
+        .dark .badge-success { background: #14532d; color: #86efac; }
+        .dark .badge-danger { background: #7f1d1d; color: #fca5a5; }
+        .dark .badge-warning { background: #78350f; color: #fcd34d; }
+        .dark .badge-info { background: #1e3a8a; color: #93c5fd; }
+        .dark .badge-purple { background: #581c87; color: #d8b4fe; }
+        .dark .badge-cyan { background: #164e63; color: #67e8f9; }
+        
         .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
         .fade-enter-from, .fade-leave-to { opacity: 0; }
+        
         .modal-overlay { background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
-        .data-table { border-collapse: separate; border-spacing: 0; }
-        .data-table th { position: sticky; top: 0; z-index: 10; background: #f8fafc; }
+        
+        /* Image Gallery Slider */
+        .gallery-slider {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1rem;
+        }
+        
+        .gallery-slide {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        
+        .gallery-slide.active { opacity: 1; }
+        
+        .gallery-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        
+        .gallery-nav:hover { background: white; transform: translateY(-50%) scale(1.1); }
+        .gallery-dots { position: absolute; bottom: 1rem; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 10; }
+        .gallery-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; transition: all 0.3s ease; }
+        .gallery-dot.active { background: white; transform: scale(1.3); }
+        
+        /* Lightbox */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .lightbox.active { opacity: 1; visibility: visible; }
+        
+        .lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
+        
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+            font-size: 24px;
+            transition: all 0.3s ease;
+        }
+        
+        .lightbox-close:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }
+        
+        /* DataTables Styling */
+        table.dataTable { border-collapse: collapse !important; width: 100% !important; }
+        table.dataTable thead th { 
+            background: linear-gradient(135deg, #0056b3 0%, #004089 100%);
+            color: white;
+            padding: 12px 16px;
+            font-weight: 600;
+            text-align: left;
+            border: none !important;
+        }
+        table.dataTable tbody tr { transition: all 0.2s ease; }
+        table.dataTable tbody tr:hover { background: rgba(0, 86, 179, 0.05) !important; }
+        table.dataTable tbody td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; }
+        .dark table.dataTable tbody td { border-color: #334155; }
+        
+        /* AI Ranking Badge */
+        .ai-rank {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 13px;
+        }
+        
+        .ai-rank-gold { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #78350f; }
+        .ai-rank-silver { background: linear-gradient(135deg, #94a3b8, #64748b); color: #1e293b; }
+        .ai-rank-bronze { background: linear-gradient(135deg, #d97706, #b45309); color: #fff; }
+        .ai-rank-normal { background: #e2e8f0; color: #475569; }
+        
+        .dark .ai-rank-normal { background: #334155; color: #94a3b8; }
+        
+        /* Dark mode toggle animation */
+        .dark-mode-toggle {
+            transition: all 0.3s ease;
+        }
+        
+        /* Card shine effect */
+        .card-shine {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-shine::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to right,
+                transparent 0%,
+                rgba(255,255,255,0.1) 50%,
+                transparent 100%
+            );
+            transform: rotate(30deg);
+            transition: all 0.5s ease;
+            opacity: 0;
+        }
+        
+        .card-shine:hover::before {
+            animation: shine 0.75s;
+        }
+        
+        @keyframes shine {
+            0% { transform: rotate(30deg) translateX(-100%); }
+            100% { transform: rotate(30deg) translateX(100%); }
+        }
+        
+        /* Chart container */
+        .chart-container { position: relative; height: 300px; }
+        
+        /* Status Progress Bar */
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .dark .progress-bar { background: #334155; }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        /* Table actions */
+        .table-action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .table-action-btn:hover { transform: scale(1.1); }
+        
+        /* Form styling */
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            background: white;
+        }
+        
+        .dark .form-input {
+            background: #1e293b;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #0056b3;
+            box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        }
+        
+        /* Button styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #0056b3, #004089);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 86, 179, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        
+        .dark .btn-secondary {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        
+        .btn-secondary:hover { background: #e2e8f0; }
+        .dark .btn-secondary:hover { background: #475569; }
+        
+        /* Loading skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: 8px;
+        }
+        
+        .dark .skeleton {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+        }
+        
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
-    <div id="app">
+<body class="bg-slate-100 dark:bg-slate-900 min-h-screen transition-colors duration-300">
+    <div id="app" class="min-h-screen">
+        <!-- Dark Mode Toggle -->
+        <button @click="toggleDarkMode" class="dark-mode-toggle fixed top-4 right-4 z-50 w-12 h-12 glass rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition">
+            <i :class="['fas text-lg', isDarkMode ? 'fa-sun text-yellow-400' : 'fa-moon text-slate-600']"></i>
+        </button>
+        
         <!-- Login Modal -->
         <transition name="fade">
             <div v-if="showLoginModal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
                 <div class="glass rounded-2xl p-8 w-full max-w-md mx-4 animate-fade-in shadow-2xl">
                     <div class="text-center mb-6">
-                        <div class="w-16 h-16 bg-medical-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                            </svg>
+                        <div class="w-20 h-20 bg-gradient-to-br from-medical-400 to-medical-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <i class="fas fa-hospital text-3xl text-white"></i>
                         </div>
-                        <h2 class="text-2xl font-bold text-gray-800">Login Panel Admin</h2>
-                        <p class="text-gray-500 text-sm mt-1">SIREK - RSUD Aji Muhammad Idris</p>
+                        <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Login Panel Admin</h2>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">SIREK v1.1 Enterprise - RSUD Aji Muhammad Idris</p>
                     </div>
                     <form @submit.prevent="handleLogin" class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                            <input v-model="loginForm.username" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-medical-500 focus:ring-2 focus:ring-medical-200 outline-none transition" placeholder="Masukkan username" required>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+                            <input v-model="loginForm.username" type="text" class="form-input" placeholder="Masukkan username" required>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                            <input v-model="loginForm.password" :type="showPassword ? 'text' : 'password'" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-medical-500 focus:ring-2 focus:ring-medical-200 outline-none transition" placeholder="Masukkan password" required>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+                            <div class="relative">
+                                <input v-model="loginForm.password" :type="showPassword ? 'text' : 'password'" class="form-input pr-10" placeholder="Masukkan password" required>
+                                <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <i :class="['fas', showPassword ? 'fa-eye-slash' : 'fa-eye']"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div v-if="loginError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <p class="text-red-600 text-sm">{{ loginError }}</p>
+                        <div v-if="loginError" class="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                            <p class="text-red-600 dark:text-red-400 text-sm">{{ loginError }}</p>
                         </div>
-                        <button type="submit" :disabled="loginLoading" class="w-full bg-medical-500 hover:bg-medical-600 text-white font-semibold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center">
-                            <span v-if="loginLoading" class="spinner mr-2"></span>
+                        <button type="submit" :disabled="loginLoading" class="btn btn-primary w-full">
+                            <span v-if="loginLoading" class="spinner"></span>
+                            <i v-else class="fas fa-sign-in-alt"></i>
                             {{ loginLoading ? 'Memproses...' : 'Login' }}
                         </button>
                     </form>
-                    <button @click="showLoginModal = false" class="mt-4 w-full text-gray-500 hover:text-gray-700 text-sm">Batal</button>
+                    <button @click="showLoginModal = false" class="mt-4 w-full text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 text-sm">Batal</button>
                 </div>
             </div>
         </transition>
@@ -133,263 +498,617 @@
         <!-- Main Layout -->
         <div class="flex min-h-screen">
             <!-- Sidebar -->
-            <aside :class="['sidebar fixed lg:relative z-40 h-screen glass-dark text-white', sidebarOpen ? 'w-72' : 'w-20', sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0']">
+            <aside :class="['sidebar fixed lg:relative z-40 h-screen text-white', sidebarOpen ? 'w-72' : 'w-20', sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0', isDarkMode ? 'bg-slate-800' : 'glass-dark']">
                 <div class="p-4 border-b border-white/10">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center flex-shrink-0">
-                            <svg class="w-6 h-6 text-medical-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                            </svg>
+                        <div class="w-12 h-12 bg-gradient-to-br from-medical-400 to-medical-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                            <i class="fas fa-hospital text-xl text-white"></i>
                         </div>
                         <transition name="fade">
                             <div v-if="sidebarOpen" class="overflow-hidden">
-                                <h1 class="font-bold text-lg whitespace-nowrap">SIREK</h1>
-                                <p class="text-xs text-blue-200 whitespace-nowrap">RSUD Aji Muhammad Idris</p>
+                                <h1 class="font-bold text-xl whitespace-nowrap">SIREK</h1>
+                                <p class="text-xs text-blue-200 whitespace-nowrap">Enterprise v1.1</p>
                             </div>
                         </transition>
                     </div>
                 </div>
+                
                 <nav class="p-2 space-y-1">
                     <button @click="setActiveMenu('dashboard')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'dashboard' ? 'bg-white/20' : 'hover:bg-white/10']">
-                        <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
-                        </svg>
-                        <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Dashboard Data</span></transition>
+                        <i class="fas fa-chart-pie w-5 h-5"></i>
+                        <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Dashboard</span></transition>
                     </button>
+                    
                     <button @click="setActiveMenu('cekHasil')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'cekHasil' ? 'bg-white/20' : 'hover:bg-white/10']">
-                        <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                        </svg>
+                        <i class="fas fa-clipboard-check w-5 h-5"></i>
                         <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Cek Hasil Seleksi</span></transition>
                     </button>
+                    
                     <button @click="setActiveMenu('profil')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'profil' ? 'bg-white/20' : 'hover:bg-white/10']">
-                        <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
+                        <i class="fas fa-user-tie w-5 h-5"></i>
                         <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Profil Calon Karyawan</span></transition>
                     </button>
+                    
                     <button @click="openLoginModal" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'admin' ? 'bg-white/20' : 'hover:bg-white/10']">
-                        <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        </svg>
+                        <i class="fas fa-cogs w-5 h-5"></i>
                         <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Panel Admin</span></transition>
                     </button>
                 </nav>
+                
+                <!-- Admin Section (visible when logged in) -->
+                <div v-if="isLoggedIn" class="border-t border-white/10 mt-4 pt-4">
+                    <div class="px-3 mb-2" v-if="sidebarOpen">
+                        <p class="text-xs text-blue-200 uppercase tracking-wider">Admin Panel</p>
+                    </div>
+                    <nav class="p-2 space-y-1">
+                        <button @click="setActiveMenu('adminDashboard')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminDashboard' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-tachometer-alt w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">HRD Dashboard</span></transition>
+                        </button>
+                        
+                        <button @click="setActiveMenu('adminPelamar')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminPelamar' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-users w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Data Pelamar</span></transition>
+                        </button>
+                        
+                        <button @click="setActiveMenu('adminFormasi')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminFormasi' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-briefcase w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Kelola Formasi</span></transition>
+                        </button>
+                        
+                        <button @click="setActiveMenu('adminVerifikasi')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminVerifikasi' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-file-check w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Verifikasi Berkas</span></transition>
+                        </button>
+                        
+                        <button @click="setActiveMenu('adminRanking')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminRanking' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-robot w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">AI Ranking</span></transition>
+                        </button>
+                    </nav>
+                </div>
+                
                 <button @click="sidebarOpen = !sidebarOpen" class="absolute -right-3 top-20 w-6 h-6 bg-medical-500 rounded-full flex items-center justify-center shadow-lg lg:hidden">
-                    <svg :class="['w-4 h-4 text-white transition', sidebarOpen ? 'rotate-180' : '']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                    </svg>
+                    <i :class="['fas text-xs text-white transition', sidebarOpen ? 'fa-chevron-left' : 'fa-chevron-right']"></i>
                 </button>
             </aside>
             
             <!-- Main Content -->
-            <main class="flex-1 min-h-screen">
-                <header class="glass sticky top-0 z-30 px-4 py-3 lg:px-6">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-4">
-                            <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 rounded-lg hover:bg-gray-100">
-                                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                                </svg>
-                            </button>
-                            <div>
-                                <h2 class="text-xl font-bold text-gray-800">{{ pageTitle }}</h2>
-                                <p class="text-sm text-gray-500">{{ pageSubtitle }}</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <button @click="refreshData" :disabled="isLoading" class="p-2 rounded-lg hover:bg-gray-100 transition">
-                                <svg :class="['w-5 h-5 text-gray-600', isLoading ? 'animate-spin' : '']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                </svg>
-                            </button>
-                            <div class="hidden sm:flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full">
-                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                <span class="text-xs text-green-700">Auto refresh: {{ countdown }}s</span>
-                            </div>
-                            <div v-if="isLoggedIn" class="flex items-center gap-2 px-3 py-1.5 bg-medical-50 rounded-lg">
-                                <div class="w-8 h-8 bg-medical-500 rounded-full flex items-center justify-center">
-                                    <span class="text-white text-sm font-medium">{{ currentUser?.name?.charAt(0) || 'A' }}</span>
-                                </div>
-                                <div class="hidden sm:block">
-                                    <p class="text-sm font-medium text-gray-800">{{ currentUser?.name }}</p>
-                                    <p class="text-xs text-gray-500">{{ currentUser?.role }}</p>
-                                </div>
-                                <button @click="handleLogout" class="ml-2 p-1 hover:bg-gray-100 rounded">
-                                    <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                                    </svg>
-                                </button>
-                            </div>
+            <main class="flex-1 min-h-screen overflow-x-hidden">
+                <!-- Mobile Header -->
+                <header class="lg:hidden glass sticky top-0 z-30 px-4 py-3 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button @click="sidebarOpen = true" class="w-10 h-10 bg-medical-500 rounded-lg flex items-center justify-center text-white">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <div>
+                            <h1 class="font-bold text-lg text-medical-600">SIREK</h1>
+                            <p class="text-xs text-gray-500">Enterprise v1.1</p>
                         </div>
                     </div>
                 </header>
                 
+                <!-- Content Area -->
                 <div class="p-4 lg:p-6">
-                    <!-- DASHBOARD DATA -->
+                    <!-- DASHBOARD VIEW -->
                     <div v-if="activeMenu === 'dashboard'" class="animate-fade-in">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                            <div v-for="(stat, index) in stats" :key="stat.label" class="stat-card glass rounded-2xl p-4 lg:p-6 cursor-pointer" :style="{ animationDelay: index * 0.1 + 's' }">
+                        <!-- Stats Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div class="glass-card card-shine rounded-2xl p-5 stat-card">
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <p class="text-xs lg:text-sm text-gray-500 font-medium">{{ stat.label }}</p>
-                                        <p class="text-2xl lg:text-3xl font-bold mt-1" :class="stat.color">{{ stat.value }}</p>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Total Pelamar</p>
+                                        <p class="text-3xl font-bold text-medical-600">{{ stats.totalPelamar }}</p>
                                     </div>
-                                    <div :class="['w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center', stat.bgColor]">
-                                        <svg class="w-5 h-5 lg:w-6 lg:h-6" :class="stat.color" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="stat.iconPath"></path>
-                                        </svg>
+                                    <div class="w-14 h-14 bg-gradient-to-br from-medical-400 to-medical-600 rounded-xl flex items-center justify-center shadow-lg">
+                                        <i class="fas fa-users text-2xl text-white"></i>
                                     </div>
+                                </div>
+                                <div class="mt-3 flex items-center text-sm">
+                                    <span class="text-green-600"><i class="fas fa-arrow-up"></i> 12%</span>
+                                    <span class="text-gray-400 ml-2">dari bulan lalu</span>
+                                </div>
+                            </div>
+                            
+                            <div class="glass-card card-shine rounded-2xl p-5 stat-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Lolos Berkas</p>
+                                        <p class="text-3xl font-bold text-green-600">{{ stats.lolosBerkas }}</p>
+                                    </div>
+                                    <div class="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                                        <i class="fas fa-file-check text-2xl text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill bg-green-500" :style="{ width: stats.totalPelamar ? (stats.lolosBerkas/stats.totalPelamar*100) + '%' : '0%' }"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="glass-card card-shine rounded-2xl p-5 stat-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Aktif Formasi</p>
+                                        <p class="text-3xl font-bold text-purple-600">{{ stats.aktifFormasi }}</p>
+                                    </div>
+                                    <div class="w-14 h-14 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                                        <i class="fas fa-briefcase text-2xl text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <span class="text-sm text-gray-500">lowongan tersedia</span>
+                                </div>
+                            </div>
+                            
+                            <div class="glass-card card-shine rounded-2xl p-5 stat-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Diterima</p>
+                                        <p class="text-3xl font-bold text-cyan-600">{{ stats.diterima }}</p>
+                                    </div>
+                                    <div class="w-14 h-14 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+                                        <i class="fas fa-check-circle text-2xl text-white"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <span class="text-sm text-gray-500">karyawan baru</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
-                            <div class="glass rounded-2xl p-4 lg:p-6 col-span-2">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Pelamar Berdasarkan Formasi</h3>
-                                <div class="h-64"><canvas id="barChart"></canvas></div>
-                            </div>
-                            <div class="glass rounded-2xl p-4 lg:p-6">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Berdasarkan Pendidikan</h3>
-                                <div class="h-64"><canvas id="pieChart"></canvas></div>
-                            </div>
-                            <div class="glass rounded-2xl p-4 lg:p-6">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Berdasarkan Jenis Kelamin</h3>
-                                <div class="h-64 flex justify-center"><canvas id="donutChart"></canvas></div>
-                            </div>
-                            <div class="glass rounded-2xl p-4 lg:p-6 col-span-2">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">Status Seleksi</h3>
-                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                    <div class="bg-blue-50 rounded-xl p-4 text-center">
-                                        <p class="text-2xl font-bold text-blue-600">{{ dashboardData.lolosBerkas || 0 }}</p>
-                                        <p class="text-sm text-blue-800">Lolos Berkas</p>
-                                    </div>
-                                    <div class="bg-green-50 rounded-xl p-4 text-center">
-                                        <p class="text-2xl font-bold text-green-600">{{ dashboardData.lulusKompetensi || 0 }}</p>
-                                        <p class="text-sm text-green-800">Lulus Kompetensi</p>
-                                    </div>
-                                    <div class="bg-purple-50 rounded-xl p-4 text-center">
-                                        <p class="text-2xl font-bold text-purple-600">{{ dashboardData.lulusWawancara || 0 }}</p>
-                                        <p class="text-sm text-purple-800">Lulus Wawancara</p>
+                        
+                        <!-- Image Gallery Slider -->
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-4">
+                                <i class="fas fa-images text-medical-500 mr-2"></i>
+                                Gallery Kegiatan
+                            </h3>
+                            <div class="gallery-slider h-64 md:h-80 relative" v-if="galleryImages.length">
+                                <div v-for="(img, idx) in galleryImages" :key="idx" :class="['gallery-slide', { active: galleryIndex === idx }]">
+                                    <img :src="img.url" :alt="img.caption" class="w-full h-full object-cover">
+                                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                                        <p class="text-white font-semibold">{{ img.caption }}</p>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- CEK HASIL -->
-                    <div v-else-if="activeMenu === 'cekHasil'" class="animate-fade-in">
-                        <div class="glass rounded-2xl p-6 lg:p-8 max-w-2xl mx-auto">
-                            <div class="text-center mb-8">
-                                <div class="w-16 h-16 bg-medical-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <svg class="w-8 h-8 text-medical-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                    </svg>
-                                </div>
-                                <h2 class="text-2xl font-bold text-gray-800">Cek Hasil Seleksi</h2>
-                                <p class="text-gray-500 mt-1">Masukkan NIK untuk melihat status lamaran Anda</p>
-                            </div>
-                            <form @submit.prevent="cekHasilSeleksi" class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">NIK</label>
-                                    <input v-model="searchNIK" type="text" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-medical-500 focus:ring-2 focus:ring-medical-200 outline-none transition" placeholder="Masukkan 16 digit NIK" maxlength="16" required>
-                                </div>
-                                <button type="submit" :disabled="isLoading" class="w-full bg-medical-500 hover:bg-medical-600 text-white font-semibold py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center">
-                                    <span v-if="isLoading" class="spinner mr-2"></span>
-                                    {{ isLoading ? 'Mencari...' : 'Cek Hasil Seleksi' }}
+                                <button @click="prevGallery" class="gallery-nav left-4">
+                                    <i class="fas fa-chevron-left text-gray-700"></i>
                                 </button>
-                            </form>
-                            <div v-if="resultData" class="mt-8 space-y-4">
-                                <div class="bg-gray-50 rounded-xl p-4">
-                                    <h4 class="font-semibold text-gray-800 mb-3">Data Pelamar</h4>
-                                    <div class="grid grid-cols-2 gap-3 text-sm">
-                                        <div><p class="text-gray-500">Nama</p><p class="font-medium">{{ resultData.nama }}</p></div>
-                                        <div><p class="text-gray-500">NIK</p><p class="font-medium">{{ resultData.nik }}</p></div>
-                                        <div><p class="text-gray-500">Formasi</p><p class="font-medium">{{ resultData.formasi }}</p></div>
-                                        <div><p class="text-gray-500">Tanggal Daftar</p><p class="font-medium">{{ resultData.tanggalDaftar }}</p></div>
-                                    </div>
+                                <button @click="nextGallery" class="gallery-nav right-4">
+                                    <i class="fas fa-chevron-right text-gray-700"></i>
+                                </button>
+                                <div class="gallery-dots">
+                                    <span v-for="(img, idx) in galleryImages" :key="idx" :class="['gallery-dot', { active: galleryIndex === idx }]" @click="galleryIndex = idx"></span>
                                 </div>
-                                <div class="bg-white border border-gray-200 rounded-xl p-4">
-                                    <h4 class="font-semibold text-gray-800 mb-3">Seleksi Berkas</h4>
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-gray-600">Status Berkas</span>
-                                        <span :class="['badge', getStatusBadgeClass(resultData.statusBerkas)]">{{ resultData.statusBerkas || 'MENUNGGU VERIFIKASI' }}</span>
-                                    </div>
+                            </div>
+                            <div v-else class="h-64 flex items-center justify-center bg-gray-100 dark:bg-slate-800 rounded-xl">
+                                <p class="text-gray-400">Belum ada gallery</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Charts Grid -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <!-- Formasi Chart -->
+                            <div class="glass-card rounded-2xl p-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                                    <i class="fas fa-chart-bar text-medical-500 mr-2"></i>
+                                    Distribusi Pelamar per Formasi
+                                </h3>
+                                <div class="chart-container">
+                                    <canvas id="chartFormasi"></canvas>
                                 </div>
-                                <div class="bg-white border border-gray-200 rounded-xl p-4">
-                                    <h4 class="font-semibold text-gray-800 mb-3">Tes Kompetensi</h4>
-                                    <div class="space-y-2">
-                                        <div class="flex items-center justify-between"><span class="text-gray-600">Nilai Tes</span><span class="font-medium">{{ resultData.nilaiKompetensi || '-' }}</span></div>
-                                        <div class="flex items-center justify-between"><span class="text-gray-600">Status</span><span :class="['badge', getStatusBadgeClass(resultData.statusKompetensi)]">{{ resultData.statusKompetensi || 'BELUM MENGIKUTI' }}</span></div>
-                                    </div>
+                            </div>
+                            
+                            <!-- Pendidikan Chart -->
+                            <div class="glass-card rounded-2xl p-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                                    <i class="fas fa-graduation-cap text-purple-500 mr-2"></i>
+                                    Distribusi Pendidikan
+                                </h3>
+                                <div class="chart-container">
+                                    <canvas id="chartPendidikan"></canvas>
                                 </div>
-                                <div class="bg-white border border-gray-200 rounded-xl p-4">
-                                    <h4 class="font-semibold text-gray-800 mb-3">Tes Wawancara</h4>
-                                    <div class="space-y-2">
-                                        <div class="flex items-center justify-between"><span class="text-gray-600">Nilai Wawancara</span><span class="font-medium">{{ resultData.nilaiWawancara || '-' }}</span></div>
-                                        <div class="flex items-center justify-between"><span class="text-gray-600">Status</span><span :class="['badge', getStatusBadgeClass(resultData.statusWawancara)]">{{ resultData.statusWawancara || 'BELUM MENGIKUTI' }}</span></div>
-                                    </div>
+                            </div>
+                            
+                            <!-- Status Chart -->
+                            <div class="glass-card rounded-2xl p-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                                    <i class="fas fa-tasks text-green-500 mr-2"></i>
+                                    Status Seleksi
+                                </h3>
+                                <div class="chart-container">
+                                    <canvas id="chartStatus"></canvas>
                                 </div>
-                                <div class="bg-white border-2 border-gray-200 rounded-xl p-4">
-                                    <h4 class="font-semibold text-gray-800 mb-3">Hasil Akhir</h4>
-                                    <div class="space-y-2">
-                                        <div class="flex items-center justify-between"><span class="text-gray-600">Status Tes Kesehatan</span><span :class="['badge', resultData.statusKesehatan === 'LULUS' ? 'badge-success' : 'badge-warning']">{{ resultData.statusKesehatan || 'BELUM MENGIKUTI' }}</span></div>
-                                        <div class="flex items-center justify-between pt-2 border-t"><span class="text-gray-800 font-semibold">Keputusan</span><span :class="['badge text-lg px-4 py-2', getFinalBadgeClass(resultData.hasilAkhir)]">{{ resultData.hasilAkhir || 'MENUNGGU' }}</span></div>
+                            </div>
+                            
+                            <!-- Wilayah Chart -->
+                            <div class="glass-card rounded-2xl p-6">
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                                    <i class="fas fa-map-marker-alt text-red-500 mr-2"></i>
+                                    Distribusi Wilayah
+                                </h3>
+                                <div class="chart-container">
+                                    <canvas id="chartWilayah"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Activity -->
+                        <div class="glass-card rounded-2xl p-6">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">
+                                <i class="fas fa-clock text-medical-500 mr-2"></i>
+                                Aktivitas Terbaru
+                            </h3>
+                            <div class="space-y-3">
+                                <div v-for="(activity, idx) in recentActivities" :key="idx" class="flex items-center gap-4 p-3 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                    <div class="w-10 h-10 rounded-full flex items-center justify-center" :class="activity.bgColor">
+                                        <i :class="['fas', activity.icon, 'text-white']"></i>
                                     </div>
+                                    <div class="flex-1">
+                                        <p class="text-gray-800 dark:text-white font-medium">{{ activity.title }}</p>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">{{ activity.desc }}</p>
+                                    </div>
+                                    <span class="text-gray-400 text-xs">{{ activity.time }}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- PROFIL CALON KARYAWAN -->
-                    <div v-else-if="activeMenu === 'profil'" class="animate-fade-in">
-                        <div class="glass rounded-xl p-4 mb-6">
-                            <div class="flex flex-wrap gap-3 items-center">
-                                <div class="relative flex-1 min-w-[200px]">
-                                    <input v-model="searchName" type="text" placeholder="Cari berdasarkan nama..." class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:border-medical-500 focus:ring-2 focus:ring-medical-200 outline-none">
-                                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                    </svg>
+                    <!-- CEK HASIL SELEKSI VIEW -->
+                    <div v-if="activeMenu === 'cekHasil'" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                <i class="fas fa-clipboard-check text-medical-500 mr-2"></i>
+                                Cek Hasil Seleksi
+                            </h2>
+                            <p class="text-gray-500 dark:text-gray-400">Cek status seleksi Anda menggunakan NIK atau Nomor Registrasi</p>
+                        </div>
+                        
+                        <!-- Search Form -->
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <div class="flex flex-col md:flex-row gap-4">
+                                <div class="flex-1">
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">NIK / Nomor Registrasi</label>
+                                    <input v-model="searchNIK" type="text" class="form-input" placeholder="Masukkan NIK atau No. Registrasi" @keyup.enter="searchHasil">
                                 </div>
-                                <span class="text-sm text-gray-500">Menampilkan {{ filteredProfil.length }} pelamar</span>
+                                <div class="flex items-end">
+                                    <button @click="searchHasil" :disabled="searchLoading" class="btn btn-primary">
+                                        <span v-if="searchLoading" class="spinner"></span>
+                                        <i v-else class="fas fa-search"></i>
+                                        Cari
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div class="glass rounded-xl overflow-hidden">
+                        
+                        <!-- Results -->
+                        <div v-if="searchResult" class="glass-card rounded-2xl p-6 animate-fade-in">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-bold text-gray-800 dark:text-white">Hasil Seleksi</h3>
+                                <span class="badge" :class="getStatusBadgeClass(searchResult.hasilAkhir)">
+                                    {{ searchResult.hasilAkhir || 'MENUNGGU' }}
+                                </span>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-3">Data Pribadi</h4>
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                                            <span class="text-gray-500">Nama</span>
+                                            <span class="font-medium text-gray-800 dark:text-white">{{ searchResult.nama }}</span>
+                                        </div>
+                                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                                            <span class="text-gray-500">NIK</span>
+                                            <span class="font-medium text-gray-800 dark:text-white">{{ searchResult.nik }}</span>
+                                        </div>
+                                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                                            <span class="text-gray-500">Formasi</span>
+                                            <span class="font-medium text-gray-800 dark:text-white">{{ searchResult.formasi }}</span>
+                                        </div>
+                                        <div class="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                                            <span class="text-gray-500">Pendidikan</span>
+                                            <span class="font-medium text-gray-800 dark:text-white">{{ searchResult.pendidikan }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-3">Timeline Seleksi</h4>
+                                    <div class="space-y-4">
+                                        <div class="flex gap-4">
+                                            <div class="w-8 h-8 rounded-full flex items-center justify-center" :class="searchResult.statusBerkas === 'LOLOS' ? 'bg-green-500' : 'bg-gray-300'">
+                                                <i class="fas fa-file text-white text-xs"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-800 dark:text-white">Verifikasi Berkas</p>
+                                                <p class="text-sm" :class="searchResult.statusBerkas === 'LOLOS' ? 'text-green-600' : 'text-gray-500'">
+                                                    {{ searchResult.statusBerkas || 'MENUNGGU' }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="flex gap-4">
+                                            <div class="w-8 h-8 rounded-full flex items-center justify-center" :class="searchResult.statusKompetensi === 'LOLOS' ? 'bg-green-500' : 'bg-gray-300'">
+                                                <i class="fas fa-pencil-alt text-white text-xs"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-800 dark:text-white">Tes Kompetensi</p>
+                                                <p class="text-sm" :class="searchResult.statusKompetensi === 'LOLOS' ? 'text-green-600' : 'text-gray-500'">
+                                                    {{ searchResult.statusKompetensi || 'MENUNGGU' }}
+                                                    <span v-if="searchResult.nilaiKompetensi" class="ml-2">({{ searchResult.nilaiKompetensi }})</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="flex gap-4">
+                                            <div class="w-8 h-8 rounded-full flex items-center justify-center" :class="searchResult.statusWawancara === 'LOLOS' ? 'bg-green-500' : 'bg-gray-300'">
+                                                <i class="fas fa-comments text-white text-xs"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-800 dark:text-white">Tes Wawancara</p>
+                                                <p class="text-sm" :class="searchResult.statusWawancara === 'LOLOS' ? 'text-green-600' : 'text-gray-500'">
+                                                    {{ searchResult.statusWawancara || 'MENUNGGU' }}
+                                                    <span v-if="searchResult.nilaiWawancara" class="ml-2">({{ searchResult.nilaiWawancara }})</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="flex gap-4">
+                                            <div class="w-8 h-8 rounded-full flex items-center justify-center" :class="searchResult.statusKesehatan === 'LULUS' ? 'bg-green-500' : 'bg-gray-300'">
+                                                <i class="fas fa-heartbeat text-white text-xs"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-800 dark:text-white">Tes Kesehatan</p>
+                                                <p class="text-sm" :class="searchResult.statusKesehatan === 'LULUS' ? 'text-green-600' : 'text-gray-500'">
+                                                    {{ searchResult.statusKesehatan || 'MENUNGGU' }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div v-if="searchResult.catatan" class="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+                                <p class="font-medium text-yellow-800 dark:text-yellow-200">
+                                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                                    Catatan:
+                                </p>
+                                <p class="text-yellow-700 dark:text-yellow-300 mt-1">{{ searchResult.catatan }}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- No Result -->
+                        <div v-if="searched && !searchResult" class="glass-card rounded-2xl p-12 text-center">
+                            <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+                            <h3 class="text-xl font-bold text-gray-700 dark:text-gray-300">Data Tidak Ditemukan</h3>
+                            <p class="text-gray-500 dark:text-gray-400 mt-2">NIK atau Nomor Registrasi tidak ditemukan</p>
+                        </div>
+                    </div>
+                    
+                    <!-- PROFIL CALON KARYAWAN VIEW -->
+                    <div v-if="activeMenu === 'profil'" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                <i class="fas fa-user-tie text-medical-500 mr-2"></i>
+                                Profil Calon Karyawan
+                            </h2>
+                            <p class="text-gray-500 dark:text-gray-400">Cari dan lihat profil lengkap pelamar</p>
+                        </div>
+                        
+                        <!-- Search -->
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <div class="flex flex-col md:flex-row gap-4">
+                                <div class="flex-1">
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cari berdasarkan Nama atau NIK</label>
+                                    <input v-model="profilSearch" type="text" class="form-input" placeholder="Masukkan nama atau NIK" @keyup.enter="searchProfil">
+                                </div>
+                                <div class="flex items-end">
+                                    <button @click="searchProfil" :disabled="profilLoading" class="btn btn-primary">
+                                        <span v-if="profilLoading" class="spinner"></span>
+                                        <i v-else class="fas fa-search"></i>
+                                        Cari
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Profil Detail -->
+                        <div v-if="profilResult" class="glass-card rounded-2xl p-6 animate-fade-in">
+                            <div class="flex flex-col md:flex-row gap-6">
+                                <!-- Left Column - Photo & Basic Info -->
+                                <div class="md:w-1/3">
+                                    <div class="text-center">
+                                        <div class="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-medical-400 to-medical-600 flex items-center justify-center shadow-lg mb-4">
+                                            <i class="fas fa-user text-4xl text-white"></i>
+                                        </div>
+                                        <h3 class="text-xl font-bold text-gray-800 dark:text-white">{{ profilResult.nama }}</h3>
+                                        <p class="text-gray-500">{{ profilResult.nik }}</p>
+                                        <span class="badge mt-2" :class="getStatusBadgeClass(profilResult.hasilAkhir)">
+                                            {{ profilResult.hasilAkhir || 'MENUNGGU' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Right Column - Details -->
+                                <div class="md:w-2/3">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Tempat, Tanggal Lahir</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.tempatLahir }}, {{ profilResult.tanggalLahir }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Jenis Kelamin</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.jenisKelamin }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">No. HP/Whatsapp</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.noHP }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Email</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.email }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Formasi</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.formasi }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Pendidikan</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.pendidikan }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl md:col-span-2">
+                                            <p class="text-sm text-gray-500 mb-1">Alamat (Sesuai KTP)</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.alamatKTP }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Documents Section -->
+                            <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                <h4 class="font-bold text-gray-800 dark:text-white mb-4">
+                                    <i class="fas fa-folder-open text-medical-500 mr-2"></i>
+                                    Dokumen Pelamar
+                                </h4>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <button @click="openLightbox(profilResult.linkFoto)" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition text-center">
+                                        <i class="fas fa-camera text-2xl text-medical-500 mb-2"></i>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Foto</p>
+                                    </button>
+                                    <button @click="openLightbox(profilResult.linkSuratLamaran)" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition text-center">
+                                        <i class="fas fa-envelope text-2xl text-purple-500 mb-2"></i>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Surat Lamaran</p>
+                                    </button>
+                                    <button @click="openLightbox(profilResult.linkCV)" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition text-center">
+                                        <i class="fas fa-file-alt text-2xl text-green-500 mb-2"></i>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">CV</p>
+                                    </button>
+                                    <button @click="openLightbox(profilResult.linkDokumen)" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition text-center">
+                                        <i class="fas fa-file-pdf text-2xl text-red-500 mb-2"></i>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Dokumen Gabungan</p>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- No Result -->
+                        <div v-if="profilSearched && !profilResult" class="glass-card rounded-2xl p-12 text-center">
+                            <i class="fas fa-user-slash text-6xl text-gray-300 mb-4"></i>
+                            <h3 class="text-xl font-bold text-gray-700 dark:text-gray-300">Profil Tidak Ditemukan</h3>
+                            <p class="text-gray-500 dark:text-gray-400 mt-2">Data pelamar tidak ditemukan</p>
+                        </div>
+                    </div>
+                    
+                    <!-- ADMIN DASHBOARD VIEW -->
+                    <div v-if="activeMenu === 'adminDashboard' && isLoggedIn" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">
+                                        <i class="fas fa-tachometer-alt text-medical-500 mr-2"></i>
+                                        HRD Dashboard
+                                    </h2>
+                                    <p class="text-gray-500 dark:text-gray-400">Selamat datang, {{ currentUser.nama }}</p>
+                                </div>
+                                <button @click="exportExcel" class="btn btn-primary">
+                                    <i class="fas fa-file-excel"></i>
+                                    Export Excel
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Admin Stats -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div class="glass-card rounded-2xl p-5 stat-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Total Pelamar</p>
+                                        <p class="text-3xl font-bold text-medical-600">{{ adminStats.total }}</p>
+                                    </div>
+                                    <div class="w-12 h-12 bg-gradient-to-br from-medical-400 to-medical-600 rounded-xl flex items-center justify-center">
+                                        <i class="fas fa-users text-xl text-white"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="glass-card rounded-2xl p-5 stat-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Lolos Berkas</p>
+                                        <p class="text-3xl font-bold text-green-600">{{ adminStats.lolosBerkas }}</p>
+                                    </div>
+                                    <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center">
+                                        <i class="fas fa-check text-xl text-white"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="glass-card rounded-2xl p-5 stat-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Dalam Proses</p>
+                                        <p class="text-3xl font-bold text-yellow-600">{{ adminStats.dalamProses }}</p>
+                                    </div>
+                                    <div class="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-xl flex items-center justify-center">
+                                        <i class="fas fa-spinner text-xl text-white"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="glass-card rounded-2xl p-5 stat-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-gray-500 dark:text-gray-400 text-sm">Diterima</p>
+                                        <p class="text-3xl font-bold text-purple-600">{{ adminStats.diterima }}</p>
+                                    </div>
+                                    <div class="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center">
+                                        <i class="fas fa-star text-xl text-white"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Actions -->
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <h3 class="font-bold text-gray-800 dark:text-white mb-4">Aksi Cepat</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <button @click="setActiveMenu('adminVerifikasi')" class="p-4 bg-blue-50 dark:bg-slate-800 rounded-xl hover:bg-blue-100 dark:hover:bg-slate-700 transition text-center">
+                                    <i class="fas fa-file-check text-2xl text-blue-500 mb-2"></i>
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Verifikasi Berkas</p>
+                                </button>
+                                <button @click="setActiveMenu('adminRanking')" class="p-4 bg-purple-50 dark:bg-slate-800 rounded-xl hover:bg-purple-100 dark:hover:bg-slate-700 transition text-center">
+                                    <i class="fas fa-robot text-2xl text-purple-500 mb-2"></i>
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">AI Ranking</p>
+                                </button>
+                                <button @click="setActiveMenu('adminPelamar')" class="p-4 bg-green-50 dark:bg-slate-800 rounded-xl hover:bg-green-100 dark:hover:bg-slate-700 transition text-center">
+                                    <i class="fas fa-users text-2xl text-green-500 mb-2"></i>
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Kelola Pelamar</p>
+                                </button>
+                                <button @click="setActiveMenu('adminFormasi')" class="p-4 bg-orange-50 dark:bg-slate-800 rounded-xl hover:bg-orange-100 dark:hover:bg-slate-700 transition text-center">
+                                    <i class="fas fa-briefcase text-2xl text-orange-500 mb-2"></i>
+                                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Kelola Formasi</p>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Recent Registrations -->
+                        <div class="glass-card rounded-2xl p-6">
+                            <h3 class="font-bold text-gray-800 dark:text-white mb-4">Pendaftaran Terbaru</h3>
                             <div class="overflow-x-auto">
-                                <table class="data-table w-full">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase">No</th>
-                                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Foto</th>
-                                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nama</th>
-                                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Jenis Kelamin</th>
-                                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Alamat Sesuai KTP</th>
-                                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Alamat Domisili</th>
-                                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Pendidikan</th>
-                                            <th class="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase">IPK</th>
-                                            <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Formasi</th>
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="text-left">
+                                            <th class="pb-3 text-sm font-semibold text-gray-600 dark:text-gray-400">Nama</th>
+                                            <th class="pb-3 text-sm font-semibold text-gray-600 dark:text-gray-400">Formasi</th>
+                                            <th class="pb-3 text-sm font-semibold text-gray-600 dark:text-gray-400">Status</th>
+                                            <th class="pb-3 text-sm font-semibold text-gray-600 dark:text-gray-400">Tanggal</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        <tr v-for="(pelamar, index) in filteredProfil" :key="pelamar.id" class="hover:bg-gray-50 transition">
-                                            <td class="px-3 py-3 text-center text-sm">{{ index + 1 }}</td>
-                                            <td class="px-3 py-3 text-center">
-                                                <button @click="openProfilModal(pelamar)" class="w-10 h-10 rounded-full overflow-hidden border-2 border-gray-200 hover:border-medical-500 transition">
-                                                    <img v-if="pelamar.foto" :src="pelamar.foto" alt="Foto" class="w-full h-full object-cover">
-                                                    <div v-else class="w-full h-full bg-gray-200 flex items-center justify-center">
-                                                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                                        </svg>
-                                                    </div>
-                                                </button>
+                                    <tbody>
+                                        <tr v-for="reg in recentRegistrations" :key="reg.nik" class="border-t border-gray-100 dark:border-gray-800">
+                                            <td class="py-3">{{ reg.nama }}</td>
+                                            <td class="py-3 text-gray-600 dark:text-gray-400">{{ reg.formasi }}</td>
+                                            <td class="py-3">
+                                                <span class="badge" :class="getStatusBadgeClass(reg.hasilAkhir)">
+                                                    {{ reg.hasilAkhir || 'MENUNGGU' }}
+                                                </span>
                                             </td>
-                                            <td class="px-3 py-3 text-sm font-medium">{{ pelamar.nama }}</td>
-                                            <td class="px-3 py-3 text-sm">{{ pelamar.jenisKelamin }}</td>
-                                            <td class="px-3 py-3 text-sm">{{ pelamar.alamatKTP }}</td>
-                                            <td class="px-3 py-3 text-sm">{{ pelamar.alamatDomisili }}</td>
-                                            <td class="px-3 py-3 text-sm">{{ pelamar.pendidikan }}</td>
-                                            <td class="px-3 py-3 text-center text-sm font-medium">{{ pelamar.ipk }}</td>
-                                            <td class="px-3 py-3 text-sm">{{ pelamar.formasi }}</td>
+                                            <td class="py-3 text-gray-500 text-sm">{{ reg.tanggalDaftar }}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -397,664 +1116,852 @@
                         </div>
                     </div>
                     
-                    <!-- ADMIN PANEL -->
-                    <div v-else-if="activeMenu === 'admin' && isLoggedIn" class="animate-fade-in">
-                        <div class="glass rounded-2xl p-4 mb-6">
-                            <div class="flex flex-wrap gap-2">
-                                <button v-for="tab in adminTabs" :key="tab.id" @click="adminTab = tab.id" :class="['px-4 py-2 rounded-lg font-medium transition', adminTab === tab.id ? 'bg-medical-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200']">
-                                    {{ tab.label }}
+                    <!-- ADMIN PELAMAR (DATATABLES) VIEW -->
+                    <div v-if="activeMenu === 'adminPelamar' && isLoggedIn" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                <i class="fas fa-users text-medical-500 mr-2"></i>
+                                Data Pelamar
+                            </h2>
+                            <p class="text-gray-500 dark:text-gray-400">Kelola semua data pelamar dengan DataTables</p>
+                        </div>
+                        
+                        <div class="glass-card rounded-2xl p-6">
+                            <table id="pelamarTable" class="w-full stripe hover">
+                                <thead>
+                                    <tr>
+                                        <th>No</th>
+                                        <th>NIK</th>
+                                        <th>Nama</th>
+                                        <th>Formasi</th>
+                                        <th>Pendidikan</th>
+                                        <th>Status Berkas</th>
+                                        <th>Hasil Akhir</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- DataTables will populate this -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- ADMIN FORMASI VIEW -->
+                    <div v-if="activeMenu === 'adminFormasi' && isLoggedIn" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                        <i class="fas fa-briefcase text-medical-500 mr-2"></i>
+                                        Kelola Formasi
+                                    </h2>
+                                    <p class="text-gray-500 dark:text-gray-400">Tambah, edit, atau hapus formasi lowongan</p>
+                                </div>
+                                <button @click="showFormasiModal = true" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i>
+                                    Tambah Formasi
                                 </button>
                             </div>
                         </div>
                         
-                        <!-- Pelamar Tab -->
-                        <div v-if="adminTab === 'pelamar'" class="space-y-4">
-                            <div class="glass rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between">
-                                <div class="flex flex-wrap gap-3 items-center">
-                                    <div class="relative">
-                                        <input v-model="searchQuery" type="text" placeholder="Cari pelamar..." class="pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:border-medical-500 focus:ring-2 focus:ring-medical-200 outline-none">
-                                        <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                        </svg>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div v-for="formasi in formasiList" :key="formasi.kode" class="glass-card rounded-xl p-5">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div>
+                                        <span class="badge" :class="formasi.status === 'AKTIF' ? 'badge-success' : 'badge-warning'">
+                                            {{ formasi.status }}
+                                        </span>
                                     </div>
-                                    <select v-model="filterFormasi" class="px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none">
-                                        <option value="">Semua Formasi</option>
-                                        <option v-for="formasi in formasiOptions" :key="formasi" :value="formasi">{{ formasi }}</option>
-                                    </select>
-                                </div>
-                                <div class="flex gap-2" v-if="!isObserver">
-                                    <button @click="exportExcel" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center gap-2">Excel</button>
-                                    <button @click="exportPDF" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center gap-2">PDF</button>
-                                </div>
-                            </div>
-                            <div class="glass rounded-xl overflow-hidden">
-                                <div class="overflow-x-auto">
-                                    <table class="data-table w-full">
-                                        <thead class="bg-gray-50">
-                                            <tr>
-                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">No</th>
-                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nama</th>
-                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">NIK</th>
-                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Formasi</th>
-                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status Berkas</th>
-                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status Kompetensi</th>
-                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status Wawancara</th>
-                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Hasil Akhir</th>
-                                                <th v-if="canEdit" class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Aksi</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-gray-100">
-                                            <tr v-for="(pelamar, index) in filteredPelamar" :key="pelamar.id" class="hover:bg-gray-50 transition">
-                                                <td class="px-4 py-3 text-sm">{{ index + 1 }}</td>
-                                                <td class="px-4 py-3 text-sm font-medium">{{ pelamar.nama }}</td>
-                                                <td class="px-4 py-3 text-sm font-mono">{{ pelamar.nik }}</td>
-                                                <td class="px-4 py-3 text-sm">{{ pelamar.formasi }}</td>
-                                                <td class="px-4 py-3"><span :class="['badge', getStatusBadgeClass(pelamar.statusBerkas)]">{{ pelamar.statusBerkas || 'MENUNGGU' }}</span></td>
-                                                <td class="px-4 py-3"><span :class="['badge', getStatusBadgeClass(pelamar.statusKompetensi)]">{{ pelamar.statusKompetensi || 'MENUNGGU' }}</span></td>
-                                                <td class="px-4 py-3"><span :class="['badge', getStatusBadgeClass(pelamar.statusWawancara)]">{{ pelamar.statusWawancara || 'MENUNGGU' }}</span></td>
-                                                <td class="px-4 py-3"><span :class="['badge', getFinalBadgeClass(pelamar.hasilAkhir)]">{{ pelamar.hasilAkhir || 'MENUNGGU' }}</span></td>
-                                                <td v-if="canEdit" class="px-4 py-3">
-                                                    <button @click="editPelamar(pelamar)" class="p-1.5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg">Edit</button>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Lowongan Tab -->
-                        <div v-if="adminTab === 'lowongan'" class="space-y-4">
-                            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <div v-for="lowongan in lowongans" :key="lowongan.id" class="glass rounded-xl p-4">
-                                    <div class="flex justify-between items-start mb-3">
-                                        <div><h4 class="font-semibold text-gray-800">{{ lowongan.nama }}</h4><p class="text-xs text-gray-500">{{ lowongan.kode }}</p></div>
-                                        <span :class="['badge', lowongan.status === 'AKTIF' ? 'badge-success' : 'badge-danger']">{{ lowongan.status }}</span>
+                                    <div class="flex gap-2">
+                                        <button @click="editFormasi(formasi)" class="table-action-btn text-blue-500 hover:bg-blue-50">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button @click="deleteFormasi(formasi.kode)" class="table-action-btn text-red-500 hover:bg-red-50">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
                                     </div>
-                                    <div class="space-y-2 text-sm">
-                                        <div class="flex justify-between"><span class="text-gray-500">Unit</span><span class="font-medium">{{ lowongan.unit || '-' }}</span></div>
-                                        <div class="flex justify-between"><span class="text-gray-500">Formasi</span><span class="font-medium">{{ lowongan.jumlahFormasi }}</span></div>
-                                    </div>
+                                </div>
+                                <h3 class="font-bold text-gray-800 dark:text-white">{{ formasi.nama }}</h3>
+                                <p class="text-gray-500 text-sm">{{ formasi.unit }}</p>
+                                <div class="mt-3 flex justify-between items-center">
+                                    <span class="text-medical-600 font-semibold">{{ formasi.kebutuhan }} posisi</span>
+                                    <span class="text-gray-400 text-sm">{{ formasi.pelamar }} pelamar</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Not Logged In -->
-                    <div v-else-if="activeMenu === 'admin' && !isLoggedIn" class="animate-fade-in">
-                        <div class="glass rounded-2xl p-8 text-center max-w-md mx-auto">
-                            <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg class="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                                </svg>
-                            </div>
-                            <h3 class="text-xl font-semibold text-gray-800 mb-2">Akses Ditolak</h3>
-                            <p class="text-gray-500 mb-4">Silakan login terlebih dahulu untuk mengakses Panel Admin</p>
-                            <button @click="openLoginModal" class="px-6 py-2 bg-medical-500 hover:bg-medical-600 text-white rounded-lg">Login Sekarang</button>
+                    <!-- ADMIN VERIFIKASI VIEW -->
+                    <div v-if="activeMenu === 'adminVerifikasi' && isLoggedIn" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                <i class="fas fa-file-check text-medical-500 mr-2"></i>
+                                Verifikasi Berkas
+                            </h2>
+                            <p class="text-gray-500 dark:text-gray-400">Verifikasi kelengkapan dokumen pelamar</p>
                         </div>
+                        
+                        <div class="glass-card rounded-2xl p-6">
+                            <table id="verifikasiTable" class="w-full stripe hover">
+                                <thead>
+                                    <tr>
+                                        <th>NIK</th>
+                                        <th>Nama</th>
+                                        <th>Formasi</th>
+                                        <th>Status Berkas</th>
+                                        <th>Catatan</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- DataTables will populate this -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- AI RANKING VIEW -->
+                    <div v-if="activeMenu === 'adminRanking' && isLoggedIn" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                        <i class="fas fa-robot text-purple-500 mr-2"></i>
+                                        AI Ranking System
+                                    </h2>
+                                    <p class="text-gray-500 dark:text-gray-400">Peringkat pelamar berbasis AI dengan scoring otomatis</p>
+                                </div>
+                                <button @click="calculateAIRanking" :disabled="aiCalculating" class="btn btn-primary">
+                                    <span v-if="aiCalculating" class="spinner"></span>
+                                    <i v-else class="fas fa-calculator"></i>
+                                    {{ aiCalculating ? 'Menghitung...' : 'Hitung Ranking' }}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Ranking by Formasi -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div v-for="formasi in aiRankingByFormasi" :key="formasi.nama" class="glass-card rounded-2xl p-6">
+                                <h3 class="font-bold text-gray-800 dark:text-white mb-4">{{ formasi.nama }}</h3>
+                                <div class="space-y-3">
+                                    <div v-for="(candidate, idx) in formasi.candidates" :key="candidate.nik" class="flex items-center gap-4 p-3 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                        <div :class="['ai-rank', getAIRankClass(idx + 1)]">
+                                            <i class="fas fa-trophy"></i>
+                                            #{{ idx + 1 }}
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ candidate.nama }}</p>
+                                            <p class="text-sm text-gray-500">{{ candidate.pendidikan }}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="font-bold text-medical-600">{{ candidate.aiScore }}</p>
+                                            <p class="text-xs text-gray-400">AI Score</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Global Ranking -->
+                        <div class="glass-card rounded-2xl p-6 mt-6">
+                            <h3 class="font-bold text-gray-800 dark:text-white mb-4">Global Ranking - Top 10</h3>
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="text-left">
+                                        <th class="pb-3">Rank</th>
+                                        <th class="pb-3">Nama</th>
+                                        <th class="pb-3">Formasi</th>
+                                        <th class="pb-3">Pendidikan</th>
+                                        <th class="pb-3">AI Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(candidate, idx) in globalRanking" :key="candidate.nik" class="border-t border-gray-100 dark:border-gray-800">
+                                        <td class="py-3">
+                                            <span :class="['ai-rank', getAIRankClass(idx + 1)]">
+                                                <i class="fas fa-trophy"></i>
+                                                #{{ idx + 1 }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3 font-medium">{{ candidate.nama }}</td>
+                                        <td class="py-3 text-gray-600 dark:text-gray-400">{{ candidate.formasi }}</td>
+                                        <td class="py-3 text-gray-600 dark:text-gray-400">{{ candidate.pendidikan }}</td>
+                                        <td class="py-3 font-bold text-medical-600">{{ candidate.aiScore }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Login Required Message -->
+                    <div v-if="activeMenu.includes('admin') && !isLoggedIn" class="glass-card rounded-2xl p-12 text-center">
+                        <i class="fas fa-lock text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-xl font-bold text-gray-700 dark:text-gray-300">Akses Diblokir</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mt-2">Silakan login terlebih dahulu untuk mengakses Panel Admin</p>
+                        <button @click="openLoginModal" class="btn btn-primary mt-4">
+                            <i class="fas fa-sign-in-alt"></i>
+                            Login Sekarang
+                        </button>
                     </div>
                 </div>
             </main>
         </div>
         
-        <!-- Edit Modal -->
-        <transition name="fade">
-            <div v-if="showEditModal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
-                <div class="glass rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-xl font-semibold text-gray-800">Edit Pelamar</h3>
-                        <button @click="showEditModal = false" class="p-1 hover:bg-gray-100 rounded">
-                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    <form @submit.prevent="savePelamar" class="space-y-4">
-                        <div class="grid md:grid-cols-2 gap-4">
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama</label><input v-model="editForm.nama" type="text" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"></div>
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">NIK</label><input v-model="editForm.nik" type="text" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"></div>
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Formasi</label><input v-model="editForm.formasi" type="text" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"></div>
-                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Pendidikan</label><input v-model="editForm.pendidikan" type="text" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"></div>
-                        </div>
-                        <div class="border-t pt-4 mt-4">
-                            <h4 class="font-semibold text-gray-800 mb-3">Status Seleksi</h4>
-                            <div class="grid md:grid-cols-2 gap-4">
-                                <div v-if="canVerify"><label class="block text-sm font-medium text-gray-700 mb-1">Status Berkas</label><select v-model="editForm.statusBerkas" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"><option value="">Pilih</option><option value="LULUS">LULUS</option><option value="TIDAK LULUS">TIDAK LULUS</option><option value="MENUNGGU VERIFIKASI">MENUNGGU VERIFIKASI</option></select></div>
-                                <div v-if="canInputTes"><label class="block text-sm font-medium text-gray-700 mb-1">Nilai Kompetensi</label><input v-model="editForm.nilaiKompetensi" type="number" step="0.01" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"></div>
-                                <div v-if="canInputTes"><label class="block text-sm font-medium text-gray-700 mb-1">Status Kompetensi</label><select v-model="editForm.statusKompetensi" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"><option value="">Pilih</option><option value="LULUS">LULUS</option><option value="TIDAK LULUS">TIDAK LULUS</option></select></div>
-                                <div v-if="canInputWawancara"><label class="block text-sm font-medium text-gray-700 mb-1">Nilai Wawancara</label><input v-model="editForm.nilaiWawancara" type="number" step="0.01" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"></div>
-                                <div v-if="canInputWawancara"><label class="block text-sm font-medium text-gray-700 mb-1">Status Wawancara</label><select v-model="editForm.statusWawancara" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"><option value="">Pilih</option><option value="LULUS">LULUS</option><option value="TIDAK LULUS">TIDAK LULUS</option></select></div>
-                                <div v-if="isAdmin"><label class="block text-sm font-medium text-gray-700 mb-1">Hasil Akhir</label><select v-model="editForm.hasilAkhir" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:border-medical-500 outline-none"><option value="">Pilih</option><option value="DITERIMA">DITERIMA</option><option value="CADANGAN">CADANGAN</option><option value="TIDAK LULUS">TIDAK LULUS</option></select></div>
-                            </div>
-                        </div>
-                        <div class="flex gap-3 pt-4">
-                            <button type="button" @click="showEditModal = false" class="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg">Batal</button>
-                            <button type="submit" class="flex-1 px-4 py-2 bg-medical-500 hover:bg-medical-600 text-white rounded-lg">Simpan</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </transition>
+        <!-- Lightbox Modal -->
+        <div :class="['lightbox', { active: lightboxOpen }]" @click="closeLightbox">
+            <button class="lightbox-close" @click="closeLightbox">
+                <i class="fas fa-times"></i>
+            </button>
+            <img v-if="lightboxImage" :src="lightboxImage" alt="Document Preview">
+        </div>
         
-        <!-- Profil Modal (Full Screen Popup) -->
-        <transition name="fade">
-            <div v-if="showProfilModal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
-                <div class="w-full h-full bg-white flex animate-fade-in">
-                    <!-- Left Side - Photo -->
-                    <div class="w-full md:w-1/2 lg:w-2/5 bg-medical-500 flex items-center justify-center p-8">
-                        <div class="text-center">
-                            <div class="w-64 h-64 lg:w-80 lg:h-80 rounded-full overflow-hidden border-4 border-white shadow-2xl mx-auto mb-6">
-                                <img v-if="selectedProfil?.foto" :src="selectedProfil.foto" alt="Foto Profil" class="w-full h-full object-cover">
-                                <div v-else class="w-full h-full bg-white/20 flex items-center justify-center">
-                                    <svg class="w-24 h-24 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                    </svg>
-                                </div>
-                            </div>
-                            <h3 class="text-2xl font-bold text-white">{{ selectedProfil?.nama }}</h3>
-                            <p class="text-blue-200">{{ selectedProfil?.formasi }}</p>
-                        </div>
+        <!-- Formasi Modal -->
+        <div v-if="showFormasiModal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
+            <div class="glass rounded-2xl p-6 w-full max-w-md mx-4 animate-fade-in">
+                <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-4">
+                    {{ editingFormasi ? 'Edit' : 'Tambah' }} Formasi
+                </h3>
+                <form @submit.prevent="saveFormasi" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kode</label>
+                        <input v-model="formasiForm.kode" type="text" class="form-input" required :disabled="editingFormasi">
                     </div>
-                    <!-- Right Side - Data -->
-                    <div class="w-full md:w-1/2 lg:w-3/5 overflow-y-auto">
-                        <div class="p-6 lg:p-10">
-                            <div class="flex justify-between items-center mb-6">
-                                <h3 class="text-2xl font-bold text-gray-800">Detail Profil</h3>
-                                <button @click="showProfilModal = false" class="p-2 hover:bg-gray-100 rounded-lg transition">
-                                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                            <div class="space-y-4">
-                                <div class="grid md:grid-cols-2 gap-4">
-                                    <div class="bg-gray-50 rounded-xl p-4">
-                                        <p class="text-sm text-gray-500 mb-1">NIK</p>
-                                        <p class="font-semibold text-gray-800">{{ selectedProfil?.nik }}</p>
-                                    </div>
-                                    <div class="bg-gray-50 rounded-xl p-4">
-                                        <p class="text-sm text-gray-500 mb-1">Jenis Kelamin</p>
-                                        <p class="font-semibold text-gray-800">{{ selectedProfil?.jenisKelamin }}</p>
-                                    </div>
-                                </div>
-                                <div class="bg-gray-50 rounded-xl p-4">
-                                    <p class="text-sm text-gray-500 mb-1">Alamat Sesuai KTP</p>
-                                    <p class="font-semibold text-gray-800">{{ selectedProfil?.alamatKTP }}</p>
-                                </div>
-                                <div class="bg-gray-50 rounded-xl p-4">
-                                    <p class="text-sm text-gray-500 mb-1">Alamat Domisili</p>
-                                    <p class="font-semibold text-gray-800">{{ selectedProfil?.alamatDomisili }}</p>
-                                </div>
-                                <div class="grid md:grid-cols-2 gap-4">
-                                    <div class="bg-gray-50 rounded-xl p-4">
-                                        <p class="text-sm text-gray-500 mb-1">Pendidikan</p>
-                                        <p class="font-semibold text-gray-800">{{ selectedProfil?.pendidikan }}</p>
-                                    </div>
-                                    <div class="bg-gray-50 rounded-xl p-4">
-                                        <p class="text-sm text-gray-500 mb-1">IPK</p>
-                                        <p class="font-semibold text-gray-800">{{ selectedProfil?.ipk }}</p>
-                                    </div>
-                                </div>
-                                <div class="bg-gray-50 rounded-xl p-4">
-                                    <p class="text-sm text-gray-500 mb-1">Formasi</p>
-                                    <p class="font-semibold text-gray-800">{{ selectedProfil?.formasi }}</p>
-                                </div>
-                                <div class="bg-gray-50 rounded-xl p-4">
-                                    <p class="text-sm text-gray-500 mb-1">Tanggal Daftar</p>
-                                    <p class="font-semibold text-gray-800">{{ selectedProfil?.tanggalDaftar }}</p>
-                                </div>
-                            </div>
-                            <div class="mt-6 pt-4 border-t">
-                                <button @click="showProfilModal = false" class="w-full px-4 py-3 bg-medical-500 hover:bg-medical-600 text-white rounded-xl font-semibold transition">Tutup</button>
-                            </div>
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Jabatan</label>
+                        <input v-model="formasiForm.nama" type="text" class="form-input" required>
                     </div>
-                </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unit</label>
+                        <input v-model="formasiForm.unit" type="text" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kebutuhan</label>
+                        <input v-model.number="formasiForm.kebutuhan" type="number" class="form-input" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                        <select v-model="formasiForm.status" class="form-input">
+                            <option value="AKTIF">AKTIF</option>
+                            <option value="TIDAK AKTIF">TIDAK AKTIF</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="button" @click="showFormasiModal = false" class="btn btn-secondary flex-1">Batal</button>
+                        <button type="submit" class="btn btn-primary flex-1">Simpan</button>
+                    </div>
+                </form>
             </div>
-        </transition>
-        
-        <!-- Toast -->
-        <transition name="fade">
-            <div v-if="toast.show" class="fixed bottom-4 right-4 z-50 animate-fade-in">
-                <div :class="['glass rounded-lg px-4 py-3 flex items-center gap-3 shadow-lg', toast.type === 'success' ? 'border-l-4 border-green-500' : 'border-l-4 border-red-500']">
-                    <svg v-if="toast.type === 'success'" class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                    <p class="text-sm font-medium text-gray-800">{{ toast.message }}</p>
-                    <button @click="toast.show = false" class="ml-2 text-gray-400 hover:text-gray-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
-                </div>
-            </div>
-        </transition>
-        
-        <!-- Loading -->
-        <transition name="fade">
-            <div v-if="isLoading && !showLoginModal" class="fixed inset-0 z-40 bg-white/50 flex items-center justify-center">
-                <div class="text-center">
-                    <div class="spinner w-12 h-12 mx-auto mb-4"></div>
-                    <p class="text-gray-600">Memuat data...</p>
-                </div>
-            </div>
-        </transition>
+        </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
-        
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwnHG1vQ6DCDW82ko17T8TD_ideUl_QBZcNu9le4Ix_N-0qvh95-GqiO2Wo54SY1zEL/exec';
+        const { createApp } = Vue;
         
         createApp({
-            setup() {
-                const sidebarOpen = ref(true);
-                const activeMenu = ref('dashboard');
-                const adminTab = ref('pelamar');
-                const isLoading = ref(false);
-                const isLoggedIn = ref(false);
-                const showLoginModal = ref(false);
-                const showPassword = ref(false);
-                const showEditModal = ref(false);
-                const showProfilModal = ref(false);
-                const selectedProfil = ref(null);
-                const loginLoading = ref(false);
-                const loginError = ref('');
-                const countdown = ref(30);
-                const searchNIK = ref('');
-                const searchQuery = ref('');
-                const searchName = ref('');
-                const filterFormasi = ref('');
-                
-                const dashboardData = ref({});
-                const pelamarList = ref([]);
-                const profilList = ref([]);
-                const lowongans = ref([]);
-                const adminUsers = ref([]);
-                const logs = ref([]);
-                const resultData = ref(null);
-                const currentUser = ref(null);
-                
-                let barChart = null, pieChart = null, donutChart = null;
-                
-                const loginForm = ref({ username: '', password: '' });
-                const editForm = ref({ id: '', nama: '', nik: '', formasi: '', pendidikan: '', statusBerkas: '', nilaiKompetensi: '', statusKompetensi: '', nilaiWawancara: '', statusWawancara: '', hasilAkhir: '' });
-                const toast = ref({ show: false, message: '', type: 'success' });
-                let refreshTimer = null;
-                
-                const pageTitle = computed(() => {
-                    if (activeMenu.value === 'dashboard') return 'Dashboard Data';
-                    if (activeMenu.value === 'cekHasil') return 'Cek Hasil Seleksi';
-                    if (activeMenu.value === 'profil') return 'Profil Calon Karyawan';
-                    if (activeMenu.value === 'admin') return 'Panel Admin';
-                    return 'SIREK';
-                });
-                
-                const pageSubtitle = computed(() => {
-                    if (activeMenu.value === 'dashboard') return 'Statistik Rekrutmen Karyawan';
-                    if (activeMenu.value === 'cekHasil') return 'Portal Informasi Pelamar';
-                    if (activeMenu.value === 'profil') return 'Data Profil Pelamar';
-                    if (activeMenu.value === 'admin') return isLoggedIn.value ? 'Logged in as ' + currentUser.value?.role : 'Silakan login terlebih dahulu';
-                    return '';
-                });
-                
-                const stats = computed(() => [
-                    { label: 'Total Lowongan', value: dashboardData.value.jumlahLowongan || 0, color: 'text-blue-600', bgColor: 'bg-blue-100', iconPath: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
-                    { label: 'Total Formasi', value: dashboardData.value.jumlahFormasi || 0, color: 'text-green-600', bgColor: 'bg-green-100', iconPath: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
-                    { label: 'Total Pelamar', value: dashboardData.value.jumlahPelamar || 0, color: 'text-purple-600', bgColor: 'bg-purple-100', iconPath: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-                    { label: 'Lolos Berkas', value: dashboardData.value.lolosBerkas || 0, color: 'text-teal-600', bgColor: 'bg-teal-100', iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-                ]);
-                
-                const formasiOptions = ['DU', 'NRS', 'PRW', 'BDP', 'BDN', 'APT', 'TVK', 'DTS', 'NTR', 'RAD', 'ELM', 'PMIK', 'TLM', 'TSL', 'ANES', 'PKIP', 'PSC', 'PEVA', 'SDM', 'PMK', 'PNM', 'PMP', 'ADM-RJ', 'ADM-RI', 'ADM-RU', 'KSR', 'PSRS', 'IT'];
-                
-                const adminTabs = computed(() => {
-                    const tabs = [{ id: 'pelamar', label: 'Data Pelamar' }, { id: 'lowongan', label: 'Lowongan' }];
-                    // Observer can only see data, not users tab
-                    if (isAdmin.value) tabs.push({ id: 'users', label: 'User Admin' });
-                    return tabs;
-                });
-                
-                const filteredPelamar = computed(() => {
-                    let data = pelamarList.value;
-                    if (searchQuery.value) {
-                        const q = searchQuery.value.toLowerCase();
-                        data = data.filter(p => p.nama?.toLowerCase().includes(q) || p.nik?.toLowerCase().includes(q) || p.formasi?.toLowerCase().includes(q));
-                    }
-                    if (filterFormasi.value) data = data.filter(p => p.formasi === filterFormasi.value);
-                    return data;
-                });
-                
-                const filteredProfil = computed(() => {
-                    let data = profilList.value;
-                    if (searchName.value) {
-                        const q = searchName.value.toLowerCase();
-                        data = data.filter(p => p.nama?.toLowerCase().includes(q));
-                    }
-                    return data;
-                });
-                
-                const isAdmin = computed(() => currentUser.value?.role === 'ADMINISTRATOR');
-                const isObserver = computed(() => currentUser.value?.role === 'OBSERVER');
-                const canVerify = computed(() => ['ADMINISTRATOR', 'VERIFIKATOR'].includes(currentUser.value?.role));
-                const canInputTes = computed(() => ['ADMINISTRATOR', 'ASESOR'].includes(currentUser.value?.role));
-                const canInputWawancara = computed(() => ['ADMINISTRATOR', 'INTERVIEWER'].includes(currentUser.value?.role));
-                const canEdit = computed(() => canVerify.value || canInputTes.value || canInputWawancara.value);
-                
-                const setActiveMenu = (menu) => {
-                    activeMenu.value = menu;
-                    if (menu === 'dashboard') setTimeout(initCharts, 100);
-                };
-                
-                const openLoginModal = () => { showLoginModal.value = true; loginError.value = ''; };
-                
-                const handleLogin = async () => {
-                    loginLoading.value = true;
-                    loginError.value = '';
-                    const username = loginForm.value.username.trim();
-                    const password = loginForm.value.password;
+            data() {
+                return {
+                    // UI State
+                    sidebarOpen: true,
+                    activeMenu: 'dashboard',
+                    isDarkMode: false,
+                    showLoginModal: false,
+                    showPassword: false,
+                    loginForm: { username: '', password: '' },
+                    loginLoading: false,
+                    loginError: '',
+                    isLoggedIn: false,
+                    currentUser: null,
                     
-                    if (!username || !password) {
-                        loginError.value = 'Username dan password harus diisi';
-                        loginLoading.value = false;
-                        return;
-                    }
+                    // Dashboard Data
+                    stats: {
+                        totalPelamar: 0,
+                        lolosBerkas: 0,
+                        aktifFormasi: 0,
+                        diterima: 0
+                    },
                     
-                    try {
-                        const url = API_URL + '?action=login&username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password);
-                        const response = await fetch(url, { redirect: 'follow' });
-                        const text = await response.text();
-                        let data;
-                        try { data = JSON.parse(text); } catch (e) { throw new Error('Invalid JSON'); }
-                        
-                        let user = null;
-                        if (data.status === 'success') {
-                            if (data.data?.user) user = data.data.user;
-                            else if (data.user) user = data.user;
-                            else if (data.data?.nama || data.data?.username) user = data.data;
+                    // Gallery
+                    galleryImages: [
+                        { url: 'https://images.unsplash.com/photo-1581093458791-9f3c3900df4b?w=800', caption: 'RSUD Aji Muhammad Idris' },
+                        { url: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800', caption: 'Layanan Kesehatan Terbaik' },
+                        { url: 'https://images.unsplash.com/photo-1587860346264-904195a361d4?w=800', caption: 'Tim Medis Profesional' },
+                        { url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800', caption: 'Fasilitas Modern' }
+                    ],
+                    galleryIndex: 0,
+                    
+                    // Search Results
+                    searchNIK: '',
+                    searchLoading: false,
+                    searched: false,
+                    searchResult: null,
+                    
+                    // Profil Search
+                    profilSearch: '',
+                    profilLoading: false,
+                    profilSearched: false,
+                    profilResult: null,
+                    
+                    // Lightbox
+                    lightboxOpen: false,
+                    lightboxImage: '',
+                    
+                    // Admin Data
+                    adminStats: {
+                        total: 0,
+                        lolosBerkas: 0,
+                        dalamProses: 0,
+                        diterima: 0
+                    },
+                    recentRegistrations: [],
+                    formasiList: [],
+                    
+                    // Formasi Modal
+                    showFormasiModal: false,
+                    editingFormasi: false,
+                    formasiForm: {
+                        kode: '',
+                        nama: '',
+                        unit: '',
+                        kebutuhan: 0,
+                        status: 'AKTIF'
+                    },
+                    
+                    // AI Ranking
+                    aiCalculating: false,
+                    aiRankingByFormasi: [],
+                    globalRanking: [],
+                    
+                    // Charts
+                    charts: {},
+                    
+                    // Recent Activities
+                    recentActivities: [
+                        { icon: 'fa-user-plus', bgColor: 'bg-green-500', title: 'Pendaftaran Baru', desc: 'Ahmad Fauzi mendaftar sebagai Perawat', time: '5 menit lalu' },
+                        { icon: 'fa-file-check', bgColor: 'bg-blue-500', title: 'Verifikasi Berkas', desc: 'Siti Rahayu lolos verifikasi berkas', time: '15 menit lalu' },
+                        { icon: 'fa-clipboard-check', bgColor: 'bg-purple-500', title: 'Tes Kompetensi', desc: 'Budi Santoso mengerjakan tes kompetensi', time: '30 menit lalu' },
+                        { icon: 'fa-heart', bgColor: 'bg-red-500', title: 'Tes Kesehatan', desc: 'Hasil tes kesehatan出来了', time: '1 jam lalu' },
+                        { icon: 'fa-star', bgColor: 'bg-yellow-500', title: 'Penerimaan', desc: '10 kandidat diterima sebagai Ners', time: '2 jam lalu' }
+                    ],
+                    
+                    // API URL - GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
+                    // Deploy: Extensions > Apps Script > Deploy > New deployment > Web app
+                    API_URL: 'YOUR_GOOGLE_SCRIPT_URL_HERE'
+                }
+            },
+            mounted() {
+                this.checkDarkMode();
+                this.loadDashboard();
+                this.startGalleryAutoSlide();
+            },
+            methods: {
+                // Dark Mode
+                checkDarkMode() {
+                    if (localStorage.getItem('sirek-dark-mode') === 'true' || 
+                        (!localStorage.getItem('sirek-dark-mode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                        this.isDarkMode = true;
+                        document.documentElement.classList.add('dark');
+                    }
+                },
+                toggleDarkMode() {
+                    this.isDarkMode = !this.isDarkMode;
+                    document.documentElement.classList.toggle('dark', this.isDarkMode);
+                    localStorage.setItem('sirek-dark-mode', this.isDarkMode);
+                },
+                
+                // Navigation
+                setActiveMenu(menu) {
+                    this.activeMenu = menu;
+                    if (menu === 'adminDashboard' || menu === 'adminPelamar' || menu === 'adminFormasi' || menu === 'adminVerifikasi' || menu === 'adminRanking') {
+                        if (!this.isLoggedIn) {
+                            // Will show login required message
                         }
-                        
-                        if (user) {
-                            currentUser.value = user;
-                            isLoggedIn.value = true;
-                            showLoginModal.value = false;
-                            loginForm.value = { username: '', password: '' };
-                            activeMenu.value = 'admin';
-                            showToast('Login berhasil!', 'success');
-                            await loadAdminData();
-                        } else {
-                            loginError.value = data.message || 'Username atau password salah';
-                        }
-                    } catch (error) {
-                        currentUser.value = { id: '1', nama: 'Administrator', username: username, role: 'ADMINISTRATOR' };
-                        isLoggedIn.value = true;
-                        showLoginModal.value = false;
-                        loginForm.value = { username: '', password: '' };
-                        activeMenu.value = 'admin';
-                        showToast('Login berhasil! (Demo Mode)', 'success');
-                        await loadAdminData();
-                    } finally {
-                        loginLoading.value = false;
                     }
-                };
-                
-                const handleLogout = () => { currentUser.value = null; isLoggedIn.value = false; adminTab.value = 'pelamar'; showToast('Logout berhasil', 'success'); };
-                const showToast = (message, type = 'success') => { toast.value = { show: true, message, type }; setTimeout(() => { toast.value.show = false; }, 3000); };
-                
-                const loadDashboard = async () => {
-                    isLoading.value = true;
-                    try {
-                        const response = await fetch(API_URL + '?action=getDashboard', { redirect: 'follow' });
-                        const text = await response.text();
-                        let data;
-                        try { data = JSON.parse(text); } catch (e) { throw new Error('Invalid JSON'); }
-                        if (data.status === 'success' && data.data) dashboardData.value = data.data;
-                        updateCharts();
-                    } catch (error) {
-                        dashboardData.value = { jumlahLowongan: 5, jumlahFormasi: 25, jumlahPelamar: 10, lolosBerkas: 7, lulusKompetensi: 5, lulusWawancara: 4 };
-                        updateCharts();
-                    } finally { isLoading.value = false; }
-                };
-                
-                const loadAdminData = async () => { await Promise.all([loadPelamar(), loadLowongans()]); loadProfil(); };
-                
-                const loadPelamar = async () => {
-                    try {
-                        const response = await fetch(API_URL + '?action=getPelamar', { redirect: 'follow' });
-                        const text = await response.text();
-                        let data;
-                        try { data = JSON.parse(text); } catch (e) { throw new Error('Invalid JSON'); }
-                        if (data.status === 'success' && data.data) {
-                             pelamarList.value = data.data.map(item => ({
-                                 id: item['ID'] || item.id || '',
-                                 nama: item['Nama'] || item.nama || '',
-                                 nik: item['NIK'] || item.nik || '',
-                                 formasi: item['Formasi'] || item.formasi || '',
-                                 pendidikan: item['Pendidikan'] || item.pendidikan || '',
-                                 statusBerkas: item['Status Berkas'] || item.statusBerkas || '',
-                                 statusKompetensi: item['Status Kompetensi'] || item['Status Tes Kompetensi'] || item.statusKompetensi || '',
-                                 statusWawancara: item['Status Wawancara'] || item.statusWawancara || '',
-                                 hasilAkhir: item['Hasil Akhir'] || item.hasilAkhir || '',
-                                 nilaiKompetensi: item['Nilai Kompetensi'] || item['Nilai Tes Kompetensi'] || item.nilaiKompetensi || '',
-                                 nilaiWawancara: item['Nilai Wawancara'] || item.nilaiWawancara || '',
-                                 tanggalDaftar: item['Tanggal Daftar'] || item.tanggalDaftar || ''
-                             }));
-                         } else { pelamarList.value = []; }
-                    } catch (error) {
-                        pelamarList.value = [
-                            { id: '1', nama: 'Ahmad Fauzi', nik: '6403012345678901', formasi: 'PRW-001', pendidikan: 'S1', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'LULUS', hasilAkhir: 'DITERIMA', nilaiKompetensi: '85.50', nilaiWawancara: '88.00' },
-                            { id: '2', nama: 'Siti Rahayu', nik: '6403012345678902', formasi: 'BID-001', pendidikan: 'D3', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'TIDAK LULUS', hasilAkhir: 'TIDAK LULUS', nilaiKompetensi: '78.00', nilaiWawancara: '72.00' },
-                            { id: '3', nama: 'Budi Santoso', nik: '6403012345678903', formasi: 'DOC-001', pendidikan: 'Profesi', statusBerkas: 'LULUS', statusKompetensi: 'MENUNGGU', statusWawancara: 'MENUNGGU', hasilAkhir: 'MENUNGGU', nilaiKompetensi: '', nilaiWawancara: '' },
-                            { id: '4', nama: 'Dewi Lestari', nik: '6403012345678904', formasi: 'APK-001', pendidikan: 'S1', statusBerkas: 'TIDAK LULUS', statusKompetensi: 'TIDAK LULUS', statusWawancara: 'TIDAK LULUS', hasilAkhir: 'TIDAK LULUS' },
-                            { id: '5', nama: 'Rudi Hermawan', nik: '6403012345678905', formasi: 'ADM-001', pendidikan: 'S1', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'LULUS', hasilAkhir: 'CADANGAN', nilaiKompetensi: '80.00', nilaiWawancara: '85.00' },
-                            { id: '6', nama: 'Maya Wardani', nik: '6403012345678906', formasi: 'PRW-002', pendidikan: 'D3', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'LULUS', hasilAkhir: 'DITERIMA', nilaiKompetensi: '82.00', nilaiWawancara: '79.00' },
-                            { id: '7', nama: 'Lisa Kurniawati', nik: '6403012345678908', formasi: 'PRW-003', pendidikan: 'S1', statusBerkas: 'LULUS', statusKompetensi: 'LULUS', statusWawancara: 'LULUS', hasilAkhir: 'DITERIMA', nilaiKompetensi: '90.00', nilaiWawancara: '92.00' },
-                        ];
-                    }
-                };
-                
-                const loadLowongans = async () => {
-                    try {
-                        const response = await fetch(API_URL + '?action=getLowongan', { redirect: 'follow' });
-                        const text = await response.text();
-                        let data;
-                        try { data = JSON.parse(text); } catch (e) { throw new Error('Invalid JSON'); }
-                        if (data.status === 'success' && data.data) {
-                            lowongans.value = data.data.map(item => ({
-                                id: item.id, kode: item['Kode'] || '', nama: item['Nama Jabatan'] || item.nama || '', unit: item.Unit || '', jumlahFormasi: item['Jumlah Kebutuhan'] || item['Jumlah Formasi'] || 0, status: item.Status || ''
-                            }));
-                        } else { lowongans.value = []; }
-                    } catch (error) {
-                        lowongans.value = [
-                            { id: '1', kode: 'DU', nama: 'Dokter Umum', unit: 'IGD', jumlahFormasi: 8, status: 'AKTIF' },
-                            { id: '2', kode: 'NRS', nama: 'Ners', unit: 'IGD, Rawat Inap, Rawat Jalan, Kamar Bedah', jumlahFormasi: 13, status: 'AKTIF' },
-                            { id: '3', kode: 'PRW', nama: 'Perawat', unit: 'IGD, Rawat Inap, Rawat Jalan', jumlahFormasi: 16, status: 'AKTIF' },
-                            { id: '4', kode: 'BDP', nama: 'Bidan Profesi', unit: 'IGD, Rawat Inap, Poli Obsgyn', jumlahFormasi: 2, status: 'AKTIF' },
-                            { id: '5', kode: 'BDN', nama: 'Bidan', unit: 'IGD, Rawat Inap, Poli Obsgyn', jumlahFormasi: 9, status: 'AKTIF' },
-                            { id: '6', kode: 'APT', nama: 'Apoteker', unit: 'Instalasi Farmasi', jumlahFormasi: 2, status: 'AKTIF' },
-                            { id: '7', kode: 'RAD', nama: 'Radiografer', unit: 'Instalasi Radiologi', jumlahFormasi: 4, status: 'AKTIF' },
-                            { id: '8', kode: 'IT', nama: 'Tenaga IT', unit: 'Manajemen', jumlahFormasi: 2, status: 'AKTIF' },
-                        ];
-                    }
-                };
-                
-                const loadProfil = async () => {
-                    try {
-                        const response = await fetch(API_URL + '?action=getPelamar', { redirect: 'follow' });
-                        const text = await response.text();
-                        let data;
-                        try { data = JSON.parse(text); } catch (e) { throw new Error('Invalid JSON'); }
-                        if (data.status === 'success' && data.data) {
-                            // Generate SVG avatar as fallback
-                            const generateAvatar = (name, jk) => {
-                                const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-                                const bgColor = jk && jk.toLowerCase().includes('perempuan') ? 'EC4899' : '0D8ABC';
-                                return 'data:image/svg+xml,' + encodeURIComponent(
-                                    '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150">' +
-                                    '<rect width="150" height="150" fill="#' + bgColor + '"/>' +
-                                    '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial" font-size="48" font-weight="bold">' + initials + '</text>' +
-                                    '</svg>'
-                                );
-                            };
-                            
-                            // Convert file ID to Google Drive URL
-                            const convertToDriveUrl = (input) => {
-                                if (!input) return '';
-                                                               // Check if it's already a direct download URL
-                                if (input.indexOf('drive.google.com/uc') === 0 || input.indexOf('https://drive.google.com/uc') === 0) {
-                                    return input;
-                                }
-                                
-                                // Check if it's already a full URL (share link)
-                                if (input.indexOf('http') === 0) {
-                                    // Try to extract file ID from share URL
-                                    // Format: https://drive.google.com/file/d/FILE_ID/view?usp=drivesdk
-                                    var match = input.match(/\/d\/([a-zA-Z0-9_-]+)\/view/);
-                                    if (match && match[1]) {
-                                        return 'https://drive.google.com/uc?export=view&id=' + match[1];
-                                    }
-                                    return input;
-                                }
-                                
-                                // It's just a file ID - construct the URL
-                                return 'https://drive.google.com/uc?export=view&id=' + input;
-                            };
-                            
-                            // Process each item - use ID Fhoto column
-                            profilList.value = data.data.map(item => {
-                                let fotoUrl = item['ID Fhoto'] || item['ID Foto'] || item['Link Foto (Drive)'] || item['foto'] || item['Foto'] || '';
-                                
-                                // Convert file ID to URL or use avatar
-                                if (fotoUrl) {
-                                    fotoUrl = convertToDriveUrl(fotoUrl);
-                                } else {
-                                    fotoUrl = generateAvatar(item['Nama'] || item.nama || 'User', item['Jenis Kelamin'] || item.jenisKelamin);
-                                }
-                                
-                                return {
-                                    id: item['ID'] || item.id || '',
-                                    nama: item['Nama'] || item.nama || '',
-                                    nik: item['NIK'] || item.nik || '',
-                                    foto: fotoUrl,
-                                    jenisKelamin: item['Jenis Kelamin'] || item.jenisKelamin || '',
-                                    alamatKTP: item['Alamat Sesuai KTP'] || item['Alamat KTP'] || item.alamatKTP || '',
-                                    alamatDomisili: item['Alamat Domisili'] || item.alamatDomisili || '',
-                                    pendidikan: item['Pendidikan'] || item.pendidikan || '',
-                                    ipk: item['IPK'] || item.ipk || '',
-                                    formasi: item['Formasi'] || item.formasi || '',
-                                    tanggalDaftar: item['Tanggal Daftar'] || item.tanggalDaftar || ''
-                                };
-                            });
-                        } else { profilList.value = []; }
-                    } catch (error) {
-                        console.log('loadProfil - Error:', error);
-                        // Generate SVG avatar as data URL
-                        const generateAvatar = (name, jk) => {
-                            const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-                            const bgColor = jk.toLowerCase().includes('perempuan') ? 'EC4899' : '0D8ABC';
-                            return 'data:image/svg+xml,' + encodeURIComponent(
-                                '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150">' +
-                                '<rect width="150" height="150" fill="#' + bgColor + '"/>' +
-                                '<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="white" font-family="Arial" font-size="48" font-weight="bold">' + initials + '</text>' +
-                                '</svg>'
-                            );
-                        };
-                        // Demo data with SVG avatar images
-                        profilList.value = [
-                            { id: '1', nama: 'Ahmad Fauzi', nik: '6403012345678901', foto: generateAvatar('Ahmad Fauzi', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Ahmad Yani No. 45, Samarinda', alamatDomisili: 'Jl. P. Diponegoro No. 12, Samarinda', pendidikan: 'S1 Keperawatan', ipk: '3.75', formasi: 'PRW-001', tanggalDaftar: '15-02-2024' },
-                            { id: '2', nama: 'Siti Rahayu', nik: '6403012345678902', foto: generateAvatar('Siti Rahayu', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. Gatot Subroto No. 78, Bontang', alamatDomisili: 'Jl. MT Haryono No. 34, Bontang', pendidikan: 'D3 Keperawatan', ipk: '3.50', formasi: 'NRS-001', tanggalDaftar: '16-02-2024' },
-                            { id: '3', nama: 'Budi Santoso', nik: '6403012345678903', foto: generateAvatar('Budi Santoso', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Sudirman No. 23, Tenggarong', alamatDomisili: 'Jl. P. Antasari No. 56, Tenggarong', pendidikan: 'Profesi Ners', ipk: '3.90', formasi: 'NRS-002', tanggalDaftar: '17-02-2024' },
-                            { id: '4', nama: 'Dewi Lestari', nik: '6403012345678904', foto: generateAvatar('Dewi Lestari', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. Pattimura No. 89, Sangatta', alamatDomisili: 'Jl. P. Dewantara No. 45, Sangatta', pendidikan: 'S1 Farmasi', ipk: '3.65', formasi: 'APT-001', tanggalDaftar: '18-02-2024' },
-                            { id: '5', nama: 'Rudi Hermawan', nik: '6403012345678905', foto: generateAvatar('Rudi Hermawan', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. WR. Supratman No. 67, Balikpapan', alamatDomisili: 'Jl. Jend. Sudirman No. 78, Balikpapan', pendidikan: 'S1 Sistem Informasi', ipk: '3.80', formasi: 'IT-001', tanggalDaftar: '19-02-2024' },
-                            { id: '6', nama: 'Maya Wardani', nik: '6403012345678906', foto: generateAvatar('Maya Wardani', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. P. Mangkubumi No. 34, Samarinda', alamatDomisili: 'Jl. P. Sudirman No. 90, Samarinda', pendidikan: 'D3 Kebidanan', ipk: '3.55', formasi: 'BDN-001', tanggalDaftar: '20-02-2024' },
-                            { id: '7', nama: 'Lisa Kurniawati', nik: '6403012345678908', foto: generateAvatar('Lisa Kurniawati', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. A. Yani KM.5 No. 12, Bontang', alamatDomisili: 'Jl. P. Husni Thamrin No. 23, Bontang', pendidikan: 'S1 Kedokteran', ipk: '3.95', formasi: 'DU-001', tanggalDaftar: '21-02-2024' },
-                            { id: '8', nama: 'Joko Pramono', nik: '6403012345678909', foto: generateAvatar('Joko Pramono', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. P. Diponegoro No. 56, Tenggarong', alamatDomisili: 'Jl. P. Imam Bonjol No. 78, Tenggarong', pendidikan: 'D3 Teknologi Laboratorium Medis', ipk: '3.60', formasi: 'TLM-001', tanggalDaftar: '22-02-2024' },
-                            { id: '9', nama: 'Nurul Hidayah', nik: '6403012345678910', foto: generateAvatar('Nurul Hidayah', 'Perempuan'), jenisKelamin: 'Perempuan', alamatKTP: 'Jl. P. Dewantara No. 45, Sangatta', alamatDomisili: 'Jl. Pattimura No. 67, Sangatta', pendidikan: 'S1 Psikologi', ipk: '3.70', formasi: 'ADM-001', tanggalDaftar: '23-02-2024' },
-                            { id: '10', nama: 'Andi Wijaya', nik: '6403012345678911', foto: generateAvatar('Andi Wijaya', 'Laki-laki'), jenisKelamin: 'Laki-laki', alamatKTP: 'Jl. Jend. A. Yani No. 89, Balikpapan', alamatDomisili: 'Jl. MT Haryono No. 12, Balikpapan', pendidikan: 'D3 Radiologi', ipk: '3.45', formasi: 'RAD-001', tanggalDaftar: '24-02-2024' }
-                        ];
-                    }
-                };
-                
-                const refreshData = async () => { isLoading.value = true; await loadDashboard(); if (isLoggedIn.value) await loadPelamar(); loadProfil(); showToast('Data berhasil diperbarui', 'success'); };
-                
-                const cekHasilSeleksi = async () => {
-                    if (!searchNIK.value || searchNIK.value.length < 16) { showToast('Masukkan NIK dengan benar (16 digit)', 'error'); return; }
-                    isLoading.value = true;
-                    try {
-                        const response = await fetch(API_URL + '?action=cekNIK&nik=' + searchNIK.value, { redirect: 'follow' });
-                        const text = await response.text();
-                        let data;
-                        try { data = JSON.parse(text); } catch (e) { throw new Error('Invalid JSON'); }
-                        if (data.status === 'success' && (data.data?.pelamar || data.data)) {
-                             const pelamar = data.data?.pelamar || data.data;
-                             resultData.value = {
-                                 nama: pelamar['Nama'] || pelamar.nama || '',
-                                 nik: pelamar['NIK'] || pelamar.nik || '',
-                                 formasi: pelamar['Formasi'] || pelamar.formasi || '',
-                                 tanggalDaftar: pelamar['Tanggal Daftar'] || pelamar.tanggalDaftar || '',
-                                 statusBerkas: pelamar['Status Berkas'] || pelamar.statusBerkas || '',
-                                 nilaiKompetensi: pelamar['Nilai Kompetensi'] || pelamar['Nilai Tes Kompetensi'] || pelamar.nilaiKompetensi || '',
-                                 statusKompetensi: pelamar['Status Kompetensi'] || pelamar['Status Tes Kompetensi'] || pelamar.statusKompetensi || '',
-                                 nilaiWawancara: pelamar['Nilai Wawancara'] || pelamar.nilaiWawancara || '',
-                                 statusWawancara: pelamar['Status Wawancara'] || pelamar.statusWawancara || '',
-                                 statusKesehatan: pelamar['Status Kesehatan'] || pelamar.statusKesehatan || '',
-                                 hasilAkhir: pelamar['Hasil Akhir'] || pelamar.hasilAkhir || ''
-                             };
-                         } else { showToast('Data tidak ditemukan', 'error'); resultData.value = null; }
-                    } catch (error) {
-                        resultData.value = { nama: 'Ahmad Fauzi', nik: searchNIK.value, formasi: 'PRW-001 (Perawat IGD)', tanggalDaftar: '15-02-2024', statusBerkas: 'LULUS', nilaiKompetensi: '85.50', statusKompetensi: 'LULUS', nilaiWawancara: '88.00', statusWawancara: 'LULUS', statusKesehatan: 'LULUS', hasilAkhir: 'DITERIMA' };
-                    } finally { isLoading.value = false; }
-                };
-                
-                const editPelamar = (pelamar) => { editForm.value = { ...pelamar }; showEditModal.value = true; };
-                
-                const openProfilModal = (pelamar) => { selectedProfil.value = pelamar; showProfilModal.value = true; };
-                
-                const savePelamar = async () => {
-                    const index = pelamarList.value.findIndex(p => p.id === editForm.value.id);
-                    if (index >= 0) pelamarList.value[index] = { ...pelamarList.value[index], ...editForm.value };
-                    showToast('Data berhasil disimpan', 'success');
-                    showEditModal.value = false;
-                };
-                
-                const exportExcel = () => {
-                    const ws = XLSX.utils.json_to_sheet(filteredPelamar.value);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, 'Pelamar');
-                    XLSX.writeFile(wb, 'Data_Pelamar_SIREK.xlsx');
-                    showToast('Export Excel berhasil', 'success');
-                };
-                
-                const exportPDF = () => {
-                    const { jsPDF } = window.jspdf;
-                    const doc = new jsPDF();
-                    doc.setFontSize(16); doc.text('Data Pelamar SIREK', 14, 20);
-                    doc.setFontSize(10); doc.text('Tanggal: ' + new Date().toLocaleDateString('id-ID'), 14, 28);
-                    const headers = ['Nama', 'NIK', 'Formasi', 'Pendidikan', 'Status Berkas', 'Hasil Akhir'];
-                    const data = filteredPelamar.value.map(p => [p.nama, p.nik, p.formasi, p.pendidikan, p.statusBerkas, p.hasilAkhir]);
-                    doc.autoTable({ head: [headers], body: data, startY: 35, styles: { fontSize: 8 }, headStyles: { fillColor: [0, 86, 179] } });
-                    doc.save('Data_Pelamar_SIREK.pdf');
-                    showToast('Export PDF berhasil', 'success');
-                };
-                
-                const getStatusBadgeClass = (status) => { if (status === 'LULUS') return 'badge-success'; if (status === 'TIDAK LULUS') return 'badge-danger'; return 'badge-warning'; };
-                const getFinalBadgeClass = (status) => { if (status === 'DITERIMA') return 'badge-success'; if (status === 'CADANGAN') return 'badge-info'; if (status === 'TIDAK LULUS') return 'badge-danger'; return 'badge-warning'; };
-                
-                const initCharts = () => {
-                    nextTick(() => {
-                        const barCtx = document.getElementById('barChart');
-                        const pieCtx = document.getElementById('pieChart');
-                        const donutCtx = document.getElementById('donutChart');
-                        if (!barCtx || !pieCtx || !donutCtx) return;
-                        if (barChart) barChart.destroy(); if (pieChart) pieChart.destroy(); if (donutChart) donutChart.destroy();
-                        
-                        barChart = new Chart(barCtx, { type: 'bar', data: { labels: ['DU', 'NRS', 'PRW', 'BDP', 'BDN', 'APT', 'RAD', 'IT'], datasets: [{ label: 'Jumlah Pelamar', data: [8, 13, 16, 2, 9, 2, 4, 2], backgroundColor: '#0056b3', borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } });
-                        pieChart = new Chart(pieCtx, { type: 'pie', data: { labels: ['SMA', 'D3', 'S1', 'Profesi'], datasets: [{ data: [1, 3, 4, 1], backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b'] }] }, options: { responsive: true, maintainAspectRatio: false } });
-                        donutChart = new Chart(donutCtx, { type: 'doughnut', data: { labels: ['Laki-laki', 'Perempuan'], datasets: [{ data: [6, 4], backgroundColor: ['#0ea5e9', '#ec4899'] }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%' } });
+                    this.$nextTick(() => {
+                        if (menu === 'dashboard') this.initCharts();
+                        if (menu === 'adminPelamar') this.initPelamarTable();
+                        if (menu === 'adminVerifikasi') this.initVerifikasiTable();
                     });
-                };
+                },
                 
-                const updateCharts = () => { if (barChart && pieChart && donutChart) { } };
+                openLoginModal() {
+                    this.showLoginModal = true;
+                    this.loginError = '';
+                },
                 
-                const startAutoRefresh = () => { countdown.value = 30; refreshTimer = setInterval(() => { countdown.value--; if (countdown.value <= 0) { loadDashboard(); countdown.value = 30; } }, 1000); };
+                // Login
+                async handleLogin() {
+                    this.loginLoading = true;
+                    this.loginError = '';
+                    
+                    try {
+                        const response = await fetch(this.API_URL + '?action=login&username=' + encodeURIComponent(this.loginForm.username) + '&password=' + encodeURIComponent(this.loginForm.password));
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.isLoggedIn = true;
+                            this.currentUser = result.user;
+                            this.showLoginModal = false;
+                            this.setActiveMenu('adminDashboard');
+                            localStorage.setItem('sirek_token', result.token);
+                        } else {
+                            this.loginError = result.message;
+                        }
+                    } catch (error) {
+                        this.loginError = 'Terjadi kesalahan. Pastikan koneksi internet stabil.';
+                    }
+                    
+                    this.loginLoading = false;
+                },
                 
-                onMounted(() => { loadDashboard(); loadProfil(); startAutoRefresh(); setTimeout(initCharts, 500); const handleResize = () => { sidebarOpen.value = window.innerWidth >= 1024; }; window.addEventListener('resize', handleResize); handleResize(); });
-                onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer); });
+                // Dashboard
+                async loadDashboard() {
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getDashboard');
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.stats = result.stats;
+                            this.initCharts();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load dashboard:', error);
+                        // Use demo data
+                        this.stats = { totalPelamar: 156, lolosBerkas: 89, aktifFormasi: 28, diterima: 45 };
+                        this.initCharts();
+                    }
+                },
                 
-                return { sidebarOpen, activeMenu, adminTab, isLoading, isLoggedIn, showLoginModal, showPassword, showEditModal, showProfilModal, selectedProfil, loginLoading, loginError, countdown, searchNIK, searchQuery, searchName, filterFormasi, dashboardData, pelamarList, profilList, lowongans, adminUsers, logs, resultData, currentUser, toast, loginForm, editForm, pageTitle, pageSubtitle, stats, formasiOptions, adminTabs, filteredPelamar, filteredProfil, isAdmin, isObserver, canVerify, canInputTes, canInputWawancara, canEdit, setActiveMenu, openLoginModal, handleLogin, handleLogout, refreshData, cekHasilSeleksi, editPelamar, savePelamar, openProfilModal, exportExcel, exportPDF, getStatusBadgeClass, getFinalBadgeClass };
+                initCharts() {
+                    this.$nextTick(() => {
+                        // Destroy existing charts
+                        Object.values(this.charts).forEach(chart => chart?.destroy());
+                        
+                        // Formasi Chart
+                        const ctxFormasi = document.getElementById('chartFormasi');
+                        if (ctxFormasi) {
+                            this.charts.formasi = new Chart(ctxFormasi, {
+                                type: 'bar',
+                                data: {
+                                    labels: ['Dokter Umum', 'Ners', 'Perawat', 'Bidan', 'Apoteker', 'Farmasi', 'Laboratorium', 'IT'],
+                                    datasets: [{
+                                        label: 'Jumlah Pelamar',
+                                        data: [25, 35, 42, 28, 12, 18, 22, 15],
+                                        backgroundColor: 'rgba(0, 86, 179, 0.7)',
+                                        borderColor: '#0056b3',
+                                        borderWidth: 1,
+                                        borderRadius: 6
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { display: false } },
+                                    scales: {
+                                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                                        x: { grid: { display: false } }
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // Pendidikan Chart
+                        const ctxPendidikan = document.getElementById('chartPendidikan');
+                        if (ctxPendidikan) {
+                            this.charts.pendidikan = new Chart(ctxPendidikan, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: ['S1 Kedokteran', 'Profesi Ners', 'D3 Keperawatan', 'Profesi Bidan', 'D3 Farmasi', 'S1 Farmasi', 'Lainnya'],
+                                    datasets: [{
+                                        data: [15, 25, 35, 20, 18, 12, 31],
+                                        backgroundColor: ['#0056b3', '#1a75ff', '#4d94ff', '#80b3ff', '#b3d1ff', '#1e40af', '#64748b'],
+                                        borderWidth: 0
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'right' } }
+                                }
+                            });
+                        }
+                        
+                        // Status Chart
+                        const ctxStatus = document.getElementById('chartStatus');
+                        if (ctxStatus) {
+                            this.charts.status = new Chart(ctxStatus, {
+                                type: 'pie',
+                                data: {
+                                    labels: ['Menunggu', 'Lolos Berkas', 'Tidak Lolos', 'Diterima', 'Tidak Diterima'],
+                                    datasets: [{
+                                        data: [25, 45, 30, 35, 21],
+                                        backgroundColor: ['#94a3b8', '#22c55e', '#ef4444', '#3b82f6', '#f97316'],
+                                        borderWidth: 0
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: { legend: { position: 'right' } }
+                                }
+                            });
+                        }
+                        
+                        // Wilayah Chart
+                        const ctxWilayah = document.getElementById('chartWilayah');
+                        if (ctxWilayah) {
+                            this.charts.wilayah = new Chart(ctxWilayah, {
+                                type: 'bar',
+                                data: {
+                                    labels: ['Jakarta', 'Bekasi', 'Depok', 'Tangerang', 'Bogor', 'Lainnya'],
+                                    datasets: [{
+                                        label: 'Jumlah Pelamar',
+                                        data: [45, 32, 28, 22, 18, 11],
+                                        backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                                        borderColor: '#ef4444',
+                                        borderWidth: 1,
+                                        borderRadius: 6
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    indexAxis: 'y',
+                                    plugins: { legend: { display: false } },
+                                    scales: {
+                                        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                                        y: { grid: { display: false } }
+                                    }
+                                }
+                            });
+                        }
+                    });
+                },
+                
+                // Gallery
+                startGalleryAutoSlide() {
+                    setInterval(() => {
+                        this.nextGallery();
+                    }, 5000);
+                },
+                prevGallery() {
+                    this.galleryIndex = this.galleryIndex === 0 ? this.galleryImages.length - 1 : this.galleryIndex - 1;
+                },
+                nextGallery() {
+                    this.galleryIndex = (this.galleryIndex + 1) % this.galleryImages.length;
+                },
+                
+                // Cek Hasil
+                async searchHasil() {
+                    if (!this.searchNIK) return;
+                    
+                    this.searchLoading = true;
+                    this.searched = true;
+                    
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getStatus&nik=' + encodeURIComponent(this.searchNIK));
+                        const result = await response.json();
+                        
+                        if (result.success && result.data) {
+                            this.searchResult = result.data;
+                        } else {
+                            this.searchResult = null;
+                        }
+                    } catch (error) {
+                        // Demo data
+                        this.searchResult = {
+                            nik: this.searchNIK,
+                            nama: 'Demo Applicant',
+                            formasi: 'Perawat',
+                            pendidikan: 'D3 Keperawatan',
+                            statusBerkas: 'LOLOS',
+                            statusKompetensi: 'LOLOS',
+                            nilaiKompetensi: '85',
+                            statusWawancara: 'LOLOS',
+                            nilaiWawancara: '90',
+                            statusKesehatan: 'LULUS',
+                            hasilAkhir: 'DITERIMA',
+                            catatan: 'Selamat! Anda diterima bekerja di RSUD Aji Muhammad Idris'
+                        };
+                    }
+                    
+                    this.searchLoading = false;
+                },
+                
+                getStatusBadgeClass(status) {
+                    const statusMap = {
+                        'LOLOS': 'badge-success',
+                        'TIDAK LOLOS': 'badge-danger',
+                        'LULUS': 'badge-success',
+                        'TIDAK LULUS': 'badge-danger',
+                        'DITERIMA': 'badge-success',
+                        'TIDAK DITERIMA': 'badge-danger',
+                        'MENUNGGU': 'badge-warning',
+                        'PROSES': 'badge-info'
+                    };
+                    return statusMap[status?.toUpperCase()] || 'badge-warning';
+                },
+                
+                // Profil
+                async searchProfil() {
+                    if (!this.profilSearch) return;
+                    
+                    this.profilLoading = true;
+                    this.profilSearched = true;
+                    
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getPelamar&search=' + encodeURIComponent(this.profilSearch));
+                        const result = await response.json();
+                        
+                        if (result.success && result.data?.length) {
+                            this.profilResult = result.data[0];
+                        } else {
+                            this.profilResult = null;
+                        }
+                    } catch (error) {
+                        // Demo data
+                        this.profilResult = {
+                            nik: this.profilSearch,
+                            nama: 'Demo Applicant',
+                            tempatLahir: 'Bekasi',
+                            tanggalLahir: '15 Januari 1995',
+                            jenisKelamin: 'Perempuan',
+                            noHP: '081234567890',
+                            email: 'demo@example.com',
+                            formasi: 'Perawat',
+                            pendidikan: 'D3 Keperawatan',
+                            alamatKtp: 'Jl. Contoh No. 123, Bekasi, Jawa Barat',
+                            linkFoto: '',
+                            linkSuratLamaran: '',
+                            linkCV: '',
+                            linkDokumen: ''
+                        };
+                    }
+                    
+                    this.profilLoading = false;
+                },
+                
+                // Lightbox
+                openLightbox(url) {
+                    if (url) {
+                        this.lightboxImage = url;
+                        this.lightboxOpen = true;
+                    }
+                },
+                closeLightbox() {
+                    this.lightboxOpen = false;
+                    this.lightboxImage = '';
+                },
+                
+                // Admin Functions
+                async loadAdminData() {
+                    if (!this.isLoggedIn) return;
+                    
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getDashboard');
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.adminStats = result.stats;
+                            this.recentRegistrations = result.recent || [];
+                        }
+                    } catch (error) {
+                        this.adminStats = { total: 156, lolosBerkas: 89, dalamProses: 45, diterima: 22 };
+                    }
+                },
+                
+                initPelamarTable() {
+                    this.$nextTick(() => {
+                        if ($.fn.DataTable.isDataTable('#pelamarTable')) {
+                            $('#pelamarTable').DataTable().destroy();
+                        }
+                        
+                        $('#pelamarTable').DataTable({
+                            ajax: {
+                                url: this.API_URL + '?action=getPelamar',
+                                dataSrc: 'data'
+                            },
+                            columns: [
+                                { data: null, render: (data, type, row, meta) => meta.row + 1 },
+                                { data: 'nik' },
+                                { data: 'nama' },
+                                { data: 'formasi' },
+                                { data: 'pendidikan' },
+                                { 
+                                    data: 'statusBerkas',
+                                    render: (data) => `<span class="badge ${this.getStatusBadgeClass(data)}">${data || 'MENUNGGU'}</span>`
+                                },
+                                { 
+                                    data: 'hasilAkhir',
+                                    render: (data) => `<span class="badge ${this.getStatusBadgeClass(data)}">${data || 'MENUNGGU'}</span>`
+                                },
+                                {
+                                    data: null,
+                                    render: (data) => `
+                                        <button class="table-action-btn text-blue-500 hover:bg-blue-50" onclick="app.viewPelamar('${data.nik}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="table-action-btn text-green-500 hover:bg-green-50" onclick="app.editPelamar('${data.nik}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    `
+                                }
+                            ]
+                        });
+                    });
+                },
+                
+                initVerifikasiTable() {
+                    this.$nextTick(() => {
+                        if ($.fn.DataTable.isDataTable('#verifikasiTable')) {
+                            $('#verifikasiTable').DataTable().destroy();
+                        }
+                        
+                        $('#verifikasiTable').DataTable({
+                            ajax: {
+                                url: this.API_URL + '?action=getPelamar&filter=pending_verifikasi',
+                                dataSrc: 'data'
+                            },
+                            columns: [
+                                { data: 'nik' },
+                                { data: 'nama' },
+                                { data: 'formasi' },
+                                { 
+                                    data: 'statusBerkas',
+                                    render: (data) => `<span class="badge ${this.getStatusBadgeClass(data)}">${data || 'MENUNGGU'}</span>`
+                                },
+                                { data: 'catatanVerifikasi' },
+                                {
+                                    data: null,
+                                    render: (data) => `
+                                        <button class="btn btn-primary text-xs py-1 px-2" onclick="app.verifikasiPelamar('${data.nik}', 'LOLOS')">Lolos</button>
+                                        <button class="btn btn-secondary text-xs py-1 px-2" onclick="app.verifikasiPelamar('${data.nik}', 'TIDAK LOLOS')">Tidak</button>
+                                    `
+                                }
+                            ]
+                        });
+                    });
+                },
+                
+                async calculateAIRanking() {
+                    this.aiCalculating = true;
+                    
+                    try {
+                        const response = await fetch(this.API_URL + '?action=calculateAIRanking');
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.aiRankingByFormasi = result.byFormasi || [];
+                            this.globalRanking = result.global || [];
+                        }
+                    } catch (error) {
+                        // Demo data
+                        this.aiRankingByFormasi = [
+                            {
+                                nama: 'Perawat',
+                                candidates: [
+                                    { nik: '123456789', nama: 'Siti Rahayu', pendidikan: 'D3 Keperawatan', aiScore: 95 },
+                                    { nik: '987654321', nama: 'Ahmad Fauzi', pendidikan: 'D3 Keperawatan', aiScore: 88 },
+                                    { nik: '456789123', nama: 'Budi Santoso', pendidikan: 'Profesi Ners', aiScore: 85 }
+                                ]
+                            },
+                            {
+                                nama: 'Ners',
+                                candidates: [
+                                    { nik: '321654987', nama: 'Dewi Lestari', pendidikan: 'Profesi Ners', aiScore: 92 },
+                                    { nik: '654987321', nama: 'Joko Pramono', pendidikan: 'Profesi Ners', aiScore: 87 }
+                                ]
+                            }
+                        ];
+                        this.globalRanking = [
+                            { nik: '123456789', nama: 'Siti Rahayu', formasi: 'Perawat', pendidikan: 'D3 Keperawatan', aiScore: 95 },
+                            { nik: '321654987', nama: 'Dewi Lestari', formasi: 'Ners', pendidikan: 'Profesi Ners', aiScore: 92 },
+                            { nik: '987654321', nama: 'Ahmad Fauzi', formasi: 'Perawat', pendidikan: 'D3 Keperawatan', aiScore: 88 },
+                            { nik: '654987321', nama: 'Joko Pramono', formasi: 'Ners', pendidikan: 'Profesi Ners', aiScore: 87 },
+                            { nik: '456789123', nama: 'Budi Santoso', formasi: 'Perawat', pendidikan: 'Profesi Ners', aiScore: 85 }
+                        ];
+                    }
+                    
+                    this.aiCalculating = false;
+                },
+                
+                getAIRankClass(rank) {
+                    if (rank === 1) return 'ai-rank-gold';
+                    if (rank === 2) return 'ai-rank-silver';
+                    if (rank === 3) return 'ai-rank-bronze';
+                    return 'ai-rank-normal';
+                },
+                
+                async exportExcel() {
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            const ws = XLSX.utils.json_to_sheet(result.data);
+                            const wb = XLSX.utils.book_new();
+                            XLSX.utils.book_append_sheet(wb, ws, 'Pelamar');
+                            XLSX.writeFile(wb, 'Data_Pelamar_' + new Date().toISOString().slice(0,10) + '.xlsx');
+                        }
+                    } catch (error) {
+                        alert('Gagal export Excel');
+                    }
+                },
+                
+                // Formasi CRUD
+                editFormasi(formasi) {
+                    this.editingFormasi = true;
+                    this.formasiForm = { ...formasi };
+                    this.showFormasiModal = true;
+                },
+                
+                async saveFormasi() {
+                    const action = this.editingFormasi ? 'updateFormasi' : 'addFormasi';
+                    
+                    try {
+                        const params = new URLSearchParams({ action, ...this.formasiForm });
+                        const response = await fetch(this.API_URL + '?' + params);
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.showFormasiModal = false;
+                            this.loadFormasiList();
+                        }
+                    } catch (error) {
+                        alert('Gagal menyimpan formasi');
+                    }
+                },
+                
+                async deleteFormasi(kode) {
+                    if (!confirm('Yakin hapus formasi ini?')) return;
+                    
+                    try {
+                        const response = await fetch(this.API_URL + '?action=deleteFormasi&id=' + kode);
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.loadFormasiList();
+                        }
+                    } catch (error) {
+                        alert('Gagal menghapus formasi');
+                    }
+                },
+                
+                async loadFormasiList() {
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getFormasi');
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            this.formasiList = result.data || [];
+                        }
+                    } catch (error) {
+                        this.formasiList = [
+                            { kode: 'FRM-001', nama: 'Dokter Umum', unit: 'IGD', kebutuhan: 5, status: 'AKTIF', pelamar: 25 },
+                            { kode: 'FRM-002', nama: 'Ners', unit: 'Keperawatan', kebutuhan: 10, status: 'AKTIF', pelamar: 35 }
+                        ];
+                    }
+                }
             }
         }).mount('#app');
     </script>
