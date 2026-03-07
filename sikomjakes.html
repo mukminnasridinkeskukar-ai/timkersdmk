@@ -68,6 +68,23 @@
     </div>
   </div>
 
+  <!-- Detail Peserta Modal -->
+  <div id="detailModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">Detail Peserta UKOM</h2>
+        <button onclick="document.getElementById('detailModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+      <div id="detailModalContent" class="text-sm"></div>
+      <div class="mt-4 flex gap-2">
+        <button onclick="debugShowAllColumns()" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm">Debug Kolom</button>
+        <button onclick="document.getElementById('detailModal').classList.add('hidden')" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">Tutup</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Layout -->
   <div class="flex min-h-screen">
     <!-- Sidebar -->
@@ -533,17 +550,20 @@
               <table class="w-full">
                 <thead class="bg-blue-50">
                   <tr>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-blue-800">No</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-blue-800">Nama</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-blue-800">Unit Kerja</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-blue-800">Nama Jabatan Fungsional</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-blue-800">Jenjang Jabatan</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-blue-800">Foto</th>
-                    <th class="px-6 py-3 text-left text-xs font-semibold text-blue-800">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">No</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Nama Lengkap</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">NIK</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Unit Kerja</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Jenis Jabatan</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Jabfung Tujuan</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Jenjang Tujuan</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Status Verif</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Status Ujian</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Aksi</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" id="pesertaTable">
-                  <tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Memuat data...</td></tr>
+                  <tr><td colspan="10" class="px-6 py-8 text-center text-gray-500">Memuat data...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1124,35 +1144,42 @@
     
     async function loadPesertaFromSheet(tbody) {
       try {
-        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">Memuat data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-4 text-center">Memuat data...</td></tr>';
         const data = await fetchFromSheet('Peserta');
+        console.log('Peserta data:', data);
         const statusVerif = { 'Belum Diverifikasi': 'bg-yellow-100 text-yellow-800', 'Lolos Administrasi': 'bg-green-100 text-green-800', 'Tidak Lolos': 'bg-red-100 text-red-800' };
         const statusUjian = { 'Belum Ujian': 'bg-gray-100 text-gray-800', 'Sedang Ujian': 'bg-blue-100 text-blue-800', 'Lulus': 'bg-green-100 text-green-800', 'Tidak Lulus': 'bg-red-100 text-red-800' };
         
-        if (data && data.length > 0) {
-          tbody.innerHTML = data.map((row, i) => {
-            const verif = row[18] || 'Belum Diverifikasi';
-            const ujian = row[19] || 'Belum Ujian';
-            const fotoUrl = row[16] || '';
-            const fotoId = row[21] || '';
-            return `
-              <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4 text-sm">${i+1}</td>
-                <td class="px-6 py-4 text-sm font-medium">${row[2] || ''}</td>
-                <td class="px-6 py-4 text-sm">${row[7] || ''}</td>
-                <td class="px-6 py-4 text-sm">${row[14] || ''}</td>
-                <td class="px-6 py-4 text-sm">${row[15] || ''}</td>
-                <td class="px-6 py-4 text-sm">${fotoUrl ? '<a href="' + fotoUrl + '" target="_blank" class="text-blue-600 hover:underline">Lihat Foto</a>' : '-'}</td>
-                <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${statusUjian[ujian] || 'bg-gray-100 text-gray-800'}">${ujian}</span></td>
-              </tr>
-            `;
-          }).join('');
-        } else {
-          tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada data</td></tr>';
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-4 text-center text-gray-500">Data kosong atau sheet tidak ditemukan</td></tr>';
+          return;
         }
+        
+        tbody.innerHTML = data.map((row, i) => {
+          const verif = row[18] || 'Belum Diverifikasi';
+          const ujian = row[19] || 'Belum Ujian';
+          const fotoUrl = row[16] || '';
+          const fotoId = row[21] || '';
+          return `
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-3 text-sm">${i+1}</td>
+              <td class="px-4 py-3 text-sm font-medium">${row[2] || ''}</td>
+              <td class="px-4 py-3 text-sm font-mono">${row[3] || ''}</td>
+              <td class="px-4 py-3 text-sm">${row[7] || ''}</td>
+              <td class="px-4 py-3 text-sm">${row[8] || ''}</td>
+              <td class="px-4 py-3 text-sm">${row[14] || ''}</td>
+              <td class="px-4 py-3 text-sm">${row[15] || ''}</td>
+              <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs ${statusVerif[verif] || 'bg-gray-100 text-gray-800'}">${verif}</span></td>
+              <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs ${statusUjian[ujian] || 'bg-gray-100 text-gray-800'}">${ujian}</span></td>
+              <td class="px-4 py-3">
+                <button onclick="viewDetailPeserta('${row[3]}')" class="text-blue-600 hover:text-blue-800 text-sm">Detail</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
       } catch (error) {
         console.error('Error loading peserta:', error);
-        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
       }
     }
     
@@ -1163,12 +1190,13 @@
       try {
         const data = await fetchFromSheet('Bazzetting');
         if (data && data.length > 0) {
-          // Calculate stats
-          let totalData = 0;
-          let totalKebutuhan = 0;
-          let totalSisa = 0;
+          // Get totals from last row (assuming it's the totals row)
+          const lastRow = data[data.length - 1];
+          const totalData = data.length - 1; // Exclude totals row
+          const totalKebutuhan = parseInt(lastRow[3]) || 0; // Kebutuhan column
+          const totalSisa = parseInt(lastRow[9]) || 0; // Sisa column
           
-          const tableHtml = data.map(row => {
+          const tableHtml = data.map((row, i) => {
             const instansi = row[0] || '';
             const jenisJabfung = row[1] || '';
             const jenjang = row[2] || '';
@@ -1180,10 +1208,14 @@
             const pemangkuDisetujui = row[8] || '';
             const sisa = row[9] || '';
             
-            totalData++;
-            totalKebutuhan += kebutuhan;
+            // Check if this is a totals row (first column is empty or contains "TOTAL")
+            const isTotalRow = !instansi || String(instansi).toUpperCase().includes('TOTAL') || String(instansi).toUpperCase().includes('JUMLAH');
+            
+            if (isTotalRow) {
+              return ''; // Skip totals row in table
+            }
+            
             const sisaNum = parseInt(sisa) || 0;
-            totalSisa += sisaNum;
             
             return `
               <tr class="hover:bg-gray-50">
@@ -1201,7 +1233,7 @@
             `;
           }).join('');
           
-          // Update stats
+          // Update stats from last row
           document.getElementById('bazzetTotalUnit').textContent = totalData;
           document.getElementById('bazzetTerpenuhi').textContent = totalKebutuhan;
           document.getElementById('bazzetKekurangan').textContent = totalSisa;
@@ -1209,6 +1241,7 @@
         }
       } catch (error) {
         console.error('Error loading bazzetting:', error);
+        document.getElementById('bazzetTable').innerHTML = '<tr><td colspan="10" class="px-6 py-8 text-center text-red-500">Error: ' + error.message + '</td></tr>';
       }
     }
 
@@ -1375,6 +1408,75 @@
         submitBtn.disabled = false;
       }
     });
+
+    // View Detail Peserta
+    async function viewDetailPeserta(nik) {
+      const modal = document.getElementById('detailModal');
+      const content = document.getElementById('detailModalContent');
+      
+      try {
+        const data = await fetchFromSheet('Peserta');
+        const peserta = data.find(row => row[3] == nik);
+        
+        if (!peserta) {
+          alert('Data peserta tidak ditemukan');
+          return;
+        }
+        
+        content.innerHTML = `
+          <div class="grid grid-cols-2 gap-4">
+            <div><strong>NIK:</strong> ${peserta[3] || '-'}</div>
+            <div><strong>NIP:</strong> ${peserta[4] || '-'}</div>
+            <div><strong>Nama:</strong> ${peserta[2] || '-'}</div>
+            <div><strong>No. HP:</strong> ${peserta[5] || '-'}</div>
+            <div><strong>Unit Kerja:</strong> ${peserta[7] || '-'}</div>
+            <div><strong>Jenis Jabatan:</strong> ${peserta[8] || '-'}</div>
+            <div><strong>Jenjang Jabatan:</strong> ${peserta[9] || '-'}</div>
+            <div><strong>Pangkat:</strong> ${peserta[10] || '-'}</div>
+            <div><strong>Nilai PAK:</strong> ${peserta[11] || '-'}</div>
+            <div><strong>No. STR:</strong> ${peserta[12] || '-'}</div>
+            <div><strong>Kategori:</strong> ${peserta[13] || '-'}</div>
+            <div><strong>Jabfung Tujuan:</strong> ${peserta[14] || '-'}</div>
+            <div><strong>Jenjang Tujuan:</strong> ${peserta[15] || '-'}</div>
+            <div><strong>Status Verifikasi:</strong> ${peserta[18] || '-'}</div>
+            <div><strong>Status Ujian:</strong> ${peserta[19] || '-'}</div>
+            <div><strong>Rekomendasi:</strong> ${peserta[20] || '-'}</div>
+          </div>
+        `;
+        modal.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error memuat data: ' + error.message);
+      }
+    }
+
+    // Debug - Show all columns from Peserta sheet
+    async function debugShowAllColumns() {
+      try {
+        const data = await fetchFromSheet('Peserta');
+        if (data && data.length > 0) {
+          const headers = ['Index', 'Column 0', 'Column 1', 'Column 2', 'Column 3', 'Column 4', 'Column 5', 'Column 6', 'Column 7', 'Column 8', 'Column 9', 'Column 10', 'Column 11', 'Column 12', 'Column 13', 'Column 14', 'Column 15', 'Column 16', 'Column 17', 'Column 18', 'Column 19', 'Column 20', 'Column 21'];
+          let html = '<table border="1" style="border-collapse:collapse;width:100%">';
+          html += '<tr>' + headers.map(h => '<th style="padding:5px;background:#eee">' + h + '</th>').join('') + '</tr>';
+          data.slice(0, 5).forEach((row, i) => {
+            html += '<tr>';
+            html += '<td style="padding:5px">' + i + '</td>';
+            for (let j = 0; j <= 21; j++) {
+              html += '<td style="padding:5px">' + (row[j] || '') + '</td>';
+            }
+            html += '</tr>';
+          });
+          html += '</table>';
+          
+          const win = window.open('', '_blank');
+          win.document.write('<html><head><title>Debug - Column Mapping</title></head><body><h2>5 Data Pertama dari Sheet Peserta</h2>' + html + '</body></html>');
+        } else {
+          alert('Tidak ada data');
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
 
     // Initialize
     initCharts();
