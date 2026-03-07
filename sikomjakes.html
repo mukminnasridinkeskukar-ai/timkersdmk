@@ -672,6 +672,7 @@
     let useMockData = false; // Set ke false jika sudah konek ke Google Sheets
 
     // Fungsi Ambil Data dari Google Sheets (using POST)
+    let cachedHeaders = {};
     async function fetchFromSheet(sheetName) {
       try {
         const response = await fetch(SCRIPT_URL, {
@@ -682,15 +683,43 @@
         const result = await response.json();
         console.log('Fetch ' + sheetName + ' response:', result);
         if (result.success) {
-          return result.data;
+          // Cache headers for column mapping
+          if (result.headers) {
+            cachedHeaders[sheetName] = result.headers;
+            console.log(sheetName + ' headers:', cachedHeaders[sheetName]);
+          }
+          return { data: result.data, headers: result.headers };
         } else {
           console.error('Error fetching ' + sheetName + ':', result.message);
-          return null;
+          return { data: null, headers: [] };
         }
       } catch (error) {
         console.error('Error fetching from sheet:', error);
-        return null;
+        return { data: null, headers: [] };
       }
+    }
+    
+    // Get column index by header name (case insensitive, partial match)
+    function getColIndex(headers, colName) {
+      if (!headers) return -1;
+      const name = String(colName).toLowerCase().trim();
+      for (let i = 0; i < headers.length; i++) {
+        const header = String(headers[i]).toLowerCase().trim();
+        // Match if header contains the column name or vice versa
+        if (header.includes(name) || name.includes(header)) {
+          return i;
+        }
+      }
+      return -1;
+    }
+    
+    // Get cell value safely
+    function getCellValue(row, headers, colName, defaultValue = '') {
+      const idx = getColIndex(headers, colName);
+      if (idx >= 0 && idx < row.length) {
+        return row[idx] || defaultValue;
+      }
+      return defaultValue;
     }
 
     // Fungsi Load Data Dashboard
@@ -979,29 +1008,31 @@
       
       try {
         tbody.innerHTML = '<tr><td colspan="16" class="px-6 py-8 text-center">Memuat data...</td></tr>';
-        const data = await fetchFromSheet('Peserta');
+        const result = await fetchFromSheet('Peserta');
+        const data = result.data;
+        const headers = result.headers;
         
         if (data && data.length > 0) {
           tbody.innerHTML = data.map((row, i) => {
-            const rekomendasi = row[20] || ''; // Keputusan Tim Pengelola UKOM
+            const rekomendasi = getCellValue(row, headers, 'keputusan') || getCellValue(row, headers, 'rekomendasi') || '';
             return `
               <tr class="hover:bg-gray-50">
                 <td class="px-4 py-3 text-sm">${i+1}</td>
-                <td class="px-4 py-3 text-sm font-medium">${row[2] || ''}</td>
-                <td class="px-4 py-3 text-sm font-mono">${row[3] || ''}</td>
-                <td class="px-4 py-3 text-sm font-mono">${row[4] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[5] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[7] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[8] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[9] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[10] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[11] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[12] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[13] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[14] || ''}</td>
-                <td class="px-4 py-3 text-sm">${row[15] || ''}</td>
+                <td class="px-4 py-3 text-sm font-medium">${getCellValue(row, headers, 'nama')}</td>
+                <td class="px-4 py-3 text-sm font-mono">${getCellValue(row, headers, 'nik')}</td>
+                <td class="px-4 py-3 text-sm font-mono">${getCellValue(row, headers, 'nip')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'no hp') || getCellValue(row, headers, 'hp')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'unit kerja')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jenis jabatan')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jenjang')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'pangkat') || getCellValue(row, headers, 'golongan')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'nilai pak') || getCellValue(row, headers, 'nilai pak')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'no str') || getCellValue(row, headers, 'str')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'kategori')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jabfung tujuan') || getCellValue(row, headers, 'jabatan')}</td>
+                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jenjang tujuan')}</td>
                 <td class="px-4 py-3">
-                  <select class="text-sm border rounded px-2 py-1" id="rekomendasi_${i}" onchange="saveRekomendasi('${row[3]}', ${i})">
+                  <select class="text-sm border rounded px-2 py-1" id="rekomendasi_${i}" onchange="saveRekomendasi('${getCellValue(row, headers, 'nik')}', ${i})">
                     <option value="" ${rekomendasi === '' ? 'selected' : ''}>Pilih</option>
                     <option value="Direkomendasikan" ${rekomendasi === 'Direkomendasikan' ? 'selected' : ''}>Direkomendasikan</option>
                     <option value="Tidak Direkomendasikan" ${rekomendasi === 'Tidak Direkomendasikan' ? 'selected' : ''}>Tidak Direkomendasikan</option>
@@ -1009,7 +1040,7 @@
                   </select>
                 </td>
                 <td class="px-4 py-3">
-                  <button onclick="saveRekomendasi('${row[3]}', ${i})" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Simpan</button>
+                  <button onclick="saveRekomendasi('${getCellValue(row, headers, 'nik')}', ${i})" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Simpan</button>
                 </td>
               </tr>
             `;
@@ -1102,14 +1133,17 @@
     async function loadFormasiFromSheet(tbody) {
       try {
         tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center">Memuat data...</td></tr>';
-        const data = await fetchFromSheet('Formasi');
+        const result = await fetchFromSheet('Formasi');
+        const data = result.data;
+        const headers = result.headers;
+        
         if (data && data.length > 0) {
           tbody.innerHTML = data.map((row, i) => `
             <tr class="hover:bg-gray-50">
               <td class="px-6 py-4 text-sm">${i+1}</td>
-              <td class="px-6 py-4 text-sm font-medium">${row[1] || ''}</td>
-              <td class="px-6 py-4 text-sm">${row[2] || ''}</td>
-              <td class="px-6 py-4 text-sm font-semibold">${row[3] || ''}</td>
+              <td class="px-6 py-4 text-sm font-medium">${getCellValue(row, headers, 'nama jabatan') || getCellValue(row, headers, 'jabatan')}</td>
+              <td class="px-6 py-4 text-sm">${getCellValue(row, headers, 'jenjang')}</td>
+              <td class="px-6 py-4 text-sm font-semibold">${getCellValue(row, headers, 'persetujuan') || getCellValue(row, headers, 'kebutuhan')}</td>
             </tr>
           `).join('');
         } else {
@@ -1145,8 +1179,11 @@
     async function loadPesertaFromSheet(tbody) {
       try {
         tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-4 text-center">Memuat data...</td></tr>';
-        const data = await fetchFromSheet('Peserta');
+        const result = await fetchFromSheet('Peserta');
+        const data = result.data;
+        const headers = result.headers;
         console.log('Peserta data:', data);
+        console.log('Peserta headers:', headers);
         const statusVerif = { 'Belum Diverifikasi': 'bg-yellow-100 text-yellow-800', 'Lolos Administrasi': 'bg-green-100 text-green-800', 'Tidak Lolos': 'bg-red-100 text-red-800' };
         const statusUjian = { 'Belum Ujian': 'bg-gray-100 text-gray-800', 'Sedang Ujian': 'bg-blue-100 text-blue-800', 'Lulus': 'bg-green-100 text-green-800', 'Tidak Lulus': 'bg-red-100 text-red-800' };
         
@@ -1155,24 +1192,34 @@
           return;
         }
         
+        // Get column indices dynamically
+        const colNama = getColIndex(headers, 'nama');
+        const colNIK = getColIndex(headers, 'nik');
+        const colUnitKerja = getColIndex(headers, 'unit kerja');
+        const colJenisJabatan = getColIndex(headers, 'jenis jabatan');
+        const colJabfung = getColIndex(headers, 'jabfung tujuan') || getColIndex(headers, 'jabatan') || getColIndex(headers, 'jabfung');
+        const colJenjang = getColIndex(headers, 'jenjang tujuan') || getColIndex(headers, 'jenjang');
+        const colStatusVerif = getColIndex(headers, 'status verifikasi') || getColIndex(headers, 'verifikasi');
+        const colStatusUjian = getColIndex(headers, 'status ujian') || getColIndex(headers, 'ujian');
+        
+        console.log('Column indices:', { colNama, colNIK, colUnitKerja, colJenisJabatan, colJabfung, colJenjang, colStatusVerif, colStatusUjian });
+        
         tbody.innerHTML = data.map((row, i) => {
-          const verif = row[18] || 'Belum Diverifikasi';
-          const ujian = row[19] || 'Belum Ujian';
-          const fotoUrl = row[16] || '';
-          const fotoId = row[21] || '';
+          const verif = getCellValue(row, headers, 'status verifikasi', 'Belum Diverifikasi');
+          const ujian = getCellValue(row, headers, 'status ujian', 'Belum Ujian');
           return `
             <tr class="hover:bg-gray-50">
               <td class="px-4 py-3 text-sm">${i+1}</td>
-              <td class="px-4 py-3 text-sm font-medium">${row[2] || ''}</td>
-              <td class="px-4 py-3 text-sm font-mono">${row[3] || ''}</td>
-              <td class="px-4 py-3 text-sm">${row[7] || ''}</td>
-              <td class="px-4 py-3 text-sm">${row[8] || ''}</td>
-              <td class="px-4 py-3 text-sm">${row[14] || ''}</td>
-              <td class="px-4 py-3 text-sm">${row[15] || ''}</td>
+              <td class="px-4 py-3 text-sm font-medium">${getCellValue(row, headers, 'nama')}</td>
+              <td class="px-4 py-3 text-sm font-mono">${getCellValue(row, headers, 'nik')}</td>
+              <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'unit kerja')}</td>
+              <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jenis jabatan')}</td>
+              <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jabfung tujuan') || getCellValue(row, headers, 'jabatan')}</td>
+              <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jenjang tujuan') || getCellValue(row, headers, 'jenjang')}</td>
               <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs ${statusVerif[verif] || 'bg-gray-100 text-gray-800'}">${verif}</span></td>
               <td class="px-4 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs ${statusUjian[ujian] || 'bg-gray-100 text-gray-800'}">${ujian}</span></td>
               <td class="px-4 py-3">
-                <button onclick="viewDetailPeserta('${row[3]}')" class="text-blue-600 hover:text-blue-800 text-sm">Detail</button>
+                <button onclick="viewDetailPeserta('${getCellValue(row, headers, 'nik')}')" class="text-blue-600 hover:text-blue-800 text-sm">Detail</button>
               </td>
             </tr>
           `;
@@ -1188,25 +1235,30 @@
       if (useMockData) return; // Use static data for demo
       
       try {
-        const data = await fetchFromSheet('Bazzetting');
+        const result = await fetchFromSheet('Bazzetting');
+        const data = result.data;
+        const headers = result.headers;
+        
         if (data && data.length > 0) {
           // Get totals from last row (assuming it's the totals row)
           const lastRow = data[data.length - 1];
           const totalData = data.length - 1; // Exclude totals row
-          const totalKebutuhan = parseInt(lastRow[3]) || 0; // Kebutuhan column
-          const totalSisa = parseInt(lastRow[9]) || 0; // Sisa column
+          const colKebutuhan = getColIndex(headers, 'kebutuhan');
+          const colSisa = getColIndex(headers, 'sisa');
+          const totalKebutuhan = colKebutuhan >= 0 ? parseInt(lastRow[colKebutuhan]) || 0 : 0;
+          const totalSisa = colSisa >= 0 ? parseInt(lastRow[colSisa]) || 0 : 0;
           
           const tableHtml = data.map((row, i) => {
-            const instansi = row[0] || '';
-            const jenisJabfung = row[1] || '';
-            const jenjang = row[2] || '';
-            const kebutuhan = parseInt(row[3]) || 0;
-            const pemangku = row[4] || '';
-            const lowongan = row[5] || '';
-            const formasi = row[6] || '';
-            const pemangkuSekarang = row[7] || '';
-            const pemangkuDisetujui = row[8] || '';
-            const sisa = row[9] || '';
+            const instansi = getCellValue(row, headers, 'instansi');
+            const jenisJabfung = getCellValue(row, headers, 'jenis jabfung') || getCellValue(row, headers, 'jenis');
+            const jenjang = getCellValue(row, headers, 'jenjang');
+            const kebutuhan = parseInt(getCellValue(row, headers, 'kebutuhan', '0')) || 0;
+            const pemangku = getCellValue(row, headers, 'pemangku');
+            const lowongan = getCellValue(row, headers, 'lowongan');
+            const formasi = getCellValue(row, headers, 'formasi');
+            const pemangkuSekarang = getCellValue(row, headers, 'pemangku sekarang');
+            const pemangkuDisetujui = getCellValue(row, headers, 'disetujui');
+            const sisa = getCellValue(row, headers, 'sisa');
             
             // Check if this is a totals row (first column is empty or contains "TOTAL")
             const isTotalRow = !instansi || String(instansi).toUpperCase().includes('TOTAL') || String(instansi).toUpperCase().includes('JUMLAH');
@@ -1415,8 +1467,10 @@
       const content = document.getElementById('detailModalContent');
       
       try {
-        const data = await fetchFromSheet('Peserta');
-        const peserta = data.find(row => row[3] == nik);
+        const result = await fetchFromSheet('Peserta');
+        const data = result.data;
+        const headers = result.headers;
+        const peserta = data.find(row => getCellValue(row, headers, 'nik') == nik);
         
         if (!peserta) {
           alert('Data peserta tidak ditemukan');
@@ -1425,22 +1479,22 @@
         
         content.innerHTML = `
           <div class="grid grid-cols-2 gap-4">
-            <div><strong>NIK:</strong> ${peserta[3] || '-'}</div>
-            <div><strong>NIP:</strong> ${peserta[4] || '-'}</div>
-            <div><strong>Nama:</strong> ${peserta[2] || '-'}</div>
-            <div><strong>No. HP:</strong> ${peserta[5] || '-'}</div>
-            <div><strong>Unit Kerja:</strong> ${peserta[7] || '-'}</div>
-            <div><strong>Jenis Jabatan:</strong> ${peserta[8] || '-'}</div>
-            <div><strong>Jenjang Jabatan:</strong> ${peserta[9] || '-'}</div>
-            <div><strong>Pangkat:</strong> ${peserta[10] || '-'}</div>
-            <div><strong>Nilai PAK:</strong> ${peserta[11] || '-'}</div>
-            <div><strong>No. STR:</strong> ${peserta[12] || '-'}</div>
-            <div><strong>Kategori:</strong> ${peserta[13] || '-'}</div>
-            <div><strong>Jabfung Tujuan:</strong> ${peserta[14] || '-'}</div>
-            <div><strong>Jenjang Tujuan:</strong> ${peserta[15] || '-'}</div>
-            <div><strong>Status Verifikasi:</strong> ${peserta[18] || '-'}</div>
-            <div><strong>Status Ujian:</strong> ${peserta[19] || '-'}</div>
-            <div><strong>Rekomendasi:</strong> ${peserta[20] || '-'}</div>
+            <div><strong>NIK:</strong> ${getCellValue(peserta, headers, 'nik')}</div>
+            <div><strong>NIP:</strong> ${getCellValue(peserta, headers, 'nip')}</div>
+            <div><strong>Nama:</strong> ${getCellValue(peserta, headers, 'nama')}</div>
+            <div><strong>No. HP:</strong> ${getCellValue(peserta, headers, 'no hp') || getCellValue(peserta, headers, 'hp')}</div>
+            <div><strong>Unit Kerja:</strong> ${getCellValue(peserta, headers, 'unit kerja')}</div>
+            <div><strong>Jenis Jabatan:</strong> ${getCellValue(peserta, headers, 'jenis jabatan')}</div>
+            <div><strong>Jenjang Jabatan:</strong> ${getCellValue(peserta, headers, 'jenjang')}</div>
+            <div><strong>Pangkat:</strong> ${getCellValue(peserta, headers, 'pangkat') || getCellValue(peserta, headers, 'golongan')}</div>
+            <div><strong>Nilai PAK:</strong> ${getCellValue(peserta, headers, 'nilai pak')}</div>
+            <div><strong>No. STR:</strong> ${getCellValue(peserta, headers, 'no str')}</div>
+            <div><strong>Kategori:</strong> ${getCellValue(peserta, headers, 'kategori')}</div>
+            <div><strong>Jabfung Tujuan:</strong> ${getCellValue(peserta, headers, 'jabfung tujuan')}</div>
+            <div><strong>Jenjang Tujuan:</strong> ${getCellValue(peserta, headers, 'jenjang tujuan')}</div>
+            <div><strong>Status Verifikasi:</strong> ${getCellValue(peserta, headers, 'status verifikasi')}</div>
+            <div><strong>Status Ujian:</strong> ${getCellValue(peserta, headers, 'status ujian')}</div>
+            <div><strong>Rekomendasi:</strong> ${getCellValue(peserta, headers, 'keputusan') || getCellValue(peserta, headers, 'rekomendasi')}</div>
           </div>
         `;
         modal.classList.remove('hidden');
@@ -1453,15 +1507,24 @@
     // Debug - Show all columns from Peserta sheet
     async function debugShowAllColumns() {
       try {
-        const data = await fetchFromSheet('Peserta');
+        const result = await fetchFromSheet('Peserta');
+        const data = result.data;
+        const headers = result.headers;
+        
         if (data && data.length > 0) {
-          const headers = ['Index', 'Column 0', 'Column 1', 'Column 2', 'Column 3', 'Column 4', 'Column 5', 'Column 6', 'Column 7', 'Column 8', 'Column 9', 'Column 10', 'Column 11', 'Column 12', 'Column 13', 'Column 14', 'Column 15', 'Column 16', 'Column 17', 'Column 18', 'Column 19', 'Column 20', 'Column 21'];
-          let html = '<table border="1" style="border-collapse:collapse;width:100%">';
-          html += '<tr>' + headers.map(h => '<th style="padding:5px;background:#eee">' + h + '</th>').join('') + '</tr>';
-          data.slice(0, 5).forEach((row, i) => {
-            html += '<tr>';
-            html += '<td style="padding:5px">' + i + '</td>';
-            for (let j = 0; j <= 21; j++) {
+          // Show headers with their indices
+          let html = '<h3>Header Names:</h3><table border="1" style="border-collapse:collapse;width:100%;margin-bottom:20px">';
+          headers.forEach((h, i) => {
+            html += '<tr><td style="padding:5px;width:50px"><strong>' + i + '</strong></td><td style="padding:5px">' + h + '</td></tr>';
+          });
+          html += '</table>';
+          
+          // Show first 3 rows of data
+          html += '<h3>Data (3 rows):</h3><table border="1" style="border-collapse:collapse;width:100%">';
+          html += '<tr><th style="padding:5px;background:#eee">#</th>' + headers.map((h, i) => '<th style="padding:5px;background:#eee">' + i + ': ' + h + '</th>').join('') + '</tr>';
+          data.slice(0, 3).forEach((row, i) => {
+            html += '<tr><td style="padding:5px"><strong>' + i + '</strong></td>';
+            for (let j = 0; j < headers.length; j++) {
               html += '<td style="padding:5px">' + (row[j] || '') + '</td>';
             }
             html += '</tr>';
@@ -1469,7 +1532,7 @@
           html += '</table>';
           
           const win = window.open('', '_blank');
-          win.document.write('<html><head><title>Debug - Column Mapping</title></head><body><h2>5 Data Pertama dari Sheet Peserta</h2>' + html + '</body></html>');
+          win.document.write('<html><head><title>Debug - Column Mapping</title></head><body><h2>Struktur Kolom Sheet Peserta</h2>' + html + '</body></html>');
         } else {
           alert('Tidak ada data');
         }
