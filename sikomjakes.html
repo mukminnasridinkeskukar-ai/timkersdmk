@@ -632,7 +632,7 @@
     // Spreadsheet ID: 1Ox0u5WMWcpqk5u1rHvQ5x1doZn9787FZGf_zGRDVUOo
     // Drive Folder ID: 1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF
     
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzgbalc9v6lwHElsFK3KC-T2VJW09rsP7mmihjNzzD_YpxGHoiAyv6loGar8oEG2p5ukw/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6VNNq0SeMTr384Js1p8uBvH7H2YpFyDd2CDUmUXX_-l369y07rw8QRErqDG2yWtczCw/exec';
     const DRIVE_FOLDER_ID = '1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF'; // ID folder Google Drive untuk upload
 
     // Data akan diambil dari Google Sheets
@@ -753,16 +753,21 @@
       }
     }
     
-    // Fallback: Load dashboard stats from Peserta sheet
+    // Fallback: Load dashboard stats from Formulir sheet
     async function loadDashboardFromPeserta() {
       try {
-        const data = await fetchFromSheet('Peserta');
-        const formasiData = await fetchFromSheet('Formasi');
+        const result = await fetchFromSheet('Formulir');
+        const data = result.data;
+        const formasiResult = await fetchFromSheet('Formasi');
+        const formasiData = formasiResult.data;
         
         let lulus = 0, tidakLulus = 0, belumUjian = 0;
         if (data) {
           for (let i = 0; i < data.length; i++) {
-            const status = data[i][19]; // Status Ujian
+            // Find status column dynamically
+            const headers = result.headers;
+            const statusIdx = getColIndex(headers, 'status ujian');
+            const status = statusIdx >= 0 ? data[i][statusIdx] : data[i][19];
             if (status === 'Lulus') lulus++;
             else if (status === 'Tidak Lulus') tidakLulus++;
             else belumUjian++;
@@ -1008,7 +1013,7 @@
       
       try {
         tbody.innerHTML = '<tr><td colspan="16" class="px-6 py-8 text-center">Memuat data...</td></tr>';
-        const result = await fetchFromSheet('Peserta');
+        const result = await fetchFromSheet('Formulir');
         const data = result.data;
         const headers = result.headers;
         
@@ -1179,11 +1184,11 @@
     async function loadPesertaFromSheet(tbody) {
       try {
         tbody.innerHTML = '<tr><td colspan="11" class="px-6 py-4 text-center">Memuat data...</td></tr>';
-        const result = await fetchFromSheet('Peserta');
+        const result = await fetchFromSheet('Formulir');
         const data = result.data;
         const headers = result.headers;
-        console.log('Peserta data:', data);
-        console.log('Peserta headers:', headers);
+        console.log('Formulir data:', data);
+        console.log('Formulir headers:', headers);
         const statusVerif = { 'Belum Diverifikasi': 'bg-yellow-100 text-yellow-800', 'Lolos Administrasi': 'bg-green-100 text-green-800', 'Tidak Lolos': 'bg-red-100 text-red-800' };
         const statusUjian = { 'Belum Ujian': 'bg-gray-100 text-gray-800', 'Sedang Ujian': 'bg-blue-100 text-blue-800', 'Lulus': 'bg-green-100 text-green-800', 'Tidak Lulus': 'bg-red-100 text-red-800' };
         
@@ -1476,7 +1481,7 @@
       const content = document.getElementById('detailModalContent');
       
       try {
-        const result = await fetchFromSheet('Peserta');
+        const result = await fetchFromSheet('Formulir');
         const data = result.data;
         const headers = result.headers;
         const peserta = data.find(row => getCellValue(row, headers, 'nik') == nik);
@@ -1557,10 +1562,10 @@
       }
     }
 
-    // Debug - Show all columns from Peserta sheet
+    // Debug - Show all columns from Formulir sheet
     async function debugShowAllColumns() {
       try {
-        const result = await fetchFromSheet('Peserta');
+        const result = await fetchFromSheet('Formulir');
         const data = result.data;
         const headers = result.headers;
         
