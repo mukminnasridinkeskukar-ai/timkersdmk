@@ -38,6 +38,17 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    
+    /* Photo thumbnail hover effect */
+    .photo-thumbnail { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .photo-thumbnail:hover { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    
+    /* Mobile responsive table */
+    @media (max-width: 768px) {
+      .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .mobile-card { display: block; }
+      .mobile-hidden { display: none; }
+    }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -81,14 +92,14 @@
     </div>
   </div>
 
-  <!-- Photo Fullscreen Modal -->
-  <div id="photoModal" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-4">
-    <div class="relative max-w-4xl w-full">
-      <button onclick="closePhotoModal()" class="absolute -top-12 right-0 text-white hover:text-gray-300">
-        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+  <!-- Photo Fullscreen Modal with Lightbox -->
+  <div id="photoModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 hidden items-center justify-center p-4" onclick="if(event.target === this) closePhotoModal()">
+    <div class="relative max-w-5xl w-full">
+      <button onclick="closePhotoModal()" class="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors">
+        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
       </button>
-      <h3 id="photoModalTitle" class="text-white text-center text-xl font-bold mb-4"></h3>
-      <img id="photoModalImg" src="" alt="Foto Peserta" class="max-h-[80vh] mx-auto rounded-lg shadow-2xl">
+      <h3 id="photoModalTitle" class="text-white text-center text-xl font-bold mb-4 drop-shadow-lg"></h3>
+      <img id="photoModalImg" src="" alt="Foto Peserta" class="max-h-[80vh] mx-auto rounded-lg shadow-2xl object-contain">
     </div>
   </div>
 
@@ -540,30 +551,56 @@
 
         <!-- PESERTA PAGE -->
         <div id="page-peserta" class="page">
-          <div class="glass rounded-xl overflow-hidden">
-            <div class="p-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center gap-4">
-              <div class="relative flex-1 max-w-md">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <input type="text" placeholder="Cari NIK, nama, email..." class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+          <!-- Filter & Search Bar -->
+          <div class="glass rounded-xl p-4 mb-4">
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div class="flex flex-col md:flex-row gap-3 flex-1 w-full md:w-auto">
+                <!-- Search -->
+                <div class="relative flex-1 max-w-md">
+                  <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  <input type="text" id="searchPeserta" placeholder="Cari nama, NIK..." class="w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <!-- Filter Jabatan Fungsional -->
+                <select id="filterJabfung" class="px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[180px]">
+                  <option value="">Semua Jabfung</option>
+                  <option value="Perawat">Perawat</option>
+                  <option value="Bidan">Bidan</option>
+                  <option value="Dokter Gigi">Dokter Gigi</option>
+                  <option value="Apoteker">Apoteker</option>
+                  <option value="Nutrisionis">Nutrisionis</option>
+                  <option value="Radiografer">Radiografer</option>
+                </select>
+                <!-- Filter Status -->
+                <select id="filterStatus" class="px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white min-w-[180px]">
+                  <option value="">Semua Status</option>
+                  <option value="Terdaftar">Terdaftar</option>
+                  <option value="Lolos Administrasi">Lolos Administrasi</option>
+                  <option value="Tidak Lolos">Tidak Lolos</option>
+                  <option value="Lulus">Lulus UKOM</option>
+                  <option value="Tidak Lulus">Tidak Lulus</option>
+                </select>
               </div>
-              <select class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="">Semua Jabfung</option>
-                <option value="1">Dokter Gigi</option>
-                <option value="2">Perawat</option>
-                <option value="3">Bidan</option>
-              </select>
+              <!-- Export Button -->
+              <button onclick="exportPesertaExcel()" class="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm whitespace-nowrap">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Export Excel
+              </button>
             </div>
+          </div>
+
+          <!-- Table -->
+          <div class="glass rounded-xl overflow-hidden">
             <div class="overflow-x-auto">
               <table class="w-full">
-                <thead class="bg-blue-50">
+                <thead class="bg-gradient-to-r from-blue-50 to-teal-50">
                   <tr>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">No</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Nama</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Unit Kerja</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Nama Jabatan Fungsional Yang Dituju</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Jenjang Jabatan Tujuan</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Foto</th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-blue-800">Status</th>
+                    <th class="px-3 py-3 text-left text-xs font-bold text-blue-800 w-14">No</th>
+                    <th class="px-3 py-3 text-left text-xs font-bold text-blue-800 w-24">Foto</th>
+                    <th class="px-3 py-3 text-left text-xs font-bold text-blue-800 min-w-[160px]">Nama</th>
+                    <th class="px-3 py-3 text-left text-xs font-bold text-blue-800 min-w-[180px]">Unit Kerja</th>
+                    <th class="px-3 py-3 text-left text-xs font-bold text-blue-800 min-w-[150px]">Jabatan Fungsional</th>
+                    <th class="px-3 py-3 text-left text-xs font-bold text-blue-800 w-32">Jenjang</th>
+                    <th class="px-3 py-3 text-left text-xs font-bold text-blue-800 w-36">Status</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" id="pesertaTable">
@@ -571,6 +608,8 @@
                 </tbody>
               </table>
             </div>
+            <!-- Pagination -->
+            <div class="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3" id="pesertaPagination"></div>
           </div>
         </div>
 
@@ -636,7 +675,7 @@
     // Spreadsheet ID: 1Ox0u5WMWcpqk5u1rHvQ5x1doZn9787FZGf_zGRDVUOo
     // Drive Folder ID: 1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF
     
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxqbAGOsr6DjLTVWS6kJ_aTICciExPCOgtF7G5AQDTCZiaROcBR4mSNwe5d2zenAUBeYQ/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzgbalc9v6lwHElsFK3KC-T2VJW09rsP7mmihjNzzD_YpxGHoiAyv6loGar8oEG2p5ukw/exec';
     const DRIVE_FOLDER_ID = '1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF'; // ID folder Google Drive untuk upload
 
     // Data akan diambil dari Google Sheets
@@ -1164,22 +1203,315 @@
       }
     }
 
+    let pesertaCurrentPage = 1;
+    let pesertaItemsPerPage = 10;
+    let pesertaFilteredData = [];
+    let pesertaAllData = [];
+    let pesertaHeaders = [];
+
+    // Initialize search and filter event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+      const searchInput = document.getElementById('searchPeserta');
+      const filterJabfung = document.getElementById('filterJabfung');
+      const filterStatus = document.getElementById('filterStatus');
+      
+      if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+          pesertaCurrentPage = 1;
+          renderPesertaTable();
+        });
+      }
+      
+      if (filterJabfung) {
+        filterJabfung.addEventListener('change', function(e) {
+          pesertaCurrentPage = 1;
+          renderPesertaTable();
+        });
+      }
+      
+      if (filterStatus) {
+        filterStatus.addEventListener('change', function(e) {
+          pesertaCurrentPage = 1;
+          renderPesertaTable();
+        });
+      }
+    });
+
+    function getFilteredPesertaData() {
+      const searchInput = document.getElementById('searchPeserta');
+      const filterJabfung = document.getElementById('filterJabfung');
+      const filterStatus = document.getElementById('filterStatus');
+      
+      const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+      const jabfungFilter = filterJabfung ? filterJabfung.value : '';
+      const statusFilter = filterStatus ? filterStatus.value : '';
+      
+      return pesertaAllData.filter(row => {
+        const nama = getCellValue(row, pesertaHeaders, 'nama', '').toLowerCase();
+        const nik = getCellValue(row, pesertaHeaders, 'nik', '').toLowerCase();
+        const unitKerja = getCellValue(row, pesertaHeaders, 'unit kerja', '').toLowerCase();
+        const jabfung = getCellValue(row, pesertaHeaders, 'jabfung tujuan', getCellValue(row, pesertaHeaders, 'jabatan', '')).toLowerCase();
+        
+        // Combined status from verification and exam
+        const verif = getCellValue(row, pesertaHeaders, 'status verifikasi', '');
+        const ujian = getCellValue(row, pesertaHeaders, 'status ujian', '');
+        const keputusan = getCellValue(row, pesertaHeaders, 'keputusan', '');
+        
+        // Determine effective status
+        let effectiveStatus = 'Terdaftar';
+        if (verif === 'Tidak Lolos' || keputusan === 'Tidak Direkomendasikan') {
+          effectiveStatus = 'Tidak Lolos';
+        } else if (ujian === 'Lulus' || keputusan === 'Direkomendasikan') {
+          effectiveStatus = 'Lulus';
+        } else if (ujian === 'Tidak Lulus') {
+          effectiveStatus = 'Tidak Lulus';
+        } else if (ujian === 'Sedang Ujian') {
+          effectiveStatus = 'Proses';
+        } else if (verif === 'Lolos Administrasi') {
+          effectiveStatus = 'Lolos Administrasi';
+        }
+        
+        const matchesSearch = !searchTerm || 
+          nama.includes(searchTerm) || 
+          nik.includes(searchTerm) || 
+          unitKerja.includes(searchTerm);
+        
+        const matchesJabfung = !jabfungFilter || jabfung.toLowerCase().includes(jabfungFilter.toLowerCase());
+        
+        const matchesStatus = !statusFilter || effectiveStatus.toLowerCase().includes(statusFilter.toLowerCase());
+        
+        return matchesSearch && matchesJabfung && matchesStatus;
+      });
+    }
+
+    function renderPesertaTable() {
+      const tbody = document.getElementById('pesertaTable');
+      if (!tbody) return;
+      
+      pesertaFilteredData = getFilteredPesertaData();
+      
+      const totalItems = pesertaFilteredData.length;
+      const totalPages = Math.ceil(totalItems / pesertaItemsPerPage);
+      const startIndex = (pesertaCurrentPage - 1) * pesertaItemsPerPage;
+      const endIndex = Math.min(startIndex + pesertaItemsPerPage, totalItems);
+      const pageData = pesertaFilteredData.slice(startIndex, endIndex);
+      
+      if (pageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Tidak ada data yang cocok</td></tr>';
+        document.getElementById('pesertaPagination').innerHTML = '';
+        return;
+      }
+      
+      // Status colors mapping
+      const statusColors = {
+        'Terdaftar': 'bg-blue-100 text-blue-800',
+        'Lolos Administrasi': 'bg-yellow-100 text-yellow-800',
+        'Tidak Lolos': 'bg-red-100 text-red-800',
+        'Lulus': 'bg-green-100 text-green-800',
+        'Tidak Lulus': 'bg-red-100 text-red-800',
+        'Sedang Ujian': 'bg-purple-100 text-purple-800',
+        'Proses': 'bg-orange-100 text-orange-800'
+      };
+      
+      tbody.innerHTML = pageData.map((row, i) => {
+        const verif = getCellValue(row, pesertaHeaders, 'status verifikasi', 'Terdaftar');
+        const ujian = getCellValue(row, pesertaHeaders, 'status ujian', '');
+        const keputusan = getCellValue(row, pesertaHeaders, 'keputusan', '');
+        
+        // Determine effective status for display
+        let effectiveStatus = 'Terdaftar';
+        if (verif === 'Tidak Lolos' || keputusan === 'Tidak Direkomendasikan') {
+          effectiveStatus = 'Tidak Lolos';
+        } else if (ujian === 'Lulus' || keputusan === 'Direkomendasikan') {
+          effectiveStatus = 'Lulus';
+        } else if (ujian === 'Tidak Lulus') {
+          effectiveStatus = 'Tidak Lulus';
+        } else if (ujian === 'Sedang Ujian') {
+          effectiveStatus = 'Sedang Ujian';
+        } else if (verif === 'Lolos Administrasi') {
+          effectiveStatus = 'Lolos Administrasi';
+        }
+        
+        const fotoUrl = getCellValue(row, pesertaHeaders, 'upload foto') || getCellValue(row, pesertaHeaders, 'foto') || getCellValue(row, pesertaHeaders, 'foto url');
+        const fotoId = getCellValue(row, pesertaHeaders, 'id foto drive') || getCellValue(row, pesertaHeaders, 'foto id');
+        const nama = getCellValue(row, pesertaHeaders, 'nama', '');
+        
+        // Get thumbnail URL
+        let thumbUrl = '';
+        let fullPhotoUrl = '';
+        if (fotoUrl && fotoUrl.includes('drive.google.com')) {
+          const fileIdMatch = fotoUrl.match(/\/d\/([^\/]+)/);
+          if (fileIdMatch) {
+            thumbUrl = 'https://drive.google.com/thumbnail?sz=w100-h120&id=' + fileIdMatch[1];
+            fullPhotoUrl = 'https://drive.google.com/uc?export=view&id=' + fileIdMatch[1];
+          }
+        } else if (fotoId) {
+          thumbUrl = 'https://drive.google.com/thumbnail?sz=w100-h120&id=' + fotoId;
+          fullPhotoUrl = 'https://drive.google.com/uc?export=view&id=' + fotoId;
+        }
+        
+        const unitKerja = getCellValue(row, pesertaHeaders, 'unit kerja', '-');
+        const jabfung = getCellValue(row, pesertaHeaders, 'jabfung tujuan') || getCellValue(row, pesertaHeaders, 'jabatan', '-');
+        const jenjang = getCellValue(row, pesertaHeaders, 'jenjang tujuan', '-');
+        
+        const rowNumber = startIndex + i + 1;
+        
+        return `
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-3 py-3 text-sm font-medium text-gray-600">${rowNumber}</td>
+            <td class="px-3 py-3">
+              ${thumbUrl ? 
+                `<img src="${thumbUrl}" class="w-14 h-16 object-cover rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:scale-150 transition-transform duration-200" 
+                      alt="Foto ${nama}"
+                      onclick="showLightbox('${fullPhotoUrl}', '${nama.replace(/'/g, "\\'")}')" 
+                      style="cursor:pointer"
+                      onerror="this.style.display='none'">` :
+                `<div class="w-14 h-16 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-xs">No Foto</div>`
+              }
+            </td>
+            <td class="px-3 py-3 text-sm font-semibold text-gray-800">${nama}</td>
+            <td class="px-3 py-3 text-sm text-gray-600">${unitKerja}</td>
+            <td class="px-3 py-3"><span class="px-2 py-1 rounded-md text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">${jabfung}</span></td>
+            <td class="px-3 py-3"><span class="px-2 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">${jenjang}</span></td>
+            <td class="px-3 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[effectiveStatus] || 'bg-gray-100 text-gray-800'}">${effectiveStatus}</span></td>
+          </tr>
+        `;
+      }).join('');
+      
+      // Render pagination
+      renderPesertaPagination(totalPages, totalItems);
+    }
+
+    function renderPesertaPagination(totalPages, totalItems) {
+      const pagination = document.getElementById('pesertaPagination');
+      if (!pagination) return;
+      
+      if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+      }
+      
+      let paginationHtml = `
+        <div class="text-sm text-gray-600">
+          Menampilkan ${(pesertaCurrentPage - 1) * pesertaItemsPerPage + 1}-${Math.min(pesertaCurrentPage * pesertaItemsPerPage, totalItems)} dari ${totalItems} data
+        </div>
+        <div class="flex gap-1">
+      `;
+      
+      // Previous button
+      paginationHtml += `
+        <button onclick="changePesertaPage(${pesertaCurrentPage - 1})" 
+                class="px-3 py-1.5 rounded-lg text-sm ${pesertaCurrentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-300 hover:bg-gray-50'}"
+                ${pesertaCurrentPage === 1 ? 'disabled' : ''}>
+          ←
+        </button>
+      `;
+      
+      // Page numbers
+      const maxVisiblePages = 5;
+      let startPage = Math.max(1, pesertaCurrentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      if (startPage > 1) {
+        paginationHtml += `<button onclick="changePesertaPage(1)" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-gray-300 hover:bg-gray-50">1</button>`;
+        if (startPage > 2) {
+          paginationHtml += `<span class="px-2 py-1.5 text-gray-400">...</span>`;
+        }
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        paginationHtml += `
+          <button onclick="changePesertaPage(${i})" 
+                  class="px-3 py-1.5 rounded-lg text-sm ${pesertaCurrentPage === i ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300 hover:bg-gray-50'}">
+            ${i}
+          </button>
+        `;
+      }
+      
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          paginationHtml += `<span class="px-2 py-1.5 text-gray-400">...</span>`;
+        }
+        paginationHtml += `<button onclick="changePesertaPage(${totalPages})" class="px-3 py-1.5 rounded-lg text-sm bg-white border border-gray-300 hover:bg-gray-50">${totalPages}</button>`;
+      }
+      
+      // Next button
+      paginationHtml += `
+        <button onclick="changePesertaPage(${pesertaCurrentPage + 1})" 
+                class="px-3 py-1.5 rounded-lg text-sm ${pesertaCurrentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border border-gray-300 hover:bg-gray-50'}"
+                ${pesertaCurrentPage === totalPages ? 'disabled' : ''}>
+          →
+        </button>
+      `;
+      
+      paginationHtml += `</div>`;
+      pagination.innerHTML = paginationHtml;
+    }
+
+    function changePesertaPage(page) {
+      const totalPages = Math.ceil(pesertaFilteredData.length / pesertaItemsPerPage);
+      if (page < 1 || page > totalPages) return;
+      pesertaCurrentPage = page;
+      renderPesertaTable();
+      // Scroll to table
+      document.getElementById('page-peserta')?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Lightbox function
+    function showLightbox(photoUrl, nama) {
+      if (!photoUrl) return;
+      const modal = document.getElementById('photoModal');
+      const img = document.getElementById('photoModalImg');
+      const title = document.getElementById('photoModalTitle');
+      
+      // Set full-size photo URL
+      if (photoUrl.includes('drive.google.com')) {
+        if (!photoUrl.includes('uc?export=view')) {
+          const fileIdMatch = photoUrl.match(/\/d\/([^\/]+)/);
+          if (fileIdMatch) {
+            photoUrl = 'https://drive.google.com/uc?export=view&id=' + fileIdMatch[1];
+          }
+        }
+      }
+      
+      img.src = photoUrl;
+      title.textContent = nama || 'Foto Peserta';
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
     function loadPesertaTable() {
       const tbody = document.getElementById('pesertaTable');
-      const statusUjian = { 'Belum Ujian': 'bg-gray-100 text-gray-800', 'Sedang Ujian': 'bg-blue-100 text-blue-800', 'Lulus': 'bg-green-100 text-green-800', 'Tidak Lulus': 'bg-red-100 text-red-800' };
+      const statusColors = {
+        'Terdaftar': 'bg-blue-100 text-blue-800',
+        'Lolos Administrasi': 'bg-yellow-100 text-yellow-800',
+        'Tidak Lolos': 'bg-red-100 text-red-800',
+        'Lulus': 'bg-green-100 text-green-800',
+        'Tidak Lulus': 'bg-red-100 text-red-800',
+        'Sedang Ujian': 'bg-purple-100 text-purple-800',
+        'Proses': 'bg-orange-100 text-orange-800'
+      };
+      
+      // Initialize demo data as all data
+      pesertaAllData = demoPeserta.map(item => ({
+        'nama': item.nama,
+        'nik': item.nik || '',
+        'unit kerja': item.unit_kerja,
+        'jabfung tujuan': item.jabfung,
+        'jenjang tujuan': item.jenjang,
+        'status verifikasi': item.status,
+        'status ujian': item.status === 'Lulus' ? 'Lulus' : item.status === 'Tidak Lulus' ? 'Tidak Lulus' : '',
+        'foto': item.foto || ''
+      }));
+      pesertaHeaders = ['nama', 'nik', 'unit kerja', 'jabfung tujuan', 'jenjang tujuan', 'status verifikasi', 'status ujian', 'foto'];
       
       if (useMockData) {
-        tbody.innerHTML = demoPeserta.map((item, i) => `
-          <tr class="hover:bg-gray-50">
-            <td class="px-6 py-4 text-sm">${i+1}</td>
-            <td class="px-6 py-4 text-sm font-medium">${item.nama}</td>
-            <td class="px-6 py-4 text-sm">${item.unit_kerja}</td>
-            <td class="px-6 py-4 text-sm">${item.jabfung}</td>
-            <td class="px-6 py-4 text-sm">${item.jenjang}</td>
-            <td class="px-6 py-4 text-sm">${item.foto ? '<a href="' + item.foto + '" target="_blank" class="text-blue-600 hover:underline">Lihat Foto</a>' : '-'}</td>
-            <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs ${statusUjian[item.status] || 'bg-gray-100 text-gray-800'}">${item.status}</span></td>
-          </tr>
-        `).join('');
+        // Use filtered data with search/filter
+        renderPesertaTable();
       } else {
         loadPesertaFromSheet(tbody);
       }
@@ -1187,64 +1519,49 @@
     
     async function loadPesertaFromSheet(tbody) {
       try {
-        tbody.innerHTML = '<tr><td colspan="11" class="px-6 py-4 text-center">Memuat data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">Memuat data...</td></tr>';
         const result = await fetchFromSheet('Formulir');
         const data = result.data;
         const headers = result.headers;
         console.log('Formulir data:', data);
         console.log('Formulir headers:', headers);
-        const statusVerif = { 'Belum Diverifikasi': 'bg-yellow-100 text-yellow-800', 'Lolos Administrasi': 'bg-green-100 text-green-800', 'Tidak Lolos': 'bg-red-100 text-red-800' };
-        const statusUjian = { 'Belum Ujian': 'bg-gray-100 text-gray-800', 'Sedang Ujian': 'bg-blue-100 text-blue-800', 'Lulus': 'bg-green-100 text-green-800', 'Tidak Lulus': 'bg-red-100 text-red-800' };
+        
+        // Store data globally for filtering
+        pesertaAllData = data;
+        pesertaHeaders = headers;
+        
+        // Populate Jabfung filter dynamically
+        const jabfungSet = new Set();
+        data.forEach(row => {
+          const jabfung = getCellValue(row, headers, 'jabfung tujuan') || getCellValue(row, headers, 'jabatan', '');
+          if (jabfung) jabfungSet.add(jabfung);
+        });
+        
+        const filterJabfung = document.getElementById('filterJabfung');
+        if (filterJabfung && jabfungSet.size > 0) {
+          // Keep first option
+          const firstOption = filterJabfung.options[0];
+          filterJabfung.innerHTML = '';
+          filterJabfung.add(firstOption.cloneNode(true));
+          // Add dynamic options
+          Array.from(jabungSet).sort().forEach(jabfung => {
+            const option = document.createElement('option');
+            option.value = jabfung;
+            option.textContent = jabfung;
+            filterJabfung.add(option);
+          });
+        }
         
         if (!data || data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="11" class="px-6 py-4 text-center text-gray-500">Data kosong atau sheet tidak ditemukan</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">Data kosong atau sheet tidak ditemukan</td></tr>';
           return;
         }
         
-        tbody.innerHTML = data.map((row, i) => {
-          const verif = getCellValue(row, headers, 'status verifikasi', 'Belum Diverifikasi');
-          const ujian = getCellValue(row, headers, 'status ujian', 'Belum Ujian');
-          const fotoUrl = getCellValue(row, headers, 'upload foto') || getCellValue(row, headers, 'foto') || getCellValue(row, headers, 'foto url');
-          const fotoId = getCellValue(row, headers, 'id foto drive') || getCellValue(row, headers, 'foto id');
-          
-          // Get thumbnail URL
-          let thumbUrl = '';
-          if (fotoUrl && fotoUrl.includes('drive.google.com')) {
-            const fileIdMatch = fotoUrl.match(/\/d\/([^\/]+)/);
-            if (fileIdMatch) {
-              thumbUrl = 'https://drive.google.com/thumbnail?sz=w100-h120&id=' + fileIdMatch[1];
-            }
-          } else if (fotoId) {
-            thumbUrl = 'https://drive.google.com/thumbnail?sz=w100-h120&id=' + fotoId;
-          }
-          
-          return `
-            <tr class="hover:bg-gray-50">
-              <td class="px-3 py-3 text-sm">${i+1}</td>
-              <td class="px-3 py-3">
-                ${thumbUrl ? 
-                  `<img src="${thumbUrl}" class="w-10 h-12 object-cover rounded border" alt="foto"
-                       onclick="viewDetailPeserta('${getCellValue(row, headers, 'nik')}')" style="cursor:pointer"
-                       onerror="this.style.display='none'">` :
-                  `<div class="w-10 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">No Foto</div>`
-                }
-              </td>
-              <td class="px-3 py-3 text-sm font-medium">${getCellValue(row, headers, 'nama')}</td>
-              <td class="px-3 py-3 text-sm font-mono">${getCellValue(row, headers, 'nik')}</td>
-              <td class="px-3 py-3 text-sm">${getCellValue(row, headers, 'unit kerja')}</td>
-              <td class="px-3 py-3 text-sm">${getCellValue(row, headers, 'jabfung tujuan') || getCellValue(row, headers, 'jabatan')}</td>
-              <td class="px-3 py-3 text-sm">${getCellValue(row, headers, 'jenjang tujuan')}</td>
-              <td class="px-3 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs ${statusVerif[verif] || 'bg-gray-100 text-gray-800'}">${verif}</span></td>
-              <td class="px-3 py-3 text-sm"><span class="px-2 py-1 rounded-full text-xs ${statusUjian[ujian] || 'bg-gray-100 text-gray-800'}">${ujian}</span></td>
-              <td class="px-3 py-3">
-                <button onclick="viewDetailPeserta('${getCellValue(row, headers, 'nik')}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Lihat Detail</button>
-              </td>
-            </tr>
-          `;
-        }).join('');
+        // Render the table with filtering and pagination
+        renderPesertaTable();
       } catch (error) {
         console.error('Error loading peserta:', error);
-        tbody.innerHTML = '<tr><td colspan="11" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
       }
     }
     
@@ -1479,18 +1796,21 @@
       }
     });
 
-    // Show Photo Modal - Fullscreen
+    // Show Photo Modal - Fullscreen with Lightbox
     function showPhotoModal(photoUrl, nama) {
       const modal = document.getElementById('photoModal');
       const img = document.getElementById('photoModalImg');
       const title = document.getElementById('photoModalTitle');
       
+      // Convert Drive URL to direct link if needed
       if (photoUrl && photoUrl.includes('drive.google.com')) {
-        img.src = photoUrl;
-      } else if (photoUrl) {
-        img.src = photoUrl;
+        const fileIdMatch = photoUrl.match(/\/d\/([^\/]+)/);
+        if (fileIdMatch) {
+          photoUrl = 'https://drive.google.com/uc?export=view&id=' + fileIdMatch[1];
+        }
       }
       
+      img.src = photoUrl;
       title.textContent = nama;
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -1500,6 +1820,64 @@
       const modal = document.getElementById('photoModal');
       modal.classList.add('hidden');
       modal.classList.remove('flex');
+    }
+    
+    // Export to Excel - exports filtered data
+    function exportPesertaExcel() {
+      const dataToExport = getFilteredPesertaData();
+      
+      if (!dataToExport || dataToExport.length === 0) {
+        alert('Tidak ada data untuk diekspor');
+        return;
+      }
+      
+      // Create CSV content
+      const headers = ['No', 'Nama', 'NIK', 'Unit Kerja', 'Jabatan Fungsional', 'Jenjang', 'Status'];
+      const rows = dataToExport.map((row, i) => {
+        const verif = getCellValue(row, pesertaHeaders, 'status verifikasi', 'Terdaftar');
+        const ujian = getCellValue(row, pesertaHeaders, 'status ujian', '');
+        const keputusan = getCellValue(row, pesertaHeaders, 'keputusan', '');
+        
+        let effectiveStatus = 'Terdaftar';
+        if (verif === 'Tidak Lolos' || keputusan === 'Tidak Direkomendasikan') {
+          effectiveStatus = 'Tidak Lolos';
+        } else if (ujian === 'Lulus' || keputusan === 'Direkomendasikan') {
+          effectiveStatus = 'Lulus';
+        } else if (ujian === 'Tidak Lulus') {
+          effectiveStatus = 'Tidak Lulus';
+        } else if (ujian === 'Sedang Ujian') {
+          effectiveStatus = 'Sedang Ujian';
+        } else if (verif === 'Lolos Administrasi') {
+          effectiveStatus = 'Lolos Administrasi';
+        }
+        
+        return [
+          i + 1,
+          getCellValue(row, pesertaHeaders, 'nama', ''),
+          getCellValue(row, pesertaHeaders, 'nik', ''),
+          getCellValue(row, pesertaHeaders, 'unit kerja', ''),
+          getCellValue(row, pesertaHeaders, 'jabfung tujuan') || getCellValue(row, pesertaHeaders, 'jabatan', ''),
+          getCellValue(row, pesertaHeaders, 'jenjang tujuan', ''),
+          effectiveStatus
+        ];
+      });
+      
+      // Convert to CSV
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
+      ].join('\n');
+      
+      // Download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'Daftar_Peserta_UKOM_' + new Date().toISOString().split('T')[0] + '.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
     async function viewDetailPeserta(nik) {
       const modal = document.getElementById('detailModal');
