@@ -143,7 +143,12 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .animate-scale-in { animation: scaleIn 0.2s ease-out; }
         
         .sidebar { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         
@@ -506,7 +511,7 @@
                         </div>
                         <transition name="fade">
                             <div v-if="sidebarOpen" class="overflow-hidden">
-                                <h1 class="font-bold text-xl whitespace-nowrap">SIREK V1.1</h1>
+                                <h1 class="font-bold text-xl whitespace-nowrap">SIREK</h1>
                                 <p class="text-xs text-blue-200 whitespace-nowrap">Enterprise v1.1</p>
                             </div>
                         </transition>
@@ -582,7 +587,7 @@
                             <i class="fas fa-bars"></i>
                         </button>
                         <div>
-                            <h1 class="font-bold text-lg text-medical-600">SIREK V1.1</h1>
+                            <h1 class="font-bold text-lg text-medical-600">SIREK</h1>
                             <p class="text-xs text-gray-500">Enterprise v1.1</p>
                         </div>
                     </div>
@@ -890,110 +895,165 @@
                                 <i class="fas fa-user-tie text-medical-500 mr-2"></i>
                                 Profil Calon Karyawan
                             </h2>
-                            <p class="text-gray-500 dark:text-gray-400">Cari dan lihat profil lengkap pelamar</p>
+                            <p class="text-gray-500 dark:text-gray-400">Data lengkap pelamar berdasarkan formasi</p>
                         </div>
                         
-                        <!-- Search -->
-                        <div class="glass-card rounded-2xl p-6 mb-6">
-                            <div class="flex flex-col md:flex-row gap-4">
-                                <div class="flex-1">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cari berdasarkan Nama atau NIK</label>
-                                    <input v-model="profilSearch" type="text" class="form-input" placeholder="Masukkan nama atau NIK" @keyup.enter="searchProfil">
-                                </div>
-                                <div class="flex items-end">
-                                    <button @click="searchProfil" :disabled="profilLoading" class="btn btn-primary">
-                                        <span v-if="profilLoading" class="spinner"></span>
-                                        <i v-else class="fas fa-search"></i>
-                                        Cari
-                                    </button>
-                                </div>
+                        <!-- Tabel Profil Pelamar -->
+                        <div class="glass-card rounded-2xl p-6">
+                            <!-- Loading -->
+                            <div v-if="profilListLoading" class="text-center py-12">
+                                <div class="spinner-large mx-auto"></div>
+                                <p class="mt-4 text-gray-500">Memuat data...</p>
+                            </div>
+                            
+                            <!-- Table -->
+                            <div v-else class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="bg-gradient-to-r from-medical-500 to-medical-700 text-white">
+                                            <th class="px-4 py-3 text-left rounded-l-lg">No</th>
+                                            <th class="px-4 py-3 text-left">Foto</th>
+                                            <th class="px-4 py-3 text-left">Nama</th>
+                                            <th class="px-4 py-3 text-left">Jenis Kelamin</th>
+                                            <th class="px-4 py-3 text-left">Pendidikan</th>
+                                            <th class="px-4 py-3 text-left">IPK</th>
+                                            <th class="px-4 py-3 text-left rounded-r-lg">Formasi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(pelamar, index) in profilList" :key="index" 
+                                            @click="openPelamarLightbox(pelamar)"
+                                            class="hover:bg-medical-50 dark:hover:bg-slate-700 cursor-pointer transition-colors border-b border-gray-100 dark:border-gray-700">
+                                            <td class="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{{ index + 1 }}</td>
+                                            <td class="px-4 py-3">
+                                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-medical-400 to-medical-600 flex items-center justify-center text-white font-bold">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <div>
+                                                    <p class="font-semibold text-gray-800 dark:text-white">{{ pelamar.Nama || pelamar.nama }}</p>
+                                                    <p class="text-xs text-gray-500">{{ pelamar.NIK || pelamar.nik }}</p>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ pelamar['Jenis Kelamin'] || pelamar.jenisKelamin }}</td>
+                                            <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ pelamar.Pendidikan || pelamar.pendidikan }}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="badge bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                                    {{ pelamar.IPK || pelamar.ipk || '-' }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <span class="badge bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                                    {{ pelamar.Formasi || pelamar.formasi }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr v-if="profilList.length === 0">
+                                            <td colspan="7" class="px-4 py-12 text-center text-gray-500">
+                                                <i class="fas fa-user-slash text-4xl mb-3"></i>
+                                                <p>Belum ada data pelamar</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
+                    </div>
+                    
+                    <!-- PELAMAR LIGHTBOX POPUP -->
+                    <div v-if="pelamarLightboxOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        <!-- Backdrop -->
+                        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="closePelamarLightbox"></div>
                         
-                        <!-- Profil Detail -->
-                        <div v-if="profilResult" class="glass-card rounded-2xl p-6 animate-fade-in">
-                            <div class="flex flex-col md:flex-row gap-6">
-                                <!-- Left Column - Photo & Basic Info -->
-                                <div class="md:w-1/3">
-                                    <div class="text-center">
-                                        <div class="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-medical-400 to-medical-600 flex items-center justify-center shadow-lg mb-4">
-                                            <i class="fas fa-user text-4xl text-white"></i>
-                                        </div>
-                                        <h3 class="text-xl font-bold text-gray-800 dark:text-white">{{ profilResult.nama }}</h3>
-                                        <p class="text-gray-500">{{ profilResult.nik }}</p>
-                                        <span class="badge mt-2" :class="getStatusBadgeClass(profilResult.hasilAkhir)">
-                                            {{ profilResult.hasilAkhir || 'MENUNGGU' }}
-                                        </span>
-                                    </div>
+                        <!-- Content -->
+                        <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
+                            <!-- Header -->
+                            <div class="sticky top-0 bg-gradient-to-r from-medical-500 to-medical-700 text-white p-6 rounded-t-2xl flex justify-between items-center">
+                                <div>
+                                    <h3 class="text-xl font-bold">Detail Pelamar</h3>
+                                    <p class="text-sm text-white/80">Data pribadi lengkap</p>
                                 </div>
-                                
-                                <!-- Right Column - Details -->
-                                <div class="md:w-2/3">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">Tempat, Tanggal Lahir</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.tempatLahir }}, {{ profilResult.tanggalLahir }}</p>
+                                <button @click="closePelamarLightbox" class="p-2 hover:bg-white/20 rounded-full transition">
+                                    <i class="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Body -->
+                            <div class="p-6">
+                                <div class="flex flex-col md:flex-row gap-6">
+                                    <!-- Foto -->
+                                    <div class="md:w-1/3 text-center">
+                                        <div class="w-40 h-40 mx-auto rounded-full bg-gradient-to-br from-medical-400 to-medical-600 flex items-center justify-center shadow-lg mb-4">
+                                            <i class="fas fa-user text-5xl text-white"></i>
                                         </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">Jenis Kelamin</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.jenisKelamin }}</p>
+                                        <p class="text-sm text-gray-500">Foto Pelamar</p>
+                                    </div>
+                                    
+                                    <!-- Data -->
+                                    <div class="md:w-2/3 space-y-4">
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Nama Lengkap</p>
+                                            <p class="font-bold text-gray-800 dark:text-white text-lg">{{ selectedPelamar?.Nama || selectedPelamar?.nama }}</p>
                                         </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">No. HP/Whatsapp</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.noHP }}</p>
+                                        
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">NIK</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.NIK || selectedPelamar?.nik }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Jenis Kelamin</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.['Jenis Kelamin'] || selectedPelamar?.jenisKelamin }}</p>
+                                            </div>
                                         </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">Email</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.email }}</p>
+                                        
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Pendidikan</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.Pendidikan || selectedPelamar?.pendidikan }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">IPK</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.IPK || selectedPelamar?.ipk || '-' }}</p>
+                                            </div>
                                         </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
+                                        
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
                                             <p class="text-sm text-gray-500 mb-1">Formasi</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.formasi }}</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.Formasi || selectedPelamar?.formasi }}</p>
                                         </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">Pendidikan</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.pendidikan }}</p>
+                                        
+                                        <div v-if="selectedPelamar?.['Tempat Lahir'] || selectedPelamar?.tempatLahir" class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Tempat, Tanggal Lahir</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.['Tempat Lahir'] || selectedPelamar?.tempatLahir }}, {{ selectedPelamar?.['Tanggal Lahir'] || selectedPelamar?.tanggalLahir }}</p>
                                         </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl md:col-span-2">
+                                        
+                                        <div v-if="selectedPelamar?.['No HP/Whatsapp'] || selectedPelamar?.noHP" class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">No. HP/Whatsapp</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.['No HP/Whatsapp'] || selectedPelamar?.noHP }}</p>
+                                        </div>
+                                        
+                                        <div v-if="selectedPelamar?.Email || selectedPelamar?.email" class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Email</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.Email || selectedPelamar?.email }}</p>
+                                        </div>
+                                        
+                                        <div v-if="selectedPelamar?.['Alamat Sesuai KTP'] || selectedPelamar?.alamatKtp" class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
                                             <p class="text-sm text-gray-500 mb-1">Alamat (Sesuai KTP)</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ profilResult.alamatKTP }}</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedPelamar?.['Alamat Sesuai KTP'] || selectedPelamar?.alamatKtp }}</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             
-                            <!-- Documents Section -->
-                            <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                                <h4 class="font-bold text-gray-800 dark:text-white mb-4">
-                                    <i class="fas fa-folder-open text-medical-500 mr-2"></i>
-                                    Dokumen Pelamar
-                                </h4>
-                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <button @click="openLightbox(profilResult.linkFoto)" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition text-center">
-                                        <i class="fas fa-camera text-2xl text-medical-500 mb-2"></i>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400">Foto</p>
-                                    </button>
-                                    <button @click="openLightbox(profilResult.linkSuratLamaran)" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition text-center">
-                                        <i class="fas fa-envelope text-2xl text-purple-500 mb-2"></i>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400">Surat Lamaran</p>
-                                    </button>
-                                    <button @click="openLightbox(profilResult.linkCV)" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition text-center">
-                                        <i class="fas fa-file-alt text-2xl text-green-500 mb-2"></i>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400">CV</p>
-                                    </button>
-                                    <button @click="openLightbox(profilResult.linkDokumen)" class="p-4 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition text-center">
-                                        <i class="fas fa-file-pdf text-2xl text-red-500 mb-2"></i>
-                                        <p class="text-sm text-gray-600 dark:text-gray-400">Dokumen Gabungan</p>
-                                    </button>
-                                </div>
+                            <!-- Footer -->
+                            <div class="sticky bottom-0 bg-gray-50 dark:bg-slate-800 p-4 rounded-b-2xl flex justify-end gap-3">
+                                <button @click="closePelamarLightbox" class="btn btn-secondary">
+                                    <i class="fas fa-times mr-2"></i>
+                                    Tutup
+                                </button>
                             </div>
-                        </div>
-                        
-                        <!-- No Result -->
-                        <div v-if="profilSearched && !profilResult" class="glass-card rounded-2xl p-12 text-center">
-                            <i class="fas fa-user-slash text-6xl text-gray-300 mb-4"></i>
-                            <h3 class="text-xl font-bold text-gray-700 dark:text-gray-300">Profil Tidak Ditemukan</h3>
-                            <p class="text-gray-500 dark:text-gray-400 mt-2">Data pelamar tidak ditemukan</p>
                         </div>
                     </div>
                     
@@ -1401,6 +1461,10 @@
                     profilLoading: false,
                     profilSearched: false,
                     profilResult: null,
+                    profilList: [],
+                    profilListLoading: false,
+                    selectedPelamar: null,
+                    pelamarLightboxOpen: false,
                     
                     // Lightbox
                     lightboxOpen: false,
@@ -1479,6 +1543,7 @@
                     }
                     this.$nextTick(() => {
                         if (menu === 'dashboard') this.initCharts();
+                        if (menu === 'profil') this.loadProfilList();
                         if (menu === 'adminPelamar') this.initPelamarTable();
                         if (menu === 'adminVerifikasi') this.initVerifikasiTable();
                     });
@@ -1787,6 +1852,42 @@
                     }
                     
                     this.profilLoading = false;
+                },
+                
+                async loadProfilList() {
+                    this.profilListLoading = true;
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                            this.profilList = result.data;
+                        } else {
+                            this.profilList = this.getDemoProfilList();
+                        }
+                    } catch (error) {
+                        this.profilList = this.getDemoProfilList();
+                    }
+                    this.profilListLoading = false;
+                },
+                
+                getDemoProfilList() {
+                    return [
+                        { no: 1, nik: '6371031501900001', nama: 'Ahmad Fauzi', jenisKelamin: 'Laki-laki', pendidikan: 'S1 Kedokteran', ipk: '3.85', formasi: 'Dokter Umum', foto: '' },
+                        { no: 2, nik: '6371031501900002', nama: 'Siti Rahayu', jenisKelamin: 'Perempuan', pendidikan: 'Profesi Ners', ipk: '3.90', formasi: 'Ners', foto: '' },
+                        { no: 3, nik: '6371031501900003', nama: 'Budi Santoso', jenisKelamin: 'Laki-laki', pendidikan: 'D3 Keperawatan', ipk: '3.65', formasi: 'Perawat', foto: '' },
+                        { no: 4, nik: '6371031501900004', nama: 'Dewi Lestari', jenisKelamin: 'Perempuan', pendidikan: 'Profesi Bidan', ipk: '3.80', formasi: 'Bidan Profesi', foto: '' },
+                        { no: 5, nik: '6371031501900005', nama: 'Rudi Hermawan', jenisKelamin: 'Laki-laki', pendidikan: 'S1 Farmasi + Profesi Apoteker', ipk: '3.75', formasi: 'Apoteker', foto: '' }
+                    ];
+                },
+                
+                openPelamarLightbox(pelamar) {
+                    this.selectedPelamar = pelamar;
+                    this.pelamarLightboxOpen = true;
+                },
+                
+                closePelamarLightbox() {
+                    this.pelamarLightboxOpen = false;
+                    this.selectedPelamar = null;
                 },
                 
                 // Lightbox
