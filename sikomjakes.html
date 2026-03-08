@@ -1903,90 +1903,102 @@
 
         // ==================== DASHBOARD ====================
         async function loadDashboard() {
-            const result = await fetchFromSheet('Bazzetting');
+            const dashboardResult = await fetchFromSheet('Dashboard');
+            const bazzetResult = await fetchFromSheet('Bazzetting');
             const pesertaResult = await fetchFromSheet('Peserta');
             
-            if (result.success && result.data) {
-                const data = result.data;
-                // Get headers from data if not provided
-                let headers = result.headers;
-                if (!headers || headers.length === 0) {
-                    headers = data.length > 0 ? Object.keys(data[0]) : [];
-                }
+            // Try to get stats from Dashboard sheet first
+            let totalJF = 0, totalJenis = 0, totalKebutuhan = 0, totalPemangku = 0, totalSisa = 0, totalPeserta = 0;
+            
+            if (dashboardResult.success && dashboardResult.data) {
+                const dashData = dashboardResult.data;
+                const dashHeaders = dashboardResult.headers || (dashData.length > 0 ? Object.keys(dashData[0]) : []);
                 
-                bazzettingData = data;
+                dashData.forEach(row => {
+                    const metric = getCellValue(row, dashHeaders, 'Metric') || getCellValue(row, dashHeaders, 'metric') || '';
+                    const value = parseInt(getCellValue(row, dashHeaders, 'Value') || getCellValue(row, dashHeaders, 'value') || '0') || 0;
+                    
+                    const metricLower = String(metric).toLowerCase();
+                    if (metricLower.includes('total jf') || metricLower.includes('jabatan')) totalJF = value;
+                    if (metricLower.includes('jenis')) totalJenis = value;
+                    if (metricLower.includes('kebutuhan')) totalKebutuhan = value;
+                    if (metricLower.includes('pemangku')) totalPemangku = value;
+                    if (metricLower.includes('sisa')) totalSisa = value;
+                    if (metricLower.includes('peserta')) totalPeserta = value;
+                });
+            }
+            
+            // If Dashboard sheet is empty or doesn't exist, calculate from Bazzetting
+            if (totalKebutuhan === 0 && bazzetResult.success && bazzetResult.data) {
+                const data = bazzetResult.data;
+                const headers = bazzetResult.headers || (data.length > 0 ? Object.keys(data[0]) : []);
                 
-                let totalKebutuhan = 0;
-                let totalPemangku = 0;
-                let totalSisa = 0;
-                let units = new Set();
-                let jenjangSet = new Set();
                 let jenisSet = new Set();
-                
-                const chartLabels = [];
-                const chartKebutuhan = [];
-                const chartPemangku = [];
-                const chartSisa = [];
-                const jenjangData = {};
+                let jenjangSet = new Set();
                 
                 data.forEach(row => {
-                    // Skip empty rows
                     const rowStr = JSON.stringify(row).toLowerCase();
-                    if (rowStr === '{}' || rowStr === '[]' || !rowStr.includes(':')) return;
+                    if (rowStr === '{}' || !rowStr.includes(':')) return;
                     
-                    const kolom = getCellValue(row, headers, 'jenis jabatan fungsional') || getCellValue(row, headers, 'jenis jabfung') || getCellValue(row, headers, 'kolom') || '';
+                    const kolom = getCellValue(row, headers, 'jenis jabatan fungsional') || getCellValue(row, headers, 'jenis jabfung') || '';
                     const jenjang = getCellValue(row, headers, 'jenjang jabatan') || getCellValue(row, headers, 'jenjang') || '';
-                    const unit = getCellValue(row, headers, 'instansi') || getCellValue(row, headers, 'unit kerja') || getCellValue(row, headers, 'instansi/ institusi pelayanan kesehatan') || '';
                     const kebutuhan = parseInt(getCellValue(row, headers, 'kebutuhan') || '0') || 0;
                     const pemangku = parseInt(getCellValue(row, headers, 'pemangku') || '0') || 0;
                     const sisa = parseInt(getCellValue(row, headers, 'sisa') || '0') || 0;
                     
-                    // Skip empty rows
                     if (!kolom || !jenjang) return;
                     
                     totalKebutuhan += kebutuhan;
                     totalPemangku += pemangku;
                     totalSisa += sisa;
+                    jenisSet.add(kolom);
+                    jenjangSet.add(jenjang);
+                });
+                
+                totalJF = jenisSet.size;
+                totalJenis = jenjangSet.size;
+            }
+            
+            // Get peserta count
+            if (pesertaResult.success && pesertaResult.data) {
+                totalPeserta = pesertaResult.data.filter(p => p && JSON.stringify(p) !== '{}').length;
+            }
+            
+            animateValue('totalJFK', totalJF || 1);
+            animateValue('totalJenis', totalJenis || 1);
+            animateValue('totalKebutuhan', totalKebutuhan);
+            animateValue('totalPemangku', totalPemangku);
+            animateValue('totalPeserta', totalPeserta);
+            animateValue('totalSisa', totalSisa);
+            
+            // Render charts from Bazzetting data
+            if (bazzetResult.success && bazzetResult.data) {
+                const data = bazzetResult.data;
+                const headers = bazzetResult.headers || (data.length > 0 ? Object.keys(data[0]) : []);
+                
+                const chartLabels = [];
+                const chartKebutuhan = [];
+                const chartPemangku = [];
+                const chartSisa = [];
+                
+                data.forEach(row => {
+                    const rowStr = JSON.stringify(row).toLowerCase();
+                    if (rowStr === '{}' || !rowStr.includes(':')) return;
                     
-                    if (unit) units.add(unit);
-                    if (jenjang) jenjangSet.add(jenjang);
-                    if (kolom) jenisSet.add(kolom);
+                    const kolom = getCellValue(row, headers, 'jenis jabatan fungsional') || getCellValue(row, headers, 'jenis jabfung') || '';
+                    const kebutuhan = parseInt(getCellValue(row, headers, 'kebutuhan') || '0') || 0;
+                    const pemangku = parseInt(getCellValue(row, headers, 'pemangku') || '0') || 0;
+                    const sisa = parseInt(getCellValue(row, headers, 'sisa') || '0') || 0;
                     
                     if (kolom) {
                         chartLabels.push(kolom);
                         chartKebutuhan.push(kebutuhan);
                         chartPemangku.push(pemangku);
                         chartSisa.push(sisa);
-                        
-                        if (!jenjangData[jenjang]) {
-                            jenjangData[jenjang] = 0;
-                        }
-                        jenjangData[jenjang] += kebutuhan;
                     }
                 });
                 
-                // Peserta count
-                let totalPeserta = 0;
-                if (pesertaResult.success && pesertaResult.data) {
-                    totalPeserta = pesertaResult.data.filter(p => JSON.stringify(p) !== '{}').length;
-                }
-                
-                // Use Formasi sheet for Total JF count if available
-                const formasiResult = await fetchFromSheet('Formasi');
-                let totalJF = jenisSet.size;
-                if (formasiResult.success && formasiResult.data) {
-                    totalJF = formasiResult.data.filter(r => JSON.stringify(r).includes('Nama Jabatan')).length;
-                }
-                
-                animateValue('totalJFK', totalJF || 1);
-                animateValue('totalJenis', jenjangSet.size || 1);
-                animateValue('totalKebutuhan', totalKebutuhan);
-                animateValue('totalPemangku', totalPemangku);
-                animateValue('totalPeserta', totalPeserta);
-                animateValue('totalSisa', totalSisa);
-                
                 renderBarChart(chartLabels, chartKebutuhan, chartPemangku, chartSisa);
-                renderPieChart(jenjangData);
             }
         }
 
