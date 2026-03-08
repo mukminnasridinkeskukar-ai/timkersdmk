@@ -1875,6 +1875,7 @@
                     body: 'action=getData&sheet=' + encodeURIComponent(sheetName)
                 });
                 const result = await response.json();
+                console.log('Fetch', sheetName, 'response:', result);
                 showLoading(false);
                 return result;
             } catch (error) {
@@ -1885,17 +1886,16 @@
             }
         }
 
+        // Helper to get cell value from row object
         function getCellValue(row, headers, targetColumn) {
-            const variations = [
-                targetColumn.toLowerCase(),
-                targetColumn.toUpperCase(),
-                targetColumn
-            ];
+            // Try exact match first
+            if (row[targetColumn] !== undefined) return row[targetColumn];
             
-            for (const header of headers) {
-                const h = header.toLowerCase().trim();
-                if (variations.some(v => h === v || h.includes(v))) {
-                    return row[header] || '';
+            // Try case-insensitive match
+            const lowerTarget = targetColumn.toLowerCase();
+            for (const key of Object.keys(row)) {
+                if (key.toLowerCase().trim() === lowerTarget) {
+                    return row[key];
                 }
             }
             return '';
@@ -1908,7 +1908,11 @@
             
             if (result.success && result.data) {
                 const data = result.data;
-                const headers = result.headers;
+                // Get headers from data if not provided
+                let headers = result.headers;
+                if (!headers || headers.length === 0) {
+                    headers = data.length > 0 ? Object.keys(data[0]) : [];
+                }
                 
                 bazzettingData = data;
                 
@@ -1926,9 +1930,9 @@
                 const jenjangData = {};
                 
                 data.forEach(row => {
-                    const kolom = getCellValue(row, headers, 'kolom') || getCellValue(row, headers, 'jenis jabfung') || '';
-                    const jenjang = getCellValue(row, headers, 'jenjang') || '';
-                    const unit = getCellValue(row, headers, 'instansi') || getCellValue(row, headers, 'unit kerja') || '';
+                    const kolom = getCellValue(row, headers, 'jenis jabatan fungsional') || getCellValue(row, headers, 'jenis jabfung') || getCellValue(row, headers, 'kolom') || '';
+                    const jenjang = getCellValue(row, headers, 'jenjang jabatan') || getCellValue(row, headers, 'jenjang') || '';
+                    const unit = getCellValue(row, headers, 'instansi') || getCellValue(row, headers, 'unit kerja') || getCellValue(row, headers, 'instansi/ institusi pelayanan kesehatan') || '';
                     const kebutuhan = parseInt(getCellValue(row, headers, 'kebutuhan') || '0') || 0;
                     const pemangku = parseInt(getCellValue(row, headers, 'pemangku') || '0') || 0;
                     const sisa = parseInt(getCellValue(row, headers, 'sisa') || '0') || 0;
@@ -1960,8 +1964,8 @@
                     totalPeserta = pesertaResult.data.length;
                 }
                 
-                animateValue('totalJFK', jenisSet.size);
-                animateValue('totalJenis', jenjangSet.size);
+                animateValue('totalJFK', jenisSet.size || 1);
+                animateValue('totalJenis', jenjangSet.size || 1);
                 animateValue('totalKebutuhan', totalKebutuhan);
                 animateValue('totalPemangku', totalPemangku);
                 animateValue('totalPeserta', totalPeserta);
@@ -2106,7 +2110,8 @@
             
             if (result.success && result.data) {
                 formasiData = result.data;
-                const headers = result.headers;
+                // Get headers from data if not provided
+                const headers = result.headers || (result.data.length > 0 ? Object.keys(result.data[0]) : []);
                 populateFilters(headers, formasiData);
                 renderTable('tableFormasi', headers, formasiData, 'formasi');
             }
@@ -2118,7 +2123,7 @@
             
             if (result.success && result.data) {
                 bazzettingData = result.data;
-                const headers = result.headers;
+                const headers = result.headers || (result.data.length > 0 ? Object.keys(result.data[0]) : []);
                 populateFilters(headers, bazzettingData, 'bazzet');
                 renderTable('tableBazzetting', headers, bazzettingData, 'bazzetting');
             }
@@ -2130,7 +2135,7 @@
             
             if (result.success && result.data) {
                 pesertaData = result.data;
-                const headers = result.headers;
+                const headers = result.headers || (result.data.length > 0 ? Object.keys(result.data[0]) : []);
                 renderTable('tablePeserta', headers, pesertaData, 'peserta');
             }
         }
@@ -2141,7 +2146,7 @@
             
             if (result.success && result.data) {
                 pesertaData = result.data;
-                const headers = result.headers;
+                const headers = result.headers || (result.data.length > 0 ? Object.keys(result.data[0]) : []);
                 renderTable('tableKeputusan', headers, pesertaData, 'keputusan');
             }
         }
@@ -2152,7 +2157,7 @@
             
             if (result.success && result.data) {
                 pesertaData = result.data;
-                const headers = result.headers;
+                const headers = result.headers || (result.data.length > 0 ? Object.keys(result.data[0]) : []);
                 renderAdminTable(headers);
             }
         }
@@ -2201,8 +2206,14 @@
                 dataTables[tableId].destroy();
             }
             
+            // Handle both array and object formats
+            let tableHeaders = headers;
+            if (data.length > 0 && typeof data[0] === 'object' && !Array.isArray(data[0])) {
+                tableHeaders = Object.keys(data[0]);
+            }
+            
             let theadHtml = '<tr>';
-            headers.forEach(h => {
+            tableHeaders.forEach(h => {
                 theadHtml += `<th>${h}</th>`;
             });
             if (type === 'peserta' || type === 'keputusan') {
@@ -2214,11 +2225,14 @@
             
             let tbodyHtml = '';
             data.forEach((row, index) => {
+                // Handle both array and object row formats
+                const rowData = typeof row === 'object' && !Array.isArray(row) ? row : {};
+                
                 tbodyHtml += '<tr>';
-                headers.forEach(h => {
-                    let value = row[h] || '-';
+                tableHeaders.forEach(h => {
+                    let value = rowData[h] || row[h] || '-';
                     
-                    if (type === 'bazzetting' && h.toLowerCase() === 'sisa') {
+                    if (type === 'bazzetting' && String(h).toLowerCase() === 'sisa') {
                         const sisa = parseInt(value) || 0;
                         if (sisa === 0) {
                             value = `<span class="badge badge-success">Terpenuhi</span>`;
@@ -2227,15 +2241,16 @@
                         }
                     }
                     
-                    if ((type === 'peserta' || type === 'keputusan') && h.toLowerCase() === 'status') {
-                        if (value.toLowerCase() === 'lulus') {
+                    if ((type === 'peserta' || type === 'keputusan') && String(h).toLowerCase() === 'status') {
+                        const status = String(value).toLowerCase();
+                        if (status === 'lulus' || status === 'diterima') {
                             value = `<span class="badge badge-success">Lulus</span>`;
-                        } else if (value.toLowerCase() === 'proses') {
-                            value = `<span class="badge badge-warning">Proses</span>`;
-                        } else if (value.toLowerCase() === 'tidak lulus') {
+                        } else if (status === 'proses' || status === 'diproses') {
+                            value = `<span class="badge badge-warning">Diproses</span>`;
+                        } else if (status === 'tidak lulus') {
                             value = `<span class="badge badge-danger">Tidak Lulus</span>`;
                         } else {
-                            value = `<span class="badge badge-primary">${value || 'Proses'}</span>`;
+                            value = `<span class="badge badge-primary">${value || 'Terdaftar'}</span>`;
                         }
                     }
                     
@@ -2243,8 +2258,8 @@
                 });
                 
                 if (type === 'peserta' || type === 'keputusan') {
-                    const foto = row['Foto'] || row['foto'] || '';
-                    if (foto && foto !== '-') {
+                    const foto = rowData['Foto ID'] || rowData['Foto'] || rowData['foto'] || '';
+                    if (foto && foto !== '-' && String(foto).startsWith('http')) {
                         tbodyHtml += `<td><img src="${foto}" style="width: 45px; height: 45px; object-fit: cover; border-radius: 10px; cursor: pointer; border: 2px solid #e2e8f0;" onclick="showPhotoPopup('${foto}')"></td>`;
                     } else {
                         tbodyHtml += `<td><div style="width: 45px; height: 45px; background: linear-gradient(135deg, #e2e8f0, #cbd5e1); border-radius: 10px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-user" style="color: #94a3b8;"></i></div></td>`;
