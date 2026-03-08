@@ -1930,12 +1930,19 @@
                 const jenjangData = {};
                 
                 data.forEach(row => {
+                    // Skip empty rows
+                    const rowStr = JSON.stringify(row).toLowerCase();
+                    if (rowStr === '{}' || rowStr === '[]' || !rowStr.includes(':')) return;
+                    
                     const kolom = getCellValue(row, headers, 'jenis jabatan fungsional') || getCellValue(row, headers, 'jenis jabfung') || getCellValue(row, headers, 'kolom') || '';
                     const jenjang = getCellValue(row, headers, 'jenjang jabatan') || getCellValue(row, headers, 'jenjang') || '';
                     const unit = getCellValue(row, headers, 'instansi') || getCellValue(row, headers, 'unit kerja') || getCellValue(row, headers, 'instansi/ institusi pelayanan kesehatan') || '';
                     const kebutuhan = parseInt(getCellValue(row, headers, 'kebutuhan') || '0') || 0;
                     const pemangku = parseInt(getCellValue(row, headers, 'pemangku') || '0') || 0;
                     const sisa = parseInt(getCellValue(row, headers, 'sisa') || '0') || 0;
+                    
+                    // Skip empty rows
+                    if (!kolom || !jenjang) return;
                     
                     totalKebutuhan += kebutuhan;
                     totalPemangku += pemangku;
@@ -1961,10 +1968,17 @@
                 // Peserta count
                 let totalPeserta = 0;
                 if (pesertaResult.success && pesertaResult.data) {
-                    totalPeserta = pesertaResult.data.length;
+                    totalPeserta = pesertaResult.data.filter(p => JSON.stringify(p) !== '{}').length;
                 }
                 
-                animateValue('totalJFK', jenisSet.size || 1);
+                // Use Formasi sheet for Total JF count if available
+                const formasiResult = await fetchFromSheet('Formasi');
+                let totalJF = jenisSet.size;
+                if (formasiResult.success && formasiResult.data) {
+                    totalJF = formasiResult.data.filter(r => JSON.stringify(r).includes('Nama Jabatan')).length;
+                }
+                
+                animateValue('totalJFK', totalJF || 1);
                 animateValue('totalJenis', jenjangSet.size || 1);
                 animateValue('totalKebutuhan', totalKebutuhan);
                 animateValue('totalPemangku', totalPemangku);
