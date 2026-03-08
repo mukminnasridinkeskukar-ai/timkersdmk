@@ -569,6 +569,12 @@
                             <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Data Pelamar</span></transition>
                         </button>
                         
+                        <!-- Bank Data Pelamar Kerja: Admin & HRD -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR' || currentUser?.role === 'HRD'" @click="setActiveMenu('adminBankData')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminBankData' ? 'bg-white/20' : 'hover:bg-white/10']">
+                            <i class="fas fa-database w-5 h-5"></i>
+                            <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Bank Data Pelamar</span></transition>
+                        </button>
+                        
                         <!-- Kelola Formasi: Admin Only -->
                         <button v-if="currentUser?.role === 'ADMINISTRATOR'" @click="setActiveMenu('adminFormasi')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminFormasi' ? 'bg-white/20' : 'hover:bg-white/10']">
                             <i class="fas fa-briefcase w-5 h-5"></i>
@@ -1301,6 +1307,222 @@
                         </div>
                     </div>
                     
+                    <!-- ADMIN BANK DATA PELAMAR VIEW -->
+                    <div v-if="activeMenu === 'adminBankData' && isLoggedIn" class="animate-fade-in">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                        <i class="fas fa-database text-teal-500 mr-2"></i>
+                                        Bank Data Pelamar Kerja
+                                    </h2>
+                                    <p class="text-gray-500 dark:text-gray-400">Database lengkap pelamar kerja</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Search Filters -->
+                            <div class="mt-4 flex flex-col md:flex-row gap-4">
+                                <div class="flex-1">
+                                    <input v-model="bankDataSearch.nama" type="text" class="form-input" placeholder="Cari berdasarkan nama...">
+                                </div>
+                                <div class="w-full md:w-48">
+                                    <select v-model="bankDataSearch.pendidikan" class="form-input">
+                                        <option value="">Semua Pendidikan</option>
+                                        <option value="S1 Kedokteran">S1 Kedokteran</option>
+                                        <option value="Profesi Ners">Profesi Ners</option>
+                                        <option value="D3 Keperawatan">D3 Keperawatan</option>
+                                        <option value="Profesi Bidan">Profesi Bidan</option>
+                                        <option value="D3 Kebidanan">D3 Kebidanan</option>
+                                        <option value="S1 Farmasi">S1 Farmasi</option>
+                                        <option value="Profesi Apoteker">Profesi Apoteker</option>
+                                        <option value="D3 Kefarmasian">D3 Kefarmasian</option>
+                                        <option value="S1 Gizi">S1 Gizi</option>
+                                        <option value="Profesi Dietesien">Profesi Dietesien</option>
+                                        <option value="D3 Nutrisionis">D3 Nutrisionis</option>
+                                        <option value="D3 Radiografer">D3 Radiografer</option>
+                                        <option value="D3 Elektromedik">D3 Elektromedik</option>
+                                        <option value="D3 Perekam Medis">D3 Perekam Medis</option>
+                                        <option value="D3 ATLM">D3 ATLM</option>
+                                        <option value="D3 Kesehatan Lingkungan">D3 Kesehatan Lingkungan</option>
+                                        <option value="D4 Penata Anestesi">D4 Penata Anestesi</option>
+                                        <option value="S1 Kesehatan Masyarakat">S1 Kesehatan Masyarakat</option>
+                                        <option value="S1 Akuntansi">S1 Akuntansi</option>
+                                        <option value="S1 Ilmu Hukum">S1 Ilmu Hukum</option>
+                                        <option value="S1 Teknik Informatika">S1 Teknik Informatika</option>
+                                    </select>
+                                </div>
+                                <div class="w-full md:w-40">
+                                    <select v-model="bankDataSearch.jenisKelamin" class="form-input">
+                                        <option value="">Semua JK</option>
+                                        <option value="Laki-laki">Laki-laki</option>
+                                        <option value="Perempuan">Perempuan</option>
+                                    </select>
+                                </div>
+                                <button @click="loadBankDataList" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Cari
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="glass-card rounded-2xl p-6">
+                            <div v-if="bankDataLoading" class="text-center py-8">
+                                <div class="spinner-large mx-auto"></div>
+                                <p class="mt-4 text-gray-500">Memuat data...</p>
+                            </div>
+                            <div v-else class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="bg-gradient-to-r from-teal-500 to-teal-700 text-white">
+                                            <th class="px-4 py-3 text-left rounded-l-lg">No</th>
+                                            <th class="px-4 py-3 text-left">Foto</th>
+                                            <th class="px-4 py-3 text-left">NIK</th>
+                                            <th class="px-4 py-3 text-left">Nama</th>
+                                            <th class="px-4 py-3 text-left">Tgl Lahir</th>
+                                            <th class="px-4 py-3 text-left">JK</th>
+                                            <th class="px-4 py-3 text-left">Pendidikan</th>
+                                            <th class="px-4 py-3 text-left">Data</th>
+                                            <th class="px-4 py-3 text-left rounded-r-lg">Status Akhir</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(p, idx) in filteredBankData" :key="p.NIK" class="border-b hover:bg-teal-50 dark:hover:bg-slate-700">
+                                            <td class="px-4 py-3">{{ idx + 1 }}</td>
+                                            <td class="px-4 py-3">
+                                                <img v-if="p.Foto || p['Link Foto']" :src="p.Foto || p['Link Foto']" class="w-10 h-10 rounded-full object-cover" @error="$event.target.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjMDA1NmIzIi8+PHJlY3QgeD0iMTUiIHk9IjE1IiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4yIi8+PHRleHQgeD0iMjUiIHk9IjMyIiBmb250LXNpemU9IjIwIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj48L3RleHQ+PC9zdmc+'" alt="Foto">
+                                                <div v-else class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center">
+                                                    <i class="fas fa-user text-white text-sm"></i>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3">{{ p.NIK }}</td>
+                                            <td class="px-4 py-3 font-medium">{{ p.Nama }}</td>
+                                            <td class="px-4 py-3">{{ p['Tempat Lahir'] }}, {{ p['Tanggal Lahir'] }}</td>
+                                            <td class="px-4 py-3">{{ p['Jenis Kelamin'] }}</td>
+                                            <td class="px-4 py-3">{{ p.Pendidikan }}</td>
+                                            <td class="px-4 py-3">
+                                                <a v-if="p['Link Dokumen']" :href="p['Link Dokumen']" target="_blank" class="text-teal-600 hover:text-teal-800">
+                                                    <i class="fas fa-folder-open"></i> Buka
+                                                </a>
+                                                <span v-else class="text-gray-400">-</span>
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <button @click="openBankDataDetail(p)" class="btn btn-sm bg-teal-500 text-white hover:bg-teal-600">
+                                                    <i class="fas fa-eye"></i> Lihat
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Bank Data Detail Popup (Full Screen) -->
+                        <div v-if="bankDataDetailOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="bankDataDetailOpen = false"></div>
+                            <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto animate-scale-in">
+                                <div class="sticky top-0 bg-gradient-to-r from-teal-500 to-teal-700 text-white p-6 rounded-t-2xl flex justify-between items-center">
+                                    <h3 class="text-2xl font-bold">Detail Pelamar</h3>
+                                    <button @click="bankDataDetailOpen = false" class="p-2 hover:bg-white/20 rounded-full">
+                                        <i class="fas fa-times text-xl"></i>
+                                    </button>
+                                </div>
+                                <div class="p-6">
+                                    <!-- Header with Foto -->
+                                    <div class="flex flex-col md:flex-row gap-6 mb-6">
+                                        <div class="md:w-1/4 text-center">
+                                            <img v-if="selectedBankData?.Foto || selectedBankData?.['Link Foto']" :src="selectedBankData?.Foto || selectedBankData?.['Link Foto']" class="w-40 h-40 mx-auto rounded-full object-cover shadow-lg mb-4" @error="$event.target.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwNTZiMyIvPjxyZWN0IHg9IjMwIiB5PSIzMCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMiIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+PC90ZXh0Pjwvc3ZnPg=='" alt="Foto">
+                                            <div v-else class="w-40 h-40 mx-auto rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center shadow-lg mb-4">
+                                                <i class="fas fa-user text-5xl text-white"></i>
+                                            </div>
+                                        </div>
+                                        <div class="md:w-3/4 grid grid-cols-2 gap-4">
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Nama Lengkap</p>
+                                                <p class="font-bold text-gray-800 dark:text-white text-lg">{{ selectedBankData?.Nama }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">NIK</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.NIK }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Tempat, Tanggal Lahir</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Tempat Lahir'] }}, {{ selectedBankData?.['Tanggal Lahir'] }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Jenis Kelamin</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Jenis Kelamin'] }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Agama</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Agama || '-' }}</p>
+                                            </div>
+                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                                <p class="text-sm text-gray-500 mb-1">Status Pernikahan</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Status Pernikahan'] || '-' }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Contact & Education -->
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">No. HP/Whatsapp</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['No HP/Whatsapp'] || selectedBankData?.['No. HP'] || '-' }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Email</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Email || selectedBankData?.email || '-' }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Alamat</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Alamat || '-' }}</p>
+                                        </div>
+                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
+                                            <p class="text-sm text-gray-500 mb-1">Pendidikan</p>
+                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Pendidikan }}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Job Application Info -->
+                                    <div class="p-4 bg-teal-50 dark:bg-slate-700 rounded-xl mb-6">
+                                        <p class="text-sm text-teal-600 dark:text-teal-400 mb-2 font-bold">Informasi Lamar</p>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <p class="text-sm text-gray-500">Formasi</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Formasi || '-' }}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm text-gray-500">IPK</p>
+                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.IPK || '-' }}</p>
+                                            </div>
+                                            <div>
+                                                <p class="text-sm text-gray-500">Status Berkas</p>
+                                                <span class="badge" :class="getStatusBadgeClass(selectedBankData?.['Status Berkas'])">{{ selectedBankData?.['Status Berkas'] || 'MENUNGGU' }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- All Other Data -->
+                                    <div v-if="selectedBankData" class="mt-4">
+                                        <p class="font-bold text-gray-800 dark:text-white mb-3">Data Lengkap</p>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                            <div v-for="(value, key) in selectedBankData" :key="key" class="p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
+                                                <span class="text-gray-500">{{ key }}:</span>
+                                                <span class="font-medium text-gray-800 dark:text-white ml-2">{{ value || '-' }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Link Dokumen -->
+                                    <div v-if="selectedBankData?.['Link Dokumen']" class="mt-6">
+                                        <a :href="selectedBankData?.['Link Dokumen']" target="_blank" class="btn btn-primary">
+                                            <i class="fas fa-folder-open mr-2"></i> Buka Data Dokumen
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- ADMIN FORMASI VIEW -->
                     <div v-if="activeMenu === 'adminFormasi' && isLoggedIn" class="animate-fade-in">
                         <div class="glass-card rounded-2xl p-6 mb-6">
@@ -1897,6 +2119,17 @@
                         catatan: ''
                     },
                     
+                    // Bank Data Pelamar
+                    bankDataList: [],
+                    bankDataLoading: false,
+                    bankDataDetailOpen: false,
+                    selectedBankData: null,
+                    bankDataSearch: {
+                        nama: '',
+                        pendidikan: '',
+                        jenisKelamin: ''
+                    },
+                    
                     // Admin Pelamar Lightbox
                     adminPelamarLightboxOpen: false,
                     selectedAdminPelamar: null,
@@ -1948,7 +2181,7 @@
                 // Navigation
                 setActiveMenu(menu) {
                     this.activeMenu = menu;
-                    if (menu === 'adminDashboard' || menu === 'adminPelamar' || menu === 'adminFormasi' || menu === 'adminVerifikasi' || menu === 'adminRanking') {
+                    if (menu === 'adminDashboard' || menu === 'adminPelamar' || menu === 'adminBankData' || menu === 'adminFormasi' || menu === 'adminVerifikasi' || menu === 'adminRanking') {
                         if (!this.isLoggedIn) {
                             // Will show login required message
                         }
@@ -1957,6 +2190,7 @@
                         if (menu === 'dashboard') this.initCharts();
                         if (menu === 'profil') this.loadProfilList();
                         if (menu === 'adminPelamar') this.initPelamarTable();
+                        if (menu === 'adminBankData') this.loadBankDataList();
                         if (menu === 'adminVerifikasi') this.loadVerifikasiList();
                         if (menu === 'adminKompetensi') this.loadKompetensiList();
                         if (menu === 'adminWawancara') this.loadWawancaraList();
@@ -2517,6 +2751,47 @@
                         alert('Nilai wawancara disimpan (demo)');
                         this.showWawancaraModal = false;
                     }
+                },
+                
+                // Bank Data Pelamar
+                async loadBankDataList() {
+                    this.bankDataLoading = true;
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                            this.bankDataList = result.data;
+                        } else {
+                            this.bankDataList = this.getDemoPelamarList();
+                        }
+                    } catch (error) {
+                        this.bankDataList = this.getDemoPelamarList();
+                    }
+                    this.bankDataLoading = false;
+                },
+                
+                openBankDataDetail(pelamar) {
+                    this.selectedBankData = pelamar;
+                    this.bankDataDetailOpen = true;
+                },
+                
+                get filteredBankData() {
+                    let data = this.bankDataList;
+                    
+                    if (this.bankDataSearch.nama) {
+                        const search = this.bankDataSearch.nama.toLowerCase();
+                        data = data.filter(p => p.Nama && p.Nama.toLowerCase().includes(search));
+                    }
+                    
+                    if (this.bankDataSearch.pendidikan) {
+                        data = data.filter(p => p.Pendidikan && p.Pendidikan.includes(this.bankDataSearch.pendidikan));
+                    }
+                    
+                    if (this.bankDataSearch.jenisKelamin) {
+                        data = data.filter(p => p['Jenis Kelamin'] && p['Jenis Kelamin'] === this.bankDataSearch.jenisKelamin);
+                    }
+                    
+                    return data;
                 },
                 
                 getDemoPelamarList() {
