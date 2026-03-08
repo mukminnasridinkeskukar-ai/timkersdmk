@@ -675,44 +675,11 @@
     // Spreadsheet ID: 1Ox0u5WMWcpqk5u1rHvQ5x1doZn9787FZGf_zGRDVUOo
     // Drive Folder ID: 1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF
     
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTncBsnct71Ups6cP9eFNLhe9h7hxN2Yuo-m97qIh3K1jVhW9H36FhL2oT9g2cDYKlzQ/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby5ZYcuOIYafH_ij4UOtAnJtSa-UP179dGWHVGylkcjXaqRFFrVccsuUwuZ-x3JfKqiiA/exec';
     const DRIVE_FOLDER_ID = '1GenTbOhj92qA-DAVHZTXRYqIxq65CVDF'; // ID folder Google Drive untuk upload
 
     // Data akan diambil dari Google Sheets
-    // Untuk demo, gunakan data di bawah ini
-    const demoStats = {
-      totalPeserta: 12458,
-      totalJabfung: 156,
-      totalFormasi: 8924,
-      pesertaLulus: 8234,
-      pesertaTidakLulus: 4224
-    };
-
-    const demoChartData = {
-      tahun: [1200, 1450, 1680, 2100, 2580, 3100, 3800, 4500, 5200, 5800, 6500, 7200],
-      jabfung: { labels: ['Perawat', 'Bidan', 'Dokter Gigi', 'Apoteker', 'Analis Kesehatan'], values: [3200, 4500, 2100, 1500, 800] },
-      kelulusan: { lulus: 8234, tidakLulus: 4224, belumUjian: 0 },
-      provinsi: { labels: ['Jawa Timur', 'Jawa Barat', 'Jawa Tengah', 'DKI Jakarta', 'Lainnya'], values: [3500, 2800, 2200, 1500, 2458] }
-    };
-
-    const demoFormasi = [
-      { no: 1, nama: 'Dokter Gigi', jenjang: 'Ahli Pertama', persetujuan: 25 },
-      { no: 2, nama: 'Perawat', jenjang: 'Terampil', persetujuan: 150 },
-      { no: 3, nama: 'Bidan', jenjang: 'Terampil', persetujuan: 30 },
-      { no: 4, nama: 'Apoteker', jenjang: 'Ahli Pertama', persetujuan: 20 },
-      { no: 5, nama: 'Analis Kesehatan', jenjang: 'Terampil', persetujuan: 15 },
-    ];
-
-    const demoPeserta = [
-      { nama: 'Ahmad Fauzi', unit_kerja: 'RSUD Dr. Soetomo', jabfung: 'Perawat', jenjang: 'Terampil', foto: 'https://drive.google.com/placeholder/foto1.jpg', status: 'Belum Ujian' },
-      { nama: 'Siti Aminah', unit_kerja: 'Puskesmas Wonokromo', jabfung: 'Bidan', jenjang: 'Terampil', foto: 'https://drive.google.com/placeholder/foto2.jpg', status: 'Lulus' },
-      { nama: 'Budi Santoso', unit_kerja: 'RSUPN Dr. Cipto M.', jabfung: 'Dokter Gigi', jenjang: 'Ahli Pertama', foto: 'https://drive.google.com/placeholder/foto3.jpg', status: 'Tidak Lulus' },
-      { nama: 'Diana Pertiwi', unit_kerja: 'Dinkes Jawa Timur', jabfung: 'Apoteker', jenjang: 'Ahli Muda', foto: 'https://drive.google.com/placeholder/foto4.jpg', status: 'Belum Ujian' },
-      { nama: 'Rudi Hermawan', unit_kerja: 'RSUD Dr. Soetomo', jabfung: 'Perawat', jenjang: 'Ahli Madya', foto: 'https://drive.google.com/placeholder/foto5.jpg', status: 'Sedang Ujian' },
-    ];
-
     let isLoggedIn = false;
-    let useMockData = false; // Set ke false jika sudah konek ke Google Sheets
 
     // Fungsi Ambil Data dari Google Sheets (using POST)
     let cachedHeaders = {};
@@ -767,12 +734,6 @@
 
     // Fungsi Load Data Dashboard
     async function loadDashboardData() {
-      if (useMockData) {
-        // Gunakan data demo
-        updateDashboard(demoStats, demoChartData);
-        return;
-      }
-      
       try {
         // Ambil data dari Google Sheets via getDashboard action
         const response = await fetch(SCRIPT_URL, {
@@ -835,7 +796,21 @@
         updateDashboard(stats, charts);
       } catch (error) {
         console.error('Error loading dashboard from peserta:', error);
-        updateDashboard(demoStats, demoChartData);
+        // Show empty/default values on error
+        const emptyStats = {
+          totalPeserta: 0,
+          totalJabfung: 0,
+          totalFormasi: 0,
+          pesertaLulus: 0,
+          pesertaTidakLulus: 0
+        };
+        const emptyCharts = {
+          tahun: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          jabfung: { labels: ['Perawat', 'Bidan', 'Dokter Gigi', 'Apoteker', 'Analis Kesehatan'], values: [0, 0, 0, 0, 0] },
+          kelulusan: { lulus: 0, tidakLulus: 0 },
+          provinsi: { labels: ['Jawa Timur', 'Jawa Barat', 'Jawa Tengah', 'DKI Jakarta', 'Lainnya'], values: [0, 0, 0, 0, 0] }
+        };
+        updateDashboard(emptyStats, emptyCharts);
       }
     }
 
@@ -851,62 +826,34 @@
       animateCounters();
       
       // Update charts
-      updateCharts(charts);
+      updateCharts(charts, stats);
     }
 
-    // Update Charts
-    function updateCharts(charts) {
+    // Update Charts with data from Google Sheets
+    function updateCharts(charts, stats) {
       // Chart Tahun
-      const chartTahun = new ApexCharts(document.querySelector("#chartTahun"), {
-        chart: { type: 'area', toolbar: { show: false }, height: 300 },
-        series: [{ name: 'Peserta', data: charts.tahun }],
-        colors: ['#3b82f6'],
-        stroke: { curve: 'smooth', width: 2 },
-        fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.1 } },
-        xaxis: { categories: ['2013','2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024'] }
-      });
-      chartTahun.render();
+      if (chartTahun) {
+        chartTahun.updateSeries([{ name: 'Peserta', data: charts.tahun }]);
+      }
 
       // Chart Jabfung
-      const chartJabfung = new ApexCharts(document.querySelector("#chartJabfung"), {
-        chart: { type: 'bar', toolbar: { show: false }, height: 300 },
-        series: [{ name: 'Peserta', data: charts.jabfung.values }],
-        colors: ['#14b8a6'],
-        plotOptions: { bar: { borderRadius: 8, horizontal: true } },
-        xaxis: { categories: charts.jabfung.labels }
-      });
-      chartJabfung.render();
+      if (chartJabfung) {
+        chartJabfung.updateSeries([{ name: 'Peserta', data: charts.jabfung.values }]);
+        chartJabfung.updateOptions({ xaxis: { categories: charts.jabfung.labels } });
+      }
 
       // Chart Kelulusan
-      const total = charts.kelulusan.lulus + charts.kelulusan.tidakLulus;
-      const belum = stats.totalPeserta - total;
-      const chartKelulusan = new ApexCharts(document.querySelector("#chartKelulusan"), {
-        chart: { type: 'donut', height: 300 },
-        series: [charts.kelulusan.lulus, charts.kelulusan.tidakLulus, Math.max(0, belum)],
-        labels: ['Lulus', 'Tidak Lulus', 'Belum Ujian'],
-        colors: ['#22c55e', '#ef4444', '#94a3b8'],
-        legend: { position: 'bottom' }
-      });
-      chartKelulusan.render();
+      if (chartKelulusan) {
+        const total = charts.kelulusan.lulus + charts.kelulusan.tidakLulus;
+        const belum = (stats ? stats.totalPeserta : 0) - total;
+        chartKelulusan.updateSeries([charts.kelulusan.lulus, charts.kelulusan.tidakLulus, Math.max(0, belum)]);
+      }
 
       // Chart Provinsi
-      const chartProvinsi = new ApexCharts(document.querySelector("#chartProvinsi"), {
-        chart: { type: 'pie', height: 300 },
-        series: charts.provinsi.values,
-        labels: charts.provinsi.labels,
-        colors: ['#3b82f6', '#14b8a6', '#8b5cf6', '#f59e0b', '#6b7280']
-      });
-      chartProvinsi.render();
-
-      // Chart SDM Bazzetting (bar chart untuk melihat kekurangan per unit)
-      window.chartSDM = new ApexCharts(document.querySelector("#chartSDM"), {
-        chart: { type: 'bar', height: 300, toolbar: { show: false } },
-        series: [{ name: 'Selisih', data: [78, 47] }],
-        xaxis: { categories: ['Terpenuhi', 'Kekurangan'] },
-        colors: ['#22c55e', '#ef4444'],
-        plotOptions: { bar: { borderRadius: 4, horizontal: true } }
-      });
-      window.chartSDM.render();
+      if (chartProvinsi) {
+        chartProvinsi.updateSeries(charts.provinsi.values);
+        chartProvinsi.updateOptions({ labels: charts.provinsi.labels });
+      }
     }
 
     // Fungsi Upload ke Google Drive via Apps Script
@@ -1019,76 +966,57 @@
     // Load Admin Table Data from Google Sheets
     async function loadAdminTable() {
       const tbody = document.getElementById('adminTable');
+      if (!tbody) return;
       
-      if (useMockData) {
-        // Demo data
-        tbody.innerHTML = demoPeserta.map((item, i) => `
-          <tr class="hover:bg-gray-50">
-            <td class="px-4 py-3 text-sm">${i+1}</td>
-            <td class="px-4 py-3 text-sm font-medium">${item.nama}</td>
-            <td class="px-4 py-3 text-sm font-mono">${item.nik || '-'}</td>
-            <td class="px-4 py-3 text-sm font-mono">${item.nip || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.no_hp || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.unit_kerja || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.jenis_jabatan || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.jenjang || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.pangkat || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.nilai_pak || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.no_str || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.kategori || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.jabfung || '-'}</td>
-            <td class="px-4 py-3 text-sm">${item.jenjang_tujuan || '-'}</td>
-            <td class="px-4 py-3">
-              <select class="text-sm border rounded px-2 py-1" id="rekomendasi_${i}">
-                <option value="">Pilih</option>
-                <option value="Direkomendasikan">Direkomendasikan</option>
-                <option value="Tidak Direkomendasikan">Tidak Direkomendasikan</option>
-                <option value="Perbaikan Data">Perbaikan Data</option>
-              </select>
-            </td>
-            <td class="px-4 py-3">
-              <button onclick="saveRekomendasi('${item.nik}', ${i})" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Simpan</button>
-            </td>
-          </tr>
-        `).join('');
-        return;
-      }
+      tbody.innerHTML = '<tr><td colspan="16" class="px-6 py-8 text-center">Memuat data...</td></tr>';
       
       try {
-        tbody.innerHTML = '<tr><td colspan="16" class="px-6 py-8 text-center">Memuat data...</td></tr>';
         const result = await fetchFromSheet('Formulir');
         const data = result.data;
         const headers = result.headers;
         
         if (data && data.length > 0) {
           tbody.innerHTML = data.map((row, i) => {
-            const rekomendasi = getCellValue(row, headers, 'keputusan') || getCellValue(row, headers, 'rekomendasi') || '';
+            const nama = getCellValue(row, headers, 'nama');
+            const nik = getCellValue(row, headers, 'nik');
+            const nip = getCellValue(row, headers, 'nip');
+            const no_hp = getCellValue(row, headers, 'no hp') || getCellValue(row, headers, 'no_hp') || getCellValue(row, headers, 'hp');
+            const unit_kerja = getCellValue(row, headers, 'unit kerja') || getCellValue(row, headers, 'unit_kerja');
+            const jenis_jabatan = getCellValue(row, headers, 'jenis jabatan') || getCellValue(row, headers, 'jenis_jabatan') || getCellValue(row, headers, 'jabfung tujuan');
+            const jenjang = getCellValue(row, headers, 'jenjang') || getCellValue(row, headers, 'jenjang tujuan');
+            const pangkat = getCellValue(row, headers, 'pangkat');
+            const nilai_pak = getCellValue(row, headers, 'nilai pak') || getCellValue(row, headers, 'nilai_pak');
+            const no_str = getCellValue(row, headers, 'no str') || getCellValue(row, headers, 'no_str') || getCellValue(row, headers, 'str');
+            const kategori = getCellValue(row, headers, 'kategori');
+            const jabfung = getCellValue(row, headers, 'jabfung tujuan') || getCellValue(row, headers, 'jabfung');
+            const jenjang_tujuan = getCellValue(row, headers, 'jenjang tujuan') || getCellValue(row, headers, 'jenjang_tujuan');
+            
             return `
               <tr class="hover:bg-gray-50">
                 <td class="px-4 py-3 text-sm">${i+1}</td>
-                <td class="px-4 py-3 text-sm font-medium">${getCellValue(row, headers, 'nama')}</td>
-                <td class="px-4 py-3 text-sm font-mono">${getCellValue(row, headers, 'nik')}</td>
-                <td class="px-4 py-3 text-sm font-mono">${getCellValue(row, headers, 'nip')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'no hp') || getCellValue(row, headers, 'hp')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'unit kerja')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jenis jabatan')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jenjang')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'pangkat') || getCellValue(row, headers, 'golongan')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'nilai pak') || getCellValue(row, headers, 'nilai pak')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'no str') || getCellValue(row, headers, 'str')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'kategori')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jabfung tujuan') || getCellValue(row, headers, 'jabatan')}</td>
-                <td class="px-4 py-3 text-sm">${getCellValue(row, headers, 'jenjang tujuan')}</td>
+                <td class="px-4 py-3 text-sm font-medium">${nama || '-'}</td>
+                <td class="px-4 py-3 text-sm font-mono">${nik || '-'}</td>
+                <td class="px-4 py-3 text-sm font-mono">${nip || '-'}</td>
+                <td class="px-4 py-3 text-sm">${no_hp || '-'}</td>
+                <td class="px-4 py-3 text-sm">${unit_kerja || '-'}</td>
+                <td class="px-4 py-3 text-sm">${jenis_jabatan || '-'}</td>
+                <td class="px-4 py-3 text-sm">${jenjang || '-'}</td>
+                <td class="px-4 py-3 text-sm">${pangkat || '-'}</td>
+                <td class="px-4 py-3 text-sm">${nilai_pak || '-'}</td>
+                <td class="px-4 py-3 text-sm">${no_str || '-'}</td>
+                <td class="px-4 py-3 text-sm">${kategori || '-'}</td>
+                <td class="px-4 py-3 text-sm">${jabfung || '-'}</td>
+                <td class="px-4 py-3 text-sm">${jenjang_tujuan || '-'}</td>
                 <td class="px-4 py-3">
-                  <select class="text-sm border rounded px-2 py-1" id="rekomendasi_${i}" onchange="saveRekomendasi('${getCellValue(row, headers, 'nik')}', ${i})">
-                    <option value="" ${rekomendasi === '' ? 'selected' : ''}>Pilih</option>
-                    <option value="Direkomendasikan" ${rekomendasi === 'Direkomendasikan' ? 'selected' : ''}>Direkomendasikan</option>
-                    <option value="Tidak Direkomendasikan" ${rekomendasi === 'Tidak Direkomendasikan' ? 'selected' : ''}>Tidak Direkomendasikan</option>
-                    <option value="Perbaikan Data" ${rekomendasi === 'Perbaikan Data' ? 'selected' : ''}>Perbaikan Data</option>
+                  <select class="text-sm border rounded px-2 py-1" id="rekomendasi_${i}">
+                    <option value="">Pilih</option>
+                    <option value="Direkomendasikan">Direkomendasikan</option>
+                    <option value="Tidak Direkomendasikan">Tidak Direkomendasikan</option>
+                    <option value="Perbaikan Data">Perbaikan Data</option>
                   </select>
                 </td>
                 <td class="px-4 py-3">
-                  <button onclick="saveRekomendasi('${getCellValue(row, headers, 'nik')}', ${i})" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Simpan</button>
+                  <button onclick="saveRekomendasi('${nik}', ${i})" class="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Simpan</button>
                 </td>
               </tr>
             `;
@@ -1097,7 +1025,7 @@
           tbody.innerHTML = '<tr><td colspan="16" class="px-6 py-8 text-center text-gray-500">Belum ada data</td></tr>';
         }
       } catch (error) {
-        console.error('Error loading admin data:', error);
+        console.error('Error loading admin table:', error);
         tbody.innerHTML = '<tr><td colspan="16" class="px-6 py-8 text-center text-red-500">Error: ' + error.message + '</td></tr>';
       }
     }
@@ -1165,18 +1093,7 @@
       const tbody = document.getElementById('formasiTable');
       if (!tbody) return;
       
-      if (useMockData) {
-        tbody.innerHTML = demoFormasi.map((item, i) => `
-          <tr class="hover:bg-gray-50">
-            <td class="px-6 py-4 text-sm">${i+1}</td>
-            <td class="px-6 py-4 text-sm font-medium">${item.nama}</td>
-            <td class="px-6 py-4 text-sm">${item.jenjang}</td>
-            <td class="px-6 py-4 text-sm font-semibold">${item.persetujuan}</td>
-          </tr>
-        `).join('');
-      } else {
-        loadFormasiFromSheet(tbody);
-      }
+      loadFormasiFromSheet(tbody);
     }
     
     async function loadFormasiFromSheet(tbody) {
@@ -1536,35 +1453,9 @@
     function loadPesertaTable() {
       const tbody = document.getElementById('pesertaTable');
       if (!tbody) return;
-      const statusColors = {
-        'Terdaftar': 'bg-blue-100 text-blue-800',
-        'Lolos Administrasi': 'bg-yellow-100 text-yellow-800',
-        'Tidak Lolos': 'bg-red-100 text-red-800',
-        'Lulus': 'bg-green-100 text-green-800',
-        'Tidak Lulus': 'bg-red-100 text-red-800',
-        'Sedang Ujian': 'bg-purple-100 text-purple-800',
-        'Proses': 'bg-orange-100 text-orange-800'
-      };
       
-      // Initialize demo data as all data
-      pesertaAllData = demoPeserta.map(item => ({
-        'nama': item.nama,
-        'nik': item.nik || '',
-        'unit kerja': item.unit_kerja,
-        'jabfung tujuan': item.jabfung,
-        'jenjang tujuan': item.jenjang,
-        'status verifikasi': item.status,
-        'status ujian': item.status === 'Lulus' ? 'Lulus' : item.status === 'Tidak Lulus' ? 'Tidak Lulus' : '',
-        'foto': item.foto || ''
-      }));
-      pesertaHeaders = ['nama', 'nik', 'unit kerja', 'jabfung tujuan', 'jenjang tujuan', 'status verifikasi', 'status ujian', 'foto'];
-      
-      if (useMockData) {
-        // Use filtered data with search/filter
-        renderPesertaTable();
-      } else {
-        loadPesertaFromSheet(tbody);
-      }
+      // Load data from Google Sheets
+      loadPesertaFromSheet(tbody);
     }
     
     async function loadPesertaFromSheet(tbody) {
@@ -1620,8 +1511,6 @@
     
     // Load Bazzetting Data from Google Sheets
     async function loadBazzettingData() {
-      if (useMockData) return; // Use static data for demo
-      
       const bazzetTable = document.getElementById('bazzetTable');
       const bazzetTotalUnit = document.getElementById('bazzetTotalUnit');
       const bazzetTerpenuhi = document.getElementById('bazzetTerpenuhi');
@@ -1712,12 +1601,15 @@
       });
     }
 
-    // Charts
+    // Charts - Store chart instances globally for updates
+    let chartTahun, chartJabfung, chartKelulusan, chartProvinsi, chartSDM;
+    
+    // Initialize Charts with empty data
     function initCharts() {
       // Chart Tahun
-      const chartTahun = new ApexCharts(document.querySelector("#chartTahun"), {
+      chartTahun = new ApexCharts(document.querySelector("#chartTahun"), {
         chart: { type: 'area', toolbar: { show: false }, height: 300 },
-        series: [{ name: 'Peserta', data: [1200, 1450, 1680, 2100, 2580, 3100, 3800, 4500, 5200, 5800, 6500, 7200] }],
+        series: [{ name: 'Peserta', data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }],
         colors: ['#3b82f6'],
         stroke: { curve: 'smooth', width: 2 },
         fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0.1 } },
@@ -1726,9 +1618,9 @@
       chartTahun.render();
 
       // Chart Jabfung
-      const chartJabfung = new ApexCharts(document.querySelector("#chartJabfung"), {
+      chartJabfung = new ApexCharts(document.querySelector("#chartJabfung"), {
         chart: { type: 'bar', toolbar: { show: false }, height: 300 },
-        series: [{ name: 'Peserta', data: [3200, 4500, 2100, 1500, 800] }],
+        series: [{ name: 'Peserta', data: [0, 0, 0, 0, 0] }],
         colors: ['#14b8a6'],
         plotOptions: { bar: { borderRadius: 8, horizontal: true } },
         xaxis: { categories: ['Perawat', 'Bidan', 'Dokter Gigi', 'Apoteker', 'Analis Kesehatan'] }
@@ -1736,9 +1628,9 @@
       chartJabfung.render();
 
       // Chart Kelulusan
-      const chartKelulusan = new ApexCharts(document.querySelector("#chartKelulusan"), {
+      chartKelulusan = new ApexCharts(document.querySelector("#chartKelulusan"), {
         chart: { type: 'donut', height: 300 },
-        series: [8234, 4224],
+        series: [0, 0],
         labels: ['Lulus', 'Tidak Lulus'],
         colors: ['#22c55e', '#ef4444'],
         legend: { position: 'bottom' }
@@ -1746,18 +1638,18 @@
       chartKelulusan.render();
 
       // Chart Provinsi
-      const chartProvinsi = new ApexCharts(document.querySelector("#chartProvinsi"), {
+      chartProvinsi = new ApexCharts(document.querySelector("#chartProvinsi"), {
         chart: { type: 'pie', height: 300 },
-        series: [3500, 2800, 2200, 1500, 2458],
+        series: [0, 0, 0, 0, 0],
         labels: ['Jawa Timur', 'Jawa Barat', 'Jawa Tengah', 'DKI Jakarta', 'Lainnya'],
         colors: ['#3b82f6', '#14b8a6', '#8b5cf6', '#f59e0b', '#6b7280']
       });
       chartProvinsi.render();
 
       // Chart SDM Bazzetting
-      const chartSDM = new ApexCharts(document.querySelector("#chartSDM"), {
+      chartSDM = new ApexCharts(document.querySelector("#chartSDM"), {
         chart: { type: 'donut', height: 300 },
-        series: [78, 47],
+        series: [0, 0],
         labels: ['Terpenuhi', 'Kekurangan'],
         colors: ['#22c55e', '#ef4444'],
         legend: { position: 'bottom' }
@@ -1806,14 +1698,9 @@
         const fotoFile = formData.get('foto');
         let fotoId = '';
         if (fotoFile && fotoFile.name) {
-          if (useMockData) {
-            data.foto_url = 'https://drive.google.com/placeholder/' + fotoFile.name;
-            fotoId = 'mock_' + fotoFile.name;
-          } else {
-            const fotoResult = await uploadToDrive(fotoFile, DRIVE_FOLDER_ID);
-            data.foto_url = fotoResult ? fotoResult.url : 'Upload gagal';
-            fotoId = fotoResult ? fotoResult.id : '';
-          }
+          const fotoResult = await uploadToDrive(fotoFile, DRIVE_FOLDER_ID);
+          data.foto_url = fotoResult ? fotoResult.url : 'Upload gagal';
+          fotoId = fotoResult ? fotoResult.id : '';
         }
         
         // Upload dokumen ke Google Drive
@@ -1821,12 +1708,8 @@
         if (dokumenFiles.length > 0 && dokumenFiles[0].name) {
           const uploadedDocs = [];
           for (const file of dokumenFiles) {
-            if (useMockData) {
-              uploadedDocs.push('https://drive.google.com/placeholder/' + file.name);
-            } else {
-              const docResult = await uploadToDrive(file, DRIVE_FOLDER_ID);
-              uploadedDocs.push(docResult ? docResult.url : file.name);
-            }
+            const docResult = await uploadToDrive(file, DRIVE_FOLDER_ID);
+            uploadedDocs.push(docResult ? docResult.url : file.name);
           }
           data.dokumen_url = uploadedDocs.join(', ');
         }
@@ -1835,19 +1718,12 @@
         data.foto_id = fotoId;
         
         // Simpan ke Google Sheets
-        if (useMockData) {
-          // Demo mode - simulasi berhasil
-          alert('Pendaftaran berhasil!\n\nData: ' + JSON.stringify(data, null, 2));
+        const saved = await saveToSheet(data);
+        if (saved) {
+          alert('Pendaftaran berhasil! Data telah disimpan ke Google Sheets.');
           document.getElementById('pendaftaranForm').reset();
         } else {
-          // Mode Production - simpan ke Google Sheets
-          const saved = await saveToSheet(data);
-          if (saved) {
-            alert('Pendaftaran berhasil! Data telah disimpan ke Google Sheets.');
-            document.getElementById('pendaftaranForm').reset();
-          } else {
-            alert('Gagal menyimpan data. Silakan coba lagi.');
-          }
+          alert('Gagal menyimpan data. Silakan coba lagi.');
         }
       } catch (error) {
         console.error('Error:', error);
@@ -2070,6 +1946,7 @@
     // Initialize
     document.addEventListener('DOMContentLoaded', function() {
       initCharts();
+      loadDashboardData();
       loadFormasiTable();
       loadPesertaTable();
     });
