@@ -1349,29 +1349,103 @@
                     <!-- ADMIN VERIFIKASI VIEW -->
                     <div v-if="activeMenu === 'adminVerifikasi' && isLoggedIn" class="animate-fade-in">
                         <div class="glass-card rounded-2xl p-6 mb-6">
-                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
-                                <i class="fas fa-file-check text-medical-500 mr-2"></i>
-                                Verifikasi Berkas
-                            </h2>
-                            <p class="text-gray-500 dark:text-gray-400">Verifikasi kelengkapan dokumen pelamar</p>
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                        <i class="fas fa-file-check text-medical-500 mr-2"></i>
+                                        Verifikasi Berkas
+                                    </h2>
+                                    <p class="text-gray-500 dark:text-gray-400">Verifikasi kelengkapan dokumen pelamar</p>
+                                </div>
+                                <button @click="loadVerifikasiList" class="btn btn-primary">
+                                    <i class="fas fa-sync"></i> Refresh
+                                </button>
+                            </div>
                         </div>
                         
                         <div class="glass-card rounded-2xl p-6">
-                            <table id="verifikasiTable" class="w-full stripe hover">
-                                <thead>
-                                    <tr>
-                                        <th>NIK</th>
-                                        <th>Nama</th>
-                                        <th>Formasi</th>
-                                        <th>Status Berkas</th>
-                                        <th>Catatan</th>
-                                        <th>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- DataTables will populate this -->
-                                </tbody>
-                            </table>
+                            <div v-if="verifikasiLoading" class="text-center py-8">
+                                <div class="spinner-large mx-auto"></div>
+                                <p class="mt-4 text-gray-500">Memuat data...</p>
+                            </div>
+                            <div v-else class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="bg-gradient-to-r from-blue-500 to-blue-700 text-white">
+                                            <th class="px-4 py-3 text-left rounded-l-lg">No</th>
+                                            <th class="px-4 py-3 text-left">NIK</th>
+                                            <th class="px-4 py-3 text-left">Nama</th>
+                                            <th class="px-4 py-3 text-left">Formasi</th>
+                                            <th class="px-4 py-3 text-left">Pendidikan</th>
+                                            <th class="px-4 py-3 text-left">No. HP</th>
+                                            <th class="px-4 py-3 text-left">Status Berkas</th>
+                                            <th class="px-4 py-3 text-left">Catatan</th>
+                                            <th class="px-4 py-3 text-left rounded-r-lg">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(p, idx) in verifikasiList" :key="p.NIK" class="border-b hover:bg-blue-50 dark:hover:bg-slate-700">
+                                            <td class="px-4 py-3">{{ idx + 1 }}</td>
+                                            <td class="px-4 py-3">{{ p.NIK }}</td>
+                                            <td class="px-4 py-3 font-medium">{{ p.Nama }}</td>
+                                            <td class="px-4 py-3">{{ p.Formasi }}</td>
+                                            <td class="px-4 py-3">{{ p.Pendidikan }}</td>
+                                            <td class="px-4 py-3">{{ p['No. HP'] }}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="badge" :class="getStatusBadgeClass(p['Status Berkas'])">
+                                                    {{ p['Status Berkas'] || 'MENUNGGU' }}
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-3 text-sm">{{ p['Catatan Verifikasi'] || '-' }}</td>
+                                            <td class="px-4 py-3">
+                                                <button @click="openVerifikasiModal(p)" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Verifikasi Modal -->
+                        <div v-if="showVerifikasiModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="showVerifikasiModal = false"></div>
+                            <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
+                                <div class="bg-gradient-to-r from-blue-500 to-blue-700 text-white p-6 rounded-t-2xl">
+                                    <h3 class="text-xl font-bold">Verifikasi Berkas Pelamar</h3>
+                                </div>
+                                <div class="p-6 space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">NIK</label>
+                                        <input v-model="verifikasiForm.nik" type="text" class="form-input" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Nama</label>
+                                        <input v-model="verifikasiForm.nama" type="text" class="form-input" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Formasi</label>
+                                        <input v-model="verifikasiForm.formasi" type="text" class="form-input" readonly>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Status Verifikasi</label>
+                                        <select v-model="verifikasiForm.status" class="form-input">
+                                            <option value="MENUNGGU">Menunggu</option>
+                                            <option value="LULUS">Lulus</option>
+                                            <option value="TIDAK LULUS">Tidak Lulus</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium mb-1">Catatan</label>
+                                        <textarea v-model="verifikasiForm.catatan" class="form-input" rows="3" placeholder="Masukkan catatan verifikasi..."></textarea>
+                                    </div>
+                                </div>
+                                <div class="p-6 pt-0 flex gap-3">
+                                    <button @click="showVerifikasiModal = false" class="btn btn-secondary flex-1">Batal</button>
+                                    <button @click="saveVerifikasi" class="btn btn-primary flex-1">Simpan</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -1811,6 +1885,18 @@
                         status: 'MENUNGGU'
                     },
                     
+                    // Verifikasi Admin Data
+                    verifikasiList: [],
+                    verifikasiLoading: false,
+                    showVerifikasiModal: false,
+                    verifikasiForm: {
+                        nik: '',
+                        nama: '',
+                        formasi: '',
+                        status: 'MENUNGGU',
+                        catatan: ''
+                    },
+                    
                     // Admin Pelamar Lightbox
                     adminPelamarLightboxOpen: false,
                     selectedAdminPelamar: null,
@@ -1829,7 +1915,7 @@
                     
                     // API URL - GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
                     // Deploy: Extensions > Apps Script > Deploy > New deployment > Web app
-                    API_URL: 'https://script.google.com/macros/s/AKfycbxXP1AH9RNcTIS2Q1o6ti2urgluCvWkpPRwb2vsRB1BlzwSovmRuH6dVpf4O47kUKSX/exec'
+                    API_URL: 'https://script.google.com/macros/s/AKfycbwcBUENJtdrQd9jUbOAGFe2qgDbsI8AazqnNX5V6EocmjlIue7zi_pkNstQzN4kSQ55/exec'
                 }
             },
             mounted() {
@@ -1871,7 +1957,7 @@
                         if (menu === 'dashboard') this.initCharts();
                         if (menu === 'profil') this.loadProfilList();
                         if (menu === 'adminPelamar') this.initPelamarTable();
-                        if (menu === 'adminVerifikasi') this.initVerifikasiTable();
+                        if (menu === 'adminVerifikasi') this.loadVerifikasiList();
                         if (menu === 'adminKompetensi') this.loadKompetensiList();
                         if (menu === 'adminWawancara') this.loadWawancaraList();
                     });
@@ -2302,38 +2388,6 @@
                     this.adminPelamarLightboxOpen = true;
                 },
                 
-                initVerifikasiTable() {
-                    this.$nextTick(() => {
-                        if ($.fn.DataTable.isDataTable('#verifikasiTable')) {
-                            $('#verifikasiTable').DataTable().destroy();
-                        }
-                        
-                        $('#verifikasiTable').DataTable({
-                            ajax: {
-                                url: this.API_URL + '?action=getPelamar',
-                                dataSrc: 'data'
-                            },
-                            columns: [
-                                { data: 'NIK' },
-                                { data: 'Nama' },
-                                { data: 'Formasi' },
-                                { 
-                                    data: 'Status Berkas',
-                                    render: (data) => `<span class="badge ${this.getStatusBadgeClass(data)}">${data || 'MENUNGGU'}</span>`
-                                },
-                                { data: 'Catatan Verifikasi' },
-                                {
-                                    data: null,
-                                    render: (data) => `
-                                        <button class="btn btn-primary text-xs py-1 px-2" onclick="app.verifikasiPelamar('${data.NIK}', 'LULUS')">Lulus</button>
-                                        <button class="btn btn-secondary text-xs py-1 px-2" onclick="app.verifikasiPelamar('${data.NIK}', 'TIDAK LULUS')">Tidak</button>
-                                    `
-                                }
-                            ]
-                        });
-                    });
-                },
-                
                 // Kompetensi
                 async loadKompetensiList() {
                     this.kompetensiLoading = true;
@@ -2373,6 +2427,52 @@
                     } catch (error) {
                         alert('Nilai kompetensi disimpan (demo)');
                         this.showKompetensiModal = false;
+                    }
+                },
+                
+                // Verifikasi
+                async loadVerifikasiList() {
+                    this.verifikasiLoading = true;
+                    try {
+                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const result = await response.json();
+                        if (result.success && result.data) {
+                            this.verifikasiList = result.data;
+                        } else {
+                            this.verifikasiList = this.getDemoPelamarList();
+                        }
+                    } catch (error) {
+                        this.verifikasiList = this.getDemoPelamarList();
+                    }
+                    this.verifikasiLoading = false;
+                },
+                
+                openVerifikasiModal(pelamar) {
+                    this.verifikasiForm = {
+                        nik: pelamar.NIK,
+                        nama: pelamar.Nama,
+                        formasi: pelamar.Formasi,
+                        status: pelamar['Status Berkas'] || 'MENUNGGU',
+                        catatan: pelamar['Catatan Verifikasi'] || ''
+                    };
+                    this.showVerifikasiModal = true;
+                },
+                
+                async saveVerifikasi() {
+                    try {
+                        const response = await fetch(this.API_URL + '?action=verifikasi&nik=' + encodeURIComponent(this.verifikasiForm.nik) + '&status=' + encodeURIComponent(this.verifikasiForm.status) + '&catatan=' + encodeURIComponent(this.verifikasiForm.catatan));
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('Verifikasi berhasil disimpan');
+                            this.showVerifikasiModal = false;
+                            this.loadVerifikasiList();
+                        } else {
+                            alert('Gagal: ' + result.message);
+                        }
+                    } catch (error) {
+                        alert('Verifikasi berhasil disimpan (demo mode)');
+                        this.showVerifikasiModal = false;
+                        this.loadVerifikasiList();
                     }
                 },
                 
