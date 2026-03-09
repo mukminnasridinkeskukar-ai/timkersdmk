@@ -1736,13 +1736,26 @@
                 photoPlaceholder.style.display = 'none';
                 photoImage.src = pelamar.foto;
                 photoImage.style.display = 'block';
+                
+                // Try fallback URLs on error
+                const fallbackUrls = pelamar._fotoUrls || [];
+                let currentFallback = 0;
+                
+                photoImage.onerror = function() {
+                    console.log('Photo failed to load, trying fallback...');
+                    if (currentFallback < fallbackUrls.length) {
+                        photoImage.src = fallbackUrls[currentFallback];
+                        console.log('Trying fallback URL:', fallbackUrls[currentFallback]);
+                        currentFallback++;
+                    } else {
+                        console.log('All photo URLs failed, showing placeholder');
+                        photoImage.style.display = 'none';
+                        photoPlaceholder.style.display = 'flex';
+                    }
+                };
+                
                 photoImage.onload = function() {
                     console.log('Photo loaded successfully');
-                };
-                photoImage.onerror = function() {
-                    console.log('Photo failed to load, showing placeholder');
-                    photoImage.style.display = 'none';
-                    photoPlaceholder.style.display = 'flex';
                 };
             } else {
                 console.log('No photo available');
@@ -2071,9 +2084,32 @@
                 }
                 
                 if (fileId) {
-                    fotoUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
-                    console.log('Converted fotoUrl:', fotoUrl);
+                    // Try multiple formats for maximum compatibility
+                    // Format 1: Direct download
+                    const directUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+                    // Format 2: lh3 Googleusercontent
+                    const lh3Url = `https://lh3.googleusercontent.com/d/${fileId}`;
+                    // Format 3: Inline embed
+                    const inlineUrl = `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`;
+                    
+                    // Use the first format, but we'll handle errors
+                    fotoUrl = directUrl;
+                    console.log('Direct URL:', fotoUrl);
+                    console.log('lh3 URL:', lh3Url);
+                    console.log('Inline URL:', inlineUrl);
+                    
+                    // Store alternative URLs in data for fallback
+                    data._fotoUrls = [lh3Url, inlineUrl];
                 }
+            }
+            
+            // Get fallback URLs
+            let fallbackUrls = [];
+            if (fileId) {
+                fallbackUrls = [
+                    `https://lh3.googleusercontent.com/d/${fileId}`,
+                    `https://drive.google.com/file/d/${fileId}/view?usp=drivesdk`
+                ];
             }
             
             return {
@@ -2086,6 +2122,7 @@
                 pendidikan: data.pendidikan || data.Pendidikan || '',
                 formasi: data.formasi || data.Formasi || '',
                 foto: fotoUrl,
+                _fotoUrls: fallbackUrls,
                 verifikasi_berkas: data.verifikasi_berkas || data['Verifikasi Berkas'] || 'BELUM DIUMUMKAN',
                 tes_kompetensi: data.tes_kompetensi || data['Tes Kompetensi'] || 'BELUM DIUMUMKAN',
                 tes_wawancara: data.tes_wawancara || data['Tes Wawancara'] || 'BELUM DIUMUMKAN',
