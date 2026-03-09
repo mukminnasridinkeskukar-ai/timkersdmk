@@ -1990,26 +1990,44 @@
         async function findPelamar(nik) {
             try {
                 // Add timestamp to prevent caching
-                const url = `${GOOGLE_SHEETS_URL}?action=getPelamar&nik=${encodeURIComponent(nik)}&t=${Date.now()}`;
+                const url = `${GOOGLE_SHEETS_URL}?action=getPelamar&t=${Date.now()}`;
+                
+                console.log('Fetching from:', url);
                 
                 const response = await fetch(url, {
                     method: 'GET',
-                    redirect: 'follow',
-                    mode: 'cors'
+                    redirect: 'follow'
                 });
                 
+                console.log('Response status:', response.status);
+                
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    throw new Error('Network response was not ok: ' + response.status);
                 }
                 
-                const data = await response.json();
+                const text = await response.text();
+                console.log('Response text:', text.substring(0, 500));
                 
-                if (data.success && data.data) {
-                    return transformGoogleSheetsData(data.data);
+                const result = JSON.parse(text);
+                console.log('Parsed result:', result);
+                
+                // Find pelamar by NIK in the data
+                let pelamarData = null;
+                
+                if (result.success && result.data) {
+                    // API returns array of all pelamar - find by NIK
+                    const allPelamar = Array.isArray(result.data) ? result.data : [];
+                    pelamarData = allPelamar.find(p => 
+                        String(p.NIK || p.nik || '') === String(nik)
+                    );
+                }
+                
+                if (pelamarData) {
+                    return transformGoogleSheetsData(pelamarData);
                 }
                 return null;
             } catch (error) {
-                console.error('Error fetching from Google Sheets:', error.message);
+                console.error('Error fetching from Google Sheets:', error);
                 return null;
             }
         }
