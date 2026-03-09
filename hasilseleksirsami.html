@@ -1606,7 +1606,7 @@
         const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzlz6E9tZWcq_gEt8DZUQl2PEJ7M7A6SuToRIGeov0AjsjQK0_oKCk_Gdjn8hV0MSyE/exec';
         
         // Mode_test (true = Pakai data lokal, false = Pakai Google Sheets)
-        const USE_LOCAL_DATA = true;
+        const USE_LOCAL_DATA = false;
 
         // Database test (fallback jika Google Sheets tidak tersedia)
         const testDatabase = [
@@ -2082,7 +2082,19 @@
             
             // Fetch from Google Sheets Web App
             try {
-                const response = await fetch(`${GOOGLE_SHEETS_URL}?action=getPelamar&nik=${nik}`);
+                // Add timestamp to prevent caching
+                const url = `${GOOGLE_SHEETS_URL}?action=getPelamar&nik=${encodeURIComponent(nik)}&t=${Date.now()}`;
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    redirect: 'follow',
+                    mode: 'cors'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
                 const data = await response.json();
                 
                 if (data.success && data.data) {
@@ -2090,8 +2102,9 @@
                 }
                 return null;
             } catch (error) {
-                console.error('Error fetching from Google Sheets:', error);
+                console.error('Error fetching from Google Sheets:', error.message);
                 // Fallback to local data on error
+                console.log('Using local test data as fallback');
                 return testDatabase.find(p => p.nik === nik);
             }
         }
