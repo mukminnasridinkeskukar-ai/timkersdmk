@@ -2018,15 +2018,31 @@
         function transformGoogleSheetsData(data) {
             // Process photo URL - convert Google Drive ID to direct URL
             let fotoUrl = data.foto || data.Foto || '';
-            if (fotoUrl && fotoUrl.includes('drive.google.com')) {
-                // Extract Google Drive file ID
-                const match = fotoUrl.match(/\/d\/(.+?)\//) || fotoUrl.match(/id=(.+?)(?:&|$)/);
-                if (match && match[1]) {
-                    fotoUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            if (fotoUrl) {
+                // Extract Google Drive file ID from various URL formats
+                let fileId = '';
+                
+                // Format: https://drive.google.com/open?id=ID
+                const openMatch = fotoUrl.match(/open\?id=([^&]+)/);
+                // Format: https://drive.google.com/file/d/ID/view
+                const fileMatch = fotoUrl.match(/\/d\/([^\/]+)/);
+                // Format: https://drive.google.com/uc?export=view&id=ID
+                const ucMatch = fotoUrl.match(/id=([^&]+)/);
+                
+                if (openMatch) {
+                    fileId = openMatch[1];
+                } else if (fileMatch) {
+                    fileId = fileMatch[1];
+                } else if (ucMatch) {
+                    fileId = ucMatch[1];
+                } else if (fotoUrl.length > 20 && !fotoUrl.startsWith('http')) {
+                    // Assume it's just a Google Drive ID
+                    fileId = fotoUrl;
                 }
-            } else if (fotoUrl && fotoUrl.length > 20 && !fotoUrl.startsWith('http')) {
-                // Assume it's just a Google Drive ID
-                fotoUrl = `https://drive.google.com/uc?export=view&id=${fotoUrl}`;
+                
+                if (fileId) {
+                    fotoUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+                }
             }
             
             return {
