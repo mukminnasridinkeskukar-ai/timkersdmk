@@ -1124,6 +1124,28 @@
             color: var(--gray-800);
         }
 
+        .ticket-code-box {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border: 2px dashed var(--success);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .ticket-code-label {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #065f46;
+        }
+
+        .ticket-code-value {
+            margin: 0.5rem 0 0 0;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #047857;
+            letter-spacing: 2px;
+        }
+
         .verifikasi-popup-btn {
             padding: 0.875rem 2.5rem;
             border-radius: 50px;
@@ -1581,7 +1603,7 @@
         // 4. Deploy sebagai Web App (Execute as: Me, Access: Anyone)
         // 5. Copy URL Web App ke bawah ini
         
-        const GOOGLE_SHEETS_URL = 'YOUR_GOOGLE_APPSCRIPT_URL';
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzlz6E9tZWcq_gEt8DZUQl2PEJ7M7A6SuToRIGeov0AjsjQK0_oKCk_Gdjn8hV0MSyE/exec';
         
         // Mode_test (true = Pakai data lokal, false = Pakai Google Sheets)
         const USE_LOCAL_DATA = true;
@@ -1601,7 +1623,8 @@
                 "verifikasi_berkas": "LULUS",
                 "tes_kompetensi": "LULUS",
                 "tes_wawancara": "LULUS",
-                "hasil_akhir": "LULUS"
+                "hasil_akhir": "LULUS",
+                "kode_tiket": "RSUD-AMI-2026-0001"
             },
             {
                 "nik": "6472056302950002",
@@ -1616,7 +1639,8 @@
                 "verifikasi_berkas": "LULUS",
                 "tes_kompetensi": "LULUS",
                 "tes_wawancara": "TIDAK LULUS",
-                "hasil_akhir": "TIDAK LULUS"
+                "hasil_akhir": "TIDAK LULUS",
+                "kode_tiket": ""
             },
             {
                 "nik": "6471034508870003",
@@ -1631,7 +1655,8 @@
                 "verifikasi_berkas": "TIDAK LULUS",
                 "tes_kompetensi": "BELUM DIUMUMKAN",
                 "tes_wawancara": "BELUM DIUMUMKAN",
-                "hasil_akhir": "BELUM DIUMUMKAN"
+                "hasil_akhir": "BELUM DIUMUMKAN",
+                "kode_tiket": ""
             },
             {
                 "nik": "6472047805010004",
@@ -1646,7 +1671,8 @@
                 "verifikasi_berkas": "LULUS",
                 "tes_kompetensi": "SEDANG PROSES",
                 "tes_wawancara": "BELUM DIUMUMKAN",
-                "hasil_akhir": "BELUM DIUMUMKAN"
+                "hasil_akhir": "BELUM DIUMUMKAN",
+                "kode_tiket": "RSUD-AMI-2026-0004"
             },
             {
                 "nik": "6471039206990005",
@@ -1661,7 +1687,8 @@
                 "verifikasi_berkas": "LULUS",
                 "tes_kompetensi": "LULUS",
                 "tes_wawancara": "LULUS",
-                "hasil_akhir": "LULUS"
+                "hasil_akhir": "LULUS",
+                "kode_tiket": "RSUD-AMI-2026-0005"
             }
         ];
 
@@ -1821,12 +1848,15 @@
             
             // Show verifikasi popup based on status
             setTimeout(() => {
-                showVerifikasiPopup(pelamar.verifikasi_berkas);
+                showVerifikasiPopup(pelamar);
             }, 500);
         }
 
         // Show Verifikasi Popup
-        function showVerifikasiPopup(status) {
+        function showVerifikasiPopup(pelamar) {
+            const status = pelamar.verifikasi_berkas;
+            const kodeTiket = pelamar.kode_tiket || '';
+            
             const popup = document.getElementById('verifikasiPopup');
             const content = document.getElementById('verifikasiPopupContent');
             const icon = document.getElementById('verifikasiPopupIcon');
@@ -1851,11 +1881,23 @@
                 
                 icon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
                 title.textContent = 'SELAMAT';
+                
+                // Build message with or without ticket code
+                let ticketHtml = '';
+                if (kodeTiket) {
+                    ticketHtml = `
+                        <div style="background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border: 2px dashed #10b981; border-radius: 12px; padding: 1rem; margin: 1rem 0;">
+                            <p style="margin: 0; font-size: 0.85rem; color: #065f46;"><strong>KODE TIKET ANDA:</strong></p>
+                            <p style="margin: 0.5rem 0 0 0; font-size: 1.5rem; font-weight: 800; color: #047857; letter-spacing: 2px;">${kodeTiket}</p>
+                        </div>
+                    `;
+                }
+                
                 message.innerHTML = `
                     <p>Berdasarkan hasil verifikasi dokumen administrasi,</p>
                     <p><strong>Anda dinyatakan LULUS SELEKSI BERKAS</strong></p>
                     <p>pada Rekrutmen Karyawan RSUD Aji Muhammad Idris.</p>
-                    <br>
+                    ${ticketHtml}
                     <p>Anda berhak melanjutkan ke tahapan berikutnya yaitu</p>
                     <p><strong>TES KOMPETENSI</strong></p>
                     <br>
@@ -2069,7 +2111,8 @@
                 verifikasi_berkas: data.verifikasi_berkas || data['Verifikasi Berkas'] || 'BELUM DIUMUMKAN',
                 tes_kompetensi: data.tes_kompetensi || data['Tes Kompetensi'] || 'BELUM DIUMUMKAN',
                 tes_wawancara: data.tes_wawancara || data['Tes Wawancara'] || 'BELUM DIUMUMKAN',
-                hasil_akhir: data.hasil_akhir || data['Hasil Akhir'] || 'BELUM DIUMUMKAN'
+                hasil_akhir: data.hasil_akhir || data['Hasil Akhir'] || 'BELUM DIUMUMKAN',
+                kode_tiket: data.kode_tiket || data['Kode Tiket'] || ''
             };
         }
 
