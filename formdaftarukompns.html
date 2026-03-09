@@ -577,19 +577,71 @@
     const countdownEl = document.getElementById('countdown');
     const timerBox = document.getElementById('timerBox');
     const form = document.querySelector('#form');
+    const btn = document.getElementById('btn');
+    const notif = document.getElementById('notif');
+
+    // Anti-manipulasi clock
+    let lastTimestamp = Date.now();
+    let clockManipulated = false;
+    let serverTimeVerified = false;
+    let estimatedServerTime = null;
+
+    // Coba ambil waktu server dari API eksternal
+    async function getServerTime() {
+      try {
+        const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Makassar', {
+          method: 'GET',
+          cache: 'no-cache'
+        });
+        const data = await response.json();
+        return new Date(data.datetime).getTime();
+      } catch (e) {
+        // Jika gagal, gunakan waktu lokal tapi dengan peringatan
+        console.warn('Tidak dapat mengambil waktu server, menggunakan waktu lokal');
+        return null;
+      }
+    }
+
+    // Verifikasi waktu server saat halaman dimuat
+    getServerTime().then(serverTime => {
+      if (serverTime) {
+        const localTime = Date.now();
+        const timeDiff = Math.abs(localTime - serverTime);
+        
+        // Jika selisih waktu lebih dari 5 menit, ada kemungkinan manipulasis
+        if (timeDiff > 300000) {
+          showTimeWarning('Waktu sistem Anda berbeda signifikan dengan server. Silakan pastikan waktu perangkat Anda benar.');
+        }
+        
+        estimatedServerTime = serverTime;
+        serverTimeVerified = true;
+      }
+    }).catch(() => {});
+
+    function showTimeWarning(message) {
+      notif.style.display = 'block';
+      notif.className = 'notif-err';
+      notif.innerHTML = '⚠️ ' + message;
+    }
 
     function updateTimer() {
-      const now = new Date().getTime();
+      const now = Date.now();
+      
+      // Deteksi jika clock dimundurkan
+      if (now < lastTimestamp) {
+        clockManipulated = true;
+        showTimeWarning('Manipulasi waktu terdeteksi! Pendaftaran telah ditutup.');
+        disableForm();
+        return false;
+      }
+      lastTimestamp = now;
+
       const distance = PENDAFTARAN_TUTUP - now;
 
       if (distance <= 0) {
         countdownEl.textContent = 'PENDAFTARAN DITUTUP';
         timerBox.classList.add('expired');
-        
-        // Nonaktifkan form
-        if (form) {
-          [...form.elements].forEach(el => el.disabled = true);
-        }
+        disableForm();
         return false;
       }
 
@@ -602,13 +654,30 @@
       return true;
     }
 
+    function disableForm() {
+      if (form) {
+        [...form.elements].forEach(el => el.disabled = true);
+      }
+      if (btn) {
+        btn.disabled = true;
+      }
+    }
+
     // Jalankan timer
     const timerActive = updateTimer();
     if (timerActive) {
       setInterval(updateTimer, 1000);
-    } else {
-      clearInterval(timer);
     }
+
+    // Pasang pengawas waktu periodik untuk deteksi manipulasi
+    setInterval(() => {
+      const now = Date.now();
+      if (now < lastTimestamp) {
+        clockManipulated = true;
+        showTimeWarning('Manipulasi waktu terdeteksi! Pendaftaran telah ditutup.');
+        disableForm();
+      }
+    }, 5000);
 
     // ===== VALIDASI STR =====
     const jenisSelect = document.getElementById('jenis');
@@ -700,10 +769,46 @@
       });
     }
 
+    // Validasi waktu sebelum submit
+    async function validateTimeBeforeSubmit() {
+      const now = Date.now();
+      
+      // Cek manipulasi clock lokal
+      if (clockManipulated || now < lastTimestamp) {
+        showTimeWarning('Manipulasi waktu terdeteksi! Pendaftaran telah ditutup.');
+        disableForm();
+        return false;
+      }
+
+      // Cek apakah waktu sudah melewati batas
+      if (now >= PENDAFTARAN_TUTUP.getTime()) {
+        showTimeWarning('Waktu pendaftaran telah habis!');
+        disableForm();
+        return false;
+      }
+
+      // Verifikasi dengan waktu server jika memungkinkan
+      if (!serverTimeVerified) {
+        const serverTime = await getServerTime();
+        if (serverTime && serverTime >= PENDAFTARAN_TUTUP.getTime()) {
+          showTimeWarning('Waktu pendaftaran telah habis (verifikasi server)!');
+          disableForm();
+          return false;
+        }
+      }
+
+      return true;
+    }
+
     document.getElementById('form').addEventListener('submit', async function(e) {
       e.preventDefault();
-      
-      const btn = document.getElementById('btn');
+
+      // Validasi waktu sebelum memproses submission
+      const isValidTime = await validateTimeBeforeSubmit();
+      if (!isValidTime) {
+        return;
+      }
+
       const notif = document.getElementById('notif');
       btn.disabled = true;
 
