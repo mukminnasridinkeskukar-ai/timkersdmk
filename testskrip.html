@@ -1161,15 +1161,62 @@
     <script>
         // Configuration
         const SELECTION_START_DATE = new Date('2026-03-13T13:30:00');
+        const ANNOUNCEMENT_URL = 'https://timkersdmk.mukminnasri.com/hasilseleksirsami.html';
         const POPUP_KEY = 'announcement_popup_shown';
+        const TIME_VERIFY_KEY = 'time_verify_timestamp';
+        let selectionStarted = false;
+        
+        // Time manipulation protection
+        function getStoredTime() {
+            try {
+                const stored = localStorage.getItem(TIME_VERIFY_KEY);
+                if (!stored) return null;
+                return parseInt(stored) ^ 0x5A3C;
+            } catch (e) { return null; }
+        }
+        
+        function storeCurrentTime() {
+            try {
+                const timestamp = Date.now();
+                localStorage.setItem(TIME_VERIFY_KEY, (timestamp ^ 0x5A3C).toString());
+                return timestamp;
+            } catch (e) { return Date.now(); }
+        }
+        
+        function detectTimeManipulation() {
+            const storedTime = getStoredTime();
+            if (storedTime === null) { storeCurrentTime(); return false; }
+            const currentTime = Date.now();
+            const timeDiff = currentTime - storedTime;
+            if (timeDiff < -60000) return true; // Backwards more than 1 min
+            if (timeDiff > 60000) storeCurrentTime();
+            return false;
+        }
+        
+        function getReliableTime() {
+            const localTime = Date.now();
+            const storedTime = getStoredTime();
+            if (storedTime !== null) {
+                const timeDiff = localTime - storedTime;
+                if (timeDiff < 0) return storedTime;
+            }
+            return localTime;
+        }
         
         // Countdown Timer Function
         function updateCountdown() {
-            const now = new Date();
+            detectTimeManipulation();
+            const now = new Date(getReliableTime());
             const diff = SELECTION_START_DATE - now;
             
             if (diff <= 0) {
-                // Selection has started
+                // Selection has started - enable buttons and auto-redirect
+                if (!selectionStarted) {
+                    selectionStarted = true;
+                    enableAnnouncementButtons();
+                    autoOpenAnnouncement();
+                }
+                
                 document.getElementById('days').textContent = '00';
                 document.getElementById('hours').textContent = '00';
                 document.getElementById('minutes').textContent = '00';
@@ -1200,6 +1247,44 @@
             document.getElementById('popupSeconds').textContent = String(seconds).padStart(2, '0');
         }
         
+        // Enable announcement buttons
+        function enableAnnouncementButtons() {
+            const mainLink = document.getElementById('announcementLink');
+            const popupLink = document.getElementById('popupAnnouncementLink');
+            
+            if (mainLink) {
+                mainLink.classList.remove('disabled');
+                mainLink.style.pointerEvents = 'auto';
+                mainLink.style.opacity = '1';
+            }
+            
+            if (popupLink) {
+                popupLink.classList.remove('disabled');
+                popupLink.style.pointerEvents = 'auto';
+                popupLink.style.opacity = '1';
+            }
+        }
+        
+        // Auto open announcement when time is up
+        function autoOpenAnnouncement() {
+            window.open(ANNOUNCEMENT_URL, '_blank');
+            
+            const announcement = document.getElementById('mainAnnouncement');
+            if (announcement && announcement.style.display === 'none') {
+                announcement.style.display = 'block';
+            }
+            
+            setTimeout(showPopup, 1000);
+        }
+        
+        // Block developer tools shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F12') { e.preventDefault(); return false; }
+            if (e.ctrlKey && e.shiftKey && e.key === 'I') { e.preventDefault(); return false; }
+            if (e.ctrlKey && e.shiftKey && e.key === 'J') { e.preventDefault(); return false; }
+            if (e.ctrlKey && e.key === 'u') { e.preventDefault(); return false; }
+        });
+        
         // Popup Functions
         function showPopup() {
             document.getElementById('lightbox').classList.add('active');
@@ -1221,6 +1306,9 @@
         
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize time verification
+            storeCurrentTime();
+            
             // Start countdown
             updateCountdown();
             setInterval(updateCountdown, 1000);
@@ -1245,6 +1333,11 @@
                     closePopup();
                 }
             });
+            
+            // Periodically verify time integrity
+            setInterval(function() {
+                detectTimeManipulation();
+            }, 5000);
         });
     </script>
     
