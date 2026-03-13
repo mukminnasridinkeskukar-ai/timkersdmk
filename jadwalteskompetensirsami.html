@@ -517,6 +517,104 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        /* Security: Disable text selection and copy */
+        .table-container table {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .table-container table tr {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .table-container table tbody tr {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* Highlight Result Row */
+        .result-row {
+            background: linear-gradient(135deg, #e7f1ff 0%, #cff4fc 100%) !important;
+            border-left: 4px solid var(--primary);
+        }
+
+        .result-row:hover {
+            background: linear-gradient(135deg, #d0e3ff 0%, #b8e9f9 100%) !important;
+        }
+
+        /* Search Again Button */
+        .btn-search-again {
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            font-weight: 500;
+            color: var(--white);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .btn-search-again:hover {
+            background: var(--primary-dark);
+        }
+
+        /* Validation Message */
+        .validation-message {
+            padding: 1.5rem;
+            text-align: center;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            margin: 1rem;
+            border-radius: 4px;
+        }
+
+        .validation-message i {
+            color: #ffc107;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .validation-message p {
+            color: #856404;
+            font-size: 0.95rem;
+        }
+
+        /* Not Found Message */
+        .not-found-message {
+            padding: 2rem;
+            text-align: center;
+            color: #dc3545;
+        }
+
+        .not-found-message i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #dc3545;
+        }
+
+        .not-found-message h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .not-found-message p {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
         /* No Results */
         .no-results {
             text-align: center;
@@ -678,22 +776,17 @@
         // KONFIGURASI - EDIT DI BAWAH INI
         // ============================================
         // 
-        // MODE: 'demo' = data contoh (untuk testing)
-        //        'opensheet' = Google Sheet via OpenSheet API
+        // MODE: 'demo' = data contoh (untuk testing UI)
         //        'gas' = Google Apps Script
-        //        'publish' = Google Sheets publish to web
         //
-        const DATA_SOURCE = 'opensheet';  // GANTI: demo | opensheet | gas | publish
+        const DATA_SOURCE = 'gas';  // Menggunakan GAS
         
-        // --- Untuk OpenSheet ---
-        // Format: https://opensheet.elk.sh/SPREADSHEET_ID/SHEET_NAME
-        const OPENSHEET_URL = 'https://opensheet.elk.sh/15Hhg-eSkkqqzOX6i4IO5WRsEICANcItUe7ltsjoM2Kk/Sheet1';
+        // --- Google Apps Script URL ---
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtk5F2-quCz5BGucdhizGQkeoJ56V9li3TR-T1J6Sj1-f6DGeEG5A61aO8hSpjP4i2/exec';
         
-        // --- Untuk Google Apps Script ---
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwaQ0-m_f7gmuRWIipDAYbjl7OBMLDMoT4mYEjLhUDO9xv3DQiwZZi_RrEvt_7NQKv5/exec';
-        
-        // --- Untuk Google Sheets Publish ---
-        const PUBLISH_URL = 'https://docs.google.com/spreadsheets/d/e/ID_ANDA/pubhtml';
+        // --- CORS Proxy (untuk bypass GAS CORS issue) ---
+        // Menggunakan allorigins.win sebagai proxy
+        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
         
         // --- Demo Data (tidak perlu diubah) ---
         const DEMO_DATA = [
@@ -723,7 +816,7 @@
         function getApiUrl() {
             switch(DATA_SOURCE) {
                 case 'opensheet': return OPENSHEET_URL;
-                case 'gas': return GOOGLE_APPS_SCRIPT_URL;
+                case 'gas': return CORS_PROXY + encodeURIComponent(GOOGLE_APPS_SCRIPT_URL);
                 case 'publish': return PUBLISH_URL;
                 case 'demo': 
                 default: return null; // Tidak perlu URL untuk demo
@@ -778,7 +871,12 @@
                     }
                     
                     const response = await fetch(apiUrl, {
-                        redirect: 'follow'
+                        method: 'GET',
+                        mode: 'cors',
+                        redirect: 'follow',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
                     });
                     
                     if (!response.ok) {
@@ -874,16 +972,23 @@
 
         // Render Table
         function renderTable() {
-            if (filteredData.length === 0) {
-                showNoResults();
+            const searchTerm = searchInput.value.trim();
+            const selectedFormasi = formasiFilter.value;
+            const minChars = 3;
+
+            // CEK VALIDASI: Jika kurang dari 3 karakter
+            if (searchTerm.length > 0 && searchTerm.length < minChars) {
+                showValidationMessage();
                 return;
             }
 
-            // CEK PRIVASI: Jika tidak ada pencarian nama, tampilkan pesan khusus
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            const selectedFormasi = formasiFilter.value;
-            
-            // Jika tidak ada filter yang aktif, tampilkan pesan privasi
+            // CEK DATA TIDAK DITEMUKAN
+            if (searchTerm.length >= minChars && filteredData.length === 0) {
+                showNotFoundMessage();
+                return;
+            }
+
+            // Jika tidak ada filter yang aktif dan tidak ada pencarian
             if (!searchTerm && !selectedFormasi) {
                 showPrivacyMessage();
                 return;
@@ -907,7 +1012,7 @@
             filteredData.forEach((row, index) => {
                 const badgeClass = getBadgeClass(row.formasi);
                 html += `
-                    <tr class="fade-in" style="animation-delay: ${index * 0.02}s">
+                    <tr class="fade-in result-row" style="animation-delay: ${index * 0.02}s">
                         <td>${row.no}</td>
                         <td><strong>${row.nama}</strong></td>
                         <td><span class="badge-formasi ${badgeClass}">${row.formasi}</span></td>
@@ -919,8 +1024,45 @@
             });
 
             html += '</tbody></table>';
+            
+            // Tambahkan tombol Cari Ulang
+            html += `
+                <div style="text-align: center; padding: 1rem;">
+                    <button class="btn-search-again" onclick="resetFilters()">
+                        <i class="fas fa-search"></i> Cari Ulang
+                    </button>
+                </div>
+            `;
+            
             tableContainer.innerHTML = html;
             statsPanel.style.display = 'flex';
+        }
+
+        // Show Validation Message
+        function showValidationMessage() {
+            tableContainer.innerHTML = `
+                <div class="validation-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Silakan ketik minimal 3 huruf pertama dari nama pelamar.</p>
+                </div>
+            `;
+            statsPanel.style.display = 'none';
+        }
+
+        // Show Not Found Message
+        function showNotFoundMessage() {
+            tableContainer.innerHTML = `
+                <div class="not-found-message">
+                    <i class="fas fa-user-times"></i>
+                    <h4>Data tidak ditemukan.</h4>
+                    <p>Pastikan 3 huruf awal nama yang dimasukkan sudah benar.</p>
+                    <button class="btn-search-again" onclick="resetFilters()">
+                        <i class="fas fa-search"></i> Cari Ulang
+                    </button>
+                </div>
+            `;
+            totalCount.textContent = '0';
+            statsPanel.style.display = 'none';
         }
 
         // Show Privacy Message
@@ -941,7 +1083,7 @@
                     <h3>Data Peserta Tidak Ditampilkan</h3>
                     <p>Masukkan <strong>nama lengkap Anda</strong> pada kotak pencarian di atas untuk melihat jadwal tes kompetensi Anda.</p>
                     ${messageHtml}
-                    <p class="tip">💡 <strong>Tips:</strong> Ketik minimal 3 huruf pertama nama Anda, lalu klik nama yang muncul di suggestions.</p>
+                    <p class="tip">💡 <strong>Tips:</strong> Ketik minimal 3 huruf pertama nama Anda untuk mencari.</p>
                     <p class="note">⚠️ Data peserta dijaga kerahasiaannya sesuai kebijakan perlindungan data pribadi.</p>
                 </div>
             `;
@@ -1003,40 +1145,55 @@
             });
         }
 
-        // Filter Data
+        // Filter Data - MINIMAL 3 KARAKTER DAN HANYA TAMPILKAN 1 DATA
         function filterData() {
-            const searchTerm = searchInput.value.toLowerCase().trim();
+            const searchTerm = searchInput.value.trim(); // Trim spasi depan belakang
             const selectedFormasi = formasiFilter.value;
+            const minChars = 3; // Minimum 3 karakter untuk pencarian
 
-            // Jika kurang dari 3 karakter, tampilkan pesan privasi
-            if (searchTerm.length < 3) {
+            // CEK JUMLAH KARAKTER
+            if (searchTerm.length < minChars) {
+                // Jika kurang dari 3 huruf, tampilkan peringatan
                 filteredData = [];
                 renderTable();
                 updateStats();
-                suggestionsPanel.style.display = 'none';
+                suggestionsPanel.classList.remove('show');
                 return;
             }
 
-            filteredData = allData.filter(row => {
-                const matchesSearch = row.nama.toLowerCase().includes(searchTerm);
-                const matchesFormasi = !selectedFormasi || row.formasi === selectedFormasi;
-                return matchesSearch && matchesFormasi;
-            });
+            // Tampilkan loading animation saat mencari
+            showSearching();
 
-            // Batasi hanya 1 hasil jika ada yang cocok persis
-            const exactMatch = filteredData.filter(row => 
-                row.nama.toLowerCase() === searchTerm.toLowerCase()
-            );
-            
-            if (exactMatch.length > 0) {
-                filteredData = exactMatch.slice(0, 1); // Hanya 1 data
-            } else if (filteredData.length > 1) {
-                filteredData = filteredData.slice(0, 1); // Hanya 1 data
-            }
+            // Small delay untuk menunjukkan loading (simulasi pencarian)
+            setTimeout(() => {
+                const searchTermLower = searchTerm.toLowerCase();
 
-            renderTable();
-            updateStats();
-            updateSuggestions(searchTerm);
+                // Cari data berdasarkan 3 huruf awal menggunakan Array.find()
+                // Ambil hanya 1 data pertama yang cocok
+                const foundData = allData.find(row => {
+                    const matchesSearch = row.nama.toLowerCase().startsWith(searchTermLower);
+                    const matchesFormasi = !selectedFormasi || row.formasi === selectedFormasi;
+                    return matchesSearch && matchesFormasi;
+                });
+
+                // Set filteredData ke 1 data atau array kosong
+                filteredData = foundData ? [foundData] : [];
+
+                renderTable();
+                updateStats();
+                updateSuggestions(searchTerm);
+            }, 300); // 300ms delay untuk UX
+        }
+
+        // Show Searching Animation
+        function showSearching() {
+            tableContainer.innerHTML = `
+                <div class="loading-container">
+                    <div class="spinner"></div>
+                    <span class="loading-text">Mencari data...</span>
+                </div>
+            `;
+            statsPanel.style.display = 'none';
         }
 
         // Update Autocomplete Suggestions
@@ -1046,13 +1203,14 @@
             
             // Minimum 3 karakter untuk mencari
             if (!searchTerm || searchTerm.length < 3) {
-                suggestionsPanel.style.display = 'none';
+                suggestionsPanel.classList.remove('show');
                 return;
             }
             
-            // Cari nama yang mengandung kata yang diketik
+            // Cari nama yang dimulai dengan huruf yang diketik
+            const searchTermLower = searchTerm.toLowerCase();
             const matches = allData.filter(row => 
-                row.nama.toLowerCase().includes(searchTerm.toLowerCase())
+                row.nama.toLowerCase().startsWith(searchTermLower)
             ).slice(0, 5); // Batasi 5 suggestion
 
             if (matches.length > 0) {
@@ -1065,17 +1223,18 @@
                     item.innerHTML = highlightedName;
                     item.addEventListener('click', () => {
                         searchInput.value = match.nama;
-                        // Langsung filter dan tampilkan 1 data
-                        filteredData = [match];
+                        // Langsung filter dan tampilkan 1 data menggunakan find()
+                        const foundData = allData.find(row => row.nama === match.nama);
+                        filteredData = foundData ? [foundData] : [];
                         renderTable();
                         updateStats();
-                        suggestionsPanel.style.display = 'none';
+                        suggestionsPanel.classList.remove('show');
                     });
                     suggestionsList.appendChild(item);
                 });
-                suggestionsPanel.style.display = 'block';
+                suggestionsPanel.classList.add('show');
             } else {
-                suggestionsPanel.style.display = 'none';
+                suggestionsPanel.classList.remove('show');
             }
         }
 
@@ -1097,7 +1256,7 @@
             // Hide suggestions when clicking outside
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('.search-box')) {
-                    suggestionsPanel.style.display = 'none';
+                    suggestionsPanel.classList.remove('show');
                 }
             });
         }
