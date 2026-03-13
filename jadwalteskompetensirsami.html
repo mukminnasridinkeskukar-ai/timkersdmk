@@ -565,12 +565,31 @@
         // ============================================
         // KONFIGURASI - GANTI DENGAN GOOGLE SHEET ANDA
         // ============================================
+        // 
+        // OPSI 1: OpenSheet API (Gratis, tidak perlu setup)
         // Format: https://opensheet.elk.sh/SPREADSHEET_ID/SHEET_NAME
-        // Contoh: 'https://opensheet.elk.sh/1ABC123xyz.../Sheet1'
+        // const API_URL = 'https://opensheet.elk.sh/1ABC123xyz/Sheet1';
+        //
+        // OPSI 2: Google Apps Script (Lebih aman)
+        // Deploy Code.gs lalu masukkan URL deployment
+        // const API_URL = 'https://script.google.com/macros/s/AKfycbwheY_T_nknQBP9Bj8qeZRtGdf7OoZ5UTsMyaDB8U_1bS_-P-A8c7dkDuKE4MDVqoY-/exec';
+        //
+        // OPSI 3: Langsung Google Sheets (Publish to web)
+        // 
         
-        const SPREADSHEET_URL = 'https://opensheet.elk.sh/1dA5Lh3_example_spreadsheet_id/Sheet1';
-        // Ganti dengan ID spreadsheet Google Sheet Anda
-        // Pastikan sheet sudah di-publish ke web (File > Share > Publish to web)
+        // === PILIH SALAH SATU OPSI DI BAWAH ===
+        
+        const USE_OPENSHEET = true;  // true = OpenSheet, false = Google Apps Script
+        
+        // Untuk OPSI 1 (OpenSheet):
+        const OPENSHEET_URL = 'https://opensheet.elk.sh/1dA5Lh3_example_spreadsheet_id/Sheet1';
+        
+        // Untuk OPSI 2 (Google Apps Script):
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/MASUKKAN_DEPLOYMENT_ID_DISINI/exec';
+        
+        // Jangan edit di bawah ini
+        const API_URL = USE_OPENSHEET ? OPENSHEET_URL : GOOGLE_APPS_SCRIPT_URL;
+        const SPREADSHEET_URL = API_URL;
         
         // ============================================
 
@@ -596,17 +615,35 @@
             startAutoRefresh();
         });
 
-        // Fetch Data from Google Sheet
+        // Fetch Data from Google Sheet / Google Apps Script
         async function fetchData() {
             try {
                 showLoading();
                 
-                const response = await fetch(SPREADSHEET_URL);
+                const response = await fetch(SPREADSHEET_URL, {
+                    redirect: 'follow'
+                });
+                
                 if (!response.ok) {
                     throw new Error('Gagal mengambil data dari server');
                 }
                 
-                const data = await response.json();
+                const json = await response.json();
+                
+                // Handle Google Apps Script response format
+                // GAS returns: { success: true, data: [...], count: X }
+                // OpenSheet returns: [...array of objects]
+                let data;
+                if (json.success !== undefined && json.data) {
+                    // Google Apps Script format
+                    if (!json.success) {
+                        throw new Error(json.error || 'Error dari server');
+                    }
+                    data = json.data;
+                } else {
+                    // OpenSheet / direct array format
+                    data = json;
+                }
                 
                 if (!data || data.length === 0) {
                     showEmptyState();
