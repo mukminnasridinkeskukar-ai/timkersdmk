@@ -172,6 +172,47 @@
             box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
         }
 
+        /* Suggestions Panel */
+        .suggestions-panel {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .suggestions-panel.show {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover {
+            background: rgba(13, 110, 253, 0.08);
+            color: var(--primary);
+        }
+
+        .suggestion-item strong {
+            color: var(--primary-dark);
+        }
+
         .filter-box {
             min-width: 200px;
         }
@@ -520,6 +561,15 @@
             font-size: 0.85rem;
             display: inline-block;
         }
+
+        .privacy-message .tip {
+            background: #d1e7dd;
+            color: #0f5132;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -549,7 +599,10 @@
                 <div class="search-panel">
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="text" id="searchInput" placeholder="Cari Nama Peserta...">
+                        <input type="text" id="searchInput" placeholder="Cari Nama Peserta..." autocomplete="off">
+                        <div class="suggestions-panel" id="suggestionsPanel">
+                            <div class="suggestions-list" id="suggestionsList"></div>
+                        </div>
                     </div>
                     <div class="filter-box">
                         <select id="formasiFilter">
@@ -625,7 +678,7 @@
         const OPENSHEET_URL = 'https://opensheet.elk.sh/15Hhg-eSkkqqzOX6i4IO5WRsEICANcItUe7ltsjoM2Kk/Sheet1';
         
         // --- Untuk Google Apps Script ---
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzKYVszFUb8vnpz5psUBMF8GuC9d1ehw9QLpf21tQ8EeyskdjpApRoZRJffl8geFAeM/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxQIjGWUmix1XI1qGtEvRKtebLQjjel5JpmDYqxkepRh5u3XcsFP5z-QmAmyfRHVNFc/exec';
         
         // --- Untuk Google Sheets Publish ---
         const PUBLISH_URL = 'https://docs.google.com/spreadsheets/d/e/ID_ANDA/pubhtml';
@@ -681,6 +734,8 @@
         const statsPanel = document.getElementById('statsPanel');
         const totalCount = document.getElementById('totalCount');
         const lastUpdate = document.getElementById('lastUpdate');
+        const suggestionsPanel = document.getElementById('suggestionsPanel');
+        const suggestionsList = document.getElementById('suggestionsList');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -863,6 +918,7 @@
                     <i class="fas fa-user-secret"></i>
                     <h3>Data Peserta Tidak Ditampilkan</h3>
                     <p>Masukkan <strong>nama lengkap Anda</strong> pada kotak pencarian di atas untuk melihat jadwal tes kompetensi Anda.</p>
+                    <p class="tip">💡 <strong>Tips:</strong> Ketik minimal 2 huruf, lalu klik nama Anda dari daftar suggestions yang muncul.</p>
                     <p class="note">⚠️ Data peserta dijaga kerahasiaannya sesuai kebijakan perlindungan data pribadi.</p>
                 </div>
             `;
@@ -937,6 +993,40 @@
 
             renderTable();
             updateStats();
+            updateSuggestions(searchTerm);
+        }
+
+        // Update Autocomplete Suggestions
+        function updateSuggestions(searchTerm) {
+            const suggestionsList = document.getElementById('suggestionsList');
+            suggestionsList.innerHTML = '';
+            
+            if (!searchTerm || searchTerm.length < 2) {
+                suggestionsPanel.style.display = 'none';
+                return;
+            }
+            
+            // Cari nama yang mengandung kata yang diketik
+            const matches = allData.filter(row => 
+                row.nama.toLowerCase().includes(searchTerm)
+            ).slice(0, 10); // Batasi 10 suggestion
+
+            if (matches.length > 0) {
+                matches.forEach(match => {
+                    const item = document.createElement('div');
+                    item.className = 'suggestion-item';
+                    item.textContent = match.nama;
+                    item.addEventListener('click', () => {
+                        searchInput.value = match.nama;
+                        filterData();
+                        suggestionsPanel.style.display = 'none';
+                    });
+                    suggestionsList.appendChild(item);
+                });
+                suggestionsPanel.style.display = 'block';
+            } else {
+                suggestionsPanel.style.display = 'none';
+            }
         }
 
         // Reset Filters
@@ -953,6 +1043,13 @@
             searchInput.addEventListener('input', filterData);
             formasiFilter.addEventListener('change', filterData);
             resetBtn.addEventListener('click', resetFilters);
+            
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.search-box')) {
+                    suggestionsPanel.style.display = 'none';
+                }
+            });
         }
 
         // Auto Refresh
