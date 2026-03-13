@@ -782,7 +782,7 @@
         const DATA_SOURCE = 'gas';  // Menggunakan GAS
         
         // --- Google Apps Script URL ---
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx4aY88zKtcQU56iK6LG6o_wbfhRyTjthV1vf1jYm1izHjI_ZQMae7NN8jynFphef2/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtk5F2-quCz5BGucdhizGQkeoJ56V9li3TR-T1J6Sj1-f6DGeEG5A61aO8hSpjP4i2/exec';
         
         // --- CORS Proxy (untuk bypass GAS CORS issue) ---
         // Menggunakan allorigins.win sebagai proxy
@@ -816,7 +816,7 @@
         function getApiUrl() {
             switch(DATA_SOURCE) {
                 case 'opensheet': return OPENSHEET_URL;
-                case 'gas': return GOOGLE_APPS_SCRIPT_URL; // Langsung tanpa proxy
+                case 'gas': return CORS_PROXY + encodeURIComponent(GOOGLE_APPS_SCRIPT_URL);
                 case 'publish': return PUBLISH_URL;
                 case 'demo': 
                 default: return null; // Tidak perlu URL untuk demo
@@ -870,43 +870,25 @@
                         return;
                     }
                     
-                    let response = await fetch(apiUrl, {
-                        method: 'GET',
-                        mode: 'cors',
-                        redirect: 'manual',
-                        credentials: 'omit',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    // Handle redirect (GAS returns 302 to a temp URL)
-                    if (response.status === 302 || response.status === 0) {
-                        const location = response.headers.get('location');
-                        if (location) {
-                            response = await fetch(location, {
-                                method: 'GET',
-                                mode: 'cors',
-                                credentials: 'omit'
-                            });
-                        }
-                    }
-                    
-                    if (!response.ok && response.status !== 200) {
-                        throw new Error('Gagal mengambil data dari server (HTTP ' + response.status + ')');
-                    }
-                    
-                    // Try to get JSON, handle if opaque
+                    // Try regular fetch first
+                    let response;
                     let json;
+                    
                     try {
-                        json = await response.json();
-                    } catch (e) {
-                        const text = await response.text();
-                        try {
-                            json = JSON.parse(text);
-                        } catch (e2) {
-                            throw new Error('Format response tidak valid');
+                        response = await fetch(apiUrl, {
+                            method: 'GET',
+                            cache: 'no-store'
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('Gagal mengambil data dari server (HTTP ' + response.status + ')');
                         }
+                        
+                        json = await response.json();
+                    } catch (fetchError) {
+                        // If fetch fails, try with alternative approach
+                        console.log('CORS error, trying alternative...');
+                        throw new Error('Gagal mengakses server. Pastikan Google Apps Script di-deploy dengan benar (Anyone access).');
                     }
                     
                     // Handle response format
@@ -938,7 +920,23 @@
                 
             } catch (error) {
                 console.error('Error fetching data:', error);
-                showError('Gagal memuat data. Silakan refresh halaman atau hubungi administrator.');
+                let errorMessage = 'Gagal memuat data. Silakan refresh halaman atau hubungi administrator.';
+                
+                // Lebihkan pesan error yang lebih spesifik
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMessage = '❌ Error Koneksi<br><br>' +
+                        'Tidak dapat terhubung ke server Google Apps Script.<br><br>' +
+                        '<strong>Kemungkinan penyebab:</strong><br>' +
+                        '• Koneksi internet bermasalah<br>' +
+                        '• Google Apps Script belum di-deploy<br>' +
+                        '• Pengaturan akses bukan "Anyone"<br><br>' +
+                        '<strong>Solusi:</strong><br>' +
+                        '1. Buka <a href="https://script.google.com" target="_blank">script.google.com</a><br>' +
+                        '2. Deploy ulang dengan "Anyone" access<br>' +
+                        '3. Atau gunakan mode demo untuk testing';
+                }
+                
+                showError(errorMessage);
             }
         }
 
