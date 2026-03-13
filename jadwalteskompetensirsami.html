@@ -782,7 +782,7 @@
         const DATA_SOURCE = 'gas';  // Menggunakan GAS
         
         // --- Google Apps Script URL ---
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtk5F2-quCz5BGucdhizGQkeoJ56V9li3TR-T1J6Sj1-f6DGeEG5A61aO8hSpjP4i2/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx4aY88zKtcQU56iK6LG6o_wbfhRyTjthV1vf1jYm1izHjI_ZQMae7NN8jynFphef2/exec';
         
         // --- CORS Proxy (untuk bypass GAS CORS issue) ---
         // Menggunakan allorigins.win sebagai proxy
@@ -873,28 +873,41 @@
                     let response = await fetch(apiUrl, {
                         method: 'GET',
                         mode: 'cors',
-                        redirect: 'follow',
+                        redirect: 'manual',
                         credentials: 'omit',
                         headers: {
                             'Content-Type': 'application/json'
                         }
                     });
                     
-                    // Check if response is opaque (CORS issue with redirect)
-                    if (response.type === 'opaque' || response.status === 0) {
-                        // Try alternative approach without mode specification
-                        const altResponse = await fetch(apiUrl, {
-                            method: 'GET',
-                            redirect: 'follow'
-                        });
-                        response = altResponse;
+                    // Handle redirect (GAS returns 302 to a temp URL)
+                    if (response.status === 302 || response.status === 0) {
+                        const location = response.headers.get('location');
+                        if (location) {
+                            response = await fetch(location, {
+                                method: 'GET',
+                                mode: 'cors',
+                                credentials: 'omit'
+                            });
+                        }
                     }
                     
-                    if (!response.ok) {
+                    if (!response.ok && response.status !== 200) {
                         throw new Error('Gagal mengambil data dari server (HTTP ' + response.status + ')');
                     }
                     
-                    const json = await response.json();
+                    // Try to get JSON, handle if opaque
+                    let json;
+                    try {
+                        json = await response.json();
+                    } catch (e) {
+                        const text = await response.text();
+                        try {
+                            json = JSON.parse(text);
+                        } catch (e2) {
+                            throw new Error('Format response tidak valid');
+                        }
+                    }
                     
                     // Handle response format
                     if (json.success !== undefined && json.data) {
