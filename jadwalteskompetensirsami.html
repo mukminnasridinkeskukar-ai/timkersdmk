@@ -570,6 +570,16 @@
             font-size: 0.85rem;
             display: inline-block;
         }
+
+        .privacy-message .info {
+            background: #cff4fc;
+            color: #055160;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: inline-block;
+            animation: pulse 1.5s infinite;
+        }
     </style>
 </head>
 <body>
@@ -678,7 +688,7 @@
         const OPENSHEET_URL = 'https://opensheet.elk.sh/15Hhg-eSkkqqzOX6i4IO5WRsEICANcItUe7ltsjoM2Kk/Sheet1';
         
         // --- Untuk Google Apps Script ---
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxQIjGWUmix1XI1qGtEvRKtebLQjjel5JpmDYqxkepRh5u3XcsFP5z-QmAmyfRHVNFc/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwaQ0-m_f7gmuRWIipDAYbjl7OBMLDMoT4mYEjLhUDO9xv3DQiwZZi_RrEvt_7NQKv5/exec';
         
         // --- Untuk Google Sheets Publish ---
         const PUBLISH_URL = 'https://docs.google.com/spreadsheets/d/e/ID_ANDA/pubhtml';
@@ -913,12 +923,23 @@
 
         // Show Privacy Message
         function showPrivacyMessage() {
+            const searchTerm = searchInput.value.trim();
+            const minChars = 3;
+            const remainingChars = minChars - searchTerm.length;
+            
+            let messageHtml = '';
+            
+            if (searchTerm.length > 0 && remainingChars > 0) {
+                messageHtml = `<p class="info">Ketik ${remainingChars} karakter lagi untuk mencari...</p>`;
+            }
+            
             tableContainer.innerHTML = `
                 <div class="privacy-message">
                     <i class="fas fa-user-secret"></i>
                     <h3>Data Peserta Tidak Ditampilkan</h3>
                     <p>Masukkan <strong>nama lengkap Anda</strong> pada kotak pencarian di atas untuk melihat jadwal tes kompetensi Anda.</p>
-                    <p class="tip">💡 <strong>Tips:</strong> Ketik minimal 2 huruf, lalu klik nama Anda dari daftar suggestions yang muncul.</p>
+                    ${messageHtml}
+                    <p class="tip">💡 <strong>Tips:</strong> Ketik minimal 3 huruf pertama nama Anda, lalu klik nama yang muncul di suggestions.</p>
                     <p class="note">⚠️ Data peserta dijaga kerahasiaannya sesuai kebijakan perlindungan data pribadi.</p>
                 </div>
             `;
@@ -985,11 +1006,31 @@
             const searchTerm = searchInput.value.toLowerCase().trim();
             const selectedFormasi = formasiFilter.value;
 
+            // Jika kurang dari 3 karakter, tampilkan pesan privasi
+            if (searchTerm.length < 3) {
+                filteredData = [];
+                renderTable();
+                updateStats();
+                suggestionsPanel.style.display = 'none';
+                return;
+            }
+
             filteredData = allData.filter(row => {
                 const matchesSearch = row.nama.toLowerCase().includes(searchTerm);
                 const matchesFormasi = !selectedFormasi || row.formasi === selectedFormasi;
                 return matchesSearch && matchesFormasi;
             });
+
+            // Batasi hanya 1 hasil jika ada yang cocok persis
+            const exactMatch = filteredData.filter(row => 
+                row.nama.toLowerCase() === searchTerm.toLowerCase()
+            );
+            
+            if (exactMatch.length > 0) {
+                filteredData = exactMatch.slice(0, 1); // Hanya 1 data
+            } else if (filteredData.length > 1) {
+                filteredData = filteredData.slice(0, 1); // Hanya 1 data
+            }
 
             renderTable();
             updateStats();
@@ -1001,24 +1042,31 @@
             const suggestionsList = document.getElementById('suggestionsList');
             suggestionsList.innerHTML = '';
             
-            if (!searchTerm || searchTerm.length < 2) {
+            // Minimum 3 karakter untuk mencari
+            if (!searchTerm || searchTerm.length < 3) {
                 suggestionsPanel.style.display = 'none';
                 return;
             }
             
             // Cari nama yang mengandung kata yang diketik
             const matches = allData.filter(row => 
-                row.nama.toLowerCase().includes(searchTerm)
-            ).slice(0, 10); // Batasi 10 suggestion
+                row.nama.toLowerCase().includes(searchTerm.toLowerCase())
+            ).slice(0, 5); // Batasi 5 suggestion
 
             if (matches.length > 0) {
                 matches.forEach(match => {
                     const item = document.createElement('div');
                     item.className = 'suggestion-item';
-                    item.textContent = match.nama;
+                    // Highlight kata yang cocok
+                    const regex = new RegExp(`(${searchTerm})`, 'gi');
+                    const highlightedName = match.nama.replace(regex, '<strong>$1</strong>');
+                    item.innerHTML = highlightedName;
                     item.addEventListener('click', () => {
                         searchInput.value = match.nama;
-                        filterData();
+                        // Langsung filter dan tampilkan 1 data
+                        filteredData = [match];
+                        renderTable();
+                        updateStats();
                         suggestionsPanel.style.display = 'none';
                     });
                     suggestionsList.appendChild(item);
