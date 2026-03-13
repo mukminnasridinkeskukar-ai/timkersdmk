@@ -816,7 +816,7 @@
         function getApiUrl() {
             switch(DATA_SOURCE) {
                 case 'opensheet': return OPENSHEET_URL;
-                case 'gas': return CORS_PROXY + encodeURIComponent(GOOGLE_APPS_SCRIPT_URL);
+                case 'gas': return GOOGLE_APPS_SCRIPT_URL; // Langsung tanpa proxy
                 case 'publish': return PUBLISH_URL;
                 case 'demo': 
                 default: return null; // Tidak perlu URL untuk demo
@@ -870,14 +870,25 @@
                         return;
                     }
                     
-                    const response = await fetch(apiUrl, {
+                    let response = await fetch(apiUrl, {
                         method: 'GET',
                         mode: 'cors',
                         redirect: 'follow',
+                        credentials: 'omit',
                         headers: {
                             'Content-Type': 'application/json'
                         }
                     });
+                    
+                    // Check if response is opaque (CORS issue with redirect)
+                    if (response.type === 'opaque' || response.status === 0) {
+                        // Try alternative approach without mode specification
+                        const altResponse = await fetch(apiUrl, {
+                            method: 'GET',
+                            redirect: 'follow'
+                        });
+                        response = altResponse;
+                    }
                     
                     if (!response.ok) {
                         throw new Error('Gagal mengambil data dari server (HTTP ' + response.status + ')');
