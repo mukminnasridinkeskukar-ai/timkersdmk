@@ -764,10 +764,11 @@
         // ============================================
         
         // MODE: 'demo' = data contoh, 'gas' = Google Apps Script
-        const DATA_SOURCE = 'gas';
+        // Untuk saat ini gunakan 'demo' dulu untuk testing
+        const DATA_SOURCE = 'demo';
         
         // Google Apps Script URL
-        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_C6pMG7uSLHYNskSrEjCE51T3Bbmj8UjMeW6sz4kZKSrPkpElUcrlb2oL_UGu82sT/exec';
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzx4aY88zKtcQU56iK6LG6o_wbfhRyTjthV1vf1jYm1izHjI_ZQMae7NN8jynFphef2/exec';
         
         // Demo Data
         const DEMO_DATA = [
@@ -870,26 +871,35 @@
                 if (DATA_SOURCE === 'demo') {
                     await new Promise(resolve => setTimeout(resolve, 500));
                     data = DEMO_DATA;
-                } else {
-                    const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
-                        method: 'GET',
-                        cache: 'no-store'
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error('HTTP ' + response.status);
-                    }
-                    
-                    const json = await response.json();
-                    data = json.data || json;
+                    allData = sanitizeData(data);
+                    showEmptyState();
+                    return;
                 }
                 
+                // Coba fetch ke GAS
+                const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                    method: 'GET',
+                    cache: 'no-store'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                
+                const json = await response.json();
+                
+                if (json.success === false) {
+                    throw new Error(json.error || 'Error from server');
+                }
+                
+                data = json.data || json;
                 allData = sanitizeData(data);
                 showEmptyState();
                 
             } catch (error) {
                 console.error('Error fetching data:', error);
-                // Show demo data as fallback
+                // Fallback ke demo data jika gagal
+                console.log('Using demo data as fallback');
                 allData = sanitizeData(DEMO_DATA);
                 showEmptyState();
             }
