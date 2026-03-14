@@ -319,7 +319,7 @@
         // ============================================
         // KONFIGURASI
         // ============================================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbwCx90OKi1tBhdwZia-1rHzeKpaakTR--u6qp7KI8g3kfems4BBZY4f0Kgm7CC9D5Sd/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbypGrLjoXWqNaWRrVZkKhgAx23SQqoHYt19J1HVNlCYpy7xEQug6gmMRfUbQpKb3w5f/exec';
         let callbackCount = 0;
         let currentData = null;
 
@@ -349,20 +349,32 @@
                 
                 const script = document.createElement('script');
                 script.src = fullUrl;
+                script.type = 'text/javascript';
                 
                 window[callbackName] = function(data) {
-                    console.log('JSONP response:', data);
+                    console.log('JSONP SUCCESS data:', data);
                     cleanup(); 
                     resolve(data); 
                 };
                 
+                script.onload = function() {
+                    console.log('Script loaded');
+                };
+                
                 script.onerror = function(e) {
-                    console.error('JSONP error:', e);
+                    console.error('JSONP ERROR:', e);
+                    console.error('Full URL was:', fullUrl);
                     cleanup(); 
                     reject(new Error('JSONP request failed: ' + fullUrl));
                 };
                 
+                let timeout = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('JSONP timeout: ' + fullUrl));
+                }, 10000);
+                
                 function cleanup() { 
+                    clearTimeout(timeout);
                     delete window[callbackName]; 
                     if (script.parentNode) script.remove(); 
                 }
