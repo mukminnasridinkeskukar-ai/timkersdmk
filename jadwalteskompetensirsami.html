@@ -319,7 +319,7 @@
         // ============================================
         // KONFIGURASI
         // ============================================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyYzD1nMV-6-FysNf0cme-cEsB-FaURKO2SW5RIrJUzzjHS_DIYz_d82wxbHIACHJ4d/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbwCx90OKi1tBhdwZia-1rHzeKpaakTR--u6qp7KI8g3kfems4BBZY4f0Kgm7CC9D5Sd/exec';
         let callbackCount = 0;
         let currentData = null;
 
@@ -344,11 +344,29 @@
         function jsonp(url) {
             return new Promise((resolve, reject) => {
                 const callbackName = 'jsonp_callback_' + (++callbackCount);
+                const fullUrl = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
+                console.log('JSONP URL:', fullUrl);
+                
                 const script = document.createElement('script');
-                script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
-                window[callbackName] = function(data) { cleanup(); resolve(data); };
-                script.onerror = function() { cleanup(); reject(new Error('JSONP request failed')); };
-                function cleanup() { delete window[callbackName]; script.remove(); }
+                script.src = fullUrl;
+                
+                window[callbackName] = function(data) {
+                    console.log('JSONP response:', data);
+                    cleanup(); 
+                    resolve(data); 
+                };
+                
+                script.onerror = function(e) {
+                    console.error('JSONP error:', e);
+                    cleanup(); 
+                    reject(new Error('JSONP request failed: ' + fullUrl));
+                };
+                
+                function cleanup() { 
+                    delete window[callbackName]; 
+                    if (script.parentNode) script.remove(); 
+                }
+                
                 document.head.appendChild(script);
             });
         }
