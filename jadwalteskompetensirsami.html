@@ -382,6 +382,7 @@
             if (foto.includes('drive.google.com') || foto.includes('photos.google.com')) {
                 // Extract file ID from various Google URL formats
                 let fileId = '';
+                let driveUrl = foto;
                 
                 // Format: /file/d/FILE_ID/...
                 const match1 = foto.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
@@ -395,7 +396,9 @@
                 else if (match3) fileId = match3[1];
                 
                 if (fileId) {
-                    return 'https://drive.google.com/uc?export=view&id=' + fileId;
+                    // Method 1: Use Google Drive thumbnail service (most reliable)
+                    // This format works better than 'uc' endpoint
+                    return 'https://drive.google.com/thumbnail?sz=w400-h400&id=' + fileId;
                 }
             }
             
@@ -403,20 +406,51 @@
             return foto || defaultAvatar;
         }
 
+        // Get Google Drive view URL for clicking
+        function getDriveViewUrl(foto) {
+            if (!foto || foto === '') return null;
+            
+            if (foto.includes('drive.google.com') || foto.includes('photos.google.com')) {
+                // Extract file ID from various Google URL formats
+                let fileId = '';
+                
+                const match1 = foto.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                const match2 = foto.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                const match3 = foto.match(/open\?id=([a-zA-Z0-9_-]+)/);
+                
+                if (match1) fileId = match1[1];
+                else if (match2) fileId = match2[1];
+                else if (match3) fileId = match3[1];
+                
+                if (fileId) {
+                    return 'https://drive.google.com/uc?export=view&id=' + fileId;
+                }
+            }
+            
+            return foto;
+        }
+
         function showResult(data) {
             currentData = data;
             const badgeClass = getBadgeClass(data.Formasi);
             const foto = getPhotoUrl(data.Foto, data['Nama Peserta']);
+            const driveUrl = getDriveViewUrl(data.Foto);
             const nama = escapeHtml(data['Nama Peserta'] || '?') || '?';
             
             console.log('Foto URL:', foto); // Debug
+            console.log('Drive URL:', driveUrl); // Debug
+            
+            // Create clickable photo that opens in new tab
+            const photoOnClick = driveUrl ? "window.open('" + driveUrl + "', '_blank')" : '';
             
             resultsBody.innerHTML = `
                 <tr class="result-row">
                     <td>${escapeHtml(data.No || '-')}</td>
                     <td>
                         <img src="${foto}" class="photo-thumb" alt="Foto ${nama}" 
-                             onclick="viewPhoto()" 
+                             onclick="${photoOnClick}"
+                             style="cursor: ${driveUrl ? 'pointer' : 'default'}"
+                             title="${driveUrl ? 'Klik untuk melihat foto lengkap' : ''}"
                              onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(nama)}&background=0b5ed7&color=fff&size=200'">
                     </td>
                     <td><strong>${escapeHtml(data['Nama Peserta'] || '-')}</strong></td>
@@ -448,13 +482,40 @@
         // LIGHTBOX
         // ============================================
         function viewPhoto() {
+            const driveUrl = getDriveViewUrl(currentData.Foto);
+            // If it's a Google Drive URL, open in new tab
+            if (driveUrl && (driveUrl.includes('drive.google.com') || driveUrl.includes('photos.google.com'))) {
+                window.open(driveUrl, '_blank');
+                return;
+            }
+            // Otherwise, use lightbox for other images
             if (currentData) openLightbox(currentData);
         }
 
         function openLightbox(data) {
             const foto = getPhotoUrl(data.Foto, data['Nama Peserta']);
-            document.getElementById('lightboxImg').src = foto;
-            document.getElementById('lightboxImg').alt = 'Foto ' + (data['Nama Peserta'] || 'Peserta');
+            const driveUrl = getDriveViewUrl(data.Foto);
+            const isGoogleDrive = driveUrl && (driveUrl.includes('drive.google.com') || driveUrl.includes('photos.google.com'));
+            
+            const imgEl = document.getElementById('lightboxImg');
+            imgEl.src = foto;
+            imgEl.alt = 'Foto ' + (data['Nama Peserta'] || 'Peserta');
+            imgEl.style.display = 'block';
+            
+            // If Google Drive image fails, show fallback
+            imgEl.onerror = function() {
+                this.style.display = 'none';
+                const container = this.parentNode;
+                const linkDiv = document.createElement('div');
+                linkDiv.style.cssText = 'text-align: center; padding: 20px;';
+                linkDiv.innerHTML = '<a href="' + driveUrl + '" target="_blank" style="color: white; text-decoration: none; background: var(--primary); padding: 15px 30px; border-radius: 10px; display: inline-block;"><i class="fas fa-external-link-alt" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>Klik untuk melihat foto</a>';
+                container.appendChild(linkDiv);
+            };
+            
+            // Add "View Full Photo" button for Google Drive photos
+            const viewPhotoBtn = isGoogleDrive ? 
+                '<div class="lightbox-item" style="background: var(--primary); cursor: pointer; margin-top: 1rem;" onclick="window.open(\"' + driveUrl + '\", \"_blank\")"><i class="fas fa-external-link-alt"></i><span class="label" style="color: white; min-width: auto;">Klik untuk lihat foto lengkap</span></div>' : '';
+            
             document.getElementById('lightboxData').innerHTML = `
                 <h2>${escapeHtml(data['Nama Peserta'] || '-')}</h2>
                 <div class="lightbox-item"><i class="fas fa-hashtag"></i><span class="label">No. Daftar</span><span class="value">${escapeHtml(data.No || '-')}</span></div>
@@ -463,6 +524,7 @@
                 <div class="lightbox-item"><i class="fas fa-clock"></i><span class="label">Jam</span><span class="value">${escapeHtml(data.Jam || '-')}</span></div>
                 <div class="lightbox-item"><i class="fas fa-map-marker-alt"></i><span class="label">Tempat</span><span class="value">${escapeHtml(data.Tempat || '-')}</span></div>
                 <div class="lightbox-item"><i class="fas fa-tools"></i><span class="label">Peralatan</span><span class="value">${escapeHtml(data.Peralatan || '-')}</span></div>
+                ${viewPhotoBtn}
             `;
             lightbox.classList.add('show');
             document.body.style.overflow = 'hidden';
