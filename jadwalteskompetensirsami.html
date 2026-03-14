@@ -593,6 +593,8 @@
         // ============================================
         
         // Google Apps Script Web App URL
+        // Ganti ke 'gas' jika ingin menggunakan Google Sheet
+        const DATA_SOURCE = 'demo'; // 'demo' = data contoh, 'gas' = Google Sheet
         const GAS_URL = 'https://script.google.com/macros/s/AKfycbyk9Bxi5aB0BXU-2k93NxvStmgYVO4NGtp3OafFHGbjx8lIrEJEDLcoNY5NAGAos1Pp/exec';
 
         // Demo Data (fallback)
@@ -658,11 +660,25 @@
         }
 
         async function searchPeserta(query) {
+            // Jika mode demo, langsung cari di demo data
+            if (DATA_SOURCE === 'demo') {
+                const found = DEMO_DATA.find(row => 
+                    (row['Nama Peserta'] || '').toLowerCase().startsWith(query.toLowerCase())
+                );
+                if (found) {
+                    showResult(found);
+                } else {
+                    showNotFound();
+                }
+                return;
+            }
+            
+            // Mode GAS - coba fetch dari Google Apps Script
             try {
-                // Try to fetch from GAS with search action
                 const url = `${GAS_URL}?action=search&q=${encodeURIComponent(query)}`;
                 const response = await fetch(url, {
                     method: 'GET',
+                    mode: 'cors',
                     cache: 'no-store'
                 });
                 
@@ -676,8 +692,8 @@
                     showNotFound();
                 }
             } catch (error) {
-                console.log('GAS Error, using demo data:', error);
-                // Fallback to demo data search
+                console.log('GAS Error:', error.message);
+                // Fallback ke demo data
                 const found = DEMO_DATA.find(row => 
                     (row['Nama Peserta'] || '').toLowerCase().startsWith(query.toLowerCase())
                 );
