@@ -371,42 +371,53 @@
 
         // Get photo URL - handle Google Drive and empty URLs
         function getPhotoUrl(foto, nama) {
-            if (!foto || foto === '' || foto === '#REF!') {
-                return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(nama || '?') + '&background=0b5ed7&color=fff&size=200&font-size=0.4';
+            // Default avatar if no photo
+            const defaultAvatar = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(nama || '?') + '&background=0b5ed7&color=fff&size=200&font-size=0.4';
+            
+            if (!foto || foto === '' || foto === '#REF!' || foto === '#N/A') {
+                return defaultAvatar;
             }
             
             // Convert Google Drive link to direct image link
-            if (foto.includes('drive.google.com')) {
-                // Extract file ID from various Google Drive URL formats
+            if (foto.includes('drive.google.com') || foto.includes('photos.google.com')) {
+                // Extract file ID from various Google URL formats
                 let fileId = '';
-                if (foto.includes('/file/d/')) {
-                    const match = foto.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-                    if (match) fileId = match[1];
-                } else if (foto.includes('id=')) {
-                    const match = foto.match(/id=([a-zA-Z0-9_-]+)/);
-                    if (match) fileId = match[1];
-                }
+                
+                // Format: /file/d/FILE_ID/...
+                const match1 = foto.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                // Format: id=FILE_ID
+                const match2 = foto.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                // Format: open?id=FILE_ID
+                const match3 = foto.match(/open\?id=([a-zA-Z0-9_-]+)/);
+                
+                if (match1) fileId = match1[1];
+                else if (match2) fileId = match2[1];
+                else if (match3) fileId = match3[1];
                 
                 if (fileId) {
                     return 'https://drive.google.com/uc?export=view&id=' + fileId;
                 }
             }
             
-            return foto;
+            // If not a Google URL, return as-is
+            return foto || defaultAvatar;
         }
 
         function showResult(data) {
             currentData = data;
             const badgeClass = getBadgeClass(data.Formasi);
             const foto = getPhotoUrl(data.Foto, data['Nama Peserta']);
+            const nama = escapeHtml(data['Nama Peserta'] || '?') || '?';
+            
+            console.log('Foto URL:', foto); // Debug
             
             resultsBody.innerHTML = `
                 <tr class="result-row">
                     <td>${escapeHtml(data.No || '-')}</td>
                     <td>
-                        <img src="${foto}" class="photo-thumb" alt="Foto ${escapeHtml(data['Nama Peserta'] || '')}" 
+                        <img src="${foto}" class="photo-thumb" alt="Foto ${nama}" 
                              onclick="viewPhoto()" 
-                             onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(data['Nama Peserta'] || '?')}&background=0b5ed7&color=fff&size=200'">
+                             onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(nama)}&background=0b5ed7&color=fff&size=200'">
                     </td>
                     <td><strong>${escapeHtml(data['Nama Peserta'] || '-')}</strong></td>
                     <td><span class="badge ${badgeClass}">${escapeHtml(data.Formasi || '-')}</span></td>
