@@ -1212,7 +1212,7 @@
      * 
      * Setelah deploy, copy URL Web App ke bawah ini
      */
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwicV6kOpoYoDHwsJUzrIPrWhr12h-ApkonHScE95yLPhae1mZ98WPSwxSNSLrTbzA/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxm_PFDvaA1VlI-KtULusPmWIv_sRuqRudvP7XCK7yN_6Cw_jsjP5LcD9_epUOwBb8j/exec';
     
     // ==================== FALLBACK DATA ====================
     // Jika API gagal, data ini akan digunakan
@@ -1434,8 +1434,83 @@
         return;
       }
       
-      // Set photo (with fallback)
-      const photoUrl = participant.foto || '';
+      // Convert Google Drive link to direct image URL
+      function convertDriveLink(url) {
+        if (!url || typeof url !== 'string') {
+          return url;
+        }
+        
+        // If already a direct link, return as is
+        if (url.includes('drive.google.com/uc')) {
+          return url;
+        }
+        
+        // Extract file ID from various Google Drive URL formats
+        var fileId = '';
+        
+        // Format: https://drive.google.com/file/d/FILE_ID/...
+        var match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (match1) {
+          fileId = match1[1];
+        }
+        
+        // Format: https://drive.google.com/open?id=FILE_ID
+        var match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (match2) {
+          fileId = match2[1];
+        }
+        
+        // Format: https://docs.google.com/document/d/FILE_ID/...
+        var match3 = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+        if (match3) {
+          fileId = match3[1];
+        }
+        
+        // If we found a file ID, convert to thumbnail URL (more reliable)
+        if (fileId) {
+          return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400-h400';
+        }
+        
+        // Return original URL if no conversion needed
+        return url;
+      }
+      
+      // Format tanggal ke format Indonesia (Rabu, 25 Maret 2026)
+      function formatTanggalIndonesia(tanggal) {
+        if (!tanggal || typeof tanggal !== 'string') {
+          return tanggal;
+        }
+        
+        var hariArray = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        var bulanArray = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        
+        var dateObj = null;
+        
+        // Format: DD/MM/YYYY atau D/M/YYYY
+        var matchDMY = tanggal.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
+        if (matchDMY) {
+          dateObj = new Date(matchDMY[3], parseInt(matchDMY[2]) - 1, parseInt(matchDMY[1]));
+        }
+        
+        // Format: YYYY-MM-DD
+        var matchYMD = tanggal.match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
+        if (matchYMD && !dateObj) {
+          dateObj = new Date(matchYMD[1], parseInt(matchYMD[2]) - 1, matchYMD[3]);
+        }
+        
+        if (dateObj && !isNaN(dateObj.getTime())) {
+          var hari = hariArray[dateObj.getDay()];
+          var bulan = bulanArray[dateObj.getMonth()];
+          var tahun = dateObj.getFullYear();
+          return hari + ', ' + dateObj.getDate() + ' ' + bulan + ' ' + tahun;
+        }
+        
+        return tanggal;
+      }
+      
+      // Set photo (with fallback and Google Drive conversion)
+      let photoUrl = participant.foto || '';
+      photoUrl = convertDriveLink(photoUrl);
       const photoElement = document.getElementById('participantPhoto');
       photoElement.src = photoUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250" viewBox="0 0 200 250"><rect fill="%232c5364" width="200" height="250"/><text fill="%23ffffff" font-size="40" x="50%" y="50%" text-anchor="middle" dy=".3em">👤</text></svg>';
       photoElement.onerror = function() {
@@ -1443,10 +1518,11 @@
       };
       
       // Set card data
+      var formattedTanggal = formatTanggalIndonesia(participant.tanggal);
       document.getElementById('participantName').textContent = participant.nama || '-';
       document.getElementById('registerNumber').textContent = participant.register || '-';
       document.getElementById('formasi').textContent = participant.formasi || '-';
-      document.getElementById('tanggal').textContent = participant.tanggal || '-';
+      document.getElementById('tanggal').textContent = formattedTanggal || '-';
       document.getElementById('jam').textContent = participant.jam || '-';
       document.getElementById('tempat').textContent = participant.tempat || '-';
       document.getElementById('peralatan').textContent = participant.peralatan || '-';
@@ -1462,7 +1538,7 @@
       document.getElementById('popupName').textContent = participant.nama || '-';
       document.getElementById('popupRegister').textContent = participant.register || '-';
       document.getElementById('popupFormasi').textContent = participant.formasi || '-';
-      document.getElementById('popupTanggal').textContent = participant.tanggal || '-';
+      document.getElementById('popupTanggal').textContent = formattedTanggal || '-';
       document.getElementById('popupJam').textContent = participant.jam || '-';
       document.getElementById('popupTempat').textContent = participant.tempat || '-';
       document.getElementById('popupPeralatan').textContent = participant.peralatan || '-';
@@ -1581,3 +1657,4 @@
   </script>
 </body>
 </html>
+
