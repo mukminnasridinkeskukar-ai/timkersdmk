@@ -1203,8 +1203,24 @@
      */
     
     // ==================== CONFIGURATION ====================
-    // REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT URL
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzBiTjp-C0XmQwGJGB78uZtoK-sTT9P5cSpL_kPHOtLZFnrziSpgVdC3uPWYjM6a4X3/exec';
+    /**
+     * GOOGLE SHEETS API CONFIGURATION
+     * 
+     * To get these values:
+     * 1. Go to https://console.cloud.google.com/
+     * 2. Create a new project or select existing
+     * 3. Enable Google Sheets API
+     * 4. Go to Credentials → Create Credentials → API Key
+     * 5. Get your Spreadsheet ID from the URL of your Google Sheet
+     * 
+     * Your spreadsheet MUST be shared as "Anyone with the link"
+     */
+    const GOOGLE_SHEETS_API_KEY = 'https://script.google.com/macros/s/AKfycby6JyFUf7KXWTK9uH0klvxycZqqcDxOTHbgLksqSHhQ_O-GWcZIXF3jl1A2RCA6rJls/exec';
+    const SPREADSHEET_ID = '15Hhg-eSkkqqzOX6i4IO5WRsEICANcItUe7ltsjoM2Kk';
+    const SHEET_NAME = 'DATA_JADWAL_SELEKSI';
+    
+    // Build the API URL for Google Sheets API v4
+    const API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${SHEET_NAME}!A2:I?key=${GOOGLE_SHEETS_API_KEY}`;
     
     // ==================== STATE MANAGEMENT ====================
     let allParticipants = [];
@@ -1271,22 +1287,16 @@
     
     // ==================== DATA FETCHING ====================
     /**
-     * Fetch all participant data from Google Apps Script API
-     * Uses multiple methods to handle Google Apps Script CORS issues
+     * Fetch all participant data from Google Sheets API
+     * Uses Google Sheets API v4 which supports CORS
      * @returns {Promise<Array>} Array of participants
      */
     async function fetchParticipants() {
-      let lastError = null;
-      
-      // Method 1: Direct fetch with redirect follow
       try {
         showLoading();
-        console.log('Trying Method 1: Direct fetch...');
         
         const response = await fetch(API_URL, {
           method: 'GET',
-          redirect: 'follow',
-          mode: 'cors',
           headers: {
             'Content-Type': 'application/json'
           }
@@ -1298,51 +1308,46 @@
         
         const data = await response.json();
         
-        if (!validateAPIResponse(data)) {
-          throw new Error('Invalid API response format');
+        // Validate Google Sheets API response
+        if (!data.values || !Array.isArray(data.values)) {
+          throw new Error('Invalid Google Sheets API response');
         }
         
-        console.log('Method 1 success!');
+        // Transform Google Sheets data to our format
+        const participants = [];
+        
+        for (let i = 0; i < data.values.length; i++) {
+          const row = data.values[i];
+          
+          // Skip empty rows
+          if (!row[0] || !row[2]) {
+            continue;
+          }
+          
+          const participant = {
+            register: sanitizeString(row[0]),        // Column A: Nomor Register
+            foto: sanitizeString(row[1]),            // Column B: Foto
+            nama: sanitizeString(row[2]),            // Column C: Nama Peserta
+            formasi: sanitizeString(row[3]),          // Column D: Formasi
+            tanggal: sanitizeString(row[4]),          // Column E: Tanggal Test
+            jam: sanitizeString(row[5]),              // Column F: Jam
+            tempat: sanitizeString(row[6]),           // Column G: Tempat
+            peralatan: sanitizeString(row[7]),        // Column H: Peralatan
+            kebutuhan: sanitizeString(row[8])         // Column I: Jumlah Kebutuhan SDM
+          };
+          
+          participants.push(participant);
+        }
+        
         hideLoading();
-        return data.data;
+        return participants;
         
       } catch (error) {
-        console.log('Method 1 failed:', error.message);
-        lastError = error;
+        console.error('Error fetching data:', error);
+        hideLoading();
+        showError();
+        return [];
       }
-      
-      // Method 2: Try fetch with no-cors and parse response as text
-      // This is a workaround for CORS - we make the request and accept an opaque response
-      // Note: This won't work for reading the response, but we'll try anyway
-      try {
-        console.log('Trying Method 2: no-cors mode...');
-        
-        // Create a new URL by adding a cache-busting parameter
-        const cacheBuster = '?_=' + Date.now();
-        const urlWithCache = API_URL + (API_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
-        
-        const response = await fetch(urlWithCache, {
-          method: 'GET',
-          mode: 'no-cors',
-          cache: 'no-store'
-        });
-        
-        console.log('Method 2 response type:', response.type);
-        
-        // With no-cors, response.type is 'opaque' and we can't read it
-        // This method won't work for Google Apps Script
-        throw new Error('no-cors returns opaque response');
-        
-      } catch (error) {
-        console.log('Method 2 failed:', error.message);
-        lastError = error;
-      }
-      
-      // Method 3: Show a helpful error message with instructions
-      console.log('All methods failed. Showing error.');
-      hideLoading();
-      showError();
-      return [];
     }
     
     // ==================== SEARCH FUNCTIONALITY ====================
