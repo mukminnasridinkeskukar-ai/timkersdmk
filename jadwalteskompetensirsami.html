@@ -1212,7 +1212,7 @@
      * 
      * Setelah deploy, copy URL Web App ke bawah ini
      */
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzxvij9fRyx1MIaTfRsErba4WYqHv7QRaKmBlAz68fm0yEr7G7FTawSdyDsJx_qyv3F/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwicV6kOpoYoDHwsJUzrIPrWhr12h-ApkonHScE95yLPhae1mZ98WPSwxSNSLrTbzA/exec';
     
     // ==================== FALLBACK DATA ====================
     // Jika API gagal, data ini akan digunakan
@@ -1287,51 +1287,55 @@
     
     // ==================== DATA FETCHING ====================
     /**
-     * Fetch all participant data from Google Apps Script API
-     * Uses fallback data if API fails
+     * Load data using script tag (bypasses CORS)
      * @returns {Promise<Array>} Array of participants
      */
-    async function fetchParticipants() {
-      // Try to fetch from API first
-      try {
+    function fetchParticipants() {
+      return new Promise((resolve) => {
         showLoading();
         
-        const response = await fetch(API_URL, {
-          method: 'GET',
-          redirect: 'follow',
-          headers: {
-            'Content-Type': 'application/json'
+        // Remove any existing script
+        var existingScript = document.getElementById('gapi-script');
+        if (existingScript) {
+          existingScript.remove();
+        }
+        
+        // Create script element
+        var script = document.createElement('script');
+        script.id = 'gapi-script';
+        script.src = API_URL;
+        script.onload = function() {
+          // Data loaded via JADWAL_DATA variable
+          if (typeof JADWAL_DATA !== 'undefined') {
+            if (JADWAL_DATA.error) {
+              console.error('API Error:', JADWAL_DATA.error);
+              hideLoading();
+              showError();
+              resolve([]);
+            } else {
+              hideLoading();
+              resolve(JADWAL_DATA || []);
+            }
+          } else {
+            hideLoading();
+            showError();
+            resolve([]);
           }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Validate API response
-        if (!data || data.status !== 'success') {
-          throw new Error(data.message || 'Invalid API response');
-        }
-        
-        hideLoading();
-        return data.data || [];
-        
-      } catch (error) {
-        console.log('API fetch failed, using fallback data:', error.message);
-        
-        // If API fails, use fallback data
-        if (FALLBACK_DATA.length > 0) {
+        };
+        script.onerror = function() {
+          console.log('Script load failed, using fallback data');
           hideLoading();
-          return FALLBACK_DATA;
-        }
+          if (FALLBACK_DATA.length > 0) {
+            resolve(FALLBACK_DATA);
+          } else {
+            showError();
+            resolve([]);
+          }
+        };
         
-        // If no fallback data, show error
-        hideLoading();
-        showError();
-        return [];
-      }
+        // Append to head
+        document.head.appendChild(script);
+      });
     }
     
     // ==================== SEARCH FUNCTIONALITY ====================
