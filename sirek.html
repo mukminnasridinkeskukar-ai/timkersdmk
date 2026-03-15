@@ -2284,7 +2284,7 @@
                     
                     // API URL - GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
                     // Deploy: Extensions > Apps Script > Deploy > New deployment > Web app
-                    API_URL: 'https://script.google.com/macros/s/AKfycbw7dgNnPKZ0LcU8HXZEwXrtPQ0eNvzQam34NNUk58H0wdbfD0VLp08UnxikrjUR5DKL/exec'
+                    API_URL: 'https://script.google.com/macros/s/AKfycbywf8rQKahOtTnjAqy4KQOqqaPmbSFPun6u3gpb6zyPXSdQAM0N5tNRmBBSpZf6TkHz/exec'
                 }
             },
             mounted() {
@@ -2316,26 +2316,61 @@
                 
                 // Convert Google Drive link to direct image URL
                 getDriveImageUrl(url) {
+                    // Debug log
+                    console.log('getDriveImageUrl called with:', url);
+                    
                     if (!url) return '';
+                    
+                    // Convert to string and trim whitespace
+                    url = String(url).trim();
+                    
+                    // Skip empty strings
+                    if (!url) return '';
+                    
+                    // Check if it's a valid URL
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                        console.log('Not a valid URL, returning as-is:', url);
+                        return url;
+                    }
                     
                     // Check if it's a Google Drive link
                     if (!url.includes('drive.google.com')) {
+                        console.log('Not a Google Drive link, returning as-is:', url);
                         return url; // Return as-is if not a Google Drive link
+                    }
+                    
+                    // Already a direct image link
+                    if (url.includes('drive.google.com/uc')) {
+                        console.log('Already a direct Google Drive link:', url);
+                        return url;
                     }
                     
                     // Pattern 1: https://drive.google.com/open?id=XXX
                     let match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
                     if (match && match[1]) {
-                        return 'https://drive.google.com/uc?export=view&id=' + match[1];
+                        let result = 'https://drive.google.com/uc?export=view&id=' + match[1];
+                        console.log('Converted to:', result);
+                        return result;
                     }
                     
                     // Pattern 2: https://drive.google.com/file/d/XXX/view...
                     match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)\//);
                     if (match && match[1]) {
-                        return 'https://drive.google.com/uc?export=view&id=' + match[1];
+                        let result = 'https://drive.google.com/uc?export=view&id=' + match[1];
+                        console.log('Converted to:', result);
+                        return result;
+                    }
+                    
+                    // Pattern 3: https://drive.google.com/file/d/XXX (without trailing slash)
+                    match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)(\/|$)/);
+                    if (match && match[1]) {
+                        let result = 'https://drive.google.com/uc?export=view&id=' + match[1];
+                        console.log('Converted to:', result);
+                        return result;
                     }
                     
                     // If no pattern matched, return original URL
+                    console.log('Could not convert Google Drive URL, returning original:', url);
                     return url;
                 },
                 
