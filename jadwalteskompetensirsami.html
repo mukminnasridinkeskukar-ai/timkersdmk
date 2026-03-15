@@ -1204,7 +1204,7 @@
     
     // ==================== CONFIGURATION ====================
     // REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT URL
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyzvhYc2hEtGipgZFM2aAgxj4t2-Q490qvdJ4mqCjT2eVfjS29CKOU6bdOKZWEpsunM/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzBiTjp-C0XmQwGJGB78uZtoK-sTT9P5cSpL_kPHOtLZFnrziSpgVdC3uPWYjM6a4X3/exec';
     
     // ==================== STATE MANAGEMENT ====================
     let allParticipants = [];
@@ -1272,14 +1272,18 @@
     // ==================== DATA FETCHING ====================
     /**
      * Fetch all participant data from Google Apps Script API
+     * Handles Google Apps Script redirect for CORS compatibility
      * @returns {Promise<Array>} Array of participants
      */
     async function fetchParticipants() {
       try {
         showLoading();
         
+        // Google Apps Script returns a redirect, we need to follow it
+        // Use redirect: "follow" to automatically follow redirects
         const response = await fetch(API_URL, {
           method: 'GET',
+          redirect: 'follow',
           headers: {
             'Content-Type': 'application/json'
           }
@@ -1289,7 +1293,16 @@
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
-        const data = await response.json();
+        const responseText = await response.text();
+        
+        // Parse JSON manually to handle potential issues
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError, responseText);
+          throw new Error('Invalid JSON response');
+        }
         
         if (!validateAPIResponse(data)) {
           throw new Error('Invalid API response format');
