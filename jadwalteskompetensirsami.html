@@ -427,27 +427,27 @@
         // Load Dashboard
         async function loadDashboard() {
             try {
-                // Test connection with check action first
-                console.log('Testing connection...');
-                const checkData = await apiCall('check');
+                // Test connection with check action first using JSONP
+                console.log('Testing connection with check...');
+                const checkData = await jsonp(GAS_URL + '?action=check');
                 console.log('Check response:', checkData);
                 
-                // Try to get dashboard data
-                console.log('Loading dashboard...');
-                const data = await apiCall('dashboard');
-                console.log('Dashboard response:', data);
-                
-                if (data && data.status === 'success' && data.data) {
-                    document.getElementById('totalPeserta').textContent = data.data.totalPeserta || 0;
-                    document.getElementById('totalFormasi').textContent = data.data.totalFormasi || 0;
-                    document.getElementById('totalJadwal').textContent = data.data.totalJadwal || 0;
-                } else if (data && data.raw) {
-                    // Opaque response - try parsing
-                    console.log('Got opaque response, trying to parse');
+                if (checkData && checkData.status === 'success') {
+                    console.log('Connection OK, loading dashboard...');
+                    const data = await jsonp(GAS_URL + '?action=dashboard');
+                    console.log('Dashboard response:', data);
+                    
+                    if (data && data.status === 'success' && data.data) {
+                        document.getElementById('totalPeserta').textContent = data.data.totalPeserta || 0;
+                        document.getElementById('totalFormasi').textContent = data.data.totalFormasi || 0;
+                        document.getElementById('totalJadwal').textContent = data.data.totalJadwal || 0;
+                    } else { 
+                        console.error('Dashboard error response:', data);
+                        showError(); 
+                    }
+                } else {
+                    console.error('Check failed:', checkData);
                     showError();
-                } else { 
-                    console.error('Dashboard error response:', data);
-                    showError(); 
                 }
             } catch (error) { 
                 console.error('Dashboard error:', error); 
@@ -479,7 +479,7 @@
 
         async function searchPeserta(query) {
             try {
-                const data = await apiCall('search', { q: query });
+                const data = await jsonp(GAS_URL + '?action=search&q=' + encodeURIComponent(query));
                 console.log('Search response:', data);
                 if (data && data.status === 'success' && data.data && data.data.length > 0) { showResult(data.data[0]); }
                 else { showNotFound(); }
