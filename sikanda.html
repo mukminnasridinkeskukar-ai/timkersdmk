@@ -1652,7 +1652,7 @@
     // ==================== CONFIGURATION ====================
     const CONFIG = {
       // GANTI DENGAN URL WEB APP ANDA
-      API_URL: 'https://script.google.com/macros/s/AKfycbxgB2SMcrQBC8ONbbk0oyYTA8fWmmYXsuuNK24yzllg3OIf5_lD3IPC6d7SwoS7F9H9/exec',
+      API_URL: 'https://script.google.com/macros/s/AKfycby8DwlL8N-UcUWGqLKKlSI6U9mpe4YS_PNAtfMJnVIndiMkOXcwG-VlbabU5U_zsWOe/exec',
       ITEMS_PER_PAGE: 10
     };
 
@@ -1711,20 +1711,36 @@
     }
 
     // ==================== API FUNCTIONS ====================
+    // Note: Using GET requests with query parameters for better CORS compatibility
     async function apiCall(funcName, data = {}) {
       try {
-        const url = `${CONFIG.API_URL}?action=${funcName}`;
+        // Build query string
+        let queryString = `action=${encodeURIComponent(funcName)}`;
+        
+        // Add data as JSON string
+        if (Object.keys(data).length > 0) {
+          queryString += `&data=${encodeURIComponent(JSON.stringify(data))}`;
+        }
+        
+        const url = `${CONFIG.API_URL}?${queryString}`;
+        
         const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(data)
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
         });
         
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const text = await response.text();
-        // Handle Google Apps Script redirect
+        
+        // Check if response is HTML (error page or redirect)
         if (text.startsWith('<')) {
-          // This is HTML, meaning the script might have an issue
-          throw new Error('Unable to connect to server');
+          console.error('Got HTML response:', text.substring(0, 200));
+          throw new Error('Server returned HTML instead of JSON. Check Web App deployment.');
         }
         
         return JSON.parse(text);
