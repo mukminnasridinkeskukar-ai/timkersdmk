@@ -2359,8 +2359,8 @@
                     
                     // API URL - GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
                     // Deploy: Extensions > Apps Script > Deploy > New deployment > Web app
-                    API_URL: 'https://script.google.com/macros/s/AKfycbwyzEXu4YngVNxtGs-TY3O7NUKwih1EEQQTSWz0N2883o58nTU0ThccJxKxGAxomUZk/exec',
-                    SS_ID: '13sCeE2rJ9pUriWOc9vhecXoNoglvTze-OmNLK6O_Nr0'
+                    API_URL: localStorage.getItem('sirek_api_url') || 'https://script.google.com/macros/s/AKfycbwyzEXu4YngVNxtGs-TY3O7NUKwih1EEQQTSWz0N2883o58nTU0ThccJxKxGAxomUZk/exec',
+                    SS_ID: localStorage.getItem('sirek_ss_id') || '13sCeE2rJ9pUriWOc9vhecXoNoglvTze-OmNLK6O_Nr0'
                 }
             },
             mounted() {
@@ -2638,16 +2638,23 @@
                     try {
                         const response = await fetch(this.buildApiUrl('getDashboard'));
                         const result = await response.json();
+                        console.log('Dashboard API result:', result);
                         
                         if (result.success && result.data) {
+                            // Handle different response formats - data might be in result.data or result.data.data
+                            let dashboardData = result.data;
+                            if (result.data.data) {
+                                dashboardData = result.data.data;
+                            }
+                            
                             // Map API response to stats object
                             this.stats = {
-                                totalPelamar: result.data.totalPelamar || 0,
-                                lolosBerkas: result.data.lolosBerkas || 0,
-                                aktifFormasi: result.data.formasiAktif || 0,
-                                diterima: result.data.diterima || 0
+                                totalPelamar: dashboardData.totalPelamar || 0,
+                                lolosBerkas: dashboardData.lolosBerkas || 0,
+                                aktifFormasi: dashboardData.formasiAktif || 0,
+                                diterima: dashboardData.diterima || 0
                             };
-                            this.initCharts(result.data);
+                            this.initCharts(dashboardData);
                         } else {
                             // API returned error - show error message
                             this.dashboardError = result.message || 'Gagal memuat data dari Google Sheet. Silakan lakukan Konfigurasi terlebih dahulu.';
@@ -2811,9 +2818,11 @@
                     try {
                         const response = await fetch(this.buildApiUrl('getStatus', 'nik=' + encodeURIComponent(this.searchNIK)));
                         const result = await response.json();
+                        console.log('Search Hasil API result:', result);
                         
+                        // Handle different response formats
                         if (result.success && result.data) {
-                            this.searchResult = result.data;
+                            this.searchResult = result.data.data || result.data;
                         } else {
                             this.searchResult = null;
                         }
@@ -2849,9 +2858,20 @@
                     try {
                         const response = await fetch(this.buildApiUrl('getPelamar', 'search=' + encodeURIComponent(this.profilSearch)));
                         const result = await response.json();
+                        console.log('Search Profil API result:', result);
                         
-                        if (result.success && result.data?.length) {
-                            this.profilResult = result.data[0];
+                        // Handle different response formats
+                        let pelamarData = [];
+                        if (result.success && result.data) {
+                            if (result.data.data && Array.isArray(result.data.data)) {
+                                pelamarData = result.data.data;
+                            } else if (Array.isArray(result.data)) {
+                                pelamarData = result.data;
+                            }
+                        }
+                        
+                        if (pelamarData.length > 0) {
+                            this.profilResult = pelamarData[0];
                         } else {
                             this.profilResult = null;
                         }
@@ -2868,8 +2888,20 @@
                     try {
                         const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
+                        console.log('Profil API result:', result);
+                        
+                        // Handle different response formats from API
+                        let pelamarData = [];
                         if (result.success && result.data) {
-                            this.profilList = result.data;
+                            if (result.data.data && Array.isArray(result.data.data)) {
+                                pelamarData = result.data.data;
+                            } else if (Array.isArray(result.data)) {
+                                pelamarData = result.data;
+                            }
+                        }
+                        
+                        if (pelamarData.length > 0) {
+                            this.profilList = pelamarData;
                         }
                     } catch (error) {
                         console.error('Error loading profil list:', error);
@@ -2928,10 +2960,23 @@
                             $('#pelamarTable').DataTable().destroy();
                         }
                         
+                        const apiUrl = this.buildApiUrl('getPelamar');
+                        console.log('DataTables API URL:', apiUrl);
+                        
                         $('#pelamarTable').DataTable({
                             ajax: {
-                                url: this.buildApiUrl('getPelamar'),
-                                dataSrc: 'data'
+                                url: apiUrl,
+                                dataSrc: function(json) {
+                                    console.log('DataTables response:', json);
+                                    // Handle different response formats
+                                    if (json.success && json.data) {
+                                        if (json.data.data && Array.isArray(json.data.data)) {
+                                            return json.data.data;
+                                        }
+                                        return json.data;
+                                    }
+                                    return [];
+                                }
                             },
                             columns: [
                                 { data: null, render: (data, type, row, meta) => meta.row + 1 },
@@ -2977,8 +3022,19 @@
                         const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         console.log('Kompetensi API result:', result);
-                        if (result.success && result.data && result.data.length > 0) {
-                            this.kompetensiList = result.data;
+                        
+                        // Handle different response formats from API
+                        let pelamarData = [];
+                        if (result.success && result.data) {
+                            if (result.data.data && Array.isArray(result.data.data)) {
+                                pelamarData = result.data.data;
+                            } else if (Array.isArray(result.data)) {
+                                pelamarData = result.data;
+                            }
+                        }
+                        
+                        if (pelamarData.length > 0) {
+                            this.kompetensiList = pelamarData;
                         }
                     } catch (error) {
                         console.error('Error loading kompetensi:', error);
@@ -3021,14 +3077,26 @@
                         const response = await fetch(apiUrl);
                         const result = await response.json();
                         console.log('Verifikasi API result:', result);
-                        console.log('Result success:', result.success);
-                        console.log('Result data:', result.data);
-                        console.log('Result data length:', result.data ? result.data.length : 0);
-                        if (result.success && result.data && result.data.length > 0) {
-                            this.verifikasiList = result.data;
+                        
+                        // Handle different response formats from API
+                        let pelamarData = [];
+                        if (result.success && result.data) {
+                            // Format: { success: true, data: { data: [...], total: ... } }
+                            if (result.data.data && Array.isArray(result.data.data)) {
+                                pelamarData = result.data.data;
+                            }
+                            // Format: { success: true, data: [...] }
+                            else if (Array.isArray(result.data)) {
+                                pelamarData = result.data;
+                            }
+                        }
+                        
+                        console.log('Pelamar data parsed:', pelamarData.length, 'records');
+                        if (pelamarData.length > 0) {
+                            this.verifikasiList = pelamarData;
                             console.log('Verifikasi data loaded:', this.verifikasiList.length, 'records');
                         } else {
-                            console.log('No data or error in result');
+                            console.log('No data - check if Google Sheet has PELAMAR sheet with data');
                         }
                     } catch (error) {
                         console.error('Error loading verifikasi:', error);
@@ -3071,8 +3139,19 @@
                         const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         console.log('Wawancara API result:', result);
-                        if (result.success && result.data && result.data.length > 0) {
-                            this.wawancaraList = result.data;
+                        
+                        // Handle different response formats from API
+                        let pelamarData = [];
+                        if (result.success && result.data) {
+                            if (result.data.data && Array.isArray(result.data.data)) {
+                                pelamarData = result.data.data;
+                            } else if (Array.isArray(result.data)) {
+                                pelamarData = result.data;
+                            }
+                        }
+                        
+                        if (pelamarData.length > 0) {
+                            this.wawancaraList = pelamarData;
                         }
                     } catch (error) {
                         console.error('Error loading wawancara:', error);
@@ -3113,8 +3192,19 @@
                         const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         console.log('Bank Data API result:', result);
-                        if (result.success && result.data && result.data.length > 0) {
-                            this.bankDataList = result.data;
+                        
+                        // Handle different response formats from API
+                        let pelamarData = [];
+                        if (result.success && result.data) {
+                            if (result.data.data && Array.isArray(result.data.data)) {
+                                pelamarData = result.data.data;
+                            } else if (Array.isArray(result.data)) {
+                                pelamarData = result.data;
+                            }
+                        }
+                        
+                        if (pelamarData.length > 0) {
+                            this.bankDataList = pelamarData;
                         }
                     } catch (error) {
                         console.error('Error loading bank data:', error);
