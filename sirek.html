@@ -2212,6 +2212,8 @@
                     loginError: '',
                     isLoggedIn: false,
                     currentUser: null,
+                    dashboardLoading: false,
+                    dashboardError: '',
                     
                     // Dashboard Data
                     stats: {
@@ -2277,6 +2279,7 @@
                     
                     // AI Ranking
                     aiCalculating: false,
+                    aiError: '',
                     aiRankingByFormasi: [],
                     globalRanking: [],
                     
@@ -2356,7 +2359,7 @@
                     
                     // API URL - GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
                     // Deploy: Extensions > Apps Script > Deploy > New deployment > Web app
-                    API_URL: localStorage.getItem('sirek_api_url') || 'https://script.google.com/macros/s/AKfycbwQpJ4cKMg0JXX53T6cQ1U3NDeUQlyD6Xyuma4-fP7T6bnB7vTbepJV1EmOttEQ_sQ9/exec',
+                    API_URL: localStorage.getItem('sirek_api_url') || 'https://script.google.com/macros/s/AKfycbwyzEXu4YngVNxtGs-TY3O7NUKwih1EEQQTSWz0N2883o58nTU0ThccJxKxGAxomUZk/exec',
                     SS_ID: localStorage.getItem('sirek_ss_id') || '13sCeE2rJ9pUriWOc9vhecXoNoglvTze-OmNLK6O_Nr0'
                 }
             },
@@ -2622,6 +2625,9 @@
                 
                 // Dashboard
                 async loadDashboard() {
+                    this.dashboardLoading = true;
+                    this.dashboardError = '';
+                    
                     try {
                         const response = await fetch(this.buildApiUrl('getDashboard'));
                         const result = await response.json();
@@ -2636,55 +2642,38 @@
                             };
                             this.initCharts(result.data);
                         } else {
-                            // API returned error, use demo data
-                            this.useDemoData();
+                            // API returned error - show error message
+                            this.dashboardError = result.message || 'Gagal memuat data dari Google Sheet. Silakan lakukan Konfigurasi terlebih dahulu.';
+                            this.stats = { totalPelamar: 0, lolosBerkas: 0, aktifFormasi: 0, diterima: 0 };
                         }
                     } catch (error) {
                         console.error('Failed to load dashboard:', error);
-                        // Use demo data when API fails
-                        this.useDemoData();
+                        this.dashboardError = 'Tidak dapat terhubung ke Google Sheet. Silakan klik "Konfigurasi" untuk menyambungkan.';
+                        this.stats = { totalPelamar: 0, lolosBerkas: 0, aktifFormasi: 0, diterima: 0 };
                     }
-                },
-                
-                useDemoData() {
-                    this.stats = { totalPelamar: 156, lolosBerkas: 89, aktifFormasi: 28, diterima: 45 };
-                    this.initCharts(null);
+                    
+                    this.dashboardLoading = false;
                 },
                 
                 initCharts(data) {
-                    // Use demo data if no real data
-                    const demoFormasi = ['Dokter Umum', 'Ners', 'Perawat', 'Bidan', 'Apoteker', 'Farmasi', 'Laboratorium', 'IT'];
-                    const demoFormasiData = [25, 35, 42, 28, 12, 18, 22, 15];
-                    const demoPendidikan = ['S1 Kedokteran', 'Profesi Ners', 'D3 Keperawatan', 'Profesi Bidan', 'D3 Farmasi', 'S1 Farmasi', 'Lainnya'];
-                    const demoPendidikanData = [15, 25, 35, 20, 18, 12, 31];
-                    const demoStatus = ['Menunggu', 'Lolos Berkas', 'Tidak Lolos', 'Diterima', 'Tidak Diterima'];
-                    const demoStatusData = [25, 45, 30, 35, 21];
-                    
-                    // Get real data or use demo
-                    let formasiLabels, formasiData, pendidikanLabels, pendidikanData, statusLabels, statusData;
+                    // Get real data - no demo fallback
+                    let formasiLabels = [], formasiData = [];
+                    let pendidikanLabels = [], pendidikanData = [];
+                    let statusLabels = [], statusData = [];
                     
                     if (data && data.grafikFormasi && data.grafikFormasi.length > 0) {
                         formasiLabels = data.grafikFormasi.map(f => f.nama);
                         formasiData = data.grafikFormasi.map(f => f.jumlah);
-                    } else {
-                        formasiLabels = demoFormasi;
-                        formasiData = demoFormasiData;
                     }
                     
                     if (data && data.grafikPendidikan && data.grafikPendidikan.length > 0) {
                         pendidikanLabels = data.grafikPendidikan.map(p => p.nama);
                         pendidikanData = data.grafikPendidikan.map(p => p.jumlah);
-                    } else {
-                        pendidikanLabels = demoPendidikan;
-                        pendidikanData = demoPendidikanData;
                     }
                     
                     if (data && data.grafikStatus && data.grafikStatus.length > 0) {
                         statusLabels = data.grafikStatus.map(s => s.status);
                         statusData = data.grafikStatus.map(s => s.jumlah);
-                    } else {
-                        statusLabels = demoStatus;
-                        statusData = demoStatusData;
                     }
                     
                     this.$nextTick(() => {
@@ -2813,7 +2802,7 @@
                     this.searched = true;
                     
                     try {
-                        const response = await fetch(this.API_URL + '?action=getStatus&nik=' + encodeURIComponent(this.searchNIK));
+                        const response = await fetch(this.buildApiUrl('getStatus', 'nik=' + encodeURIComponent(this.searchNIK)));
                         const result = await response.json();
                         
                         if (result.success && result.data) {
@@ -2822,21 +2811,8 @@
                             this.searchResult = null;
                         }
                     } catch (error) {
-                        // Demo data
-                        this.searchResult = {
-                            nik: this.searchNIK,
-                            nama: 'Demo Applicant',
-                            formasi: 'Perawat',
-                            pendidikan: 'D3 Keperawatan',
-                            statusBerkas: 'LOLOS',
-                            statusKompetensi: 'LOLOS',
-                            nilaiKompetensi: '85',
-                            statusWawancara: 'LOLOS',
-                            nilaiWawancara: '90',
-                            statusKesehatan: 'LULUS',
-                            hasilAkhir: 'DITERIMA',
-                            catatan: 'Selamat! Anda diterima bekerja di RSUD Aji Muhammad Idris'
-                        };
+                        console.error('Error searching status:', error);
+                        this.searchResult = null;
                     }
                     
                     this.searchLoading = false;
@@ -2864,7 +2840,7 @@
                     this.profilSearched = true;
                     
                     try {
-                        const response = await fetch(this.API_URL + '?action=getPelamar&search=' + encodeURIComponent(this.profilSearch));
+                        const response = await fetch(this.buildApiUrl('getPelamar', 'search=' + encodeURIComponent(this.profilSearch)));
                         const result = await response.json();
                         
                         if (result.success && result.data?.length) {
@@ -2873,23 +2849,8 @@
                             this.profilResult = null;
                         }
                     } catch (error) {
-                        // Demo data
-                        this.profilResult = {
-                            nik: this.profilSearch,
-                            nama: 'Demo Applicant',
-                            tempatLahir: 'Bekasi',
-                            tanggalLahir: '15 Januari 1995',
-                            jenisKelamin: 'Perempuan',
-                            noHP: '081234567890',
-                            email: 'demo@example.com',
-                            formasi: 'Perawat',
-                            pendidikan: 'D3 Keperawatan',
-                            alamatKtp: 'Jl. Contoh No. 123, Bekasi, Jawa Barat',
-                            linkFoto: '',
-                            linkSuratLamaran: '',
-                            linkCV: '',
-                            linkDokumen: ''
-                        };
+                        console.error('Error searching profil:', error);
+                        this.profilResult = null;
                     }
                     
                     this.profilLoading = false;
@@ -2898,27 +2859,20 @@
                 async loadProfilList() {
                     this.profilListLoading = true;
                     try {
-                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         if (result.success && result.data) {
                             this.profilList = result.data;
-                        } else {
-                            this.profilList = this.getDemoProfilList();
                         }
                     } catch (error) {
-                        this.profilList = this.getDemoProfilList();
+                        console.error('Error loading profil list:', error);
                     }
                     this.profilListLoading = false;
                 },
                 
                 getDemoProfilList() {
-                    return [
-                        { no: 1, nik: '6371031501900001', nama: 'Ahmad Fauzi', jenisKelamin: 'Laki-laki', pendidikan: 'S1 Kedokteran', ipk: '3.85', formasi: 'Dokter Umum', foto: '' },
-                        { no: 2, nik: '6371031501900002', nama: 'Siti Rahayu', jenisKelamin: 'Perempuan', pendidikan: 'Profesi Ners', ipk: '3.90', formasi: 'Ners', foto: '' },
-                        { no: 3, nik: '6371031501900003', nama: 'Budi Santoso', jenisKelamin: 'Laki-laki', pendidikan: 'D3 Keperawatan', ipk: '3.65', formasi: 'Perawat', foto: '' },
-                        { no: 4, nik: '6371031501900004', nama: 'Dewi Lestari', jenisKelamin: 'Perempuan', pendidikan: 'Profesi Bidan', ipk: '3.80', formasi: 'Bidan Profesi', foto: '' },
-                        { no: 5, nik: '6371031501900005', nama: 'Rudi Hermawan', jenisKelamin: 'Laki-laki', pendidikan: 'S1 Farmasi + Profesi Apoteker', ipk: '3.75', formasi: 'Apoteker', foto: '' }
-                    ];
+                    // Demo data dihapus - harus menggunakan data dari Google Sheet
+                    return [];
                 },
                 
                 openPelamarLightbox(pelamar) {
@@ -3012,17 +2966,14 @@
                     this.kompetensiLoading = true;
                     this.kompetensiList = [];
                     try {
-                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         console.log('Kompetensi API result:', result);
                         if (result.success && result.data && result.data.length > 0) {
                             this.kompetensiList = result.data;
-                        } else {
-                            this.kompetensiList = this.getDemoPelamarList();
                         }
                     } catch (error) {
                         console.error('Error loading kompetensi:', error);
-                        this.kompetensiList = this.getDemoPelamarList();
                     }
                     this.kompetensiLoading = false;
                 },
@@ -3039,16 +2990,15 @@
                 
                 async saveKompetensi() {
                     try {
-                        const response = await fetch(this.API_URL + '?action=inputNilai&nik=' + encodeURIComponent(this.kompetensiForm.nik) + '&nilai=' + encodeURIComponent(this.kompetensiForm.nilai) + '&status=' + encodeURIComponent(this.kompetensiForm.status));
+                        const response = await fetch(this.buildApiUrl('inputNilai', 'nik=' + encodeURIComponent(this.kompetensiForm.nik) + '&nilai=' + encodeURIComponent(this.kompetensiForm.nilai) + '&status=' + encodeURIComponent(this.kompetensiForm.status)));
                         const result = await response.json();
                         if (result.success) {
-                            alert('Nilai kompetensi berhasil disimpan');
+                            alert('Nilai kompetensi berhasil disimpan ke Google Sheet');
                             this.showKompetensiModal = false;
                             this.loadKompetensiList();
                         }
                     } catch (error) {
-                        alert('Nilai kompetensi disimpan (demo)');
-                        this.showKompetensiModal = false;
+                        alert('Error: ' + error.message);
                     }
                 },
                 
@@ -3057,21 +3007,16 @@
                     this.verifikasiLoading = true;
                     this.verifikasiList = [];
                     try {
-                        console.log('Loading verifikasi from:', this.API_URL + '?action=getPelamar');
-                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        console.log('Loading verifikasi from:', this.buildApiUrl('getPelamar'));
+                        const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         console.log('Verifikasi API result:', result);
                         if (result.success && result.data && result.data.length > 0) {
                             this.verifikasiList = result.data;
                             console.log('Verifikasi data loaded:', this.verifikasiList.length, 'records');
-                        } else {
-                            console.log('No data or empty result, using demo data');
-                            this.verifikasiList = this.getDemoPelamarList();
                         }
                     } catch (error) {
                         console.error('Error loading verifikasi:', error);
-                        alert('Error: ' + error.message + '. Showing demo data.');
-                        this.verifikasiList = this.getDemoPelamarList();
                     }
                     this.verifikasiLoading = false;
                 },
@@ -3089,19 +3034,17 @@
                 
                 async saveVerifikasi() {
                     try {
-                        const response = await fetch(this.API_URL + '?action=verifikasi&nik=' + encodeURIComponent(this.verifikasiForm.nik) + '&status=' + encodeURIComponent(this.verifikasiForm.status) + '&catatan=' + encodeURIComponent(this.verifikasiForm.catatan));
+                        const response = await fetch(this.buildApiUrl('verifikasi', 'nik=' + encodeURIComponent(this.verifikasiForm.nik) + '&status=' + encodeURIComponent(this.verifikasiForm.status) + '&catatan=' + encodeURIComponent(this.verifikasiForm.catatan)));
                         const result = await response.json();
                         if (result.success) {
-                            alert('Verifikasi berhasil disimpan');
+                            alert('Verifikasi berhasil disimpan ke Google Sheet');
                             this.showVerifikasiModal = false;
                             this.loadVerifikasiList();
                         } else {
                             alert('Gagal: ' + result.message);
                         }
                     } catch (error) {
-                        alert('Verifikasi berhasil disimpan (demo mode)');
-                        this.showVerifikasiModal = false;
-                        this.loadVerifikasiList();
+                        alert('Error: ' + error.message);
                     }
                 },
                 
@@ -3110,17 +3053,14 @@
                     this.wawancaraLoading = true;
                     this.wawancaraList = [];
                     try {
-                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         console.log('Wawancara API result:', result);
                         if (result.success && result.data && result.data.length > 0) {
                             this.wawancaraList = result.data;
-                        } else {
-                            this.wawancaraList = this.getDemoPelamarList();
                         }
                     } catch (error) {
                         console.error('Error loading wawancara:', error);
-                        this.wawancaraList = this.getDemoPelamarList();
                     }
                     this.wawancaraLoading = false;
                 },
@@ -3138,7 +3078,7 @@
                 
                 async saveWawancara() {
                     try {
-                        const response = await fetch(this.API_URL + '?action=inputWawancara&nik=' + encodeURIComponent(this.wawancaraForm.nik) + '&nilai=' + encodeURIComponent(this.wawancaraForm.nilai) + '&status=' + encodeURIComponent(this.wawancaraForm.status));
+                        const response = await fetch(this.buildApiUrl('inputWawancara', 'nik=' + encodeURIComponent(this.wawancaraForm.nik) + '&nilai=' + encodeURIComponent(this.wawancaraForm.nilai) + '&status=' + encodeURIComponent(this.wawancaraForm.status)));
                         const result = await response.json();
                         if (result.success) {
                             alert('Nilai wawancara berhasil disimpan');
@@ -3146,8 +3086,7 @@
                             this.loadWawancaraList();
                         }
                     } catch (error) {
-                        alert('Nilai wawancara disimpan (demo)');
-                        this.showWawancaraModal = false;
+                        alert('Error: ' + error.message);
                     }
                 },
                 
@@ -3156,17 +3095,14 @@
                     this.bankDataLoading = true;
                     this.bankDataList = [];
                     try {
-                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         console.log('Bank Data API result:', result);
                         if (result.success && result.data && result.data.length > 0) {
                             this.bankDataList = result.data;
-                        } else {
-                            this.bankDataList = this.getDemoPelamarList();
                         }
                     } catch (error) {
                         console.error('Error loading bank data:', error);
-                        this.bankDataList = this.getDemoPelamarList();
                     }
                     this.bankDataLoading = false;
                 },
@@ -3247,52 +3183,31 @@
                 },
                 
                 getDemoPelamarList() {
-                    return [
-                        { NIK: '6371031501900001', Nama: 'Ahmad Fauzi', Formasi: 'Dokter Umum', 'Nilai Kompetensi': '85', 'Status Kompetensi': 'LOLOS', 'Nilai Wawancara': '90', 'Status Wawancara': 'LOLOS' },
-                        { NIK: '6371031501900002', Nama: 'Siti Rahayu', Formasi: 'Ners', 'Nilai Kompetensi': '88', 'Status Kompetensi': 'LOLOS', 'Nilai Wawancara': '92', 'Status Wawancara': 'LOLOS' },
-                        { NIK: '6371031501900003', Nama: 'Budi Santoso', Formasi: 'Perawat', 'Nilai Kompetensi': '75', 'Status Kompetensi': 'MENUNGGU', 'Nilai Wawancara': '', 'Status Wawancara': 'MENUNGGU' },
-                        { NIK: '6371031501900004', Nama: 'Dewi Lestari', Formasi: 'Bidan Profesi', 'Nilai Kompetensi': '82', 'Status Kompetensi': 'LOLOS', 'Nilai Wawancara': '85', 'Status Wawancara': 'LOLOS' },
-                        { NIK: '6371031501900005', Nama: 'Rudi Hermawan', Formasi: 'Apoteker', 'Nilai Kompetensi': '', 'Status Kompetensi': 'MENUNGGU', 'Nilai Wawancara': '', 'Status Wawancara': 'MENUNGGU' }
-                    ];
+                    // Demo data dihapus - harus menggunakan data dari Google Sheet
+                    return [];
                 },
                 
                 async calculateAIRanking() {
                     this.aiCalculating = true;
+                    this.aiError = '';
                     
                     try {
-                        const response = await fetch(this.API_URL + '?action=calculateAIRanking');
+                        const response = await fetch(this.buildApiUrl('calculateAIRanking'));
                         const result = await response.json();
                         
                         if (result.success) {
                             this.aiRankingByFormasi = result.byFormasi || [];
                             this.globalRanking = result.global || [];
+                        } else {
+                            this.aiError = result.message || 'Gagal memuat ranking';
+                            this.aiRankingByFormasi = [];
+                            this.globalRanking = [];
                         }
                     } catch (error) {
-                        // Demo data
-                        this.aiRankingByFormasi = [
-                            {
-                                nama: 'Perawat',
-                                candidates: [
-                                    { nik: '123456789', nama: 'Siti Rahayu', pendidikan: 'D3 Keperawatan', aiScore: 95 },
-                                    { nik: '987654321', nama: 'Ahmad Fauzi', pendidikan: 'D3 Keperawatan', aiScore: 88 },
-                                    { nik: '456789123', nama: 'Budi Santoso', pendidikan: 'Profesi Ners', aiScore: 85 }
-                                ]
-                            },
-                            {
-                                nama: 'Ners',
-                                candidates: [
-                                    { nik: '321654987', nama: 'Dewi Lestari', pendidikan: 'Profesi Ners', aiScore: 92 },
-                                    { nik: '654987321', nama: 'Joko Pramono', pendidikan: 'Profesi Ners', aiScore: 87 }
-                                ]
-                            }
-                        ];
-                        this.globalRanking = [
-                            { nik: '123456789', nama: 'Siti Rahayu', formasi: 'Perawat', pendidikan: 'D3 Keperawatan', aiScore: 95 },
-                            { nik: '321654987', nama: 'Dewi Lestari', formasi: 'Ners', pendidikan: 'Profesi Ners', aiScore: 92 },
-                            { nik: '987654321', nama: 'Ahmad Fauzi', formasi: 'Perawat', pendidikan: 'D3 Keperawatan', aiScore: 88 },
-                            { nik: '654987321', nama: 'Joko Pramono', formasi: 'Ners', pendidikan: 'Profesi Ners', aiScore: 87 },
-                            { nik: '456789123', nama: 'Budi Santoso', formasi: 'Perawat', pendidikan: 'Profesi Ners', aiScore: 85 }
-                        ];
+                        console.error('Error calculating AI ranking:', error);
+                        this.aiError = 'Tidak dapat terhubung ke Google Sheet';
+                        this.aiRankingByFormasi = [];
+                        this.globalRanking = [];
                     }
                     
                     this.aiCalculating = false;
