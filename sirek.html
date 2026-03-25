@@ -2417,7 +2417,7 @@
                     }
                 },
                 
-                // Build API URL with ssId parameter
+                // Build API URL with ssId parameter - handle Google Apps Script redirects
                 buildApiUrl(action, extraParams = '') {
                     let url = this.API_URL + '?action=' + action;
                     if (this.SS_ID) {
@@ -2902,7 +2902,7 @@
                     if (!this.isLoggedIn) return;
                     
                     try {
-                        const response = await fetch(this.API_URL + '?action=getDashboard');
+                        const response = await fetch(this.buildApiUrl('getDashboard'));
                         const result = await response.json();
                         
                         if (result.success) {
@@ -2910,7 +2910,8 @@
                             this.recentRegistrations = result.recent || [];
                         }
                     } catch (error) {
-                        this.adminStats = { total: 156, lolosBerkas: 89, dalamProses: 45, diterima: 22 };
+                        console.error('Error loading admin data:', error);
+                        this.adminStats = { total: 0, lolosBerkas: 0, dalamProses: 0, diterima: 0 };
                     }
                 },
                 
@@ -2922,7 +2923,7 @@
                         
                         $('#pelamarTable').DataTable({
                             ajax: {
-                                url: this.API_URL + '?action=getPelamar',
+                                url: this.buildApiUrl('getPelamar'),
                                 dataSrc: 'data'
                             },
                             columns: [
@@ -3222,7 +3223,7 @@
                 
                 async exportExcel() {
                     try {
-                        const response = await fetch(this.API_URL + '?action=getPelamar');
+                        const response = await fetch(this.buildApiUrl('getPelamar'));
                         const result = await response.json();
                         
                         if (result.success) {
@@ -3248,7 +3249,7 @@
                     
                     try {
                         const params = new URLSearchParams({ action, ...this.formasiForm });
-                        const response = await fetch(this.API_URL + '?' + params);
+                        const response = await fetch(this.buildApiUrl(action, params.toString()));
                         const result = await response.json();
                         
                         if (result.success) {
@@ -3264,7 +3265,7 @@
                     if (!confirm('Yakin hapus formasi ini?')) return;
                     
                     try {
-                        const response = await fetch(this.API_URL + '?action=deleteFormasi&id=' + kode);
+                        const response = await fetch(this.buildApiUrl('deleteFormasi', 'id=' + kode));
                         const result = await response.json();
                         
                         if (result.success) {
@@ -3277,17 +3278,15 @@
                 
                 async loadFormasiList() {
                     try {
-                        const response = await fetch(this.API_URL + '?action=getFormasi');
+                        const response = await fetch(this.buildApiUrl('getFormasi'));
                         const result = await response.json();
                         
                         if (result.success) {
                             this.formasiList = result.data || [];
                         }
                     } catch (error) {
-                        this.formasiList = [
-                            { kode: 'FRM-001', nama: 'Dokter Umum', unit: 'IGD', kebutuhan: 5, status: 'AKTIF', pelamar: 25 },
-                            { kode: 'FRM-002', nama: 'Ners', unit: 'Keperawatan', kebutuhan: 10, status: 'AKTIF', pelamar: 35 }
-                        ];
+                        console.error('Error loading formasi:', error);
+                        this.formasiList = [];
                     }
                 }
             }
