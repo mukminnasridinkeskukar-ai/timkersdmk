@@ -2359,8 +2359,8 @@
                     
                     // API URL - GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA
                     // Deploy: Extensions > Apps Script > Deploy > New deployment > Web app
-                    API_URL: localStorage.getItem('sirek_api_url') || 'https://script.google.com/macros/s/AKfycbwyzEXu4YngVNxtGs-TY3O7NUKwih1EEQQTSWz0N2883o58nTU0ThccJxKxGAxomUZk/exec',
-                    SS_ID: localStorage.getItem('sirek_ss_id') || '13sCeE2rJ9pUriWOc9vhecXoNoglvTze-OmNLK6O_Nr0'
+                    API_URL: 'https://script.google.com/macros/s/AKfycbwyzEXu4YngVNxtGs-TY3O7NUKwih1EEQQTSWz0N2883o58nTU0ThccJxKxGAxomUZk/exec',
+                    SS_ID: '13sCeE2rJ9pUriWOc9vhecXoNoglvTze-OmNLK6O_Nr0'
                 }
             },
             mounted() {
@@ -2407,14 +2407,21 @@
                     // Load saved API_URL and SS_ID from localStorage
                     const savedApiUrl = localStorage.getItem('sirek_api_url');
                     const savedSsId = localStorage.getItem('sirek_ss_id');
-                    if (savedApiUrl) {
+                    
+                    // Use defaults if not in localStorage
+                    if (!savedApiUrl) {
+                        localStorage.setItem('sirek_api_url', this.API_URL);
+                    } else {
                         this.API_URL = savedApiUrl;
-                        console.log('Loaded API_URL from config:', this.API_URL);
                     }
-                    if (savedSsId) {
+                    
+                    if (!savedSsId && this.SS_ID) {
+                        localStorage.setItem('sirek_ss_id', this.SS_ID);
+                    } else if (savedSsId) {
                         this.SS_ID = savedSsId;
-                        console.log('Loaded SS_ID from config:', this.SS_ID);
                     }
+                    
+                    console.log('Config loaded - API_URL:', this.API_URL, 'SS_ID:', this.SS_ID);
                 },
                 
                 // Build API URL with ssId parameter - handle Google Apps Script redirects
@@ -3008,13 +3015,20 @@
                     this.verifikasiLoading = true;
                     this.verifikasiList = [];
                     try {
-                        console.log('Loading verifikasi from:', this.buildApiUrl('getPelamar'));
-                        const response = await fetch(this.buildApiUrl('getPelamar'));
+                        const apiUrl = this.buildApiUrl('getPelamar');
+                        console.log('Loading verifikasi from:', apiUrl);
+                        console.log('SS_ID being used:', this.SS_ID);
+                        const response = await fetch(apiUrl);
                         const result = await response.json();
                         console.log('Verifikasi API result:', result);
+                        console.log('Result success:', result.success);
+                        console.log('Result data:', result.data);
+                        console.log('Result data length:', result.data ? result.data.length : 0);
                         if (result.success && result.data && result.data.length > 0) {
                             this.verifikasiList = result.data;
                             console.log('Verifikasi data loaded:', this.verifikasiList.length, 'records');
+                        } else {
+                            console.log('No data or error in result');
                         }
                     } catch (error) {
                         console.error('Error loading verifikasi:', error);
