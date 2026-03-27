@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIREK v1.2 - Sistem Informasi Rekrutmen</title>
+    <title>SIREK v1.2 Mega Pro - Sistem Informasi Rekrutmen</title>
     
     <!-- Vue.js 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
@@ -470,7 +470,7 @@
                             <i class="fas fa-hospital text-3xl text-white"></i>
                         </div>
                         <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Login Panel Admin</h2>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">SIREK v1.2</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">SIREK v1.2 Mega Pro</p>
                     </div>
                     <form @submit.prevent="handleLogin" class="space-y-4">
                         <div>
@@ -565,8 +565,8 @@
                         </div>
                         <transition name="fade">
                             <div v-if="sidebarOpen" class="overflow-hidden">
-                                <h1 class="font-bold text-xl whitespace-nowrap">SIREK Versi 1.2</h1>
-                                <p class="text-xs text-blue-200 whitespace-nowrap">Sistem Informasi Rekrutmen</p>
+                                <h1 class="font-bold text-xl whitespace-nowrap">SIREK V1.2</h1>
+                                <p class="text-xs text-blue-200 whitespace-nowrap">Mega Pro v1.2</p>
                             </div>
                         </transition>
                     </div>
@@ -1004,11 +1004,19 @@
                     <!-- PROFIL CALON KARYAWAN VIEW -->
                     <div v-if="activeMenu === 'profil'" class="animate-fade-in">
                         <div class="glass-card rounded-2xl p-6 mb-6">
-                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
-                                <i class="fas fa-user-tie text-medical-500 mr-2"></i>
-                                Profil Calon Karyawan
-                            </h2>
-                            <p class="text-gray-500 dark:text-gray-400">Data lengkap pelamar berdasarkan formasi</p>
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div>
+                                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">
+                                        <i class="fas fa-user-tie text-medical-500 mr-2"></i>
+                                        Profil Calon Karyawan
+                                    </h2>
+                                    <p class="text-gray-500 dark:text-gray-400">Data lengkap pelamar berdasarkan formasi</p>
+                                </div>
+                                <button @click="setActiveMenu('dashboard')" class="btn btn-secondary flex items-center gap-2">
+                                    <i class="fas fa-home"></i>
+                                    Kembali ke Beranda
+                                </button>
+                            </div>
                         </div>
                         
                         <!-- Tabel Profil Pelamar -->
@@ -1391,10 +1399,9 @@
                                     </h2>
                                     <p class="text-gray-500 dark:text-gray-400">Kelola semua data pelamar dengan DataTables</p>
                                 </div>
-                                <!-- Tombol Kembali untuk Interviewer -->
-                                <button v-if="currentUser?.role === 'INTERVIEWER'" @click="setActiveMenu('adminDashboard')" class="btn btn-secondary flex items-center gap-2">
-                                    <i class="fas fa-arrow-left"></i>
-                                    Kembali ke Dashboard
+                                <button @click="setActiveMenu('adminDashboard')" class="btn btn-secondary flex items-center gap-2">
+                                    <i class="fas fa-home"></i>
+                                    Kembali ke Beranda
                                 </button>
                             </div>
                         </div>
@@ -3236,12 +3243,31 @@
                         console.log('DataTables API URL:', apiUrl);
                         
                         $('#pelamarTable').DataTable({
+                            processing: true,
+                            serverSide: true,
+                            deferRender: true,
+                            pageLength: 25,
+                            lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
                             ajax: {
                                 url: apiUrl,
+                                type: 'GET',
+                                data: function(d) {
+                                    return {
+                                        draw: d.draw,
+                                        page: Math.floor(d.start / d.length) + 1,
+                                        size: d.length,
+                                        search: d.search?.value || ''
+                                    };
+                                },
                                 dataSrc: function(json) {
                                     console.log('DataTables response:', json);
-                                    // Handle different response formats
+                                    // Handle different response formats - DataTables needs recordsTotal and recordsFiltered
                                     if (json.success && json.data) {
+                                        // DataTables format
+                                        if (json.data.recordsTotal !== undefined) {
+                                            return json.data.data || [];
+                                        }
+                                        // Regular pagination format
                                         if (json.data.data && Array.isArray(json.data.data)) {
                                             return json.data.data;
                                         }
@@ -3269,11 +3295,11 @@
                                 { data: 'Pendidikan' },
                                 { 
                                     data: 'Status Berkas',
-                                    render: (data) => `<span class="badge ${this.getStatusBadgeClass(data)}">${data || 'MENUNGGU'}</span>`
+                                    render: (data) => `<span class="badge ${app.getStatusBadgeClass(data)}">${data || 'MENUNGGU'}</span>`
                                 },
                                 { 
                                     data: 'Hasil Akhir',
-                                    render: (data) => `<span class="badge ${this.getStatusBadgeClass(data)}">${data || 'MENUNGGU'}</span>`
+                                    render: (data) => `<span class="badge ${app.getStatusBadgeClass(data)}">${data || 'MENUNGGU'}</span>`
                                 },
                                 {
                                     data: null,
@@ -3283,7 +3309,11 @@
                                         </button>
                                     `
                                 }
-                            ]
+                            ],
+                            responsive: true,
+                            language: {
+                                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/id.json'
+                            }
                         });
                     });
                 },
