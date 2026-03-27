@@ -2954,10 +2954,10 @@
                         
                         if (result.success) {
                             this.isLoggedIn = true;
-                            this.currentUser = result.user;
+                            this.currentUser = result.data?.user || result.user;
                             this.showLoginModal = false;
                             this.setActiveMenu('adminDashboard');
-                            localStorage.setItem('sirek_token', result.token);
+                            localStorage.setItem('sirek_token', result.data?.token || result.token || '');
                         } else {
                             this.loginError = result.message;
                         }
@@ -3235,18 +3235,32 @@
                 async loadProfilList() {
                     this.profilListLoading = true;
                     try {
-                        // Get all pelamar data without pagination limit
-                        const apiUrl = this.buildApiUrl('getPelamar') + '&size=10000';
-                        const response = await fetch(apiUrl);
-                        const result = await response.json();
-                        console.log('Profil API result:', result);
-                        
-                        // Handle different response formats from API
+                        // Try BANK_DATA first, fallback to PELAMAR
                         let pelamarData = [];
-                        if (result.success && result.data) {
-                            if (result.data.data && Array.isArray(result.data.data)) {
-                                pelamarData = result.data.data;
-                            } else if (Array.isArray(result.data)) {
+                        
+                        const bankResponse = await fetch(this.buildApiUrl('getBankData'));
+                        const bankResult = await bankResponse.json();
+                        if (bankResult.success && bankResult.data) {
+                            if (bankResult.data.data && Array.isArray(bankResult.data.data) && bankResult.data.data.length > 0) {
+                                pelamarData = bankResult.data.data;
+                            } else if (Array.isArray(bankResult.data) && bankResult.data.length > 0) {
+                                pelamarData = bankResult.data;
+                            }
+                        }
+                        
+                        // Fallback to PELAMAR if BANK_DATA is empty
+                        if (pelamarData.length === 0) {
+                            const apiUrl = this.buildApiUrl('getPelamar') + '&size=10000';
+                            const response = await fetch(apiUrl);
+                            const result = await response.json();
+                            if (result.success && result.data) {
+                                if (result.data.data && Array.isArray(result.data.data)) {
+                                    pelamarData = result.data.data;
+                                } else if (Array.isArray(result.data)) {
+                                    pelamarData = result.data;
+                                }
+                            }
+                        }
                                 pelamarData = result.data;
                             }
                         }
