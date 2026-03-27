@@ -1626,14 +1626,20 @@
                                         <i class="fas fa-database text-teal-500 mr-2"></i>
                                         Bank Data Pelamar Kerja
                                     </h2>
-                                    <p class="text-gray-500 dark:text-gray-400">Database lengkap pelamar kerja</p>
+                                    <p class="text-gray-500 dark:text-gray-400">Database lengkap pelamar kerja dari sheet BANK-DATA</p>
+                                    <span v-if="bankDataList.length > 0" class="inline-block mt-2 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-sm font-medium">
+                                        Total: {{ bankDataList.length }} Pelamar
+                                    </span>
                                 </div>
+                                <button @click="loadBankDataList" class="btn btn-primary">
+                                    <i class="fas fa-sync-alt"></i> Refresh Data
+                                </button>
                             </div>
                             
                             <!-- Search Filters -->
                             <div class="mt-4 flex flex-col md:flex-row gap-4">
                                 <div class="flex-1">
-                                    <input v-model="bankDataSearch.nama" type="text" class="form-input" placeholder="Cari berdasarkan 3 huruf pertama nama...">
+                                    <input v-model="bankDataSearch.nama" type="text" class="form-input" placeholder="Cari berdasarkan nama...">
                                 </div>
                                 <div class="w-full md:w-48">
                                     <select v-model="bankDataSearch.pendidikan" class="form-input">
@@ -1690,15 +1696,15 @@
                                             <th class="px-4 py-3 text-left">Tgl Lahir</th>
                                             <th class="px-4 py-3 text-left">JK</th>
                                             <th class="px-4 py-3 text-left">Pendidikan</th>
-                                            <th class="px-4 py-3 text-left">Data</th>
-                                            <th class="px-4 py-3 text-left rounded-r-lg">Status Akhir</th>
+                                            <th class="px-4 py-3 text-left">Formasi</th>
+                                            <th class="px-4 py-3 text-left rounded-r-lg">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <tr v-for="(p, idx) in filteredBankData" :key="p.NIK || p.nik || idx" class="border-b hover:bg-teal-50 dark:hover:bg-slate-700">
                                             <td class="px-4 py-3">{{ idx + 1 }}</td>
                                             <td class="px-4 py-3">
-                                                <img v-if="p.Foto || p.foto || p['Link Foto'] || p['ID Foto'] || p['id foto'] || p.id_foto || p.link_foto || p['link foto']" :src="getDriveImageUrl(p.Foto || p.foto || p['Link Foto'] || p['ID Foto'] || p['id foto'] || p.id_foto || p.link_foto || p['link foto'])" class="w-10 h-10 rounded-full object-cover" @error="$event.target.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjMDA1NmIzIi8+PHJlY3QgeD0iMTUiIHk9IjE1IiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4yIi8+PHRleHQgeD0iMjUiIHk9IjMyIiBmb250LXNpemU9IjIwIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj48L3RleHQ+PC9zdmc+'" alt="Foto">
+                                                <img v-if="getBankDataFoto(p)" :src="getDriveImageUrl(getBankDataFoto(p))" class="w-10 h-10 rounded-full object-cover cursor-pointer hover:scale-150 transition-transform" @click="openBankDataPhotoLightbox(p)" @error="$event.target.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MCIgaGVpZ2h0PSI1MCI+PHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjMDA1NmIzIi8+PHJlY3QgeD0iMTUiIHk9IjE1IiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4yIi8+PHRleHQgeD0iMjUiIHk9IjMyIiBmb250LXNpemU9IjIwIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj48L3RleHQ+PC9zdmc+'" alt="Foto">
                                                 <div v-else class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center">
                                                     <i class="fas fa-user text-white text-sm"></i>
                                                 </div>
@@ -1708,16 +1714,17 @@
                                             <td class="px-4 py-3">{{ p['Tempat Lahir'] || '-' }}, {{ p['Tanggal Lahir'] || '-' }}</td>
                                             <td class="px-4 py-3">{{ p['Jenis Kelamin'] || '-' }}</td>
                                             <td class="px-4 py-3">{{ p.Pendidikan || '-' }}</td>
-                                            <td class="px-4 py-3">
-                                                <a v-if="p['Link Dokumen']" :href="p['Link Dokumen']" target="_blank" class="text-teal-600 hover:text-teal-800">
-                                                    <i class="fas fa-folder-open"></i> Buka
-                                                </a>
-                                                <span v-else class="text-gray-400">-</span>
-                                            </td>
+                                            <td class="px-4 py-3">{{ p.Formasi || p.formasi || '-' }}</td>
                                             <td class="px-4 py-3">
                                                 <button @click="openBankDataDetail(p)" class="btn btn-sm bg-teal-500 text-white hover:bg-teal-600">
-                                                    <i class="fas fa-eye"></i> Lihat
+                                                    <i class="fas fa-eye"></i> Detail
                                                 </button>
+                                            </td>
+                                        </tr>
+                                        <tr v-if="filteredBankData.length === 0">
+                                            <td colspan="9" class="px-4 py-12 text-center text-gray-500">
+                                                <i class="fas fa-database text-4xl mb-3 block"></i>
+                                                <p>Belum ada data pelamar di sheet BANK-DATA</p>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -1725,133 +1732,138 @@
                             </div>
                         </div>
                         
-                        <!-- Bank Data Detail Popup (Full Screen) -->
+                        <!-- Bank Data Detail Popup - Large Photo Left, Data Right -->
                         <div v-if="bankDataDetailOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="bankDataDetailOpen = false"></div>
-                            <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-y-auto animate-scale-in">
-                                <div class="sticky top-0 bg-gradient-to-r from-teal-500 to-teal-700 text-white p-6 rounded-t-2xl flex justify-between items-center">
-                                    <h3 class="text-2xl font-bold">Detail Pelamar</h3>
-                                    <button @click="bankDataDetailOpen = false" class="p-2 hover:bg-white/20 rounded-full">
+                            <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-y-auto animate-scale-in">
+                                <div class="sticky top-0 z-10 bg-gradient-to-r from-teal-500 to-teal-700 text-white p-4 rounded-t-2xl flex justify-between items-center">
+                                    <h3 class="text-xl font-bold">
+                                        <i class="fas fa-user-circle mr-2"></i>Detail Pelamar - {{ selectedBankData?.Nama || '-' }}
+                                    </h3>
+                                    <button @click="bankDataDetailOpen = false" class="p-2 hover:bg-white/20 rounded-full transition">
                                         <i class="fas fa-times text-xl"></i>
                                     </button>
                                 </div>
                                 <div class="p-6">
-                                    <!-- Header with Foto -->
-                                    <div class="flex flex-col md:flex-row gap-6 mb-6">
-                                        <div class="md:w-1/4 text-center">
-                                            <img v-if="selectedBankData?.Foto || selectedBankData?.foto || selectedBankData?.['Link Foto'] || selectedBankData?.['ID Foto'] || selectedBankData?.['id foto'] || selectedBankData?.id_foto || selectedBankData?.link_foto || selectedBankData?.['link foto']" :src="getDriveImageUrl(selectedBankData?.Foto || selectedBankData?.foto || selectedBankData?.['Link Foto'] || selectedBankData?.['ID Foto'] || selectedBankData?.['id foto'] || selectedBankData?.id_foto || selectedBankData?.link_foto || selectedBankData?.['link foto'])" class="w-40 h-40 mx-auto rounded-full object-cover shadow-lg mb-4" @error="$event.target.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwNTZiMyIvPjxyZWN0IHg9IjMwIiB5PSIzMCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMiIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgZm9udC1zaXplPSIyMCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+PC90ZXh0Pjwvc3ZnPg=='" alt="Foto">
-                                            <div v-else class="w-40 h-40 mx-auto rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center shadow-lg mb-4">
-                                                <i class="fas fa-user text-5xl text-white"></i>
+                                    <div class="flex flex-col lg:flex-row gap-6">
+                                        <!-- Photo Section - Left Side (Large) -->
+                                        <div class="lg:w-2/5">
+                                            <div class="sticky top-24">
+                                                <div class="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-slate-700 dark:to-slate-600 rounded-2xl p-6 text-center">
+                                                    <div v-if="getBankDataFoto(selectedBankData)" class="relative group cursor-pointer" @click="openBankDataPhotoLightbox(selectedBankData)">
+                                                        <img :src="getDriveImageUrl(getBankDataFoto(selectedBankData))" class="w-full max-w-xs mx-auto rounded-xl shadow-xl object-cover aspect-[3/4]" @error="$event.target.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iNDAwIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iIzAwNTZiMyIvPjxyZWN0IHg9IjEwMCIgeT0iMTIwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZiIgZmlsbC1vcGFjaXR5PSIwLjIiLz48dGV4dCB4PSIxNTAiIHk9IjE4NSIgZm9udC1zaXplPSI0MCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+PC90ZXh0Pjwvc3ZnPg=='" alt="Foto Pelamar">
+                                                        <div class="absolute inset-0 bg-black/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <div class="text-white text-center">
+                                                                <i class="fas fa-search-plus text-3xl mb-2"></i>
+                                                                <p class="text-sm font-medium">Klik untuk perbesar</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div v-else class="w-full max-w-xs mx-auto rounded-xl bg-gradient-to-br from-gray-300 to-gray-500 flex items-center justify-center aspect-[3/4]">
+                                                        <div class="text-center text-white">
+                                                            <i class="fas fa-user text-6xl mb-3 block"></i>
+                                                            <p class="text-sm">Tidak ada foto</p>
+                                                        </div>
+                                                    </div>
+                                                    <p class="mt-4 font-bold text-lg text-gray-800 dark:text-white">{{ selectedBankData?.Nama || '-' }}</p>
+                                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ selectedBankData?.Formasi || selectedBankData?.formasi || '-' }}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="md:w-3/4 grid grid-cols-2 gap-4">
-                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                                <p class="text-sm text-gray-500 mb-1">Nama Lengkap</p>
-                                                <p class="font-bold text-gray-800 dark:text-white text-lg">{{ selectedBankData?.Nama }}</p>
+                                        
+                                        <!-- Data Section - Right Side -->
+                                        <div class="lg:w-3/5 space-y-4">
+                                            <!-- Data Pribadi -->
+                                            <div class="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
+                                                <h4 class="font-bold text-teal-600 dark:text-teal-400 mb-3 flex items-center">
+                                                    <i class="fas fa-id-card mr-2"></i>Data Pribadi
+                                                </h4>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div v-for="col in bankDataColumns.pribadi" :key="col" class="flex flex-col">
+                                                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ col }}</span>
+                                                        <span class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.[col] || '-' }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                                <p class="text-sm text-gray-500 mb-1">NIK</p>
-                                                <p class="font-medium text-gray-800 dark:text-white">{{ maskNIK(selectedBankData?.NIK) }}</p>
+                                            
+                                            <!-- Data Kontak -->
+                                            <div class="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
+                                                <h4 class="font-bold text-blue-600 dark:text-blue-400 mb-3 flex items-center">
+                                                    <i class="fas fa-address-book mr-2"></i>Alamat & Kontak
+                                                </h4>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div v-for="col in bankDataColumns.kontak" :key="col" class="flex flex-col">
+                                                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ col }}</span>
+                                                        <span class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.[col] || '-' }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                                <p class="text-sm text-gray-500 mb-1">Tempat, Tanggal Lahir</p>
-                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Tempat Lahir'] }}, {{ selectedBankData?.['Tanggal Lahir'] }}</p>
+                                            
+                                            <!-- Data Pendidikan -->
+                                            <div class="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
+                                                <h4 class="font-bold text-purple-600 dark:text-purple-400 mb-3 flex items-center">
+                                                    <i class="fas fa-graduation-cap mr-2"></i>Pendidikan & Kualifikasi
+                                                </h4>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div v-for="col in bankDataColumns.pendidikan" :key="col" class="flex flex-col">
+                                                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ col }}</span>
+                                                        <span class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.[col] || '-' }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                                <p class="text-sm text-gray-500 mb-1">Jenis Kelamin</p>
-                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Jenis Kelamin'] }}</p>
+                                            
+                                            <!-- Data Lainnya -->
+                                            <div v-if="bankDataColumns.lainnya.length > 0" class="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
+                                                <h4 class="font-bold text-orange-600 dark:text-orange-400 mb-3 flex items-center">
+                                                    <i class="fas fa-list-alt mr-2"></i>Data Tambahan
+                                                </h4>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div v-for="col in bankDataColumns.lainnya" :key="col" class="flex flex-col">
+                                                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ col }}</span>
+                                                        <span class="font-medium text-gray-800 dark:text-white break-all">{{ selectedBankData?.[col] || '-' }}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                                <p class="text-sm text-gray-500 mb-1">Agama</p>
-                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Agama || '-' }}</p>
+                                            
+                                            <!-- Dokumen Links -->
+                                            <div class="bg-teal-50 dark:bg-slate-700 rounded-xl p-4">
+                                                <h4 class="font-bold text-teal-600 dark:text-teal-400 mb-3 flex items-center">
+                                                    <i class="fas fa-link mr-2"></i>Dokumen & Link
+                                                </h4>
+                                                <div class="flex flex-wrap gap-2">
+                                                    <a v-if="getBankDataFoto(selectedBankData)" :href="getDriveImageUrl(getBankDataFoto(selectedBankData))" target="_blank" class="btn bg-blue-500 text-white hover:bg-blue-600 text-sm">
+                                                        <i class="fas fa-camera"></i> Foto
+                                                    </a>
+                                                    <a v-if="selectedBankData?.['Link Surat Lamaran']" :href="selectedBankData?.['Link Surat Lamaran']" target="_blank" class="btn bg-green-500 text-white hover:bg-green-600 text-sm">
+                                                        <i class="fas fa-envelope"></i> Surat Lamaran
+                                                    </a>
+                                                    <a v-if="selectedBankData?.['Link CV']" :href="selectedBankData?.['Link CV']" target="_blank" class="btn bg-purple-500 text-white hover:bg-purple-600 text-sm">
+                                                        <i class="fas fa-file-pdf"></i> CV
+                                                    </a>
+                                                    <a v-if="selectedBankData?.['Link Surat Pernyataan']" :href="selectedBankData?.['Link Surat Pernyataan']" target="_blank" class="btn bg-orange-500 text-white hover:bg-orange-600 text-sm">
+                                                        <i class="fas fa-file-signature"></i> Surat Pernyataan
+                                                    </a>
+                                                    <a v-if="selectedBankData?.['Link Dokumen'] || selectedBankData?.['Link Dokumen Gabungan']" :href="selectedBankData?.['Link Dokumen'] || selectedBankData?.['Link Dokumen Gabungan']" target="_blank" class="btn bg-teal-500 text-white hover:bg-teal-600 text-sm">
+                                                        <i class="fas fa-folder-open"></i> Dokumen Lengkap
+                                                    </a>
+                                                    <span v-if="!getBankDataFoto(selectedBankData) && !selectedBankData?.['Link Surat Lamaran'] && !selectedBankData?.['Link CV'] && !selectedBankData?.['Link Surat Pernyataan'] && !selectedBankData?.['Link Dokumen']" class="text-gray-400 text-sm">Tidak ada dokumen</span>
+                                                </div>
                                             </div>
-                                            <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                                <p class="text-sm text-gray-500 mb-1">Status Pernikahan</p>
-                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Status Pernikahan'] || '-' }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Contact & Education -->
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">No HP</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['No HP'] || selectedBankData?.['No HP'] || '-' }}</p>
-                                        </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">Email</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Email || selectedBankData?.email || '-' }}</p>
-                                        </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">Alamat KTP</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Alamat KTP'] || selectedBankData?.['Alamat Domisili'] || '-' }}</p>
-                                        </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">Alamat Domisili</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Alamat Domisili'] || '-' }}</p>
-                                        </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">Pendidikan</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Pendidikan || '-' }}</p>
-                                        </div>
-                                        <div class="p-4 bg-gray-50 dark:bg-slate-700 rounded-xl">
-                                            <p class="text-sm text-gray-500 mb-1">IPK</p>
-                                            <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.IPK || '-' }}</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Job Application Info -->
-                                    <div class="p-4 bg-teal-50 dark:bg-slate-700 rounded-xl mb-6">
-                                        <p class="text-sm text-teal-600 dark:text-teal-400 mb-2 font-bold">Informasi Lamar</p>
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div>
-                                                <p class="text-sm text-gray-500">Formasi</p>
-                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.Formasi || '-' }}</p>
-                                            </div>
-                                            <div>
-                                                <p class="text-sm text-gray-500">Tanggal Daftar</p>
-                                                <p class="font-medium text-gray-800 dark:text-white">{{ selectedBankData?.['Tanggal Daftar'] || '-' }}</p>
-                                            </div>
-                                            <div>
-                                                <p class="text-sm text-gray-500">Status Berkas</p>
-                                                <span class="badge" :class="getStatusBadgeClass(selectedBankData?.['Status Berkas'])">{{ selectedBankData?.['Status Berkas'] || 'MENUNGGU' }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- All Other Data -->
-                                    <div v-if="selectedBankData" class="mt-4">
-                                        <p class="font-bold text-gray-800 dark:text-white mb-3">Data Lengkap</p>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                                            <div v-for="(value, key) in selectedBankData" :key="key" class="p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
-                                                <span class="text-gray-500">{{ key }}:</span>
-                                                <span class="font-medium text-gray-800 dark:text-white ml-2">{{ value || '-' }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Link Dokumen -->
-                                    <div class="mt-6">
-                                        <p class="font-bold text-gray-800 dark:text-white mb-3">Dokumen Pelamar</p>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <a v-if="selectedBankData?.['Link Foto'] || selectedBankData?.Foto || selectedBankData?.['ID Foto']" :href="selectedBankData?.['Link Foto'] || selectedBankData?.Foto || selectedBankData?.['ID Foto']" target="_blank" class="btn bg-blue-500 text-white hover:bg-blue-600">
-                                                <i class="fas fa-camera mr-2"></i> Buka Foto
-                                            </a>
-                                            <a v-if="selectedBankData?.['Link Surat Lamaran']" :href="selectedBankData?.['Link Surat Lamaran']" target="_blank" class="btn bg-green-500 text-white hover:bg-green-600">
-                                                <i class="fas fa-envelope mr-2"></i> Buka Surat Lamaran
-                                            </a>
-                                            <a v-if="selectedBankData?.['Link CV']" :href="selectedBankData?.['Link CV']" target="_blank" class="btn bg-purple-500 text-white hover:bg-purple-600">
-                                                <i class="fas fa-file-pdf mr-2"></i> Buka CV
-                                            </a>
-                                            <a v-if="selectedBankData?.['Link Dokumen'] || selectedBankData?.['Link Dokumen Gabungan']" :href="selectedBankData?.['Link Dokumen'] || selectedBankData?.['Link Dokumen Gabungan']" target="_blank" class="btn bg-teal-500 text-white hover:bg-teal-600">
-                                                <i class="fas fa-folder-open mr-2"></i> Buka Dokumen Lengkap
-                                            </a>
-                                            <a v-if="selectedBankData?.['Link Surat Pernyataan']" :href="selectedBankData?.['Link Surat Pernyataan']" target="_blank" class="btn bg-orange-500 text-white hover:bg-orange-600">
-                                                <i class="fas fa-file-signature mr-2"></i> Buka Surat Pernyataan
-                                            </a>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Photo Lightbox -->
+                        <div v-if="bankDataPhotoLightbox.open" class="fixed inset-0 z-[60] flex items-center justify-center p-4" @click="bankDataPhotoLightbox.open = false">
+                            <div class="absolute inset-0 bg-black/95 backdrop-blur-sm"></div>
+                            <div class="relative max-w-4xl max-h-[90vh] animate-scale-in">
+                                <button @click="bankDataPhotoLightbox.open = false" class="absolute -top-12 right-0 text-white hover:text-gray-300 transition">
+                                    <i class="fas fa-times text-3xl"></i>
+                                </button>
+                                <img :src="getDriveImageUrl(bankDataPhotoLightbox.url)" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" @error="$event.target.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNDAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iIzAwNTZiMyIvPjxyZWN0IHg9IjE1MCIgeT0iMTUwIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2ZmZiIgZmlsbC1vcGFjaXR5PSIwLjIiLz48dGV4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1zaXplPSI0MCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+PC90ZXh0Pjwvc3ZnPg=='" alt="Foto Besar">
+                                <p class="text-white text-center mt-3 font-medium">{{ bankDataPhotoLightbox.nama }}</p>
                             </div>
                         </div>
                     </div>
@@ -2618,6 +2630,17 @@
                         nama: '',
                         pendidikan: '',
                         jenisKelamin: ''
+                    },
+                    bankDataPhotoLightbox: {
+                        open: false,
+                        url: '',
+                        nama: ''
+                    },
+                    bankDataColumns: {
+                        pribadi: [],
+                        kontak: [],
+                        pendidikan: [],
+                        lainnya: []
                     },
                     
                     // Admin Pelamar Lightbox
@@ -3600,6 +3623,46 @@
                 openBankDataDetail(pelamar) {
                     this.selectedBankData = pelamar;
                     this.bankDataDetailOpen = true;
+                    this.updateBankDataColumns();
+                },
+                
+                getBankDataFoto(p) {
+                    if (!p) return null;
+                    return p.Foto || p.foto || p['Link Foto'] || p['ID Foto'] || p['id foto'] || p.id_foto || p.link_foto || p['link foto'] || null;
+                },
+                
+                openBankDataPhotoLightbox(p) {
+                    const fotoUrl = this.getBankDataFoto(p);
+                    if (fotoUrl) {
+                        this.bankDataPhotoLightbox = {
+                            open: true,
+                            url: fotoUrl,
+                            nama: p?.Nama || p?.nama || 'Pelamar'
+                        };
+                    }
+                },
+                
+                updateBankDataColumns() {
+                    if (!this.selectedBankData) return;
+                    const excludeKeys = ['Foto', 'foto', 'Link Foto', 'ID Foto', 'id foto', 'id_foto', 'link_foto', 'link foto'];
+                    const allKeys = Object.keys(this.selectedBankData).filter(k => !excludeKeys.includes(k));
+                    
+                    const pribadiKeys = ['Nama', 'nama', 'NIK', 'nik', 'Tempat Lahir', 'Tanggal Lahir', 'Jenis Kelamin', 'Agama', 'Status Pernikahan', 'Golongan Darah'];
+                    const kontakKeys = ['No HP', 'no_hp', 'Email', 'email', 'Alamat KTP', 'Alamat Domisili', 'Alamat'];
+                    const pendidikanKeys = ['Pendidikan', 'pendidikan', 'IPK', 'ipk', 'Jurusan', 'Universitas', 'Tahun Lulus', 'Formasi', 'formasi', 'Tanggal Daftar'];
+                    
+                    this.bankDataColumns = {
+                        pribadi: allKeys.filter(k => pribadiKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase()))),
+                        kontak: allKeys.filter(k => kontakKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase()))),
+                        pendidikan: allKeys.filter(k => pendidikanKeys.some(pk => k.toLowerCase().includes(pk.toLowerCase()))),
+                        lainnya: allKeys.filter(k => {
+                            const kl = k.toLowerCase();
+                            return !pribadiKeys.some(pk => kl.includes(pk.toLowerCase())) &&
+                                   !kontakKeys.some(pk => kl.includes(pk.toLowerCase())) &&
+                                   !pendidikanKeys.some(pk => kl.includes(pk.toLowerCase())) &&
+                                   !k.toLowerCase().includes('link') && !k.toLowerCase().includes('foto');
+                        })
+                    };
                 },
                 
                 get filteredVerifikasiList() {
