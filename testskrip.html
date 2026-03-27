@@ -630,8 +630,8 @@
                             <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Data Pelamar</span></transition>
                         </button>
                         
-                        <!-- Bank Data Pelamar Kerja: Admin & HRD -->
-                        <button v-if="currentUser?.role === 'ADMINISTRATOR' || currentUser?.role === 'HRD'" @click="setActiveMenu('adminBankData')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminBankData' ? 'bg-white/20' : 'hover:bg-white/10']">
+                        <!-- Bank Data Pelamar Kerja: Admin Only -->
+                        <button v-if="currentUser?.role === 'ADMINISTRATOR'" @click="setActiveMenu('adminBankData')" :class="['w-full flex items-center gap-3 px-3 py-3 rounded-xl transition', activeMenu === 'adminBankData' ? 'bg-white/20' : 'hover:bg-white/10']">
                             <i class="fas fa-database w-5 h-5"></i>
                             <transition name="fade"><span v-if="sidebarOpen" class="whitespace-nowrap">Bank Data Pelamar</span></transition>
                         </button>
@@ -1635,7 +1635,7 @@
                             <!-- Search Filters -->
                             <div class="mt-4 flex flex-col md:flex-row gap-4">
                                 <div class="flex-1">
-                                    <input v-model="bankDataSearch.nama" type="text" class="form-input" placeholder="Cari berdasarkan nama...">
+                                    <input v-model="bankDataSearch.nama" type="text" class="form-input" placeholder="Cari berdasarkan 3 huruf pertama nama...">
                                 </div>
                                 <div class="w-full md:w-48">
                                     <select v-model="bankDataSearch.pendidikan" class="form-input">
@@ -1705,7 +1705,7 @@
                                                     <i class="fas fa-user text-white text-sm"></i>
                                                 </div>
                                             </td>
-                                            <td class="px-4 py-3">{{ p.NIK || '-' }}</td>
+                                            <td class="px-4 py-3">{{ maskNIK(p.NIK) }}</td>
                                             <td class="px-4 py-3 font-medium">{{ p.Nama || p.nama || '-' }}</td>
                                             <td class="px-4 py-3">{{ p['Tempat Lahir'] || '-' }}, {{ p['Tanggal Lahir'] || '-' }}</td>
                                             <td class="px-4 py-3">{{ p['Jenis Kelamin'] || '-' }}</td>
@@ -2848,6 +2848,13 @@
                     return url;
                 },
                 
+                // Mask NIK for security (show only first 4 and last 4 digits)
+                maskNIK(nik) {
+                    if (!nik || typeof nik !== 'string') return '-';
+                    if (nik.length < 8) return '***';
+                    return nik.substring(0, 4) + '********' + nik.substring(12);
+                },
+                
                 // Navigation
                 setActiveMenu(menu) {
                     this.activeMenu = menu;
@@ -3623,9 +3630,15 @@
                     // Use exact column names from database_template.csv
                     const search = this.bankDataSearch || { nama: '', pendidikan: '', jenisKelamin: '' };
                     
+                    // Search by first 3 letters of name
                     if (search.nama && search.nama.trim()) {
-                        const searchLower = search.nama.toLowerCase();
-                        data = data.filter(p => (p.Nama || '') && p.Nama.toLowerCase().includes(searchLower));
+                        const searchLower = search.nama.toLowerCase().trim();
+                        const searchLen = searchLower.length;
+                        data = data.filter(p => {
+                            const nama = (p.Nama || p.nama || '').toLowerCase();
+                            // Match if search term is at least 3 chars and matches first 3+ letters
+                            return searchLen >= 3 && nama.substring(0, searchLen) === searchLower;
+                        });
                     }
                     
                     if (search.pendidikan && search.pendidikan.trim()) {
