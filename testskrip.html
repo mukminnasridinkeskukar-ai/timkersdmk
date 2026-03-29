@@ -2219,7 +2219,7 @@
     const CONFIG = {
         // Google Apps Script Web App URL
         // Replace with your actual deployment URL
-        WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwHtmToPTT2Q1AqwRLerd-wbBGsWG8EotG8fOk8wEBwto12KlUEJX1TedggPlrEjYkb/exec',
+        WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwvU7nYwx9fbo0BWEgoSybRmyLoYAEyFsZ3dEpeKyjEMbJH1sOMmo1zr-uEZ-Ejwzrc/exec',
         
         // Pagination
         ITEMS_PER_PAGE: 12,
@@ -2858,15 +2858,44 @@
     async function submitLogin(event) {
         event.preventDefault();
         
-        const username = document.getElementById('loginUsername').value;
+        const username = document.getElementById('loginUsername').value.trim();
         const password = document.getElementById('loginPassword').value;
         
+        if (!username || !password) {
+            showToast('Username dan password harus diisi!', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const submitBtn = document.querySelector('#loginForm button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
+        submitBtn.disabled = true;
+        
         try {
-            const result = await apiCall('login', { username, password });
+            // Try API call with proper form data
+            const formData = new FormData();
+            formData.append('action', 'login');
+            formData.append('username', username);
+            formData.append('password', password);
             
-            if (result.status === 'success') {
+            const url = new URL(CONFIG.WEB_APP_URL);
+            url.searchParams.append('action', 'login');
+            
+            const response = await fetch(url.toString(), {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            
+            const result = await response.json();
+            
+            if (result.status === 'success' && result.data && result.data.length > 0) {
                 state.isLoggedIn = true;
-                state.userData = result.data?.[0] || { name: username };
+                state.userData = result.data[0];
                 state.sessionToken = result.token;
                 
                 // Save session
@@ -2887,11 +2916,27 @@
             }
         } catch (error) {
             console.error('Login error:', error);
-            // Demo login
-            if (username === 'admin' && password === 'admin123') {
+            
+            // Demo fallback - check against hardcoded demo users
+            // This allows testing even without Google Sheets configured
+            const demoUsers = [
+                { username: 'admin', password: 'admin123', name: 'Administrator', level: 'admin' },
+                { username: 'operator', password: 'operator123', name: 'Operator', level: 'operator' },
+                { username: 'superadmin', password: 'super123', name: 'Super Administrator', level: 'admin' }
+            ];
+            
+            const demoUser = demoUsers.find(u => 
+                u.username.toLowerCase() === username.toLowerCase() && u.password === password
+            );
+            
+            if (demoUser) {
                 state.isLoggedIn = true;
-                state.userData = { name: 'Administrator', level: 'admin' };
-                state.sessionToken = 'demo-token';
+                state.userData = { 
+                    name: demoUser.name, 
+                    level: demoUser.level,
+                    username: demoUser.username
+                };
+                state.sessionToken = 'demo-token-' + Date.now();
                 
                 const session = {
                     userData: state.userData,
@@ -2904,10 +2949,13 @@
                 loadAdminData();
                 closeLoginModal();
                 
-                showToast('Login berhasil! (Demo Mode)', 'success');
+                showToast('Login berhasil! (Demo Mode - cek ADMIN_USER sheet)', 'success');
             } else {
-                showToast('Username atau password salah', 'error');
+                showToast('Username atau password salah!', 'error');
             }
+        } finally {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
         }
     }
 
