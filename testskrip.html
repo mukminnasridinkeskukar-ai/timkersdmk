@@ -1031,10 +1031,40 @@
     .profile-card .alamat {
         color: var(--text-gray);
         font-size: 0.75rem;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .profile-card .no-sip {
+        color: var(--text-light);
+        font-size: 0.75rem;
+        font-weight: 500;
+        background: var(--bg-light);
+        padding: 4px 12px;
+        border-radius: 12px;
+        display: inline-block;
+        margin-bottom: var(--spacing-sm);
     }
 
     .profile-card .status {
         margin-top: var(--spacing-md);
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-gray);
+        font-size: 1rem;
+        background: var(--bg-light);
+        border-radius: var(--radius-lg);
+        border: 2px dashed var(--border-gray);
+        margin: 20px 0;
+    }
+
+    .no-data i {
+        font-size: 3rem;
+        color: var(--border-gray);
+        margin-bottom: 15px;
+        display: block;
     }
 
     /* ========================================
@@ -2602,51 +2632,70 @@
     // Profil TPM (Praktik Mandiri)
     // ========================================
     async function loadProfil() {
+        console.log('Loading profil data from DATA_SIP...');
+        showLoading('Memuat data profil...');
+        
         try {
-            // Get data from DATA_SIP via getAllSIP
+            // First try getAllSIP to get all data
             const url = new URL(CONFIG.WEB_APP_URL);
             url.searchParams.append('action', 'getAllSIP');
             
+            console.log('Fetching from:', url.toString());
             const response = await fetch(url.toString());
             const result = await response.json();
             
+            console.log('getAllSIP result:', result);
+            
             if (result.status === 'success' && result.data && result.data.length > 0) {
                 state.profilData = result.data;
-            } else {
-                // Try searchTPM as fallback
-                const searchResult = await apiCall('searchTPM');
-                if (searchResult.status === 'success') {
-                    state.profilData = searchResult.data || [];
-                } else {
-                    state.profilData = getDemoProfilData();
-                }
+                console.log('Loaded ' + result.data.length + ' profil records');
+                hideLoading();
+                renderProfilGrid();
+                return;
             }
+            
+            // Try searchTPM as fallback
+            console.log('Trying searchTPM fallback...');
+            const searchUrl = new URL(CONFIG.WEB_APP_URL);
+            searchUrl.searchParams.append('action', 'searchTPM');
+            
+            const searchResponse = await fetch(searchUrl.toString());
+            const searchResult = await searchResponse.json();
+            
+            console.log('searchTPM result:', searchResult);
+            
+            if (searchResult.status === 'success' && searchResult.data && searchResult.data.length > 0) {
+                state.profilData = searchResult.data;
+                hideLoading();
+                renderProfilGrid();
+                return;
+            }
+            
+            // If no data from API, show demo data with notice
+            console.log('Using demo profil data');
+            state.profilData = getDemoProfilData();
+            hideLoading();
             renderProfilGrid();
+            
         } catch (error) {
             console.error('Load profil error:', error);
+            hideLoading();
             state.profilData = getDemoProfilData();
             renderProfilGrid();
         }
     }
 
     function getDemoProfilData() {
-        const colors = ['1e40af', '059669', '7c3aed', 'ec4899', 'f59e0b', '06b6d4', '14b8a6', '8b5cf6'];
-        const names = [
-            'Dr. Ahmad Fauzi, Sp.PD', 'Drg. Siti Rahayu', 'Dr. Budi Santoso',
-            'drg. Maya Putri', 'Dr. Herman Wijaya', 'Ns. Rina Wahyuni, S.Kep',
-            'Bid. Dewi Lestari', 'Apt. Lisa Amelia, S.Farm'
-        ];
-        const initials = ['AF', 'SR', 'BS', 'MP', 'HW', 'RW', 'DL', 'LA'];
-        
+        // Demo data matching DATA_SIP format
         return [
-            { id: 1, nama: names[0], profesi: 'Dokter Spesialis', alamat: 'Jl. Merdeka No. 1', noSIP: '1234/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[0]}&background=${colors[0]}&color=fff&size=200` },
-            { id: 2, nama: names[1], profesi: 'Dokter Gigi', alamat: 'Jl. Sudirman No. 2', noSIP: '1235/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[1]}&background=${colors[1]}&color=fff&size=200` },
-            { id: 3, nama: names[2], profesi: 'Dokter Umum', alamat: 'Jl. Thamrin No. 3', noSIP: '1236/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[2]}&background=${colors[2]}&color=fff&size=200` },
-            { id: 4, nama: names[3], profesi: 'Dokter Gigi', alamat: 'Jl. Diponegoro No. 4', noSIP: '1237/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[3]}&background=${colors[3]}&color=fff&size=200` },
-            { id: 5, nama: names[4], profesi: 'Dokter Umum', alamat: 'Jl. Ahmad Yani No. 5', noSIP: '1238/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[4]}&background=${colors[4]}&color=fff&size=200` },
-            { id: 6, nama: names[5], profesi: 'Perawat', alamat: 'Jl. Imam Bonjol No. 6', noSIP: '2234/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[5]}&background=${colors[5]}&color=fff&size=200` },
-            { id: 7, nama: names[6], profesi: 'Bidan', alamat: 'Jl. Pahlawan No. 7', noSIP: '3234/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[6]}&background=${colors[6]}&color=fff&size=200` },
-            { id: 8, nama: names[7], profesi: 'Apoteker', alamat: 'Jl. Gatot Subroto No. 8', noSIP: '4234/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[7]}&background=${colors[7]}&color=fff&size=200` }
+            { id: 1, nik: '3201234567890001', nama: 'Dr. Ahmad Fauzi Sp.PD', profesi: 'Dokter Spesialis', jenisKelamin: 'Laki-laki', alamatPraktik: 'Jl. Merdeka No. 1, Jakarta Pusat', noSIP: 'SIP/001/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=AF&background=1e40af&color=fff&size=200' },
+            { id: 2, nik: '3201234567890002', nama: 'Drg. Siti Rahayu Sp.KG', profesi: 'Dokter Gigi', jenisKelamin: 'Perempuan', alamatPraktik: 'Jl. Sudirman No. 15, Jakarta Selatan', noSIP: 'SIP/002/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=SR&background=059669&color=fff&size=200' },
+            { id: 3, nik: '3201234567890003', nama: 'Dr. Budi Santoso', profesi: 'Dokter Umum', jenisKelamin: 'Laki-laki', alamatPraktik: 'Jl. Thamrin Kav. 25, Jakarta Pusat', noSIP: 'SIP/003/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=BS&background=7c3aed&color=fff&size=200' },
+            { id: 4, nik: '3201234567890004', nama: 'Drg. Maya Putri', profesi: 'Dokter Gigi', jenisKelamin: 'Perempuan', alamatPraktik: 'Jl. Diponegoro No. 45, Bandung', noSIP: 'SIP/004/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=MP&background=ec4899&color=fff&size=200' },
+            { id: 5, nik: '3201234567890005', nama: 'Dr. Herman Wijaya', profesi: 'Dokter Umum', jenisKelamin: 'Laki-laki', alamatPraktik: 'Jl. Ahmad Yani No. 88, Surabaya', noSIP: 'SIP/005/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=HW&background=f59e0b&color=fff&size=200' },
+            { id: 6, nik: '3201234567890006', nama: 'Ns. Rina Wahyuni S.Kep', profesi: 'Perawat', jenisKelamin: 'Perempuan', alamatPraktik: 'Jl. Imam Bonjol No. 22, Medan', noSIP: 'SIP/006/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=RW&background=06b6d4&color=fff&size=200' },
+            { id: 7, nik: '3201234567890007', nama: 'Bid. Dewi Lestari S.Tr.Keb', profesi: 'Bidan', jenisKelamin: 'Perempuan', alamatPraktik: 'Jl. Gatot Subroto No. 55, Jakarta Pusat', noSIP: 'SIP/007/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=DL&background=14b8a6&color=fff&size=200' },
+            { id: 8, nik: '3201234567890008', nama: 'Apt. Lisa Amelia S.Farm', profesi: 'Apoteker', jenisKelamin: 'Perempuan', alamatPraktik: 'Jl. Ahmad Yani No. 99, Surabaya', noSIP: 'SIP/008/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=LA&background=8b5cf6&color=fff&size=200' }
         ];
     }
 
@@ -2657,14 +2706,22 @@
         const searchNama = document.getElementById('searchNama')?.value.toLowerCase() || '';
         const filterProfesi = document.getElementById('filterProfesi')?.value || '';
         
+        console.log('Rendering profil grid, search:', searchNama, 'filter:', filterProfesi);
+        console.log('Total data:', state.profilData.length);
+        
         // Filter data
         let filteredData = state.profilData.filter(item => {
             const matchNama = item.nama?.toLowerCase().includes(searchNama) || 
                               item.Nama?.toLowerCase().includes(searchNama) ||
-                              item.nik?.toLowerCase().includes(searchNama);
-            const matchProfesi = !filterProfesi || item.profesi === filterProfesi || item.Profesi === filterProfesi;
+                              item.nik?.toLowerCase().includes(searchNama) ||
+                              item.NIK?.toLowerCase().includes(searchNama);
+            const matchProfesi = !filterProfesi || 
+                item.profesi?.toLowerCase() === filterProfesi.toLowerCase() || 
+                item.Profesi?.toLowerCase() === filterProfesi.toLowerCase();
             return matchNama && matchProfesi;
         });
+        
+        console.log('Filtered data:', filteredData.length);
         
         // Pagination
         const { page, totalPages } = paginate(filteredData.length, CONFIG.ITEMS_PER_PAGE, state.pagination.profil.page);
@@ -2673,37 +2730,53 @@
         const startIndex = (page - 1) * CONFIG.ITEMS_PER_PAGE;
         const paginatedData = filteredData.slice(startIndex, startIndex + CONFIG.ITEMS_PER_PAGE);
         
+        if (paginatedData.length === 0) {
+            grid.innerHTML = '<div class="no-data">Belum ada data profil. Hubungi admin untuk menambahkan data.</div>';
+            renderPagination('paginationProfil', page, totalPages, (newPage) => {
+                state.pagination.profil.page = newPage;
+                renderProfilGrid();
+            });
+            return;
+        }
+        
         // Render
-        grid.innerHTML = paginatedData.map(item => {
+        grid.innerHTML = paginatedData.map((item, idx) => {
             // Handle various photo URL formats
             let photoUrl = '';
-            if (item.foto && item.foto.trim()) {
+            if (item.foto && item.foto.toString().trim()) {
                 photoUrl = item.foto;
-            } else if (item.fotoURL && item.fotoURL.trim()) {
+            } else if (item.fotoURL && item.fotoURL.toString().trim()) {
                 photoUrl = item.fotoURL;
-            } else if (item.idFoto && item.idFoto.trim()) {
+            } else if (item.idFoto && item.idFoto.toString().trim()) {
                 photoUrl = 'https://lh3.googleusercontent.com/d/' + item.idFoto;
+            } else if (item.fotoId && item.fotoId.toString().trim()) {
+                photoUrl = 'https://lh3.googleusercontent.com/d/' + item.fotoId;
             } else {
                 // Generate avatar
                 const name = item.nama || item.Nama || 'U';
                 const initial = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                 const colors = ['1e40af', '059669', '7c3aed', 'ec4899', 'f59e0b', '06b6d4'];
-                const bgColor = colors[item.id % colors.length] || colors[0];
+                const bgColor = colors[(item.id || idx) % colors.length] || colors[0];
                 photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initial)}&background=${bgColor}&color=fff&size=200`;
             }
             
+            const nama = item.nama || item.Nama || '-';
+            const profesi = item.profesi || item.Profesi || '-';
+            const alamat = item.alamatPraktik || item['Alamat Praktik'] || item.alamat || '-';
             const noSIP = item.noSIP || item['No SIP'] || item.noSIP || '-';
+            const status = item.status || item.Status || 'Aktif';
             
             return `
-            <div class="profile-card" onclick="showProfileDetail(${item.id})">
-                <img src="${photoUrl}" alt="${item.nama || item.Nama}" 
-                     onclick="event.stopPropagation(); openLightbox('${photoUrl}', '${item.nama || item.Nama}')"
+            <div class="profile-card" onclick="showProfileDetail(${item.id || idx + 1})">
+                <img src="${photoUrl}" alt="${nama}" 
+                     onclick="event.stopPropagation(); openLightbox('${photoUrl.replace(/'/g, "\\'")}', '${nama.replace(/'/g, "\\'")}')"
                      onerror="this.src='https://ui-avatars.com/api/?name=U&background=1e40af&color=fff&size=200'">
-                <h3>${item.nama || item.Nama}</h3>
-                <div class="profesi">${item.profesi || item.Profesi || '-'}</div>
-                <div class="alamat">${item.alamat || item.alamatPraktik || item['Alamat Praktik'] || '-'}</div>
+                <h3>${nama}</h3>
+                <div class="profesi">${profesi}</div>
+                <div class="alamat">${alamat}</div>
+                <div class="no-sip">SIP: ${noSIP}</div>
                 <div class="status">
-                    <span class="status-badge active">${item.status || item.Status || 'Aktif'}</span>
+                    <span class="status-badge ${status.toLowerCase() === 'aktif' ? 'active' : 'pending'}">${status}</span>
                 </div>
             </div>
         `}).join('');
@@ -2724,20 +2797,31 @@
         const item = state.profilData.find(p => p.id === id);
         if (!item) return;
         
+        const nama = item.nama || item.Nama || '-';
+        const profesi = item.profesi || item.Profesi || '-';
+        const alamat = item.alamatPraktik || item['Alamat Praktik'] || item.alamat || '-';
+        const noSIP = item.noSIP || item['No SIP'] || item.noSIP || '-';
+        const status = item.status || item.Status || 'Aktif';
+        const nik = item.nik || item.NIK || '-';
+        
+        let photoUrl = item.foto || item.fotoURL || 'https://ui-avatars.com/api/?name=User&background=1e40af&color=fff&size=200';
+        
         Swal.fire({
             html: `
                 <div style="text-align: center;">
-                    <img src="${item.foto || 'https://ui-avatars.com/api/?name=User&background=1e40af&color=fff&size=200'}" 
-                         style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; border: 4px solid #1e40af;">
-                    <h2 style="margin-bottom: 10px;">${item.nama}</h2>
-                    <p style="color: #1e40af; font-weight: 600; margin-bottom: 20px;">${item.profesi}</p>
+                    <img src="${photoUrl}" 
+                         style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; border: 4px solid #1e40af;"
+                         onerror="this.src='https://ui-avatars.com/api/?name=User&background=1e40af&color=fff&size=200'">
+                    <h2 style="margin-bottom: 10px;">${nama}</h2>
+                    <p style="color: #1e40af; font-weight: 600; margin-bottom: 20px;">${profesi}</p>
                     <div style="text-align: left; padding: 0 20px;">
-                        <p><strong>Alamat:</strong> ${item.alamat}</p>
-                        <p><strong>No. SIP:</strong> ${item.noSIP}</p>
-                        <p><strong>Status:</strong> <span class="status-badge active">${item.status}</span></p>
+                        <p><strong>NIK:</strong> ${nik}</p>
+                        <p><strong>Alamat:</strong> ${alamat}</p>
+                        <p><strong>No. SIP:</strong> ${noSIP}</p>
+                        <p><strong>Status:</strong> <span class="status-badge ${status.toLowerCase() === 'aktif' ? 'active' : 'pending'}">${status}</span></p>
                     </div>
                     <div style="margin-top: 20px;">
-                        <button onclick="generateQR('${item.noSIP}')" class="btn-primary" style="margin: 5px;">
+                        <button onclick="generateQR('${noSIP.replace(/'/g, "\\'")}')" class="btn-primary" style="margin: 5px; padding: 10px 20px; border: none; border-radius: 8px; background: #1e40af; color: white; cursor: pointer;">
                             <i class="fas fa-qrcode"></i> QR Code
                         </button>
                     </div>
