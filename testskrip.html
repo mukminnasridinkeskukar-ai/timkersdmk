@@ -2219,7 +2219,7 @@
     const CONFIG = {
         // Google Apps Script Web App URL
         // Replace with your actual deployment URL
-        WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwvU7nYwx9fbo0BWEgoSybRmyLoYAEyFsZ3dEpeKyjEMbJH1sOMmo1zr-uEZ-Ejwzrc/exec',
+        WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwe1pNIeujUZ3pu03nUdRwYdIPucAgnyRvuH5qF2G8hIFH-G6bkFJsDy2s2G5C3ClGx/exec',
         
         // Pagination
         ITEMS_PER_PAGE: 12,
@@ -2603,16 +2603,25 @@
     // ========================================
     async function loadProfil() {
         try {
-            const result = await apiCall('searchTPM');
+            // Get data from DATA_SIP via getAllSIP
+            const url = new URL(CONFIG.WEB_APP_URL);
+            url.searchParams.append('action', 'getAllSIP');
             
-            if (result.status === 'success') {
-                state.profilData = result.data || [];
-                renderProfilGrid();
+            const response = await fetch(url.toString());
+            const result = await response.json();
+            
+            if (result.status === 'success' && result.data && result.data.length > 0) {
+                state.profilData = result.data;
             } else {
-                // Demo data
-                state.profilData = getDemoProfilData();
-                renderProfilGrid();
+                // Try searchTPM as fallback
+                const searchResult = await apiCall('searchTPM');
+                if (searchResult.status === 'success') {
+                    state.profilData = searchResult.data || [];
+                } else {
+                    state.profilData = getDemoProfilData();
+                }
             }
+            renderProfilGrid();
         } catch (error) {
             console.error('Load profil error:', error);
             state.profilData = getDemoProfilData();
@@ -2621,15 +2630,23 @@
     }
 
     function getDemoProfilData() {
+        const colors = ['1e40af', '059669', '7c3aed', 'ec4899', 'f59e0b', '06b6d4', '14b8a6', '8b5cf6'];
+        const names = [
+            'Dr. Ahmad Fauzi, Sp.PD', 'Drg. Siti Rahayu', 'Dr. Budi Santoso',
+            'drg. Maya Putri', 'Dr. Herman Wijaya', 'Ns. Rina Wahyuni, S.Kep',
+            'Bid. Dewi Lestari', 'Apt. Lisa Amelia, S.Farm'
+        ];
+        const initials = ['AF', 'SR', 'BS', 'MP', 'HW', 'RW', 'DL', 'LA'];
+        
         return [
-            { id: 1, nama: 'Dr. Ahmad Fauzi, Sp.PD', profesi: 'Dokter Spesialis', alamat: 'Jl. Merdeka No. 1', noSIP: '1234/SIP/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=Ahmad+Fauzi&background=1e40af&color=fff&size=200' },
-            { id: 2, nama: 'Drg. Siti Rahayu', profesi: 'Dokter Gigi', alamat: 'Jl. Sudirman No. 2', noSIP: '1235/SIP/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=Siti+Rahayu&background=059669&color=fff&size=200' },
-            { id: 3, nama: 'Dr. Budi Santoso', profesi: 'Dokter Umum', alamat: 'Jl. Thamrin No. 3', noSIP: '1236/SIP/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=Budi+Santoso&background=7c3aed&color=fff&size=200' },
-            { id: 4, nama: 'drg. Maya Putri', profesi: 'Dokter Gigi', alamat: 'Jl. Diponegoro No. 4', noSIP: '1237/SIP/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=Maya+Putri&background=ec4899&color=fff&size=200' },
-            { id: 5, nama: 'Dr. Herman Wijaya', profesi: 'Dokter Umum', alamat: 'Jl. Ahmad Yani No. 5', noSIP: '1238/SIP/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=Herman+Wijaya&background=f59e0b&color=fff&size=200' },
-            { id: 6, nama: 'Ns. Rina Wahyuni, S.Kep', profesi: 'Perawat', alamat: 'Jl. Imam Bonjol No. 6', noSIP: '2234/SIP/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=Rina+Wahyuni&background=06b6d4&color=fff&size=200' },
-            { id: 7, nama: 'Bid. Dewi Lestari', profesi: 'Bidan', alamat: 'Jl. Pahlawan No. 7', noSIP: '3234/SIP/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=Dewi+Lestari&background=14b8a6&color=fff&size=200' },
-            { id: 8, nama: 'Apt. Lisa Amelia, S.Farm', profesi: 'Apoteker', alamat: 'Jl. Gatot Subroto No. 8', noSIP: '4234/SIP/2024', status: 'Aktif', foto: 'https://ui-avatars.com/api/?name=Lisa+Amelia&background=8b5cf6&color=fff&size=200' }
+            { id: 1, nama: names[0], profesi: 'Dokter Spesialis', alamat: 'Jl. Merdeka No. 1', noSIP: '1234/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[0]}&background=${colors[0]}&color=fff&size=200` },
+            { id: 2, nama: names[1], profesi: 'Dokter Gigi', alamat: 'Jl. Sudirman No. 2', noSIP: '1235/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[1]}&background=${colors[1]}&color=fff&size=200` },
+            { id: 3, nama: names[2], profesi: 'Dokter Umum', alamat: 'Jl. Thamrin No. 3', noSIP: '1236/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[2]}&background=${colors[2]}&color=fff&size=200` },
+            { id: 4, nama: names[3], profesi: 'Dokter Gigi', alamat: 'Jl. Diponegoro No. 4', noSIP: '1237/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[3]}&background=${colors[3]}&color=fff&size=200` },
+            { id: 5, nama: names[4], profesi: 'Dokter Umum', alamat: 'Jl. Ahmad Yani No. 5', noSIP: '1238/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[4]}&background=${colors[4]}&color=fff&size=200` },
+            { id: 6, nama: names[5], profesi: 'Perawat', alamat: 'Jl. Imam Bonjol No. 6', noSIP: '2234/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[5]}&background=${colors[5]}&color=fff&size=200` },
+            { id: 7, nama: names[6], profesi: 'Bidan', alamat: 'Jl. Pahlawan No. 7', noSIP: '3234/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[6]}&background=${colors[6]}&color=fff&size=200` },
+            { id: 8, nama: names[7], profesi: 'Apoteker', alamat: 'Jl. Gatot Subroto No. 8', noSIP: '4234/SIP/2024', status: 'Aktif', foto: `https://ui-avatars.com/api/?name=${initials[7]}&background=${colors[7]}&color=fff&size=200` }
         ];
     }
 
@@ -2642,8 +2659,10 @@
         
         // Filter data
         let filteredData = state.profilData.filter(item => {
-            const matchNama = item.nama?.toLowerCase().includes(searchNama);
-            const matchProfesi = !filterProfesi || item.profesi === filterProfesi;
+            const matchNama = item.nama?.toLowerCase().includes(searchNama) || 
+                              item.Nama?.toLowerCase().includes(searchNama) ||
+                              item.nik?.toLowerCase().includes(searchNama);
+            const matchProfesi = !filterProfesi || item.profesi === filterProfesi || item.Profesi === filterProfesi;
             return matchNama && matchProfesi;
         });
         
@@ -2655,17 +2674,39 @@
         const paginatedData = filteredData.slice(startIndex, startIndex + CONFIG.ITEMS_PER_PAGE);
         
         // Render
-        grid.innerHTML = paginatedData.map(item => `
+        grid.innerHTML = paginatedData.map(item => {
+            // Handle various photo URL formats
+            let photoUrl = '';
+            if (item.foto && item.foto.trim()) {
+                photoUrl = item.foto;
+            } else if (item.fotoURL && item.fotoURL.trim()) {
+                photoUrl = item.fotoURL;
+            } else if (item.idFoto && item.idFoto.trim()) {
+                photoUrl = 'https://lh3.googleusercontent.com/d/' + item.idFoto;
+            } else {
+                // Generate avatar
+                const name = item.nama || item.Nama || 'U';
+                const initial = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                const colors = ['1e40af', '059669', '7c3aed', 'ec4899', 'f59e0b', '06b6d4'];
+                const bgColor = colors[item.id % colors.length] || colors[0];
+                photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initial)}&background=${bgColor}&color=fff&size=200`;
+            }
+            
+            const noSIP = item.noSIP || item['No SIP'] || item.noSIP || '-';
+            
+            return `
             <div class="profile-card" onclick="showProfileDetail(${item.id})">
-                <img src="${item.foto || 'https://ui-avatars.com/api/?name=User&background=1e40af&color=fff&size=200'}" alt="${item.nama}" onclick="event.stopPropagation(); openLightbox('${item.foto}', '${item.nama}')">
-                <h3>${item.nama}</h3>
-                <div class="profesi">${item.profesi}</div>
-                <div class="alamat">${item.alamat}</div>
+                <img src="${photoUrl}" alt="${item.nama || item.Nama}" 
+                     onclick="event.stopPropagation(); openLightbox('${photoUrl}', '${item.nama || item.Nama}')"
+                     onerror="this.src='https://ui-avatars.com/api/?name=U&background=1e40af&color=fff&size=200'">
+                <h3>${item.nama || item.Nama}</h3>
+                <div class="profesi">${item.profesi || item.Profesi || '-'}</div>
+                <div class="alamat">${item.alamat || item.alamatPraktik || item['Alamat Praktik'] || '-'}</div>
                 <div class="status">
-                    <span class="status-badge active">${item.status}</span>
+                    <span class="status-badge active">${item.status || item.Status || 'Aktif'}</span>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
         
         // Render pagination
         renderPagination('paginationProfil', page, totalPages, (newPage) => {
@@ -3230,13 +3271,24 @@
 
     async function loadTPMData() {
         try {
-            const result = await apiCall('searchTPM');
+            // Try to get data from DATA_SIP sheet using getAllSIP
+            const url = new URL(CONFIG.WEB_APP_URL);
+            url.searchParams.append('action', 'getAllSIP');
+            
+            const response = await fetch(url.toString());
+            const result = await response.json();
             
             if (result.status === 'success' && result.data && result.data.length > 0) {
                 tpmData = result.data;
             } else {
-                // Use demo data
-                tpmData = getDemoTPMData();
+                // Try alternative - searchTPM
+                const searchResult = await apiCall('searchTPM');
+                if (searchResult.status === 'success' && searchResult.data && searchResult.data.length > 0) {
+                    tpmData = searchResult.data;
+                } else {
+                    // Use demo data
+                    tpmData = getDemoTPMData();
+                }
             }
             
             tpmFilteredData = [...tpmData];
@@ -3252,86 +3304,112 @@
     }
 
     function getDemoTPMData() {
+        // Demo data with various photo formats
+        const colors = ['1e40af', '059669', '7c3aed', 'ec4899', 'f59e0b', '06b6d4', '14b8a6', '8b5cf6'];
         return [
             { 
                 id: 1, 
+                nik: '3201234567890001',
                 nama: 'Dr. Ahmad Fauzi Sp.PD', 
                 profesi: 'Dokter Spesialis', 
+                jenisKelamin: 'Laki-laki',
                 alamat: 'Jl. Kesehatan No. 20, Jakarta Timur', 
                 noTelp: '081234567890', 
+                noSIP: '1234/SIP/2024',
                 status: 'Aktif', 
                 sipUrl: '#',
-                foto: 'https://ui-avatars.com/api/?name=Ahmad+Fauzi&background=1e40af&color=fff&size=400'
+                foto: 'https://ui-avatars.com/api/?name=AF&background=1e40af&color=fff&size=400'
             },
             { 
                 id: 2, 
+                nik: '3201234567890002',
                 nama: 'Drg. Siti Rahayu Sp.KG', 
                 profesi: 'Dokter Gigi', 
+                jenisKelamin: 'Perempuan',
                 alamat: 'Jl. Gigi Sehat No. 5, Jakarta Selatan', 
                 noTelp: '081234567891', 
+                noSIP: '1235/SIP/2024',
                 status: 'Aktif', 
                 sipUrl: '#',
-                foto: 'https://ui-avatars.com/api/?name=Siti+Rahayu&background=059669&color=fff&size=400'
+                foto: 'https://ui-avatars.com/api/?name=SR&background=059669&color=fff&size=400'
             },
             { 
                 id: 3, 
+                nik: '3201234567890003',
                 nama: 'Dr. Budi Santoso', 
                 profesi: 'Dokter Umum', 
+                jenisKelamin: 'Laki-laki',
                 alamat: 'Jl. Umum No. 15, Bandung', 
                 noTelp: '081234567892', 
+                noSIP: '1236/SIP/2024',
                 status: 'Aktif', 
                 sipUrl: '#',
-                foto: 'https://ui-avatars.com/api/?name=Budi+Santoso&background=7c3aed&color=fff&size=400'
+                foto: 'https://ui-avatars.com/api/?name=BS&background=7c3aed&color=fff&size=400'
             },
             { 
                 id: 4, 
+                nik: '3201234567890004',
                 nama: 'drg. Maya Putri', 
                 profesi: 'Dokter Gigi', 
+                jenisKelamin: 'Perempuan',
                 alamat: 'Jl. Gigi No. 8, Surabaya', 
                 noTelp: '081234567893', 
+                noSIP: '1237/SIP/2024',
                 status: 'Aktif', 
                 sipUrl: '#',
-                foto: 'https://ui-avatars.com/api/?name=Maya+Putri&background=ec4899&color=fff&size=400'
+                foto: 'https://ui-avatars.com/api/?name=MP&background=ec4899&color=fff&size=400'
             },
             { 
                 id: 5, 
+                nik: '3201234567890005',
                 nama: 'Ns. Rina Wahyuni S.Kep', 
                 profesi: 'Perawat', 
+                jenisKelamin: 'Perempuan',
                 alamat: 'Jl. Perawat No. 12, Semarang', 
                 noTelp: '081234567894', 
+                noSIP: '2234/SIP/2024',
                 status: 'Aktif', 
                 sipUrl: '#',
-                foto: 'https://ui-avatars.com/api/?name=Rina+Wahyuni&background=06b6d4&color=fff&size=400'
+                foto: 'https://ui-avatars.com/api/?name=RW&background=06b6d4&color=fff&size=400'
             },
             { 
                 id: 6, 
+                nik: '3201234567890006',
                 nama: 'Bid. Dewi Lestari S.ST', 
                 profesi: 'Bidan', 
+                jenisKelamin: 'Perempuan',
                 alamat: 'Jl. Bidan No. 25, Medan', 
                 noTelp: '081234567895', 
+                noSIP: '3234/SIP/2024',
                 status: 'Aktif', 
                 sipUrl: '#',
-                foto: 'https://ui-avatars.com/api/?name=Dewi+Lestari&background=14b8a6&color=fff&size=400'
+                foto: 'https://ui-avatars.com/api/?name=DL&background=14b8a6&color=fff&size=400'
             },
             { 
                 id: 7, 
+                nik: '3201234567890007',
                 nama: 'Apt. Lisa Amelia S.Farm', 
                 profesi: 'Apoteker', 
+                jenisKelamin: 'Perempuan',
                 alamat: 'Jl. Apotek No. 18, Palembang', 
                 noTelp: '081234567896', 
+                noSIP: '4234/SIP/2024',
                 status: 'Aktif', 
                 sipUrl: '#',
-                foto: 'https://ui-avatars.com/api/?name=Lisa+Amelia&background=8b5cf6&color=fff&size=400'
+                foto: 'https://ui-avatars.com/api/?name=LA&background=8b5cf6&color=fff&size=400'
             },
             { 
                 id: 8, 
+                nik: '3201234567890008',
                 nama: 'Dr. Herman Wijaya', 
                 profesi: 'Dokter Umum', 
+                jenisKelamin: 'Laki-laki',
                 alamat: 'Jl. Dokter No. 30, Makassar', 
                 noTelp: '081234567897', 
+                noSIP: '1238/SIP/2024',
                 status: 'Nonaktif', 
                 sipUrl: '#',
-                foto: 'https://ui-avatars.com/api/?name=Herman+Wijaya&background=f59e0b&color=fff&size=400'
+                foto: 'https://ui-avatars.com/api/?name=HW&background=f59e0b&color=fff&size=400'
             }
         ];
     }
@@ -3393,11 +3471,16 @@
                 <div class="tpm-card-photo">
                     <img src="${item.foto || 'https://via.placeholder.com/280x350?text=No+Photo'}" 
                          alt="${item.nama}" 
-                         onclick="openTPMLightbox(${index})">
+                         onclick="openTPMLightbox(${index})"
+                         onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(item.nama || 'U')}&background=1e40af&color=fff&size=400'">
                     <div class="zoom-hint"><i class="fas fa-search-plus"></i> Klik untuk zoom</div>
                 </div>
                 <div class="tpm-card-info">
                     <table>
+                        <tr>
+                            <td>NIK</td>
+                            <td>${item.nik || '-'}</td>
+                        </tr>
                         <tr>
                             <td>Nama Lengkap & Gelar</td>
                             <td>${item.nama}</td>
@@ -3407,27 +3490,35 @@
                             <td>${item.profesi}</td>
                         </tr>
                         <tr>
-                            <td>Tempat Praktik</td>
-                            <td>${item.alamat}</td>
+                            <td>Jenis Kelamin</td>
+                            <td>${item.jenisKelamin || '-'}</td>
                         </tr>
                         <tr>
-                            <td>Nomor Telepon</td>
+                            <td>Alamat Praktik</td>
+                            <td>${item.alamat || item.alamatPraktik || '-'}</td>
+                        </tr>
+                        <tr>
+                            <td>No. SIP</td>
+                            <td>${item.noSIP || item.noSIP || '-'}</td>
+                        </tr>
+                        <tr>
+                            <td>No. Telepon</td>
                             <td>${item.noTelp || '-'}</td>
                         </tr>
                         <tr>
                             <td>Status</td>
                             <td>
-                                <span class="${item.status === 'Aktif' ? 'badge-aktif' : 'badge-nonaktif'}">
-                                    ${item.status}
+                                <span class="${item.status === 'Aktif' || item.status === 'AKTIF' ? 'badge-aktif' : 'badge-nonaktif'}">
+                                    ${item.status || 'Aktif'}
                                 </span>
                             </td>
                         </tr>
                     </table>
                     <div class="tpm-card-actions">
-                        <a href="${item.sipUrl || '#'}" target="_blank">
+                        <a href="${item.sipUrl || item.noSIP || '#'}" target="_blank">
                             <i class="fas fa-id-card"></i> Lihat SIP
                         </a>
-                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.alamat)}" target="_blank">
+                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.alamat || item.alamatPraktik || '')}" target="_blank">
                             <i class="fas fa-map-marker-alt"></i> Peta
                         </a>
                     </div>
