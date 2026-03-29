@@ -3678,7 +3678,7 @@
                     <img src="${fotoUrl}" 
                          alt="${nama}" 
                          onclick="openTPMLightbox(${index})"
-                         onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(nama.split(' ')[0] || 'U')}&background=1e40af&color=fff&size=400'">
+                         onerror="var initial = '${nama}'.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase(); this.src='https://ui-avatars.com/api/?name=' + encodeURIComponent(initial) + '&background=1e40af&color=fff&size=400'">
                     <div class="zoom-hint"><i class="fas fa-search-plus"></i> Klik untuk zoom</div>
                 </div>
                 <div class="tpm-card-info">
@@ -3740,11 +3740,34 @@
     function openTPMLightbox(index) {
         event.stopPropagation();
         tpmCurrentIndex = index;
-        const item = tpmFilteredData[index];
+        var item = tpmFilteredData[index];
         
-        document.getElementById('tpmLightboxImg').src = item.foto || 'https://via.placeholder.com/600x800?text=No+Photo';
-        document.getElementById('tpmLightboxCaption').textContent = `${item.nama} - ${item.profesi}`;
-        document.getElementById('tpmLightbox').classList.add('active');
+        if (!item) return;
+        
+        // Handle various field names
+        var fotoUrl = item.foto || '';
+        var nama = item.namaLengkapDanGelar || item.nama || item.Nama || 'Unknown';
+        var profesi = item.profesi || item.Profesi || '';
+        
+        // Try to get real photo URL
+        if (!fotoUrl && item.fotoDriveId) {
+            fotoUrl = 'https://lh3.googleusercontent.com/d/' + item.fotoDriveId;
+        }
+        
+        // Generate avatar if no photo
+        if (!fotoUrl || fotoUrl === '#') {
+            var initial = nama.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
+            fotoUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(initial) + '&background=1e40af&color=fff&size=600';
+        }
+        
+        var img = document.getElementById('tpmLightboxImg');
+        var caption = document.getElementById('tpmLightboxCaption');
+        
+        if (img) img.src = fotoUrl;
+        if (caption) caption.textContent = nama + ' - ' + profesi;
+        
+        var lightbox = document.getElementById('tpmLightbox');
+        if (lightbox) lightbox.classList.add('active');
     }
 
     function closeTPMLightbox() {
@@ -3758,9 +3781,27 @@
         if (tpmCurrentIndex < 0) tpmCurrentIndex = tpmFilteredData.length - 1;
         if (tpmCurrentIndex >= tpmFilteredData.length) tpmCurrentIndex = 0;
         
-        const item = tpmFilteredData[tpmCurrentIndex];
-        document.getElementById('tpmLightboxImg').src = item.foto || 'https://via.placeholder.com/600x800?text=No+Photo';
-        document.getElementById('tpmLightboxCaption').textContent = `${item.nama} - ${item.profesi}`;
+        var item = tpmFilteredData[tpmCurrentIndex];
+        if (!item) return;
+        
+        var fotoUrl = item.foto || '';
+        var nama = item.namaLengkapDanGelar || item.nama || item.Nama || 'Unknown';
+        var profesi = item.profesi || item.Profesi || '';
+        
+        if (!fotoUrl && item.fotoDriveId) {
+            fotoUrl = 'https://lh3.googleusercontent.com/d/' + item.fotoDriveId;
+        }
+        
+        if (!fotoUrl || fotoUrl === '#') {
+            var initial = nama.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
+            fotoUrl = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(initial) + '&background=1e40af&color=fff&size=600';
+        }
+        
+        var img = document.getElementById('tpmLightboxImg');
+        var caption = document.getElementById('tpmLightboxCaption');
+        
+        if (img) img.src = fotoUrl;
+        if (caption) caption.textContent = nama + ' - ' + profesi;
     }
 
     // Check if TPM is already logged in
