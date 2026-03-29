@@ -775,6 +775,34 @@
         background: var(--primary-blue-soft);
     }
 
+    /* Profile Table Specific Styles */
+    .data-table th {
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+        color: white;
+        padding: 12px 16px;
+        font-size: 0.8rem;
+    }
+
+    .data-table td {
+        padding: 10px 16px;
+        vertical-align: middle;
+    }
+
+    .data-table tbody tr {
+        transition: background 0.2s;
+    }
+
+    .data-table tbody tr:hover {
+        background: rgba(30, 64, 175, 0.1);
+    }
+
+    .table-container {
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        border: 1px solid var(--border-gray);
+        box-shadow: var(--shadow-md);
+    }
+
     .btn-action {
         display: inline-flex;
         align-items: center;
@@ -1906,15 +1934,27 @@
                     <option value="Apoteker">Apoteker</option>
                     <option value="Tenaga Kesehatan Lain">Tenaga Kesehatan Lain</option>
                 </select>
-                
-                <button class="btn-primary" onclick="exportToExcel('profil')">
-                    <i class="fas fa-file-excel"></i> Export Excel
-                </button>
             </div>
 
-            <!-- Profile Grid -->
-            <div class="profile-grid" id="profileGrid">
-                <!-- Dynamic content will be loaded here -->
+            <!-- Profile Table -->
+            <div class="table-container" style="overflow-x: auto;">
+                <table class="data-table" id="profileTable" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">Foto</th>
+                            <th>NIK</th>
+                            <th>Nama</th>
+                            <th>Profesi</th>
+                            <th>Jenis Kelamin</th>
+                            <th>Alamat Praktik</th>
+                            <th>No. SIP</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="profileTableBody">
+                        <!-- Dynamic content will be loaded here -->
+                    </tbody>
+                </table>
             </div>
 
             <!-- Pagination -->
@@ -2700,13 +2740,14 @@
     }
 
     function renderProfilGrid() {
+        const tbody = document.getElementById('profileTableBody');
         const grid = document.getElementById('profileGrid');
-        if (!grid) return;
+        if (!tbody) return;
         
         const searchNama = document.getElementById('searchNama')?.value.toLowerCase() || '';
         const filterProfesi = document.getElementById('filterProfesi')?.value || '';
         
-        console.log('Rendering profil grid, search:', searchNama, 'filter:', filterProfesi);
+        console.log('Rendering profil table, search:', searchNama, 'filter:', filterProfesi);
         console.log('Total data:', state.profilData.length);
         
         // Filter data
@@ -2731,7 +2772,7 @@
         const paginatedData = filteredData.slice(startIndex, startIndex + CONFIG.ITEMS_PER_PAGE);
         
         if (paginatedData.length === 0) {
-            grid.innerHTML = '<div class="no-data">Belum ada data profil. Hubungi admin untuk menambahkan data.</div>';
+            tbody.innerHTML = '<tr><td colspan="8" class="no-data">Belum ada data profil. Hubungi admin untuk menambahkan data.</td></tr>';
             renderPagination('paginationProfil', page, totalPages, (newPage) => {
                 state.pagination.profil.page = newPage;
                 renderProfilGrid();
@@ -2739,8 +2780,8 @@
             return;
         }
         
-        // Render
-        grid.innerHTML = paginatedData.map((item, idx) => {
+        // Render table
+        tbody.innerHTML = paginatedData.map((item, idx) => {
             // Handle various photo URL formats
             let photoUrl = '';
             if (item.foto && item.foto.toString().trim()) {
@@ -2760,25 +2801,31 @@
                 photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initial)}&background=${bgColor}&color=fff&size=200`;
             }
             
+            const nik = item.nik || item.NIK || '-';
             const nama = item.nama || item.Nama || '-';
             const profesi = item.profesi || item.Profesi || '-';
+            const jenisKelamin = item.jenisKelamin || item['Jenis Kelamin'] || '-';
             const alamat = item.alamatPraktik || item['Alamat Praktik'] || item.alamat || '-';
             const noSIP = item.noSIP || item['No SIP'] || item.noSIP || '-';
             const status = item.status || item.Status || 'Aktif';
+            const statusClass = status.toLowerCase() === 'aktif' ? 'active' : 'pending';
             
             return `
-            <div class="profile-card" onclick="showProfileDetail(${item.id || idx + 1})">
-                <img src="${photoUrl}" alt="${nama}" 
-                     onclick="event.stopPropagation(); openLightbox('${photoUrl.replace(/'/g, "\\'")}', '${nama.replace(/'/g, "\\'")}')"
-                     onerror="this.src='https://ui-avatars.com/api/?name=U&background=1e40af&color=fff&size=200'">
-                <h3>${nama}</h3>
-                <div class="profesi">${profesi}</div>
-                <div class="alamat">${alamat}</div>
-                <div class="no-sip">SIP: ${noSIP}</div>
-                <div class="status">
-                    <span class="status-badge ${status.toLowerCase() === 'aktif' ? 'active' : 'pending'}">${status}</span>
-                </div>
-            </div>
+            <tr onclick="showProfileDetail(${item.id || idx + 1})" style="cursor: pointer;">
+                <td style="text-align: center;">
+                    <img src="${photoUrl}" alt="${nama}" 
+                         style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-blue-soft); cursor: pointer;"
+                         onclick="event.stopPropagation(); openLightbox('${photoUrl.replace(/'/g, "\\'")}', '${nama.replace(/'/g, "\\'")}')"
+                         onerror="this.src='https://ui-avatars.com/api/?name=U&background=1e40af&color=fff&size=200'">
+                </td>
+                <td style="font-weight: 500;">${nik}</td>
+                <td style="font-weight: 600;">${nama}</td>
+                <td>${profesi}</td>
+                <td>${jenisKelamin}</td>
+                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${alamat}</td>
+                <td style="font-weight: 500;">${noSIP}</td>
+                <td><span class="status-badge ${statusClass}">${status}</span></td>
+            </tr>
         `}).join('');
         
         // Render pagination
@@ -2797,37 +2844,58 @@
         const item = state.profilData.find(p => p.id === id);
         if (!item) return;
         
+        // Handle various photo URL formats
+        let photoUrl = '';
+        if (item.foto && item.foto.toString().trim()) {
+            photoUrl = item.foto;
+        } else if (item.fotoURL && item.fotoURL.toString().trim()) {
+            photoUrl = item.fotoURL;
+        } else if (item.idFoto && item.idFoto.toString().trim()) {
+            photoUrl = 'https://lh3.googleusercontent.com/d/' + item.idFoto;
+        } else if (item.fotoId && item.fotoId.toString().trim()) {
+            photoUrl = 'https://lh3.googleusercontent.com/d/' + item.fotoId;
+        } else {
+            const name = item.nama || item.Nama || 'U';
+            const initial = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(initial)}&background=1e40af&color=fff&size=400`;
+        }
+        
+        const nik = item.nik || item.NIK || '-';
         const nama = item.nama || item.Nama || '-';
         const profesi = item.profesi || item.Profesi || '-';
+        const jenisKelamin = item.jenisKelamin || item['Jenis Kelamin'] || '-';
         const alamat = item.alamatPraktik || item['Alamat Praktik'] || item.alamat || '-';
         const noSIP = item.noSIP || item['No SIP'] || item.noSIP || '-';
         const status = item.status || item.Status || 'Aktif';
-        const nik = item.nik || item.NIK || '-';
-        
-        let photoUrl = item.foto || item.fotoURL || 'https://ui-avatars.com/api/?name=User&background=1e40af&color=fff&size=200';
+        const statusClass = status.toLowerCase() === 'aktif' ? 'active' : 'pending';
         
         Swal.fire({
             html: `
-                <div style="text-align: center;">
+                <div style="text-align: center; padding: 10px;">
                     <img src="${photoUrl}" 
-                         style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; border: 4px solid #1e40af;"
-                         onerror="this.src='https://ui-avatars.com/api/?name=User&background=1e40af&color=fff&size=200'">
-                    <h2 style="margin-bottom: 10px;">${nama}</h2>
-                    <p style="color: #1e40af; font-weight: 600; margin-bottom: 20px;">${profesi}</p>
-                    <div style="text-align: left; padding: 0 20px;">
-                        <p><strong>NIK:</strong> ${nik}</p>
-                        <p><strong>Alamat:</strong> ${alamat}</p>
-                        <p><strong>No. SIP:</strong> ${noSIP}</p>
-                        <p><strong>Status:</strong> <span class="status-badge ${status.toLowerCase() === 'aktif' ? 'active' : 'pending'}">${status}</span></p>
+                         style="width: 180px; height: 180px; border-radius: 50%; object-fit: cover; margin-bottom: 20px; border: 5px solid #1e40af; cursor: pointer;"
+                         onclick="Swal.close(); openLightbox('${photoUrl.replace(/'/g, "\\'")}', '${nama.replace(/'/g, "\\'")}')"
+                         onerror="this.src='https://ui-avatars.com/api/?name=User&background=1e40af&color=fff&size=400'"
+                         alt="Klik untuk memperbesar">
+                    <h2 style="margin-bottom: 5px; color: #1e40af;">${nama}</h2>
+                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">${profesi}</p>
+                    <div style="text-align: left; max-width: 400px; margin: 0 auto; background: #f8fafc; border-radius: 12px; padding: 15px;">
+                        <table style="width: 100%; font-size: 0.9rem;">
+                            <tr><td style="padding: 8px 0; font-weight: 600; width: 35%;">NIK</td><td>: ${nik}</td></tr>
+                            <tr><td style="padding: 8px 0; font-weight: 600;">Jenis Kelamin</td><td>: ${jenisKelamin}</td></tr>
+                            <tr><td style="padding: 8px 0; font-weight: 600;">Alamat Praktik</td><td>: ${alamat}</td></tr>
+                            <tr><td style="padding: 8px 0; font-weight: 600;">No. SIP</td><td>: ${noSIP}</td></tr>
+                            <tr><td style="padding: 8px 0; font-weight: 600;">Status</td><td>: <span class="status-badge ${statusClass}">${status}</span></td></tr>
+                        </table>
                     </div>
                     <div style="margin-top: 20px;">
-                        <button onclick="generateQR('${noSIP.replace(/'/g, "\\'")}')" class="btn-primary" style="margin: 5px; padding: 10px 20px; border: none; border-radius: 8px; background: #1e40af; color: white; cursor: pointer;">
+                        <button onclick="generateQR('${noSIP.replace(/'/g, "\\'")}')" class="btn-primary" style="margin: 5px; padding: 12px 24px; border: none; border-radius: 8px; background: #1e40af; color: white; cursor: pointer; font-size: 0.9rem;">
                             <i class="fas fa-qrcode"></i> QR Code
                         </button>
                     </div>
                 </div>
             `,
-            width: '500px',
+            width: '550px',
             showCloseButton: true
         });
     }
