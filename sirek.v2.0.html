@@ -1002,13 +1002,56 @@
                     
                     <!-- PROFIL PELAMAR VIEW -->
                     <div v-if="activeMenu === 'profil'" class="animate-fade-in">
-                        <!-- Profil content (same as before) -->
-                        <div class="glass-card rounded-2xl p-6">
+                        <div class="glass-card rounded-2xl p-6 mb-6">
                             <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-4">
                                 <i class="fas fa-user-tie text-medical-500 mr-2"></i>
                                 Profil Pelamar
                             </h2>
                             <p class="text-gray-500 dark:text-gray-400">Data pelamar yang telah terdaftar</p>
+                        </div>
+                        
+                        <div class="glass-card rounded-2xl p-6">
+                            <div v-if="pelamarList.length === 0" class="text-center py-8 text-gray-500">
+                                <i class="fas fa-users text-4xl mb-4"></i>
+                                <p>Belum ada data pelamar</p>
+                            </div>
+                            <div v-else class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="bg-gradient-to-r from-medical-500 to-medical-700 text-white">
+                                            <th class="px-4 py-3 text-left rounded-l-lg">No</th>
+                                            <th class="px-4 py-3 text-left">Foto</th>
+                                            <th class="px-4 py-3 text-left">NIK</th>
+                                            <th class="px-4 py-3 text-left">Nama</th>
+                                            <th class="px-4 py-3 text-left">Formasi</th>
+                                            <th class="px-4 py-3 text-left">Pendidikan</th>
+                                            <th class="px-4 py-3 text-left rounded-r-lg">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(p, idx) in pelamarList" :key="p.NIK || idx" class="border-b hover:bg-gray-50 dark:hover:bg-slate-800">
+                                            <td class="px-4 py-3">{{ idx + 1 }}</td>
+                                            <td class="px-4 py-3">
+                                                <div v-if="p.Foto || p['Link Foto']" class="w-10 h-10 rounded-full bg-gray-300 overflow-hidden">
+                                                    <img :src="p.Foto || p['Link Foto']" class="w-full h-full object-cover">
+                                                </div>
+                                                <div v-else class="w-10 h-10 rounded-full bg-medical-500 flex items-center justify-center text-white">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                            </td>
+                                            <td class="px-4 py-3">{{ p.NIK || '-' }}</td>
+                                            <td class="px-4 py-3 font-medium">{{ p.Nama || '-' }}</td>
+                                            <td class="px-4 py-3">{{ p.Formasi || '-' }}</td>
+                                            <td class="px-4 py-3">{{ p.Pendidikan || '-' }}</td>
+                                            <td class="px-4 py-3">
+                                                <span class="badge" :class="p['Hasil Akhir'] === 'DITERIMA' ? 'badge-success' : 'badge-warning'">
+                                                    {{ p['Hasil Akhir'] || 'MENUNGGU' }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                     
@@ -1076,6 +1119,9 @@
                         diterima: 0
                     },
                     
+                    // Pelamar List
+                    pelamarList: [],
+                    
                     // Formasi List
                     formasiList: [],
                     
@@ -1139,6 +1185,7 @@
                     this.activeMenu = menu;
                     if (menu === 'dashboard') this.loadDashboard();
                     if (menu === 'formulirLamaran') this.loadFormasi();
+                    if (menu === 'profil') this.loadPelamar();
                 },
                 
                 openLoginModal() {
@@ -1168,13 +1215,35 @@
                 async loadDashboard() {
                     try {
                         const url = this.API_URL + '?action=getDashboard&ssId=' + this.SS_ID;
+                        console.log('Loading dashboard from:', url);
                         const response = await fetch(url);
                         const result = await response.json();
+                        console.log('Dashboard result:', result);
                         if (result.success && result.data) {
                             this.stats = result.data.stats || {};
+                        } else {
+                            console.error('Dashboard error:', result.message);
                         }
                     } catch (error) {
                         console.error('Error loading dashboard:', error);
+                    }
+                },
+                
+                // Load Pelamar List (for Profil)
+                async loadPelamar() {
+                    try {
+                        const url = this.API_URL + '?action=getPelamar&ssId=' + this.SS_ID + '&size=100';
+                        console.log('Loading pelamar from:', url);
+                        const response = await fetch(url);
+                        const result = await response.json();
+                        console.log('Pelamar result:', result);
+                        if (result.success && result.data) {
+                            this.pelamarList = result.data.data || [];
+                        } else {
+                            console.error('Pelamar error:', result.message);
+                        }
+                    } catch (error) {
+                        console.error('Error loading pelamar:', error);
                     }
                 },
                 
