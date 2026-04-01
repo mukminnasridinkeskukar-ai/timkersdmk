@@ -831,7 +831,7 @@
 
     <script>
         // ============ KONFIGURASI ============
-        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzZmNwfGeJJhIJEaivF5pDdDgM4o6ab7M15vHmMKOLrRDGHxukIvDPFS2Jqv9N8X91N/exec';
+        const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzfp3k0KVSA5Vym7VDETDnATbRfuPfF_XuxAfGnSgkzJnqxxkbs6ktAHNzHjALnlQ-K/exec';
         const USE_LOCAL_DATA = false;
 
         // ============ DATA LOKAL (TESTING) ============
@@ -1035,29 +1035,39 @@
             } else {
                 try {
                     // Use JSONP for cross-origin requests
+                    console.log('Fetching from:', GOOGLE_SHEETS_URL);
                     return new Promise((resolve, reject) => {
                         const callbackName = 'jsonp_callback_' + Date.now();
+                        console.log('Callback name:', callbackName);
                         
                         // Create script element for JSONP
                         const script = document.createElement('script');
-                        script.src = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&callback=${callbackName}`;
+                        const url = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&callback=${callbackName}`;
+                        console.log('Request URL:', url);
+                        script.src = url;
                         
                         // Store cleanup function
                         window[callbackName] = (result) => {
+                            console.log('JSONP result:', result);
                             // Clean up
                             delete window[callbackName];
-                            document.head.removeChild(script);
+                            if (script.parentNode) {
+                                document.head.removeChild(script);
+                            }
                             
                             if (result && result.success && result.data) {
                                 resolve(normalizeData(result.data));
+                            } else if (result && result.message) {
+                                resolve(null);
                             } else {
                                 resolve(null);
                             }
                         };
                         
-                        script.onerror = () => {
+                        script.onerror = (e) => {
+                            console.error('Script load error:', e);
                             delete window[callbackName];
-                            reject(new Error('Failed to fetch data'));
+                            reject(new Error('Failed to fetch data - check console for URL'));
                         };
                         
                         document.head.appendChild(script);
@@ -1065,7 +1075,11 @@
                         // Timeout fallback
                         setTimeout(() => {
                             if (window[callbackName]) {
+                                console.log('JSONP timeout - cleaning up');
                                 delete window[callbackName];
+                                if (script.parentNode) {
+                                    document.head.removeChild(script);
+                                }
                                 reject(new Error('Request timeout'));
                             }
                         }, 10000);
