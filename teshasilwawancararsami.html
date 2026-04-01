@@ -1033,105 +1033,71 @@
                 }
                 return null;
             } else {
-                try {
-                    // Use redirect method - more reliable than JSONP for Google Apps Script
-                    console.log('Fetching from:', GOOGLE_SHEETS_URL);
+                // Use JSONP directly - this is the most reliable method for Google Apps Script
+                console.log('Fetching from:', GOOGLE_SHEETS_URL);
+                return new Promise((resolve, reject) => {
+                    const callbackName = 'jsonp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    console.log('Callback name:', callbackName);
                     
-                    return new Promise((resolve, reject) => {
-                        const url = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}`;
-                        console.log('Request URL:', url);
-                        
-                        // Use fetch with redirect: "manual" to handle the redirect ourselves
-                        fetch(url, { 
-                            mode: 'no-cors',
-                            cache: 'no-store'
-                        })
-                        .then(response => {
-                            console.log('Response:', response);
-                            // With no-cors, we get an opaque response
-                            // We need to try a different approach - use the redirect
-                            return response.text();
-                        })
-                        .then(text => {
-                            console.log('Response text:', text);
-                            try {
-                                const data = JSON.parse(text);
-                                if (data.success && data.data) {
-                                    resolve(normalizeData(data.data));
-                                } else {
-                                    resolve(null);
-                                }
-                            } catch (e) {
-                                // Try parsing as JSONP
-                                const match = text.match(/^jsonp_callback_\d+\((.*)\)$/);
-                                if (match) {
-                                    const data = JSON.parse(match[1]);
-                                    if (data.success && data.data) {
-                                        resolve(normalizeData(data.data));
-                                    } else {
-                                        resolve(null);
-                                    }
-                                } else {
-                                    reject(new Error('Invalid response format'));
-                                }
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Fetch error:', error);
-                            // Fallback: try JSONP approach
-                            resolve(tryJSONP(nik));
-                        });
-                    });
-                } catch (error) {
-                    console.error('Error fetching data:', error);
-                    throw error;
-                }
-            }
-        }
-
-        // Fallback JSONP approach
-        async function tryJSONP(nik) {
-            return new Promise((resolve, reject) => {
-                const callbackName = 'jsonp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                
-                window[callbackName] = (result) => {
-                    console.log('JSONP result:', result);
-                    delete window[callbackName];
-                    const script = document.getElementById('jsonp-script');
-                    if (script) script.remove();
-                    
-                    if (result && result.success && result.data) {
-                        resolve(normalizeData(result.data));
-                    } else {
-                        resolve(null);
-                    }
-                };
-                
-                const script = document.createElement('script');
-                script.id = 'jsonp-script';
-                script.src = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&callback=${callbackName}`;
-                
-                script.onerror = () => {
-                    console.error('JSONP script failed to load');
-                    delete window[callbackName];
-                    const scriptEl = document.getElementById('jsonp-script');
-                    if (scriptEl) scriptEl.remove();
-                    reject(new Error('Failed to load data'));
-                };
-                
-                document.head.appendChild(script);
-                
-                // Timeout
-                setTimeout(() => {
-                    if (window[callbackName]) {
+                    window[callbackName] = (result) => {
+                        console.log('JSONP response:', result);
                         delete window[callbackName];
                         const scriptEl = document.getElementById('jsonp-script');
                         if (scriptEl) scriptEl.remove();
-                        reject(new Error('Request timeout'));
-                    }
-                }, 15000);
-            });
-        }
+                        
+                        if (result && result.success && result.data) {
+                            resolve(normalizeData(result.data));
+                        } else {
+                            // Try to find pelamar by checking result message
+                            if (result && result.message === 'Pelamar tidak ditemukan') {
+                                resolve(null);
+                            } else {
+                                console.warn('Unexpected result:', result);
+                                resolve(null);
+                            }
+                        }
+                    };
+                    
+                    const script = document.createElement('script');
+                    script.id = 'jsonp-script';
+                    const url = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&callback=${callbackName}`;
+                    console.log('JSONP URL:', url);
+                    script.src = url;
+                    
+                    script.onload = () => {
+                        // Give a small delay for the callback to execute
+                        setTimeout(() => {
+                            if (window[callbackName]) {
+                                console.log('Callback not executed, timeout');
+                                delete window[callbackName];
+                                const scriptEl = document.getElementById('jsonp-script');
+                                if (scriptEl) scriptEl.remove();
+                                reject(new Error('Callback not executed'));
+                            }
+                        }, 2000);
+                    };
+                    
+                    script.onerror = (e) => {
+                        console.error('Script load error:', e);
+                        delete window[callbackName];
+                        const scriptEl = document.getElementById('jsonp-script');
+                        if (scriptEl) scriptEl.remove();
+                        reject(new Error('Gagal memuat data dari server'));
+                    };
+                    
+                    document.head.appendChild(script);
+                    
+                    // Timeout
+                    setTimeout(() => {
+                        if (window[callbackName]) {
+                            delete window[callbackName];
+                            const scriptEl = document.getElementById('jsonp-script');
+                            if (scriptEl) scriptEl.remove();
+                            reject(new Error('Request timeout'));
+                        }
+                    }, 15000);
+                });
+            }
 
         function normalizeData(data) {
             let fotoUrl = data.foto || data.Foto || '';
