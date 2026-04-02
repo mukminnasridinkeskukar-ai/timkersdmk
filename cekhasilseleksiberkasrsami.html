@@ -1040,70 +1040,39 @@
                 }
                 return null;
             } else {
-                // Use JSONP directly - this is the most reliable method for Google Apps Script
+                // Use fetch - Google Apps Script supports CORS
                 console.log('Fetching from:', GOOGLE_SHEETS_URL);
-                return new Promise((resolve, reject) => {
-                    const callbackName = 'jsonp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                    console.log('Callback name:', callbackName);
+                try {
+                    const url = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&t=${Date.now()}`;
+                    console.log('Fetch URL:', url);
                     
-                    window[callbackName] = (result) => {
-                        console.log('JSONP response:', result);
-                        delete window[callbackName];
-                        const scriptEl = document.getElementById('jsonp-script');
-                        if (scriptEl) scriptEl.remove();
-                        
-                        if (result && result.success && result.data) {
-                            resolve(normalizeData(result.data));
-                        } else {
-                            // Try to find pelamar by checking result message
-                            if (result && result.message === 'Pelamar tidak ditemukan') {
-                                resolve(null);
-                            } else {
-                                console.warn('Unexpected result:', result);
-                                resolve(null);
-                            }
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        mode: 'cors',
+                        headers: {
+                            'Content-Type': 'application/json'
                         }
-                    };
+                    });
                     
-                    const script = document.createElement('script');
-                    script.id = 'jsonp-script';
-                    const url = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&callback=${callbackName}`;
-                    console.log('JSONP URL:', url);
-                    script.src = url;
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
                     
-                    script.onload = () => {
-                        // Give a small delay for the callback to execute
-                        setTimeout(() => {
-                            if (window[callbackName]) {
-                                console.log('Callback not executed, timeout');
-                                delete window[callbackName];
-                                const scriptEl = document.getElementById('jsonp-script');
-                                if (scriptEl) scriptEl.remove();
-                                reject(new Error('Callback not executed'));
-                            }
-                        }, 2000);
-                    };
+                    const result = await response.json();
+                    console.log('Fetch response:', result);
                     
-                    script.onerror = (e) => {
-                        console.error('Script load error:', e);
-                        delete window[callbackName];
-                        const scriptEl = document.getElementById('jsonp-script');
-                        if (scriptEl) scriptEl.remove();
-                        reject(new Error('Gagal memuat data dari server'));
-                    };
-                    
-                    document.head.appendChild(script);
-                    
-                    // Timeout
-                    setTimeout(() => {
-                        if (window[callbackName]) {
-                            delete window[callbackName];
-                            const scriptEl = document.getElementById('jsonp-script');
-                            if (scriptEl) scriptEl.remove();
-                            reject(new Error('Request timeout'));
-                        }
-                    }, 15000);
-                });
+                    if (result && result.success && result.data) {
+                        return normalizeData(result.data);
+                    } else if (result && result.message === 'Pelamar tidak ditemukan') {
+                        return null;
+                    } else {
+                        console.warn('Unexpected result:', result);
+                        return null;
+                    }
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    throw error;
+                }
             }
 
             function normalizeData(data) {
