@@ -787,8 +787,8 @@
                             <span class="info-value" id="jkDisplay">-</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">Pendidikan</span>
-                            <span class="info-value" id="pendidikanDisplay">-</span>
+                            <span class="info-label">Alamat</span>
+                            <span class="info-value" id="alamatDisplay">-</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Formasi</span>
@@ -1033,70 +1033,41 @@
                 }
                 return null;
             } else {
-                // Use JSONP directly - this is the most reliable method for Google Apps Script
+                // Use fetch with redirect follow for Google Apps Script
                 console.log('Fetching from:', GOOGLE_SHEETS_URL);
-                return new Promise((resolve, reject) => {
-                    const callbackName = 'jsonp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                    console.log('Callback name:', callbackName);
+                try {
+                    const url = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&t=${Date.now()}`;
+                    console.log('Fetch URL:', url);
                     
-                    window[callbackName] = (result) => {
-                        console.log('JSONP response:', result);
-                        delete window[callbackName];
-                        const scriptEl = document.getElementById('jsonp-script');
-                        if (scriptEl) scriptEl.remove();
-                        
-                        if (result && result.success && result.data) {
-                            resolve(normalizeData(result.data));
-                        } else {
-                            // Try to find pelamar by checking result message
-                            if (result && result.message === 'Pelamar tidak ditemukan') {
-                                resolve(null);
-                            } else {
-                                console.warn('Unexpected result:', result);
-                                resolve(null);
-                            }
-                        }
-                    };
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        redirect: 'follow'
+                    });
                     
-                    const script = document.createElement('script');
-                    script.id = 'jsonp-script';
-                    const url = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&callback=${callbackName}`;
-                    console.log('JSONP URL:', url);
-                    script.src = url;
+                    console.log('Response status:', response.status);
                     
-                    script.onload = () => {
-                        // Give a small delay for the callback to execute
-                        setTimeout(() => {
-                            if (window[callbackName]) {
-                                console.log('Callback not executed, timeout');
-                                delete window[callbackName];
-                                const scriptEl = document.getElementById('jsonp-script');
-                                if (scriptEl) scriptEl.remove();
-                                reject(new Error('Callback not executed'));
-                            }
-                        }, 2000);
-                    };
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok: ' + response.status);
+                    }
                     
-                    script.onerror = (e) => {
-                        console.error('Script load error:', e);
-                        delete window[callbackName];
-                        const scriptEl = document.getElementById('jsonp-script');
-                        if (scriptEl) scriptEl.remove();
-                        reject(new Error('Gagal memuat data dari server'));
-                    };
+                    const text = await response.text();
+                    console.log('Response text:', text.substring(0, 500));
                     
-                    document.head.appendChild(script);
+                    const result = JSON.parse(text);
+                    console.log('Parsed result:', result);
                     
-                    // Timeout
-                    setTimeout(() => {
-                        if (window[callbackName]) {
-                            delete window[callbackName];
-                            const scriptEl = document.getElementById('jsonp-script');
-                            if (scriptEl) scriptEl.remove();
-                            reject(new Error('Request timeout'));
-                        }
-                    }, 15000);
-                });
+                    if (result && result.success && result.data) {
+                        return normalizeData(result.data);
+                    } else if (result && result.message === 'Pelamar tidak ditemukan') {
+                        return null;
+                    } else {
+                        console.warn('Unexpected result:', result);
+                        return null;
+                    }
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    throw error;
+                }
             }
         }
 
@@ -1105,22 +1076,29 @@
             let fileId = '';
             
             if (fotoUrl) {
-                if (fotoUrl.includes('drive.google.com')) {
-                    const match = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || 
-                                  fotoUrl.match(/id=([a-zA-Z0-9_-]+)/);
-                    if (match) {
-                        fileId = match[1];
+                // Handle multiple Google Drive URL formats
+                if (fotoUrl.includes('drive.google.com') || fotoUrl.includes('docs.google.com')) {
+                    const match1 = fotoUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+                    const match2 = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                    const match3 = fotoUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                    
+                    if (match1) {
+                        fileId = match1[1];
+                    } else if (match2) {
+                        fileId = match2[1];
+                    } else if (match3) {
+                        fileId = match3[1];
                     }
                 } else if (fotoUrl.match(/^[a-zA-Z0-9_-]+$/)) {
                     fileId = fotoUrl;
                 }
                 
                 if (fileId) {
-                    fotoUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+                    fotoUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400-h400`;
                 }
             }
             
-            // Gunakan tes_wawancara sebagai hasil akhir
+            // Gunakan tes_wawancara (Kolom L) sebagai hasil akhir
             const tesWawancara = data.tes_wawancara || data['Tes Wawancara'] || 'BELUM DIUMUMKAN';
             
             return {
@@ -1142,6 +1120,9 @@
 
         // ============ TAMPILKAN DATA ============
         function displayPelamar(pelamar) {
+            console.log('Displaying pelamar data:', pelamar);
+            console.log('Photo URL:', pelamar.foto);
+            
             const placeholder = photoFrame.querySelector('.placeholder');
             if (pelamar.foto) {
                 photoImage.src = pelamar.foto;
@@ -1163,10 +1144,10 @@
             document.getElementById('namaDisplay2').textContent = pelamar.nama;
             document.getElementById('ttlDisplay').textContent = `${pelamar.tempat_lahir}, ${pelamar.tanggal_lahir}`;
             document.getElementById('jkDisplay').textContent = pelamar.jenis_kelamin;
-            document.getElementById('pendidikanDisplay').textContent = pelamar.pendidikan;
+            document.getElementById('alamatDisplay').textContent = pelamar.alamat;
             document.getElementById('formasiDisplay2').textContent = pelamar.formasi;
 
-            // Hasil Seleksi Wawancara (Gunakan tes_wawancara sebagai hasil akhir)
+            // Hasil Tes Wawancara (Gunakan tes_wawancara dari Kolom L)
             const tesWawancara = pelamar.tes_wawancara || 'BELUM DIUMUMKAN';
             const resultSection = document.getElementById('resultSection');
             const resultTitle = document.getElementById('resultTitle');
