@@ -1084,14 +1084,15 @@
                 if (fotoUrl) {
                     // Handle multiple Google Drive URL formats:
                     // - https://drive.google.com/d/FILEID
+                    // - https://drive.google.com/file/d/FILEID/view
                     // - https://drive.google.com/open?id=FILEID
                     // - https://docs.google.com/uc?export=view&id=FILEID
                     if (fotoUrl.includes('drive.google.com') || fotoUrl.includes('docs.google.com')) {
+                        // Try /file/d/FILEID/view format (may have query params like ?usp=drivesdk)
+                        const match1 = fotoUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
                         // Try /d/FILEID format
-                        const match1 = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                        const match2 = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
                         // Try open?id=FILEID format
-                        const match2 = fotoUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-                        // Try uc?export=view&id=FILEID format
                         const match3 = fotoUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
                         
                         if (match1) {
@@ -1106,7 +1107,11 @@
                     }
                     
                     if (fileId) {
-                        fotoUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+                        // Log for debugging
+                        console.log('Extracted file ID:', fileId);
+                        // Use thumbnail URL (more reliable for direct display)
+                        fotoUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400-h400`;
+                        console.log('Generated thumbnail URL:', fotoUrl);
                     }
                 }
                 
@@ -1133,17 +1138,28 @@
 
         // ============ TAMPILKAN DATA ============
         function displayPelamar(pelamar) {
+            console.log('Displaying pelamar data:', pelamar);
+            console.log('Photo URL:', pelamar.foto);
+            
             const placeholder = photoFrame.querySelector('.placeholder');
             if (pelamar.foto) {
                 photoImage.src = pelamar.foto;
                 photoImage.style.display = 'block';
                 placeholder.style.display = 'none';
                 
+                console.log('Image src set to:', photoImage.src);
+                
+                photoImage.onload = function() {
+                    console.log('Image loaded successfully');
+                };
+                
                 photoImage.onerror = function() {
+                    console.log('Image failed to load');
                     this.style.display = 'none';
                     placeholder.style.display = 'flex';
                 };
             } else {
+                console.log('No photo URL available');
                 photoImage.style.display = 'none';
                 placeholder.style.display = 'flex';
             }
