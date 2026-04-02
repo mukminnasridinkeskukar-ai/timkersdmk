@@ -1040,7 +1040,7 @@
                 }
                 return null;
             } else {
-                // Use fetch - Google Apps Script supports CORS
+                // Use fetch with redirect follow for Google Apps Script
                 console.log('Fetching from:', GOOGLE_SHEETS_URL);
                 try {
                     const url = `${GOOGLE_SHEETS_URL}?action=getPelamarByNIK&nik=${encodeURIComponent(nik)}&t=${Date.now()}`;
@@ -1048,18 +1048,20 @@
                     
                     const response = await fetch(url, {
                         method: 'GET',
-                        mode: 'cors',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
+                        redirect: 'follow'
                     });
                     
+                    console.log('Response status:', response.status);
+                    
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error('Network response was not ok: ' + response.status);
                     }
                     
-                    const result = await response.json();
-                    console.log('Fetch response:', result);
+                    const text = await response.text();
+                    console.log('Response text:', text.substring(0, 500));
+                    
+                    const result = JSON.parse(text);
+                    console.log('Parsed result:', result);
                     
                     if (result && result.success && result.data) {
                         return normalizeData(result.data);
