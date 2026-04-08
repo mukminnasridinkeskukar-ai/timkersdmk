@@ -1252,7 +1252,7 @@
      * 
      * Setelah deploy, copy URL Web App ke bawah ini
      */
-    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycby3ikqU2_Be0cpEWQo3z9u-HLSwGJu98XLUBn2TbL97uEj4XWblg23voLvnTWqIoBlN/exec';
+    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycbzKI20idtBZTb5_os0RW3WuWHtBSxD5MQaAe3ApFT5IzKWdokOxqMxejmvEXDVIoMq0/exec';
     
     // ==================== FALLBACK DATA ====================
     // Jika API gagal, data ini akan digunakan
@@ -1351,47 +1351,23 @@
           
           if (response && response.success === true && Array.isArray(response.data)) {
             console.log('Data loaded successfully, count:', response.data.length);
-            // Debug: show ALL keys from first item
-            var allKeys = [];
-            for (var key in response.data[0]) {
-              allKeys.push(key + '=' + response.data[0][key]);
-            }
-            console.log('All key-value pairs:', allKeys.join(', '));
-            // Map data - use all possible key variations
+            // Map data with exact column names from spreadsheet
             const participants = response.data.map(function(item, idx) {
-              // Debug log first 3 items
-              if (idx < 3) console.log('Row ' + idx + ':', JSON.stringify(item));
-              
-              // Try to find data from ANY key that might contain the value
-              var getValue = function(searchKeys) {
-                for (var i = 0; i < searchKeys.length; i++) {
-                  if (item[searchKeys[i]]) return String(item[searchKeys[i]]);
-                }
-                return '';
-              };
-              
-              // Find all non-empty values and their keys
-              var allValues = [];
-              for (var key in item) {
-                if (item[key]) allValues.push(key + ':' + item[key]);
-              }
-              if (idx < 3) console.log('Row ' + idx + ' values:', allValues.join(' | '));
-              
               return {
-                nama: item['NAMA PESERTA'] || item['Nama'] || item['nama'] || getValue(['NAMA', 'Nama', 'nama']),
-                register: item['NO. REGISTER'] || item['Register'] || item['register'] || getValue(['NO REGISTER', 'No Register']),
-                formasi: item['FORMASI JABATAN'] || item['Formasi'] || item['formasi'] || getValue(['FORMASI', 'Formasi']),
-                tanggal: item['TANGGAL TES'] || item['Tanggal'] || item['tanggal'] || getValue(['TANGGAL', 'Tanggal']),
-                jam: item['JAM'] || item['Jam'] || item['jam'] || getValue(['JAM', 'Jam']),
-                tempat: item['TEMPAT'] || item['Tempat'] || item['tempat'] || getValue(['TEMPAT', 'Tempat']),
-                foto: item['FOTO'] || item['foto'] || getValue(['FOTO', 'Foto']),
-                peralatan: item['PERALATAN'] || item['Peralatan'] || item['peralatan'] || getValue(['PERALATAN', 'Peralatan']),
-                kebutuhan: item['KEBUTUHAN'] || item['Kebutuhan'] || item['JUMLAH KEBUTUHAN'] || item['kebutuhan'] || getValue(['KEBUTUHAN', 'Kebutuhan'])
+                nama: item['Nama Peserta'] || item['Nama'] || item['nama'] || '',
+                register: item['Nomor Register'] || item['NO. REGISTER'] || item['Register'] || item['register'] || '',
+                formasi: item['Formasi'] || item['FORMASI'] || item['formasi'] || '',
+                tanggal: item['Tanggal Test'] || item['Tanggal Tes'] || item['Tanggal'] || '',
+                jam: item['Jam'] || item['jam'] || '',
+                tempat: item['Tempat'] || item['tempat'] || '',
+                foto: item['Foto'] || item['FOTO'] || item['foto'] || '',
+                peralatan: item['Peralatan'] || item['PERALATAN'] || item['peralatan'] || '',
+                kebutuhan: item['Jumlah Kebutuhan SDM'] || item['Kebutuhan'] || item['kebutuhan'] || ''
               };
             });
             // Filter out entries with empty nama
             const validParticipants = participants.filter(function(p) { return p.nama && p.nama.trim().length > 0; });
-            console.log('Valid participants (with name):', validParticipants.length);
+            console.log('Valid participants:', validParticipants.length);
             console.log('Sample valid:', JSON.stringify(validParticipants.slice(0, 3)));
             hideLoading();
             resolve(validParticipants);
@@ -1441,7 +1417,7 @@
       
       console.log('Searching for:', searchTerm);
       console.log('Total participants in memory:', allParticipants.length);
-      console.log('Sample participant data:', JSON.stringify(allParticipants.slice(0, 3)));
+      console.log('Sample participant:', JSON.stringify(allParticipants[0]));
       
       const sanitized = sanitizeInput(searchTerm).toLowerCase();
       
@@ -1591,16 +1567,19 @@
         }
         
         var fileId = '';
+        // Format: https://drive.google.com/file/d/FILE_ID/view?usp=...
         var match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
         if (match1) {
           fileId = match1[1];
         }
         
+        // Format: https://drive.google.com/open?id=FILE_ID
         var match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
         if (match2) {
           fileId = match2[1];
         }
         
+        // Format: https://docs.google.com/document/d/FILE_ID/...
         var match3 = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
         if (match3) {
           fileId = match3[1];
