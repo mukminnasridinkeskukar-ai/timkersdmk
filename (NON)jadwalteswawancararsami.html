@@ -1252,7 +1252,7 @@
      * 
      * Setelah deploy, copy URL Web App ke bawah ini
      */
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwCmuyFgtWC4lKVHd5wPNphZAWj-mUVH3sUz5Ov1efGgD-omdgMj-WWsjqvf-Gnu68u/exec';
+    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycbxTC5j_bEcxf7WFWXD-145Xpx_er1al-_9N85olxha7NaCZNyhYRHnWvmeg-lSQzPbv/exec';
     
     // ==================== FALLBACK DATA ====================
     // Jika API gagal, data ini akan digunakan
@@ -1328,7 +1328,7 @@
     
     // ==================== DATA FETCHING ====================
     /**
-     * Load data using script tag (bypasses CORS)
+     * Load data using JSONP (bypasses CORS)
      * @returns {Promise<Array>} Array of participants
      */
     function fetchParticipants() {
@@ -1336,33 +1336,46 @@
         showLoading();
         
         // Remove any existing script
-        var existingScript = document.getElementById('gapi-script');
+        var existingScript = document.getElementById('jsonp-script');
         if (existingScript) {
           existingScript.remove();
         }
         
-        // Create script element
-        var script = document.createElement('script');
-        script.id = 'gapi-script';
-        script.src = API_URL;
-        script.onload = function() {
-          // Data loaded via JADWAL_DATA variable
-          if (typeof JADWAL_DATA !== 'undefined') {
-            if (JADWAL_DATA.error) {
-              console.error('API Error:', JADWAL_DATA.error);
-              hideLoading();
-              showError();
-              resolve([]);
-            } else {
-              hideLoading();
-              resolve(JADWAL_DATA || []);
-            }
+        // Define global callback
+        window.JADWAL_CALLBACK = function(response) {
+          // Clean up
+          var script = document.getElementById('jsonp-script');
+          if (script) script.remove();
+          
+          if (response && response.success === true && Array.isArray(response.data)) {
+            // Map data to expected format
+            const participants = response.data.map(function(item) {
+              return {
+                nama: item['NAMA PESERTA'] || item['Nama'] || '',
+                register: item['NO. REGISTER'] || item['Register'] || '',
+                formasi: item['FORMASI JABATAN'] || item['Formasi'] || '',
+                tanggal: item['TANGGAL TES'] || item['Tanggal'] || '',
+                jam: item['JAM'] || item['Jam'] || '',
+                tempat: item['TEMPAT'] || item['Tempat'] || '',
+                foto: item['FOTO'] || item['foto'] || '',
+                peralatan: item['PERALATAN'] || item['Peralatan'] || '',
+                kebutuhan: item['KEBUTUHAN'] || item['Kebutuhan'] || item['JUMLAH KEBUTUHAN'] || ''
+              };
+            });
+            hideLoading();
+            resolve(participants);
           } else {
+            console.error('API Error:', response?.error || 'Invalid response');
             hideLoading();
             showError();
             resolve([]);
           }
         };
+        
+        // Create script element for JSONP
+        var script = document.createElement('script');
+        script.id = 'jsonp-script';
+        script.src = BASE_API_URL + '?callback=JADWAL_CALLBACK';
         script.onerror = function() {
           console.log('Script load failed, using fallback data');
           hideLoading();
