@@ -991,7 +991,7 @@
     <div class="error-container" id="errorContainer">
       <div class="error-icon">⚠️</div>
       <h3 class="error-title">Gagal Mengambil Data</h3>
-      <p class="error-message">Gagal mengambil data dari server.<br>Silakan refresh halaman.</p>
+      <p class="error-message">Gagal mengambil data dari server.<br>Buka console (F12) untuk melihat detail error.<br>Pastikan Google Apps Script sudah di-deploy.</p>
     </div>
     
     <!-- Empty State -->
@@ -1252,7 +1252,7 @@
      * 
      * Setelah deploy, copy URL Web App ke bawah ini
      */
-    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycbxTC5j_bEcxf7WFWXD-145Xpx_er1al-_9N85olxha7NaCZNyhYRHnWvmeg-lSQzPbv/exec';
+    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycby3ikqU2_Be0cpEWQo3z9u-HLSwGJu98XLUBn2TbL97uEj4XWblg23voLvnTWqIoBlN/exec';
     
     // ==================== FALLBACK DATA ====================
     // Jika API gagal, data ini akan digunakan
@@ -1347,28 +1347,37 @@
           var script = document.getElementById('jsonp-script');
           if (script) script.remove();
           
+          console.log('Response received:', response);
+          
           if (response && response.success === true && Array.isArray(response.data)) {
+            console.log('Data loaded successfully, count:', response.data.length);
+            console.log('First item sample:', response.data[0]);
             // Map data to expected format
             const participants = response.data.map(function(item) {
               return {
-                nama: item['NAMA PESERTA'] || item['Nama'] || '',
-                register: item['NO. REGISTER'] || item['Register'] || '',
-                formasi: item['FORMASI JABATAN'] || item['Formasi'] || '',
-                tanggal: item['TANGGAL TES'] || item['Tanggal'] || '',
-                jam: item['JAM'] || item['Jam'] || '',
-                tempat: item['TEMPAT'] || item['Tempat'] || '',
+                nama: item['NAMA PESERTA'] || item['Nama'] || item['nama'] || '',
+                register: item['NO. REGISTER'] || item['Register'] || item['register'] || '',
+                formasi: item['FORMASI JABATAN'] || item['Formasi'] || item['formasi'] || '',
+                tanggal: item['TANGGAL TES'] || item['Tanggal'] || item['tanggal'] || '',
+                jam: item['JAM'] || item['Jam'] || item['jam'] || '',
+                tempat: item['TEMPAT'] || item['Tempat'] || item['tempat'] || '',
                 foto: item['FOTO'] || item['foto'] || '',
-                peralatan: item['PERALATAN'] || item['Peralatan'] || '',
-                kebutuhan: item['KEBUTUHAN'] || item['Kebutuhan'] || item['JUMLAH KEBUTUHAN'] || ''
+                peralatan: item['PERALATAN'] || item['Peralatan'] || item['peralatan'] || '',
+                kebutuhan: item['KEBUTUHAN'] || item['Kebutuhan'] || item['JUMLAH KEBUTUHAN'] || item['kebutuhan'] || ''
               };
             });
+            console.log('Mapped participants:', participants);
             hideLoading();
             resolve(participants);
           } else {
             console.error('API Error:', response?.error || 'Invalid response');
             hideLoading();
-            showError();
-            resolve([]);
+            if (FALLBACK_DATA.length > 0) {
+              resolve(FALLBACK_DATA);
+            } else {
+              showError();
+              resolve([]);
+            }
           }
         };
         
@@ -1404,14 +1413,22 @@
         return [];
       }
       
+      console.log('Searching for:', searchTerm);
+      console.log('Total participants in memory:', allParticipants.length);
+      
       const sanitized = sanitizeInput(searchTerm).toLowerCase();
       
       // Find all matching participants
       const found = allParticipants.filter(participant => {
         const nama = String(participant.nama || '').toLowerCase();
-        return nama.includes(sanitized);
+        const matches = nama.includes(sanitized);
+        if (matches) {
+          console.log('Found match:', participant.nama);
+        }
+        return matches;
       });
       
+      console.log('Found:', found.length, 'participants');
       return found;
     }
     
@@ -1973,8 +1990,13 @@
      * Initialize the application
      */
     async function init() {
-      // Fetch initial data on page load
-      allParticipants = await fetchParticipants();
+      console.log('Initializing application...');
+      try {
+        allParticipants = await fetchParticipants();
+        console.log('Init complete. Total participants:', allParticipants.length);
+      } catch (error) {
+        console.error('Init error:', error);
+      }
     }
     
     // Start the application
