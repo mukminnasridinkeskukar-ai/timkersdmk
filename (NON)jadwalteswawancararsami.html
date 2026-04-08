@@ -1252,7 +1252,7 @@
      * 
      * Setelah deploy, copy URL Web App ke bawah ini
      */
-    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycbywZ_HlrCJ3IOGmcbEoq6ykCumwsF-eh8dgz0A3RxPnTJejd1jL38GWWZ2qsDiuVJo/exec';
+    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycbxzj_doIJI0Le3az46-tyiqCUhl-cGVg9TCfYbGjsFf93Kb39J1tFuKYo23R9g6i4_5/exec';
     
     // ==================== FALLBACK DATA ====================
     // Jika API gagal, data ini akan digunakan
@@ -1351,7 +1351,6 @@
           
           if (response && response.success === true && Array.isArray(response.data)) {
             console.log('Data loaded successfully, count:', response.data.length);
-            // Debug: log column names from the first row
             if (response.data.length > 0) {
               console.log('Column names:', Object.keys(response.data[0]));
               console.log('Sample raw data:', JSON.stringify(response.data[0]));
@@ -1359,22 +1358,23 @@
             // Map data with exact column names from spreadsheet
             const participants = response.data.map(function(item, idx) {
               return {
-                nama: item['Nama Peserta'] || item['Nama'] || item['nama'] || '',
-                register: item['Nomor Register'] || item['NO. REGISTER'] || item['Register'] || item['register'] || '',
-                formasi: item['Formasi'] || item['FORMASI'] || item['formasi'] || '',
-                tanggal: item['Tanggal Test'] || item['Tanggal Tes'] || item['Tanggal'] || '',
-                jam: item['Jam'] || item['Jam Test'] || item['jam'] || '',
-                tempat: item['Tempat'] || item['tempat'] || '',
-                foto: item['Foto'] || item['FOTO'] || item['foto'] || '',
-                peralatan: item['Peralatan'] || item['PERALATAN'] || item['peralatan'] || '',
-                kebutuhan: item['Jumlah Kebutuhan SDM'] || item['Kebutuhan'] || item['kebutuhan'] || ''
+                register: item['Nomor Register'] || item['Register'] || '',
+                foto: item['Foto'] || '',
+                nama: item['Nama Peserta'] || item['Nama'] || '',
+                formasi: item['Formasi'] || '',
+                tanggal: item['Tanggal Test'] || item['Tanggal'] || '',
+                jam: item['Jam'] || '',
+                tempat: item['Tempat'] || '',
+                peralatan: item['Peralatan'] || '',
+                kebutuhan: item['Jumlah Kebutuhan SDM'] || item['Kebutuhan'] || ''
               };
             });
-            console.log('Sample mapped participant:', JSON.stringify(participants[0]));
+            console.log('Mapped participant:', JSON.stringify(participants[0]));
             // Filter out entries with empty nama
             const validParticipants = participants.filter(function(p) { return p.nama && p.nama.trim().length > 0; });
             console.log('Valid participants:', validParticipants.length);
-            console.log('Sample valid:', JSON.stringify(validParticipants.slice(0, 3)));
+            console.log('Sample valid:', JSON.stringify(validParticipants[0]));
+            hideLoading();
             hideLoading();
             resolve(validParticipants);
           } else {
@@ -1636,17 +1636,16 @@
       photoUrl = convertDriveLink(photoUrl);
       const fallbackPhoto = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250" viewBox="0 0 200 250"><rect fill="%232c5364" width="200" height="250"/><text fill="%23ffffff" font-size="40" x="50%" y="50%" text-anchor="middle" dy=".3em">👤</text></svg>';
       
-      var formattedTanggal = formatTanggalIndonesia(participant.tanggal, participant.jam);
+      var formattedTanggal = formatTanggalIndonesia(participant.tanggal);
       
-      var tanggalLengkap = '';
-      if (formattedTanggal.hari) {
-        tanggalLengkap = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
-        if (formattedTanggal.jam) {
-          tanggalLengkap += ' • Pukul ' + formattedTanggal.jam;
-        }
+      var tanggalDisplay = '';
+      if (formattedTanggal.hari && formattedTanggal.tanggal) {
+        tanggalDisplay = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
       } else {
-        tanggalLengkap = formattedTanggal.tanggal;
+        tanggalDisplay = formattedTanggal.tanggal || participant.tanggal;
       }
+      
+      var jamDisplay = participant.jam || '';
       
       const card = document.createElement('div');
       card.className = 'participant-card';
@@ -1680,11 +1679,11 @@
               </div>
               <div class="data-item">
                 <span class="data-label">Tanggal Test</span>
-                <span class="data-value highlight">${tanggalLengkap || '-'}</span>
+                <span class="data-value highlight">${tanggalDisplay || '-'}</span>
               </div>
               <div class="data-item">
                 <span class="data-label">Jam</span>
-                <span class="data-value" style="display:none;">${participant.jam || '-'}</span>
+                <span class="data-value">${jamDisplay || '-'}</span>
               </div>
               <div class="data-item">
                 <span class="data-label">Tempat</span>
@@ -1774,16 +1773,15 @@
           return { hari: '', tanggal: String(tanggal), jam: jam };
         }
         
-        const formattedTanggal = formatTanggalIndonesia(participant.tanggal, participant.jam);
-        let tanggalLengkap = '';
-        if (formattedTanggal.hari) {
-          tanggalLengkap = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
-          if (formattedTanggal.jam) {
-            tanggalLengkap += ' • Pukul ' + formattedTanggal.jam;
-          }
+        const formattedTanggal = formatTanggalIndonesia(participant.tanggal);
+        let tanggalDisplay = '';
+        if (formattedTanggal.hari && formattedTanggal.tanggal) {
+          tanggalDisplay = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
         } else {
-          tanggalLengkap = formattedTanggal.tanggal;
+          tanggalDisplay = formattedTanggal.tanggal || participant.tanggal;
         }
+        
+        let jamDisplay = participant.jam || '';
         
         const photoUrl = convertDriveLink(participant.foto || '');
         const fallbackPhoto = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="280" height="350" viewBox="0 0 280 350"><rect fill="%232c5364" width="280" height="350"/><text fill="%23ffffff" font-size="60" x="50%" y="50%" text-anchor="middle" dy=".3em">👤</text></svg>';
@@ -1795,7 +1793,7 @@
         document.getElementById('popupName').textContent = participant.nama || '-';
         document.getElementById('popupRegister').textContent = participant.register || '-';
         document.getElementById('popupFormasi').textContent = participant.formasi || '-';
-        document.getElementById('popupTanggal').textContent = tanggalLengkap || '-';
+        document.getElementById('popupTanggal').textContent = tanggalDisplay || '-';
         document.getElementById('popupJam').textContent = participant.jam || '-';
         document.getElementById('popupTempat').textContent = participant.tempat || '-';
         document.getElementById('popupPeralatan').textContent = participant.peralatan || '-';
@@ -1906,22 +1904,21 @@
       };
       
       // Set card data
-      var formattedTanggal = formatTanggalIndonesia(participant.tanggal, participant.jam);
-      var tanggalLengkap = '';
-      if (formattedTanggal.hari) {
-        tanggalLengkap = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
-        if (formattedTanggal.jam) {
-          tanggalLengkap += ' • Pukul ' + formattedTanggal.jam;
-        }
+      var formattedTanggal = formatTanggalIndonesia(participant.tanggal);
+      var tanggalDisplay = '';
+      if (formattedTanggal.hari && formattedTanggal.tanggal) {
+        tanggalDisplay = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
       } else {
-        tanggalLengkap = formattedTanggal.tanggal;
+        tanggalDisplay = formattedTanggal.tanggal || participant.tanggal;
       }
+      
+      var jamDisplay = participant.jam || '';
       
       document.getElementById('participantName').textContent = participant.nama || '-';
       document.getElementById('registerNumber').textContent = participant.register || '-';
       document.getElementById('formasi').textContent = participant.formasi || '-';
-      document.getElementById('tanggal').textContent = tanggalLengkap || '-';
-      document.getElementById('jam').textContent = participant.jam || '-';
+      document.getElementById('tanggal').textContent = tanggalDisplay || '-';
+      document.getElementById('jam').textContent = jamDisplay || '-';
       document.getElementById('tempat').textContent = participant.tempat || '-';
       document.getElementById('peralatan').textContent = participant.peralatan || '-';
       document.getElementById('kebutuhan').textContent = participant.kebutuhan || '-';
@@ -1936,8 +1933,8 @@
       document.getElementById('popupName').textContent = participant.nama || '-';
       document.getElementById('popupRegister').textContent = participant.register || '-';
       document.getElementById('popupFormasi').textContent = participant.formasi || '-';
-      document.getElementById('popupTanggal').textContent = tanggalLengkap || '-';
-      document.getElementById('popupJam').textContent = participant.jam || '-';
+      document.getElementById('popupTanggal').textContent = tanggalDisplay || '-';
+      document.getElementById('popupJam').textContent = jamDisplay || '-';
       document.getElementById('popupTempat').textContent = participant.tempat || '-';
       document.getElementById('popupPeralatan').textContent = participant.peralatan || '-';
       document.getElementById('popupKebutuhan').textContent = participant.kebutuhan || '-';
