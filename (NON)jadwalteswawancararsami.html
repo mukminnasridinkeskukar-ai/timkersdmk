@@ -1351,13 +1351,29 @@
           
           if (response && response.success === true && Array.isArray(response.data)) {
             console.log('Data loaded successfully, count:', response.data.length);
-            console.log('All keys in first item:', Object.keys(response.data[0]));
-            console.log('First item raw:', JSON.stringify(response.data[0]));
+            // Debug: show ALL keys from first item
+            var allKeys = [];
+            for (var key in response.data[0]) {
+              allKeys.push(key + '=' + response.data[0][key]);
+            }
+            console.log('All key-value pairs:', allKeys.join(', '));
             // Map data - use all possible key variations
-            const participants = response.data.map(function(item) {
+            const participants = response.data.map(function(item, idx) {
+              // Debug log first 5 items
+              if (idx < 5) console.log('Row ' + idx + ':', JSON.stringify(item));
+              
+              // Try to find the name from ANY key that contains 'nama' or 'Nama'
+              var foundName = '';
+              for (var key in item) {
+                if (key.toLowerCase().includes('nama') && item[key]) {
+                  foundName = String(item[key]);
+                  break;
+                }
+              }
+              
               return {
-                nama: item['NAMA PESERTA'] || item['Nama'] || item['nama'] || '',
-                register: item['NO. REGISTER'] || item['Register'] || item['register'] || '',
+                nama: foundName,
+                register: item['NO. REGISTER'] || item['Register'] || item['register'] || item['NO REGISTER'] || '',
                 formasi: item['FORMASI JABATAN'] || item['Formasi'] || item['formasi'] || '',
                 tanggal: item['TANGGAL TES'] || item['Tanggal'] || item['tanggal'] || '',
                 jam: item['JAM'] || item['Jam'] || item['jam'] || '',
@@ -1367,9 +1383,12 @@
                 kebutuhan: item['KEBUTUHAN'] || item['Kebutuhan'] || item['JUMLAH KEBUTUHAN'] || item['kebutuhan'] || ''
               };
             });
-            console.log('Mapped participants:', participants);
+            // Filter out entries with empty nama
+            const validParticipants = participants.filter(function(p) { return p.nama && p.nama.trim().length > 0; });
+            console.log('Valid participants (with name):', validParticipants.length);
+            console.log('Sample valid:', JSON.stringify(validParticipants.slice(0, 3)));
             hideLoading();
-            resolve(participants);
+            resolve(validParticipants);
           } else {
             console.error('API Error:', response?.error || 'Invalid response');
             hideLoading();
