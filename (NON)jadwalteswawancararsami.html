@@ -1252,7 +1252,7 @@
      * 
      * Setelah deploy, copy URL Web App ke bawah ini
      */
-    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycbzKI20idtBZTb5_os0RW3WuWHtBSxD5MQaAe3ApFT5IzKWdokOxqMxejmvEXDVIoMq0/exec';
+    const BASE_API_URL = 'https://script.google.com/macros/s/AKfycby3ikqU2_Be0cpEWQo3z9u-HLSwGJu98XLUBn2TbL97uEj4XWblg23voLvnTWqIoBlN/exec';
     
     // ==================== FALLBACK DATA ====================
     // Jika API gagal, data ini akan digunakan
@@ -1596,10 +1596,10 @@
         return url;
       }
       
-      // Format tanggal ke format Indonesia (Hanya hari: Senin, Selasa, dll)
-      function formatTanggalIndonesia(tanggal) {
+      // Format tanggal ke format Indonesia lengkap (Hari, Tanggal Bulan Tahun, Jam)
+      function formatTanggalIndonesia(tanggal, jam) {
         if (!tanggal || typeof tanggal !== 'string') {
-          return tanggal;
+          return { hari: '', tanggal: tanggal, jam: jam };
         }
         
         var hariArray = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -1618,17 +1618,28 @@
         
         if (dateObj && !isNaN(dateObj.getTime())) {
           var hari = hariArray[dateObj.getDay()];
-          return hari;
+          var tanggalFormatted = dateObj.getDate() + ' ' + bulanArray[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
+          return { hari: hari, tanggal: tanggalFormatted, jam: jam };
         }
         
-        return tanggal;
+        return { hari: '', tanggal: tanggal, jam: jam };
       }
       
       let photoUrl = participant.foto || '';
       photoUrl = convertDriveLink(photoUrl);
       const fallbackPhoto = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250" viewBox="0 0 200 250"><rect fill="%232c5364" width="200" height="250"/><text fill="%23ffffff" font-size="40" x="50%" y="50%" text-anchor="middle" dy=".3em">👤</text></svg>';
       
-      var formattedTanggal = formatTanggalIndonesia(participant.tanggal);
+      var formattedTanggal = formatTanggalIndonesia(participant.tanggal, participant.jam);
+      
+      var tanggalLengkap = '';
+      if (formattedTanggal.hari) {
+        tanggalLengkap = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
+        if (formattedTanggal.jam) {
+          tanggalLengkap += ' • Pukul ' + formattedTanggal.jam;
+        }
+      } else {
+        tanggalLengkap = formattedTanggal.tanggal;
+      }
       
       const card = document.createElement('div');
       card.className = 'participant-card';
@@ -1662,11 +1673,11 @@
               </div>
               <div class="data-item">
                 <span class="data-label">Tanggal Test</span>
-                <span class="data-value highlight">${formattedTanggal || '-'}</span>
+                <span class="data-value highlight">${tanggalLengkap || '-'}</span>
               </div>
               <div class="data-item">
                 <span class="data-label">Jam</span>
-                <span class="data-value">${participant.jam || '-'}</span>
+                <span class="data-value" style="display:none;">${participant.jam || '-'}</span>
               </div>
               <div class="data-item">
                 <span class="data-label">Tempat</span>
@@ -1734,16 +1745,32 @@
           return url;
         }
         
-        function formatTanggalIndonesia(tanggal) {
-          if (!tanggal || typeof tanggal !== 'string') return tanggal;
+        function formatTanggalIndonesia(tanggal, jam) {
+          if (!tanggal || typeof tanggal !== 'string') return { hari: '', tanggal: tanggal, jam: jam };
           var hariArray = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+          var bulanArray = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
           var dateObj = null;
           var matchDMY = tanggal.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
           if (matchDMY) dateObj = new Date(matchDMY[3], parseInt(matchDMY[2]) - 1, parseInt(matchDMY[1]));
           var matchYMD = tanggal.match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
           if (matchYMD && !dateObj) dateObj = new Date(matchYMD[1], parseInt(matchYMD[2]) - 1, matchYMD[3]);
-          if (dateObj && !isNaN(dateObj.getTime())) return hariArray[dateObj.getDay()];
-          return tanggal;
+          if (dateObj && !isNaN(dateObj.getTime())) {
+            var hari = hariArray[dateObj.getDay()];
+            var tanggalFormatted = dateObj.getDate() + ' ' + bulanArray[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
+            return { hari: hari, tanggal: tanggalFormatted, jam: jam };
+          }
+          return { hari: '', tanggal: tanggal, jam: jam };
+        }
+        
+        const formattedTanggal = formatTanggalIndonesia(participant.tanggal, participant.jam);
+        let tanggalLengkap = '';
+        if (formattedTanggal.hari) {
+          tanggalLengkap = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
+          if (formattedTanggal.jam) {
+            tanggalLengkap += ' • Pukul ' + formattedTanggal.jam;
+          }
+        } else {
+          tanggalLengkap = formattedTanggal.tanggal;
         }
         
         const photoUrl = convertDriveLink(participant.foto || '');
@@ -1756,7 +1783,7 @@
         document.getElementById('popupName').textContent = participant.nama || '-';
         document.getElementById('popupRegister').textContent = participant.register || '-';
         document.getElementById('popupFormasi').textContent = participant.formasi || '-';
-        document.getElementById('popupTanggal').textContent = formatTanggalIndonesia(participant.tanggal) || '-';
+        document.getElementById('popupTanggal').textContent = tanggalLengkap || '-';
         document.getElementById('popupJam').textContent = participant.jam || '-';
         document.getElementById('popupTempat').textContent = participant.tempat || '-';
         document.getElementById('popupPeralatan').textContent = participant.peralatan || '-';
@@ -1824,24 +1851,21 @@
         return url;
       }
       
-      // Format tanggal ke format Indonesia (Hanya hari: Senin, Selasa, dll)
-      function formatTanggalIndonesia(tanggal) {
+      // Format tanggal ke format Indonesia lengkap (Hari, Tanggal Bulan Tahun, Jam)
+      function formatTanggalIndonesia(tanggal, jam) {
         if (!tanggal || typeof tanggal !== 'string') {
-          return tanggal;
+          return { hari: '', tanggal: tanggal, jam: jam };
         }
         
         var hariArray = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         var bulanArray = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         
         var dateObj = null;
-        
-        // Format: DD/MM/YYYY atau D/M/YYYY
         var matchDMY = tanggal.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
         if (matchDMY) {
           dateObj = new Date(matchDMY[3], parseInt(matchDMY[2]) - 1, parseInt(matchDMY[1]));
         }
         
-        // Format: YYYY-MM-DD
         var matchYMD = tanggal.match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
         if (matchYMD && !dateObj) {
           dateObj = new Date(matchYMD[1], parseInt(matchYMD[2]) - 1, matchYMD[3]);
@@ -1849,10 +1873,11 @@
         
         if (dateObj && !isNaN(dateObj.getTime())) {
           var hari = hariArray[dateObj.getDay()];
-          return hari;
+          var tanggalFormatted = dateObj.getDate() + ' ' + bulanArray[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
+          return { hari: hari, tanggal: tanggalFormatted, jam: jam };
         }
         
-        return tanggal;
+        return { hari: '', tanggal: tanggal, jam: jam };
       }
       
       // Set photo (with fallback and Google Drive conversion)
@@ -1865,11 +1890,21 @@
       };
       
       // Set card data
-      var formattedTanggal = formatTanggalIndonesia(participant.tanggal);
+      var formattedTanggal = formatTanggalIndonesia(participant.tanggal, participant.jam);
+      var tanggalLengkap = '';
+      if (formattedTanggal.hari) {
+        tanggalLengkap = formattedTanggal.hari + ', ' + formattedTanggal.tanggal;
+        if (formattedTanggal.jam) {
+          tanggalLengkap += ' • Pukul ' + formattedTanggal.jam;
+        }
+      } else {
+        tanggalLengkap = formattedTanggal.tanggal;
+      }
+      
       document.getElementById('participantName').textContent = participant.nama || '-';
       document.getElementById('registerNumber').textContent = participant.register || '-';
       document.getElementById('formasi').textContent = participant.formasi || '-';
-      document.getElementById('tanggal').textContent = formattedTanggal || '-';
+      document.getElementById('tanggal').textContent = tanggalLengkap || '-';
       document.getElementById('jam').textContent = participant.jam || '-';
       document.getElementById('tempat').textContent = participant.tempat || '-';
       document.getElementById('peralatan').textContent = participant.peralatan || '-';
@@ -1885,7 +1920,7 @@
       document.getElementById('popupName').textContent = participant.nama || '-';
       document.getElementById('popupRegister').textContent = participant.register || '-';
       document.getElementById('popupFormasi').textContent = participant.formasi || '-';
-      document.getElementById('popupTanggal').textContent = formattedTanggal || '-';
+      document.getElementById('popupTanggal').textContent = tanggalLengkap || '-';
       document.getElementById('popupJam').textContent = participant.jam || '-';
       document.getElementById('popupTempat').textContent = participant.tempat || '-';
       document.getElementById('popupPeralatan').textContent = participant.peralatan || '-';
