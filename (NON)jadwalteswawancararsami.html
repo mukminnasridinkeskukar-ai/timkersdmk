@@ -1605,22 +1605,30 @@
       
       // Format tanggal ke format Indonesia lengkap (Hari, Tanggal Bulan Tahun)
       function formatTanggalIndonesia(tanggal) {
-        if (!tanggal || typeof tanggal !== 'string') {
-          return { hari: '', tanggal: String(tanggal) };
-        }
-        
         var hariArray = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
         var bulanArray = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         
         var dateObj = null;
-        var matchDMY = tanggal.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
-        if (matchDMY) {
-          dateObj = new Date(matchDMY[3], parseInt(matchDMY[2]) - 1, parseInt(matchDMY[1]));
-        }
         
-        var matchYMD = tanggal.match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
-        if (matchYMD && !dateObj) {
-          dateObj = new Date(matchYMD[1], parseInt(matchYMD[2]) - 1, matchYMD[3]);
+        // Jika tanggal sudah berupa object Date dari Google Sheets
+        if (tanggal instanceof Date && !isNaN(tanggal.getTime())) {
+          // Gunakan getUTC untuk menghindari timezone offset
+          var year = tanggal.getUTCFullYear();
+          var month = tanggal.getUTCMonth();
+          var day = tanggal.getUTCDate();
+          dateObj = new Date(Date.UTC(year, month, day));
+        } else if (typeof tanggal === 'string') {
+          // Format: DD/MM/YYYY atau D/M/YYYY
+          var matchDMY = tanggal.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
+          if (matchDMY) {
+            dateObj = new Date(matchDMY[3], parseInt(matchDMY[2]) - 1, matchDMY[1]);
+          }
+          
+          // Format: YYYY-MM-DD
+          var matchYMD = tanggal.match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
+          if (matchYMD && !dateObj) {
+            dateObj = new Date(matchYMD[1], parseInt(matchYMD[2]) - 1, matchYMD[3]);
+          }
         }
         
         if (dateObj && !isNaN(dateObj.getTime())) {
@@ -1629,7 +1637,7 @@
           return { hari: hari, tanggal: tanggalFormatted };
         }
         
-        return { hari: '', tanggal: tanggal };
+        return { hari: '', tanggal: String(tanggal) };
       }
       
       let photoUrl = participant.foto || '';
@@ -1757,13 +1765,13 @@
           var dateObj = null;
           
           if (tanggal instanceof Date && !isNaN(tanggal.getTime())) {
-            var utcYear = tanggal.getUTCFullYear();
-            var utcMonth = tanggal.getUTCMonth();
-            var utcDate = tanggal.getUTCDate();
-            dateObj = new Date(utcYear, utcMonth, utcDate);
+            var year = tanggal.getUTCFullYear();
+            var month = tanggal.getUTCMonth();
+            var day = tanggal.getUTCDate();
+            dateObj = new Date(Date.UTC(year, month, day));
           } else if (typeof tanggal === 'string') {
             var matchDMY = tanggal.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
-            if (matchDMY) dateObj = new Date(matchDMY[3], parseInt(matchDMY[2]) - 1, parseInt(matchDMY[1]));
+            if (matchDMY) dateObj = new Date(matchDMY[3], parseInt(matchDMY[2]) - 1, matchDMY[1]);
             var matchYMD = tanggal.match(/(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})/);
             if (matchYMD && !dateObj) dateObj = new Date(matchYMD[1], parseInt(matchYMD[2]) - 1, matchYMD[3]);
           }
@@ -1873,11 +1881,10 @@
         
         // Jika tanggal sudah berupa object Date dari Google Sheets
         if (tanggal instanceof Date && !isNaN(tanggal.getTime())) {
-          // Gunakan timezone UTC+8 (WITA/Indonesia Tengah)
-          var utcYear = tanggal.getUTCFullYear();
-          var utcMonth = tanggal.getUTCMonth();
-          var utcDate = tanggal.getUTCDate();
-          dateObj = new Date(utcYear, utcMonth, utcDate);
+          var year = tanggal.getUTCFullYear();
+          var month = tanggal.getUTCMonth();
+          var day = tanggal.getUTCDate();
+          dateObj = new Date(Date.UTC(year, month, day));
         } else if (typeof tanggal === 'string') {
           // Format: DD/MM/YYYY atau D/M/YYYY
           var matchDMY = tanggal.match(/(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})/);
@@ -1890,6 +1897,16 @@
           if (matchYMD && !dateObj) {
             dateObj = new Date(matchYMD[1], parseInt(matchYMD[2]) - 1, matchYMD[3]);
           }
+        }
+        
+        if (dateObj && !isNaN(dateObj.getTime())) {
+          var hari = hariArray[dateObj.getDay()];
+          var tanggalFormatted = dateObj.getDate() + ' ' + bulanArray[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
+          return { hari: hari, tanggal: tanggalFormatted };
+        }
+        
+        return { hari: '', tanggal: String(tanggal) };
+      }
         }
         
         if (dateObj && !isNaN(dateObj.getTime())) {
