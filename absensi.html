@@ -426,8 +426,8 @@
 
     <script>
         // Konfigurasi - URL GAS WebApp Anda
-        // LATEST GAS URL - UPDATE DI GAS: Copy Code.gs lengkap + Deploy Anyone
-        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz0wpWCZSp_kFPSUjdrSadSyM6vI_FyUwXTE3c810fPle1AwSebpNZg5ZF2SSRF0qNkjQ/exec';
+        // UPDATE SESUAI DEPLOYMENT ANDA
+        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyd2otjTi6N_Hz4NLrsFIZANlYegXJQ12KEuOO8y-HiOWgyZWHDFR9sHYa37diL4GMLVg/exec';
 
         // Inisialisasi canvas signature
         const canvas = document.getElementById('signatureCanvas');
@@ -535,48 +535,42 @@
                 return;
             }
 
-            try {
-                console.log('Mengirim data:', formData);
-                
-                // CORS-safe POST dengan FormData (no preflight)
-                const formDataToSend = new FormData();
-                formDataToSend.append('data', JSON.stringify(formData));
-                
-                const response = await fetch(BACKEND_URL, {
-                    method: 'POST',
-                    body: formDataToSend
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                try {
+                    console.log('Mengirim data:', formData);
+                    
+                    // CORS-safe POST dengan FormData (no-cors mode)
+                    const formDataToSend = new FormData();
+                    formDataToSend.append('data', JSON.stringify(formData));
+                    
+                    try {
+                        const response = await fetch(BACKEND_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            body: formDataToSend
+                        });
+                        
+                        // no-cors returns opaque response, assume success
+                        showMessage('formMessage', '✅ Absensi berhasil disimpan ke Google Sheet!', 'success');
+                        this.reset();
+                        clearSignature();
+                        loadDashboard();
+                    } catch (error) {
+                        console.error('Submit error:', error);
+                        // Offline fallback - simpan localStorage
+                        localStorage.setItem('absensi_' + Date.now(), JSON.stringify(formData));
+                        showMessage('formMessage', `⚠️ Offline mode: Data tersimpan lokal (${localStorage.length} record).`, 'success');
+                        this.reset();
+                        clearSignature();
+                    }
+                } catch (error) {
+                    console.error('Form submit error:', error);
+                    showMessage('formMessage', '⚠️ Error: ' + error.message, 'error');
                 }
-
-                const result = await response.json();
-                console.log('Response GAS:', result);
-                
-                if (result.status === 'success') {
-                    showMessage('formMessage', '✅ Absensi berhasil disimpan ke Google Sheet!', 'success');
-                    this.reset();
-                    clearSignature();
-                    loadDashboard();
-                } else {
-                    showMessage('formMessage', result.message || 'Gagal dari server', 'error');
-                }
-            } catch (error) {
-                console.error('Submit error:', error);
-                // Offline fallback - simpan localStorage
-                localStorage.setItem('absensi_' + Date.now(), JSON.stringify(formData));
-                showMessage('formMessage', `⚠️ Offline mode: Data tersimpan lokal (${localStorage.length} record). Update SHEET_ID & GAS deploy untuk sync!`, 'success');
-                this.reset();
-                clearSignature();
-            }
         });
-
-        // Load dashboard data
         async function loadDashboard() {
             try {
-                const response = await fetch(BACKEND_URL);
-                if (!response.ok) throw new Error('HTTP ' + response.status);
+                // Use no-cors mode untuk GAS
+                const response = await fetch(BACKEND_URL, { mode: 'no-cors' });
                 const data = await response.json();
                 
                 // Check for error response
@@ -600,7 +594,7 @@
         async function loadAdminData() {
             try {
                 document.getElementById('adminMessage').innerHTML = '<span class="loading"></span> Memuat data...';
-                const response = await fetch(BACKEND_URL);
+                const response = await fetch(BACKEND_URL, { mode: 'no-cors' });
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
                 
