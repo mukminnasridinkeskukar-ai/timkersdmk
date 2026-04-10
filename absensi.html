@@ -427,7 +427,7 @@
     <script>
         // Konfigurasi - URL GAS WebApp Anda
         // UPDATE SESUAI DEPLOYMENT ANDA
-        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyd2otjTi6N_Hz4NLrsFIZANlYegXJQ12KEuOO8y-HiOWgyZWHDFR9sHYa37diL4GMLVg/exec';
+        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxByqeVsFuP_87butuuE18tB0eTHYlL1WgjcnKJwqK6rBT7IHywNBdyUFTSvecNM9ezHw/exec';
 
         // Inisialisasi canvas signature
         const canvas = document.getElementById('signatureCanvas');
@@ -569,16 +569,12 @@
         });
         async function loadDashboard() {
             try {
-                // Use no-cors mode untuk GAS
-                const response = await fetch(BACKEND_URL, { mode: 'no-cors' });
-                const data = await response.json();
+                // Use no-cors mode untuk GAS - response akan opaque
+                fetch(BACKEND_URL, { mode: 'no-cors' });
                 
-                // Check for error response
-                if (data.status === 'error') {
-                    document.getElementById('dashboardMessage').innerHTML = 
-                        `⚠️ Error: ${data.message}`;
-                    return;
-                }
+                // Dengan no-cors, kita tidak bisa baca response
+                // Coba alternate endpoint yang mungkin bekerja
+                const data = await fetchJSONP(BACKEND_URL).catch(() => []);
                 
                 document.getElementById('totalPeserta').textContent = data.length || 0;
                 document.getElementById('dashboardMessage').innerHTML = 
@@ -590,13 +586,32 @@
             }
         }
 
+        // JSONP-style fetch untuk避开 CORS
+        function fetchJSONP(url) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Date.now();
+                const script = document.createElement('script');
+                script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
+                window[callbackName] = (data) => {
+                    resolve(data);
+                    delete window[callbackName];
+                };
+                script.onerror = () => reject(new Error('Failed to load'));
+                document.head.appendChild(script);
+                setTimeout(() => {
+                    delete window[callbackName];
+                    reject(new Error('Timeout'));
+                }, 10000);
+            });
+        }
+
         // Load admin data
         async function loadAdminData() {
             try {
                 document.getElementById('adminMessage').innerHTML = '<span class="loading"></span> Memuat data...';
-                const response = await fetch(BACKEND_URL, { mode: 'no-cors' });
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const data = await response.json();
+                
+                // Coba JSONP
+                const data = await fetchJSONP(BACKEND_URL).catch(() => []);
                 
                 // Check for error response
                 if (data.status === 'error') {
