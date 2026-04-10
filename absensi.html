@@ -1,210 +1,640 @@
-<!-- FULL SYSTEM: HTML + CSS + JS + APPS SCRIPT ENDPOINTS -->
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sistem Absen Rapat Online</title>
-<style>
-  body { margin:0; font-family:Arial, sans-serif; background:#f5f6fa; }
-  .sidebar { width:240px; background:#2c3e50; height:100vh; position:fixed; left:0; top:0; padding-top:20px; color:#ecf0f1; }
-  .sidebar h2 { text-align:center; margin-bottom:30px; }
-  .sidebar a { display:block; padding:12px 20px; color:white; text-decoration:none; }
-  .sidebar a:hover { background:#34495e; }
-  .content { margin-left:250px; padding:20px; }
-  .card { background:white; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1); margin-bottom:20px; }
-  input, select { width:100%; padding:10px; margin:8px 0; border:1px solid #ccc; border-radius:5px; }
-  button { padding:10px 18px; border:none; background:#3498db; color:white; border-radius:5px; cursor:pointer; }
-  button:hover { background:#2980b9; }
-  table { width:100%; border-collapse:collapse; }
-  table, th, td { border:1px solid #ccc; }
-  th, td { padding:10px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Absensi Online</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.4em;
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar li {
+            margin: 10px 0;
+        }
+
+        .sidebar a {
+            display: block;
+            color: white;
+            text-decoration: none;
+            padding: 15px 25px;
+            transition: background 0.3s;
+            border-left: 4px solid transparent;
+        }
+
+        .sidebar a:hover, .sidebar a.active {
+            background: rgba(255,255,255,0.2);
+            border-left-color: #fff;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            z-index: 1001;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .menu-toggle {
+                display: block;
+            }
+        }
+
+        .content-section {
+            display: none;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .content-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        form {
+            display: grid;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        input, select, textarea {
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .signature-container {
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background: #fafbfc;
+        }
+
+        #signatureCanvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: crosshair;
+            background: white;
+            touch-action: none;
+        }
+
+        .signature-buttons {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .signature-preview {
+            max-width: 80px;
+            max-height: 80px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
-<div class="sidebar">
-  <h2>ABSENSI</h2>
-  <a href="#dashboard">Dashboard</a>
-  <a href="#form">Form Absen</a>
-  <a href="#admin">Panel Admin</a>
-</div>
+    <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+    
+    <div class="sidebar" id="sidebar">
+        <h2>Absensi Online</h2>
+        <ul>
+            <li><a href="#" onclick="showSection('dashboard')" class="nav-link active">📊 Dashboard</a></li>
+            <li><a href="#" onclick="showSection('form')" class="nav-link">📝 Form Absen</a></li>
+            <li><a href="#" onclick="showSection('admin')" class="nav-link">⚙️ Panel Admin</a></li>
+        </ul>
+    </div>
 
-<div class="content">
-  <div id="dashboard" class="card">
-    <h2>Dashboard</h2>
-    <p>Total Peserta Hadir: <span id="totalHadir">0</span></p>
-  </div>
+    <div class="main-content">
+        <!-- Dashboard -->
+        <section id="dashboard" class="content-section active">
+            <h1>Dashboard</h1>
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalPeserta">0</div>
+                    <div>Total Peserta</div>
+                </div>
+            </div>
+            <div id="dashboardMessage">Memuat data...</div>
+        </section>
 
-  <div id="form" class="card">
-    <h2>Form Absen Kehadiran</h2>
-    <form id="absenForm">
-      <label>Nama Lengkap</label>
-      <input type="text" id="nama" required />
+        <!-- Form Absen -->
+        <section id="form" class="content-section">
+            <h1>Form Absensi</h1>
+            <form id="absenForm">
+                <div class="form-group">
+                    <label for="nama">Nama Lengkap *</label>
+                    <input type="text" id="nama" required>
+                </div>
+                <div class="form-group">
+                    <label for="nip">NIP *</label>
+                    <input type="text" id="nip" required>
+                </div>
+                <div class="form-group">
+                    <label for="unitKerja">Unit Kerja *</label>
+                    <input type="text" id="unitKerja" required>
+                </div>
+                <div class="form-group">
+                    <label for="jabatan">Jabatan *</label>
+                    <input type="text" id="jabatan" required>
+                </div>
+                <div class="form-group">
+                    <label>Tanda Tangan *</label>
+                    <div class="signature-container">
+                        <canvas id="signatureCanvas" width="400" height="200"></canvas>
+                        <div class="signature-buttons">
+                            <button type="button" class="btn btn-secondary" onclick="clearSignature()">Hapus TTD</button>
+                            <div id="signatureStatus">Silakan tandatangan di atas</div>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 200px; justify-self: center;">
+                    📤 Kirim Absensi
+                </button>
+            </form>
+            <div id="formMessage"></div>
+        </section>
 
-      <label>NIP</label>
-      <input type="text" id="nip" required />
+        <!-- Panel Admin -->
+        <section id="admin" class="content-section">
+            <h1>Panel Admin</h1>
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportExcel()">📊 Download Excel</button>
+                <button class="btn btn-primary" onclick="exportPDF()">📄 Download PDF</button>
+            </div>
+            <div class="table-container">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nama</th>
+                            <th>NIP</th>
+                            <th>Unit Kerja</th>
+                            <th>Jabatan</th>
+                            <th>Tanda Tangan</th>
+                            <th>Tanggal</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div id="adminMessage">Memuat data...</div>
+        </section>
+    </div>
 
-      <label>Unit Kerja</label>
-      <input type="text" id="unit" required />
+    <script>
+        // Konfigurasi - GANTI DENGAN URL GOOGLE APPS SCRIPT WEB APP ANDA
+        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycby-etBTz2FnOcmAtw7xv1Pg7fRTFWcrd1vnpO_TSrL3uT3sXRIy6EARaR7UHZ_cdfhiEQ/exec'; // Ganti dengan URL web app Anda
 
-      <label>Jabatan</label>
-      <input type="text" id="jabatan" required />
+        // Inisialisasi canvas signature
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let signatureData = '';
 
-      <label>Tanda Tangan (Canvas)</label><br />
-      <canvas id="ttd" width="300" height="150" style="border:1px solid #999; background:white;"></canvas>
-      <br><button type="button" onclick="clearTtd()">Hapus TTD</button>
+        // Setup canvas
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-      <br><br>
-      <button type="submit">Kirim Absen</button>
-    </form>
-  </div>
+        // Event listeners untuk signature
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
 
-  <div id="admin" class="card">
-    <h2>Panel Admin (CRUD Data Absen)</h2>
-    <button onclick="downloadExcel()">Download Excel</button>
-    <button onclick="downloadPDF()">Download PDF</button>
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchmove', handleTouch);
+        canvas.addEventListener('touchend', stopDrawing);
 
-    <table>
-      <thead>
-        <tr>
-          <th>Nama</th>
-          <th>NIP</th>
-          <th>Unit</th>
-          <th>Jabatan</th>
-          <th>TTD</th>
-        </tr>
-      </thead>
-      <tbody id="dataBody"></tbody>
-    </table>
-  </div>
-</div>
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
 
-<script>
-var endpoint = "YOUR_WEBAPP_URL";
-var canvas = document.getElementById("ttd");
-var ctx = canvas.getContext("2d");
-let drawing = false;
-canvas.addEventListener("mousedown", () => drawing = true);
-canvas.addEventListener("mouseup", () => { drawing = false; ctx.beginPath(); });
-canvas.addEventListener("mousemove", draw);
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX || e.touches[0].clientX) - rect.left;
+            const y = (e.clientY || e.touches[0].clientY) - rect.top;
 
-function draw(e) {
-  if (!drawing) return;
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  let rect = canvas.getBoundingClientRect();
-  ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-  ctx.stroke();
-}
-function clearTtd() { ctx.clearRect(0,0,canvas.width,canvas.height); }
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            
+            updateSignatureStatus();
+        }
 
-// Submit Data ke Apps Script
-async function simpanData(data){
-  let res = await fetch(endpoint, {
-    method:"POST",
-    body: JSON.stringify(data)
-  });
-  return await res.json();
-}
+        function stopDrawing() {
+            if (isDrawing) {
+                ctx.beginPath();
+                signatureData = canvas.toDataURL('image/png');
+            }
+            isDrawing = false;
+        }
 
-// Ambil Data dari Apps Script
-async function getData(){
-  let res = await fetch(endpoint + "?read=1");
-  return await res.json();
-}
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                            e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }
 
-document.getElementById("absenForm").addEventListener("submit", async (e)=>{
-  e.preventDefault();
+        function clearSignature() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            signatureData = '';
+            document.getElementById('signatureStatus').textContent = 'Silakan tandatangan di atas';
+        }
 
-  let data = {
-    nama: nama.value,
-    nip: nip.value,
-    unit: unit.value,
-    jabatan: jabatan.value,
-    ttd: canvas.toDataURL(),
-  };
+        function updateSignatureStatus() {
+            document.getElementById('signatureStatus').textContent = 'Tanda tangan sudah dibuat ✅';
+        }
 
-  await simpanData(data);
-  alert("Absen berhasil disimpan!");
-  loadData();
-});
+        // Navigation
+        function showSection(sectionId) {
+            // Update sidebar active state
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            event.target.classList.add('active');
 
-async function loadData(){
-  let data = await getData();
-  document.getElementById("totalHadir").textContent = data.length;
+            // Show section
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(sectionId).classList.add('active');
+        }
 
-  let body = document.getElementById("dataBody");
-  body.innerHTML = "";
-  data.forEach(d=>{
-    body.innerHTML += `
-      <tr>
-        <td>${d.nama}</td>
-        <td>${d.nip}</td>
-        <td>${d.unit}</td>
-        <td>${d.jabatan}</td>
-        <td><img src="${d.ttd}" width="80"></td>
-      </tr>`;
-  });
-}
-loadData();
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
 
-function downloadExcel(){ window.open(endpoint + "?excel=1"); }
-function downloadPDF(){ window.open(endpoint + "?pdf=1"); }
-</script>
-<!-- LOGIN ADMIN MODAL -->
-<div id="loginModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;">
-  <div style="background:#fff;padding:20px;border-radius:10px;width:300px;box-shadow:0 5px 20px rgba(0,0,0,0.3);">
-    <h3>Login Admin</h3>
-    <label>Username</label>
-    <input type="text" id="adminUser">
-    <label>Password</label>
-    <input type="password" id="adminPass">
-    <button onclick="loginAdmin()">Login</button>
-  </div>
-</div>
+        // Form submit
+        document.getElementById('absenForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                nama: document.getElementById('nama').value,
+                nip: document.getElementById('nip').value,
+                unitKerja: document.getElementById('unitKerja').value,
+                jabatan: document.getElementById('jabatan').value,
+                tandaTangan: signatureData,
+                timestamp: new Date().toISOString()
+            };
+
+            if (!signatureData) {
+                showMessage('formMessage', 'Tanda tangan wajib diisi!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showMessage('formMessage', 'Absensi berhasil dikirim! ✅', 'success');
+                    this.reset();
+                    clearSignature();
+                    loadDashboard();
+                } else {
+                    showMessage('formMessage', result.message || 'Gagal mengirim data', 'error');
+                }
+            } catch (error) {
+                showMessage('formMessage', 'Error koneksi: ' + error.message, 'error');
+            }
+        });
+
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                const response = await fetch(BACKEND_URL);
+                const data = await response.json();
+                document.getElementById('totalPeserta').textContent = data.length || 0;
+                document.getElementById('dashboardMessage').innerHTML = 
+                    `Total <strong>${data.length || 0}</strong> peserta telah absen hari ini.`;
+            } catch (error) {
+                document.getElementById('dashboardMessage').textContent = 'Error memuat data';
+            }
+        }
+
+        // Load admin data
+        async function loadAdminData() {
+            try {
+                document.getElementById('adminMessage').innerHTML = '<span class="loading"></span> Memuat data...';
+                const response = await fetch(BACKEND_URL);
+                const data = await response.json();
+                
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = '';
+
+                data.forEach((row, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${index + 1}</td>
+                        <td>${row.nama}</td>
+                        <td>${row.nip}</td>
+                        <td>${row.unitKerja}</td>
+                        <td>${row.jabatan}</td>
+                        <td><img src="${row.tandaTangan}" alt="TTD" class="signature-preview" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNGNUY1RjUiLz48dGV4dCB4PSI0MCIgeT0iNDUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPk5vIHR0ZDwvdGV4dD48L3N2Zz4K'"></td>
+                        <td>${new Date(row.timestamp).toLocaleString('id-ID')}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn btn-danger" onclick="deleteRecord('${row.id}')">Hapus</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('adminMessage').textContent = 
+                    `Total ${data.length} record ditemukan.`;
+            } catch (error) {
+                document.getElementById('adminMessage').textContent = 'Error memuat data';
+            }
+        }
+
+        // Delete record
+        async function deleteRecord(id) {
+            if (!confirm('Yakin ingin menghapus data ini?')) return;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}?action=delete&id=${id}`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    loadAdminData();
+                    loadDashboard();
+                    alert('Data berhasil dihapus!');
+                } else {
+                    alert('Gagal menghapus: ' + result.message);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Export functions
+        async function exportExcel() {
+            window.open(`${BACKEND_URL}?action=export&format=excel`, '_blank');
+        }
+
+        async function exportPDF() {
+            window.open(`${BACKEND_URL}?action=export&format=pdf`, '_blank');
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => element.innerHTML = '', 5000);
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+            // Auto-load admin data when switching to admin panel
+            const adminObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.target.classList.contains('active') && 
+                        mutation.target.id === 'admin') {
+                        loadAdminData();
+                    }
+                });
+            });
+            adminObserver.observe(document.getElementById('admin'), { attributes: true });
+        });
+    </script>
 </body>
 </html>
-
-<!-- ========================= -->
-<!-- GOOGLE APPS SCRIPT SERVER -->
-<!-- ========================= -->
-
-/** APPS SCRIPT CODE (paste ke Code.gs) **/
-
-function doGet(e){
-  const sheet = SpreadsheetApp.getActive().getSheetByName("Data");
-  let data = sheet.getDataRange().getValues();
-  data.shift();
-
-  if (e.parameter.read) {
-    let output = data.map(r => ({
-      nama:r[0], nip:r[1], unit:r[2], jabatan:r[3], ttd:r[4]
-    }));
-    return ContentService.createTextOutput(JSON.stringify(output));
-  }
-
-  if (e.parameter.excel) return exportExcel();
-  if (e.parameter.pdf) return exportPDF();
-}
-
-function doPost(e){
-  const sheet = SpreadsheetApp.getActive().getSheetByName("Data");
-  let obj = JSON.parse(e.postData.contents);
-  sheet.appendRow([obj.nama, obj.nip, obj.unit, obj.jabatan, obj.ttd]);
-  return ContentService.createTextOutput(JSON.stringify({status:"OK"}));
-}
-
-function exportExcel(){
-  const ss = SpreadsheetApp.getActive();
-  const blob = ss.getBlob().setName("Absensi.xlsx");
-  return ContentService.createBinaryOutput(blob.getBytes())
-    .setMimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-}
-
-function exportPDF(){
-  const ss = SpreadsheetApp.getActive();
-  const pdf = ss.getAs("application/pdf").setName("Absensi.pdf");
-  return ContentService
-    .createBinaryOutput(pdf.getBytes())
-    .setMimeType("application/pdf");
-}
