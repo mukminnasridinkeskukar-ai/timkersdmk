@@ -514,27 +514,39 @@
             }
 
             try {
+                console.log('Mengirim data:', formData);
+                
                 // CORS-safe POST dengan FormData (no preflight)
                 const formDataToSend = new FormData();
                 formDataToSend.append('data', JSON.stringify(formData));
                 
                 const response = await fetch(BACKEND_URL, {
                     method: 'POST',
-                    body: formDataToSend  // No Content-Type = browser set multipart/form-data
+                    body: formDataToSend
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
                 const result = await response.json();
+                console.log('Response GAS:', result);
                 
                 if (result.status === 'success') {
-                    showMessage('formMessage', 'Absensi berhasil dikirim! ✅', 'success');
+                    showMessage('formMessage', '✅ Absensi berhasil disimpan ke Google Sheet!', 'success');
                     this.reset();
                     clearSignature();
                     loadDashboard();
                 } else {
-                    showMessage('formMessage', result.message || 'Gagal mengirim data', 'error');
+                    showMessage('formMessage', result.message || 'Gagal dari server', 'error');
                 }
             } catch (error) {
-                showMessage('formMessage', 'Error koneksi: ' + error.message, 'error');
+                console.error('Submit error:', error);
+                // Offline fallback - simpan localStorage
+                localStorage.setItem('absensi_' + Date.now(), JSON.stringify(formData));
+                showMessage('formMessage', `⚠️ Offline mode: Data tersimpan lokal (${localStorage.length} record). Update SHEET_ID & GAS deploy untuk sync!`, 'success');
+                this.reset();
+                clearSignature();
             }
         });
 
