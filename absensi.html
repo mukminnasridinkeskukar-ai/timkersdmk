@@ -1,200 +1,210 @@
+<!-- FULL SYSTEM: HTML + CSS + JS + APPS SCRIPT ENDPOINTS -->
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Absensi Digital</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sistem Absen Rapat Online</title>
 <style>
-body{
-  margin:0;
-  font-family:Poppins,sans-serif;
-  background:linear-gradient(135deg,#1e3a8a,#2563eb);
-  min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.card{
-  background:rgba(255,255,255,.12);
-  backdrop-filter:blur(18px);
-  border-radius:20px;
-  padding:30px;
-  width:100%;
-  max-width:760px;
-  color:white;
-  animation:fadeUp .7s ease;
-}
-@keyframes fadeUp{
-  from{opacity:0;transform:translateY(30px)}
-  to{opacity:1;transform:none}
-}
-input,select,textarea{
-  width:100%;
-  padding:12px;
-  margin-top:6px;
-  border:none;
-  border-radius:12px;
-}
-canvas{
-  width:100%;
-  height:180px;
-  background:white;
-  border-radius:12px;
-}
-button{
-  margin-top:18px;
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:14px;
-  background:#22c55e;
-  color:white;
-  font-size:16px;
-  font-weight:600;
-  cursor:pointer;
-}
-button:disabled{
-  background:#94a3b8;
-}
-.info{
-  font-size:14px;
-  opacity:.9;
-}
-.success{
-  text-align:center;
-  font-size:18px;
-  font-weight:600;
-  padding:30px;
-}
+  body { margin:0; font-family:Arial, sans-serif; background:#f5f6fa; }
+  .sidebar { width:240px; background:#2c3e50; height:100vh; position:fixed; left:0; top:0; padding-top:20px; color:#ecf0f1; }
+  .sidebar h2 { text-align:center; margin-bottom:30px; }
+  .sidebar a { display:block; padding:12px 20px; color:white; text-decoration:none; }
+  .sidebar a:hover { background:#34495e; }
+  .content { margin-left:250px; padding:20px; }
+  .card { background:white; padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1); margin-bottom:20px; }
+  input, select { width:100%; padding:10px; margin:8px 0; border:1px solid #ccc; border-radius:5px; }
+  button { padding:10px 18px; border:none; background:#3498db; color:white; border-radius:5px; cursor:pointer; }
+  button:hover { background:#2980b9; }
+  table { width:100%; border-collapse:collapse; }
+  table, th, td { border:1px solid #ccc; }
+  th, td { padding:10px; }
 </style>
 </head>
 <body>
+<div class="sidebar">
+  <h2>ABSENSI</h2>
+  <a href="#dashboard">Dashboard</a>
+  <a href="#form">Form Absen</a>
+  <a href="#admin">Panel Admin</a>
+</div>
 
-<div class="card" id="formBox">
-  <h2>📋 Absensi Digital</h2>
+<div class="content">
+  <div id="dashboard" class="card">
+    <h2>Dashboard</h2>
+    <p>Total Peserta Hadir: <span id="totalHadir">0</span></p>
+  </div>
 
-  <p class="info">
-    📅 <span id="tgl"></span> | ⏰ <span id="jam"></span><br>
-    📍 <span id="lokasi">Mendeteksi lokasi...</span>
-  </p>
+  <div id="form" class="card">
+    <h2>Form Absen Kehadiran</h2>
+    <form id="absenForm">
+      <label>Nama Lengkap</label>
+      <input type="text" id="nama" required />
 
-  <label>Tanggal Kegiatan</label>
-  <input type="date" id="tgl_kegiatan" required>
+      <label>NIP</label>
+      <input type="text" id="nip" required />
 
-  <label>Jam Kegiatan</label>
-  <input type="time" id="jam_kegiatan" required>
+      <label>Unit Kerja</label>
+      <input type="text" id="unit" required />
 
-  <label>Agenda Kegiatan</label>
-  <input type="text" id="agenda" placeholder="Contoh: Rapat Koordinasi SDMK" required>
+      <label>Jabatan</label>
+      <input type="text" id="jabatan" required />
 
-  <input id="nama" placeholder="Nama Lengkap" required>
-  <input id="unit" placeholder="Unit Kerja" required>
+      <label>Tanda Tangan (Canvas)</label><br />
+      <canvas id="ttd" width="300" height="150" style="border:1px solid #999; background:white;"></canvas>
+      <br><button type="button" onclick="clearTtd()">Hapus TTD</button>
 
-  <select id="status" required>
-    <option value="">Status Kepegawaian</option>
-    <option>PNS</option>
-    <option>PPPK</option>
-    <option>Non ASN</option>
-  </select>
+      <br><br>
+      <button type="submit">Kirim Absen</button>
+    </form>
+  </div>
 
-  <input id="jabatan" placeholder="Jabatan">
-  <textarea id="komentar" rows="3" placeholder="Komentar (opsional)"></textarea>
+  <div id="admin" class="card">
+    <h2>Panel Admin (CRUD Data Absen)</h2>
+    <button onclick="downloadExcel()">Download Excel</button>
+    <button onclick="downloadPDF()">Download PDF</button>
 
-  <label>Tanda Tangan</label>
-  <canvas id="signature"></canvas>
-  <button type="button" onclick="clearSign()" style="background:#ef4444">Hapus Tanda Tangan</button>
-
-  <button id="btnKirim" onclick="kirim()">✅ Kirim Absensi</button>
+    <table>
+      <thead>
+        <tr>
+          <th>Nama</th>
+          <th>NIP</th>
+          <th>Unit</th>
+          <th>Jabatan</th>
+          <th>TTD</th>
+        </tr>
+      </thead>
+      <tbody id="dataBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxL54_6L_Ox6p7-L0yVSUXhMJXxNn0piy41Y40ATkNoQnDpGbkcRQGKT-uwX6Zq5EnD2g/exec";
+var endpoint = "YOUR_WEBAPP_URL";
+var canvas = document.getElementById("ttd");
+var ctx = canvas.getContext("2d");
+let drawing = false;
+canvas.addEventListener("mousedown", () => drawing = true);
+canvas.addEventListener("mouseup", () => { drawing = false; ctx.beginPath(); });
+canvas.addEventListener("mousemove", draw);
 
-/* ===== TANGGAL & JAM ===== */
-function updateTime(){
-  const n=new Date();
-  tgl.innerText=n.toLocaleDateString("id-ID",{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  jam.innerText=n.toLocaleTimeString("id-ID");
+function draw(e) {
+  if (!drawing) return;
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  let rect = canvas.getBoundingClientRect();
+  ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+  ctx.stroke();
 }
-setInterval(updateTime,1000);updateTime();
+function clearTtd() { ctx.clearRect(0,0,canvas.width,canvas.height); }
 
-/* ===== LOKASI & ALAMAT (FIX) ===== */
-let lat="",lng="",alamat="";
-navigator.geolocation.getCurrentPosition(
-  async p=>{
-    lat=p.coords.latitude;
-    lng=p.coords.longitude;
-    try{
-      const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-      const d=await r.json();
-      alamat=d.display_name||"Alamat tidak terbaca";
-      lokasi.innerText=alamat;
-    }catch{
-      alamat="Alamat tidak terbaca";
-      lokasi.innerText=alamat;
-    }
-  },
-  ()=>{
-    alamat="Lokasi tidak diizinkan";
-    lokasi.innerText=alamat;
-  }
-);
-
-/* ===== SIGNATURE ===== */
-const canvas=document.getElementById("signature");
-const ctx=canvas.getContext("2d");
-function resize(){canvas.width=canvas.offsetWidth;canvas.height=canvas.offsetHeight}
-resize();window.addEventListener("resize",resize);
-
-let draw=false;
-canvas.onmousedown=()=>draw=true;
-canvas.onmouseup=()=>{draw=false;ctx.beginPath()};
-canvas.onmousemove=e=>{
-  if(!draw)return;
-  ctx.lineWidth=2;ctx.lineCap="round";ctx.strokeStyle="#000";
-  ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);
-};
-function clearSign(){ctx.clearRect(0,0,canvas.width,canvas.height)}
-
-/* ===== KIRIM & AUTO TUTUP ===== */
-function kirim(){
-  const btn=document.getElementById("btnKirim");
-  btn.disabled=true;
-  btn.innerText="⏳ Mengirim...";
-
-  fetch(WEB_APP_URL,{
+// Submit Data ke Apps Script
+async function simpanData(data){
+  let res = await fetch(endpoint, {
     method:"POST",
-    body:JSON.stringify({
-      tgl_kegiatan:tgl_kegiatan.value,
-      jam_kegiatan:jam_kegiatan.value,
-      agenda:agenda.value,
-      nama:nama.value,
-      unit:unit.value,
-      status:status.value,
-      jabatan:jabatan.value,
-      komentar:komentar.value,
-      lat,lng,alamat,
-      signature:canvas.toDataURL("image/png")
-    })
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    if(d.status==="success"){
-      formBox.innerHTML=
-        `<div class="success">✅ Absensi berhasil disimpan<br><br>Terima kasih 🙏</div>`;
-    }else{
-      throw "error";
-    }
-  })
-  .catch(()=>{
-    btn.disabled=false;
-    btn.innerText="❌ Gagal, Kirim Ulang";
+    body: JSON.stringify(data)
+  });
+  return await res.json();
+}
+
+// Ambil Data dari Apps Script
+async function getData(){
+  let res = await fetch(endpoint + "?read=1");
+  return await res.json();
+}
+
+document.getElementById("absenForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+
+  let data = {
+    nama: nama.value,
+    nip: nip.value,
+    unit: unit.value,
+    jabatan: jabatan.value,
+    ttd: canvas.toDataURL(),
+  };
+
+  await simpanData(data);
+  alert("Absen berhasil disimpan!");
+  loadData();
+});
+
+async function loadData(){
+  let data = await getData();
+  document.getElementById("totalHadir").textContent = data.length;
+
+  let body = document.getElementById("dataBody");
+  body.innerHTML = "";
+  data.forEach(d=>{
+    body.innerHTML += `
+      <tr>
+        <td>${d.nama}</td>
+        <td>${d.nip}</td>
+        <td>${d.unit}</td>
+        <td>${d.jabatan}</td>
+        <td><img src="${d.ttd}" width="80"></td>
+      </tr>`;
   });
 }
-</script>
+loadData();
 
+function downloadExcel(){ window.open(endpoint + "?excel=1"); }
+function downloadPDF(){ window.open(endpoint + "?pdf=1"); }
+</script>
+<!-- LOGIN ADMIN MODAL -->
+<div id="loginModal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;">
+  <div style="background:#fff;padding:20px;border-radius:10px;width:300px;box-shadow:0 5px 20px rgba(0,0,0,0.3);">
+    <h3>Login Admin</h3>
+    <label>Username</label>
+    <input type="text" id="adminUser">
+    <label>Password</label>
+    <input type="password" id="adminPass">
+    <button onclick="loginAdmin()">Login</button>
+  </div>
+</div>
 </body>
 </html>
+
+<!-- ========================= -->
+<!-- GOOGLE APPS SCRIPT SERVER -->
+<!-- ========================= -->
+
+/** APPS SCRIPT CODE (paste ke Code.gs) **/
+
+function doGet(e){
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Data");
+  let data = sheet.getDataRange().getValues();
+  data.shift();
+
+  if (e.parameter.read) {
+    let output = data.map(r => ({
+      nama:r[0], nip:r[1], unit:r[2], jabatan:r[3], ttd:r[4]
+    }));
+    return ContentService.createTextOutput(JSON.stringify(output));
+  }
+
+  if (e.parameter.excel) return exportExcel();
+  if (e.parameter.pdf) return exportPDF();
+}
+
+function doPost(e){
+  const sheet = SpreadsheetApp.getActive().getSheetByName("Data");
+  let obj = JSON.parse(e.postData.contents);
+  sheet.appendRow([obj.nama, obj.nip, obj.unit, obj.jabatan, obj.ttd]);
+  return ContentService.createTextOutput(JSON.stringify({status:"OK"}));
+}
+
+function exportExcel(){
+  const ss = SpreadsheetApp.getActive();
+  const blob = ss.getBlob().setName("Absensi.xlsx");
+  return ContentService.createBinaryOutput(blob.getBytes())
+    .setMimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+}
+
+function exportPDF(){
+  const ss = SpreadsheetApp.getActive();
+  const pdf = ss.getAs("application/pdf").setName("Absensi.pdf");
+  return ContentService
+    .createBinaryOutput(pdf.getBytes())
+    .setMimeType("application/pdf");
+}
