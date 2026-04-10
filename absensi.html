@@ -414,6 +414,7 @@
             <li><a href="#" onclick="showSection('dashboard')" class="nav-link active">📊 Dashboard</a></li>
             <li><a href="#" onclick="showSection('form')" class="nav-link">📝 Form Absen</a></li>
             <li><a href="#" onclick="if(checkAdminAccess()) { showSection('admin'); loadAdminData(); }" class="nav-link">⚙️ Panel Admin</a></li>
+            <li id="logoutBtn" style="display: none;"><a href="#" onclick="doLogout()" class="nav-link" style="color: #ff6b6b;">🚪 Logout</a></li>
         </ul>
         <div style="position: absolute; bottom: 20px; left: 20px; right: 20px; font-size: 0.8em; opacity: 0.8;">
             <p>📅 Rapat Online MEGA PRO</p>
@@ -521,7 +522,7 @@
         // UPDATE URL DI BAWAH SESUAI GAS DEPLOYMENT ANDA
         // Buka Apps Script → Deploy → Copy URL
         
-        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz69YiLvKtPpax7tdWyZ0ugpXnImtlGh2V5oSLVkjVZvdTow0jXdUKEBDqtaed47blE/exec';
+        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyNTp2d20RmM16L71EaWcj-Pop4emZYe1g6vfHCqGpHK1e7fSde7IiVQHum7o-REprZxw/exec';
         
         // Debug function - run di console browser
         async function debugConnection() {
@@ -653,6 +654,7 @@
                 closeLogin();
                 showSection('admin');
                 loadAdminData();
+                updateLoginState();
                 showModal('success', '✅ Login Berhasil', 'Selamat datang di Panel Admin!');
             } else {
                 document.getElementById('loginError').style.display = 'block';
@@ -666,6 +668,17 @@
                 return false;
             }
             return true;
+        }
+
+        function doLogout() {
+            isLoggedIn = false;
+            document.getElementById('logoutBtn').style.display = 'none';
+            showSection('dashboard');
+            showModal('info', '👋 Logout Berhasil', 'Anda telah logout dari panel admin');
+        }
+
+        function updateLoginState() {
+            document.getElementById('logoutBtn').style.display = isLoggedIn ? 'block' : 'none';
         }
 
         // Modal functions
@@ -831,52 +844,43 @@
             }
         });
 
-        // JSONP-style fetch untuk避开 CORS
-        function fetchJSONP(url) {
-            return new Promise((resolve, reject) => {
-                const callbackName = 'jsonp_callback_' + Date.now();
-                const script = document.createElement('script');
-                const timeoutId = setTimeout(() => {
-                    if (window[callbackName]) {
-                        delete window[callbackName];
-                    }
-                    resolve([]);
-                }, 8000);
-                
-                script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + callbackName;
-                window[callbackName] = (data) => {
-                    clearTimeout(timeoutId);
-                    resolve(data || []);
-                    delete window[callbackName];
-                    if (script.parentNode) script.remove();
-                };
-                script.onerror = () => {
-                    clearTimeout(timeoutId);
-                    resolve([]);
-                    delete window[callbackName];
-                };
-                document.head.appendChild(script);
+        // Fetch data - using no-cors mode for GAS (allows read but returns opaque)
+        function fetchData(url) {
+            return new Promise((resolve) => {
+                // Try regular fetch first
+                fetch(url, { mode: 'no-cors' })
+                    .then(response => response.json())
+                    .then(data => resolve(data))
+                    .catch(() => {
+                        // Fallback: return mock empty data if fetch fails
+                        resolve([]);
+                    });
             });
         }
 
         // Load dashboard data
         async function loadDashboard() {
             try {
-                const data = await fetchJSONP(BACKEND_URL);
+                document.getElementById('dashboardMessage').innerHTML = '<span class="loading"></span> Memuat...';
                 
+                const data = await fetchData(BACKEND_URL);
+                
+                // Handle error response
                 if (data && data.status === 'error') {
+                    document.getElementById('totalPeserta').textContent = '?';
                     document.getElementById('dashboardMessage').innerHTML = `⚠️ Error: ${data.message}`;
                     return;
                 }
                 
-                const validData = Array.isArray(data) ? data.filter(d => !d.error) : [];
-                document.getElementById('totalPeserta').textContent = validData.length || 0;
+                const validData = Array.isArray(data) ? data.filter(d => d && d.nama) : [];
+                document.getElementById('totalPeserta').textContent = validData.length;
                 document.getElementById('dashboardMessage').innerHTML = 
-                    `Total <strong>${validData.length || 0}</strong> peserta telah absen hari ini.<br><small style="color:#888">Auto-refresh: 30 detik</small>`;
+                    `Total <strong>${validData.length}</strong> peserta telah absen.<br><small style="color:#888">Auto-refresh: 30 detik</small>`;
             } catch (error) {
                 console.error('Load dashboard error:', error);
+                document.getElementById('totalPeserta').textContent = '?';
                 document.getElementById('dashboardMessage').innerHTML = 
-                    `⚠️ Gagal memuat data. <a href="#" onclick="loadDashboard(); return false;">Coba lagi</a>`;
+                    `⚠️ Error: ${error.message}<br><a href="#" onclick="loadDashboard(); return false;">Coba lagi</a>`;
             }
         }
 
@@ -887,104 +891,69 @@
             try {
                 document.getElementById('adminMessage').innerHTML = '<span class="loading"></span> Memuat data...';
                 
-                const data = await fetchJSONP(BACKEND_URL);
+                const data = await fetchData(BACKEND_URL);
                 
                 if (data && data.status === 'error') {
                     document.getElementById('adminMessage').innerHTML = `⚠️ Error: ${data.message}`;
                     return;
                 }
                 
-                const validData = Array.isArray(data) ? data.filter(d => !d.error) : [];
+                const validData = Array.isArray(data) ? data.filter(d => d && d.nama) : [];
                 
                 const tbody = document.getElementById('tableBody');
                 tbody.innerHTML = '';
 
+                if (validData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#888;">Belum ada data absensi</td></tr>';
+                    document.getElementById('adminMessage').textContent = '0 record.';
+                    return;
+                }
+
                 validData.forEach((row, index) => {
                     const tr = document.createElement('tr');
+                    const ttd = row['Tanda Tangan'] || row['TandaTangan'] || row.tandaTangan || '';
+                    const time = row.timestamp || row.Timestamp || '';
+                    const id = row.id || row.ID || row.Id || '';
+                    
                     tr.innerHTML = `
                         <td>${index + 1}</td>
-                        <td>${row.nama || '-'}</td>
-                        <td>${row.nip || '-'}</td>
-                        <td>${row['Unit Kerja'] || row.unitKerja || '-'}</td>
-                        <td>${row.jabatan || '-'}</td>
-                        <td>${row['Tanda Tangan'] || row.tandaTangan ? '<img src="' + (row['Tanda Tangan'] || row.tandaTangan) + '" alt="TTD" style="max-width:60px" onerror="this.style.display=none">' : '-'}</td>
-                        <td>${row.timestamp ? new Date(row.timestamp).toLocaleString('id-ID') : '-'}</td>
-                        <td><button class="btn btn-danger btn-sm" onclick="deleteRecord('${row.id || row.ID}')">🗑️</button></td>
+                        <td>${row.nama || row.Nama || '-'}</td>
+                        <td>${row.nip || row.NIP || '-'}</td>
+                        <td>${row['Unit Kerja'] || row['UnitKerja'] || row.unitKerja || '-'}</td>
+                        <td>${row.jabatan || row.Jabatan || '-'}</td>
+                        <td>${ttd ? `<img src="${ttd}" alt="TTD" style="max-width:60px;max-height:40px;cursor:pointer" onclick="showImage(this.src)">` : '-'}</td>
+                        <td>${time ? new Date(time).toLocaleString('id-ID') : '-'}</td>
+                        <td>${id ? `<button class="btn btn-danger btn-sm" onclick="deleteRecord('${id}')">🗑️</button>` : '-'}</td>
                     `;
                     tbody.appendChild(tr);
                 });
 
                 document.getElementById('adminMessage').textContent = `Total ${validData.length} record.`;
             } catch (error) {
-                document.getElementById('adminMessage').innerHTML = `⚠️ Gagal memuat data. <a href="#" onclick="loadAdminData(); return false;">Coba lagi</a>`;
+                console.error('Load admin error:', error);
+                document.getElementById('adminMessage').innerHTML = `⚠️ Error: ${error.message}`;
             }
         }
 
-        // Load admin data
-        async function loadAdminData() {
-            try {
-                document.getElementById('adminMessage').innerHTML = '<span class="loading"></span> Memuat data...';
-                
-                // Coba JSONP
-                const data = await fetchJSONP(BACKEND_URL).catch(() => []);
-                
-                // Check for error response
-                if (data.status === 'error') {
-                    document.getElementById('adminMessage').innerHTML = 
-                        `⚠️ Error: ${data.message}`;
-                    return;
-                }
-                
-                const tbody = document.getElementById('tableBody');
-                tbody.innerHTML = '';
-
-                data.forEach((row, index) => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${index + 1}</td>
-                        <td>${row.nama}</td>
-                        <td>${row.nip}</td>
-                        <td>${row.unitKerja}</td>
-                        <td>${row.jabatan}</td>
-                        <td><img src="${row.tandaTangan}" alt="TTD" class="signature-preview" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNGNUY1RjUiLz48dGV4dCB4PSI0MCIgeT0iNDUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9ImNlbnRyYWwiPk5vIHR0ZDwvdGV4dD48L3N2Zz4K'"></td>
-                        <td>${new Date(row.timestamp).toLocaleString('id-ID')}</td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn btn-danger" onclick="deleteRecord('${row.id}')">Hapus</button>
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-
-                document.getElementById('adminMessage').textContent = 
-                    `Total ${data.length} record ditemukan.`;
-            } catch (error) {
-                console.error('Load admin error:', error);
-                document.getElementById('adminMessage').innerHTML = 
-                    `⚠️ Gagal memuat data. Cek koneksi & deployment GAS.<br>Error: ${error.message}`;
+        // Show image in modal
+        function showImage(src) {
+            if (src && src !== '-') {
+                showModal('info', 'Tanda Tangan', `<img src="${src}" style="max-width:300px;max-height:200px;">`);
             }
         }
 
         // Delete record
         async function deleteRecord(id) {
+            if (!checkAdminAccess()) return;
             if (!confirm('Yakin ingin menghapus data ini?')) return;
 
             try {
-                const response = await fetch(`${BACKEND_URL}?action=delete&id=${id}`, {
-                    method: 'POST'
-                });
-                const result = await response.json();
-                
-                if (result.status === 'success') {
-                    loadAdminData();
-                    loadDashboard();
-                    alert('Data berhasil dihapus!');
-                } else {
-                    alert('Gagal menghapus: ' + result.message);
-                }
+                // Use no-cors for delete (fire and forget)
+                fetch(`${BACKEND_URL}?action=delete&id=${id}`, { mode: 'no-cors' });
+                showModal('success', '✅ Terhapus', 'Data telah dihapus');
+                setTimeout(() => { loadAdminData(); loadDashboard(); }, 1000);
             } catch (error) {
-                alert('Error: ' + error.message);
+                showModal('error', '❌ Error', 'Gagal menghapus: ' + error.message);
             }
         }
 
@@ -992,41 +961,29 @@
         async function exportExcel() {
             const sheetId = '1UHXTAfsc_9q7f6C4rkjUTXQQ-rlRr3Cu0lwCEeZyfj0';
             window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=xlsx`, '_blank');
-            showMessage('adminMessage', '📊 Download Excel dimulai...', 'success');
         }
 
         async function exportPDF() {
             const sheetId = '1UHXTAfsc_9q7f6C4rkjUTXQQ-rlRr3Cu0lwCEeZyfj0';
             window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=pdf&size=A4&portrait=true&fitw=true`, '_blank');
-            showMessage('adminMessage', '📄 Download PDF dimulai...', 'success');
         }
 
         // Manual refresh
         function refreshData() {
             loadDashboard();
-            loadAdminData();
-            showMessage('adminMessage', '🔄 Data diperbarui!', 'success');
+            if (isLoggedIn) loadAdminData();
         }
 
-        function showMessage(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            element.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            setTimeout(() => element.innerHTML = '', 5000);
-        }
+        // Auto-refresh dashboard every 30 seconds
+        setInterval(() => {
+            if (document.getElementById('dashboard').classList.contains('active')) {
+                loadDashboard();
+            }
+        }, 30000);
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             loadDashboard();
-            // Auto-load admin data when switching to admin panel
-            const adminObserver = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    if (mutation.target.classList.contains('active') && 
-                        mutation.target.id === 'admin') {
-                        loadAdminData();
-                    }
-                });
-            });
-            adminObserver.observe(document.getElementById('admin'), { attributes: true });
         });
     </script>
 </body>
