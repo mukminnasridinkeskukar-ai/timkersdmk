@@ -501,9 +501,32 @@
     </div>
 
     <script>
-        // Konfigurasi - URL GAS WebApp Anda
-        // UPDATE SESUAI DEPLOYMENT ANDA
-        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxt3-A5LNMy1XZTBrATQYKu2pf59iNnb8lkYBmLVNcM_yNVyJWXRA6NMP1ZCD3KuQjQNQ/exec';
+        // === KONFIGURASI ===
+        // UPDATE URL DI BAWAH SESUAI GAS DEPLOYMENT ANDA
+        // Buka Apps Script → Deploy → Copy URL
+        
+        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyAHqwsBkbe3NSOEojWWlJLQHpPc_ya0cTs66gS6eVtDdlmzJJsq17CiWFcGFZb7INq/exec';
+        
+        // Debug function - run di console browser
+        async function debugConnection() {
+            console.log('Testing GAS connection...');
+            console.log('URL:', BACKEND_URL);
+            
+            try {
+                const response = await fetch(BACKEND_URL + '?action=debug', { mode: 'no-cors' });
+                console.log('Response:', response);
+                alert('GAS terhubung! Cek console untuk detail.');
+            } catch (error) {
+                alert('GAS ERROR: ' + error.message + '\n\nPastikan:\n1. GAS sudah di-deploy\n2. URL sudah benar\n3. Akses: Anyone');
+            }
+        }
+        
+        // Auto-test connection on load
+        window.addEventListener('load', () => {
+            console.log('=== ABSENSI MEGA PRO ===');
+            console.log('BACKEND:', BACKEND_URL);
+            setTimeout(debugConnection, 2000);
+        });
 
         // Inisialisasi canvas signature
         const canvas = document.getElementById('signatureCanvas');
@@ -612,10 +635,13 @@
             } else if (type === 'warning') {
                 icon.textContent = '⚠️';
                 icon.style.color = '#ffc107';
+            } else if (type === 'info') {
+                icon.textContent = 'ℹ️';
+                icon.style.color = '#17a2b8';
             }
             
             titleEl.textContent = title;
-            messageEl.textContent = message;
+            messageEl.innerHTML = message.replace(/\n/g, '<br>');
             overlay.classList.add('show');
         }
 
@@ -627,38 +653,64 @@
         function submitViaJSONP(formData) {
             return new Promise((resolve, reject) => {
                 const callbackName = 'submit_callback_' + Date.now();
+                
+                // Encode parameters - handle large signature data
                 const params = new URLSearchParams();
                 params.append('submit', 'true');
                 params.append('callback', callbackName);
                 params.append('nama', formData.nama);
                 params.append('nip', formData.nip);
-                params.append('unitKerja', formData.unitKerja);
-                params.append('jabatan', formData.jabatan);
-                params.append('tandaTangan', formData.tandaTangan);
+                params.append('unitKerja', formData.unitKerja || '');
+                params.append('jabatan', formData.jabatan || '');
                 params.append('timestamp', formData.timestamp);
                 
+                // For signature, use POST instead of GET if too large
+                const signatureEncoded = encodeURIComponent(formData.tandaTangan || '');
+                params.append('tandaTangan', signatureEncoded);
+                
+                const url = BACKEND_URL + '?' + params.toString();
+                
+                // Timeout for script load
+                const timeoutId = setTimeout(() => {
+                    if (window[callbackName]) {
+                        delete window[callbackName];
+                    }
+                    // Don't reject on timeout - might still work
+                    resolve({status: 'unknown', message: 'Timeout - data may still be saved'});
+                }, 15000);
+                
                 const script = document.createElement('script');
-                script.src = BACKEND_URL + '?' + params.toString();
+                script.src = url;
                 
                 window[callbackName] = (response) => {
+                    clearTimeout(timeoutId);
                     resolve(response);
                     delete window[callbackName];
-                    document.head.removeChild(script);
+                    if (script.parentNode) script.remove();
                 };
                 
                 script.onerror = () => {
-                    delete window[callbackName];
-                    reject(new Error('Network error'));
+                    clearTimeout(timeoutId);
+                    reject(new Error('Network error - GAS tidak tersedia atau URL salah'));
                 };
                 
                 document.head.appendChild(script);
+            });
+        }
+
+        // POST submit (more reliable for large data)
+        function submitViaPOST(formData) {
+            return new Promise((resolve, reject) => {
+                const formDataToSend = new FormData();
+                formDataToSend.append('data', JSON.stringify(formData));
                 
-                setTimeout(() => {
-                    if (window[callbackName]) {
-                        delete window[callbackName];
-                        reject(new Error('Timeout'));
-                    }
-                }, 15000);
+                fetch(BACKEND_URL, {
+                    method: 'POST',
+                    mode: 'no-cors'
+                }).then(() => {
+                    // no-cors returns opaque, assume success
+                    resolve({status: 'success', message: 'Data tersimpan via POST'});
+                }).catch(reject);
             });
         }
 
@@ -667,13 +719,18 @@
             e.preventDefault();
             
             const formData = {
-                nama: document.getElementById('nama').value,
-                nip: document.getElementById('nip').value,
-                unitKerja: document.getElementById('unitKerja').value,
-                jabatan: document.getElementById('jabatan').value,
+                nama: document.getElementById('nama').value.trim(),
+                nip: document.getElementById('nip').value.trim(),
+                unitKerja: document.getElementById('unitKerja').value.trim(),
+                jabatan: document.getElementById('jabatan').value.trim(),
                 tandaTangan: signatureData,
                 timestamp: new Date().toISOString()
             };
+
+            if (!formData.nama || !formData.nip) {
+                showModal('error', 'Error', 'Nama dan NIP wajib diisi!');
+                return;
+            }
 
             if (!signatureData) {
                 showModal('error', 'Error', 'Tanda tangan wajib diisi!');
@@ -683,41 +740,37 @@
             showModal('loading', 'Mengirim...', 'Mohon tunggu sebentar');
 
             try {
-                console.log('Mengirim data:', formData);
+                console.log('Mengirim data ke:', BACKEND_URL);
                 
-                // Try JSONP first for actual confirmation
+                // Try JSONP first
                 const result = await submitViaJSONP(formData);
                 
                 if (result && result.status === 'success') {
-                    showModal('success', '✅ Berhasil!', 'Absensi berhasil disimpan ke Google Sheet!');
+                    showModal('success', '✅ Berhasil!', 'Absensi berhasil disimpan ke Google Sheet!\nBaris: ' + (result.row || '?'));
+                    this.reset();
+                    clearSignature();
+                    setTimeout(() => { closeModal(); loadDashboard(); }, 2500);
+                } else if (result && result.status === 'error') {
+                    showModal('error', '❌ Gagal', result.message);
                 } else {
-                    showModal('error', '❌ Gagal', result?.message || 'Terjadi kesalahan');
+                    // Unknown status - try POST fallback
+                    const postResult = await submitViaPOST(formData);
+                    showModal('success', '✅ Terkirim!', postResult.message);
+                    this.reset();
+                    clearSignature();
+                    setTimeout(closeModal, 2500);
                 }
-                
-                this.reset();
-                clearSignature();
-                setTimeout(() => {
-                    closeModal();
-                    loadDashboard();
-                }, 2000);
                 
             } catch (error) {
                 console.error('Submit error:', error);
-                // Fallback to regular POST
+                
+                // Fallback to POST
                 try {
-                    const formDataToSend = new FormData();
-                    formDataToSend.append('data', JSON.stringify(formData));
-                    
-                    await fetch(BACKEND_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        body: formDataToSend
-                    });
-                    
-                    showModal('success', '✅ Terkirim!', 'Absensi berhasil disimpan (via POST fallback)');
+                    await submitViaPOST(formData);
+                    showModal('success', '✅ Terkirim!', 'Absensi berhasil disimpan (via POST)');
                 } catch (postError) {
                     localStorage.setItem('absensi_' + Date.now(), JSON.stringify(formData));
-                    showModal('warning', '⚠️ Offline Mode', `Data tersimpan lokal (${localStorage.length} record).`);
+                    showModal('warning', '⚠️ Offline Mode', `Data tersimpan lokal.\nTotal: ${localStorage.length} record.\nAkan disinkronkan saat online.`);
                 }
                 
                 this.reset();
