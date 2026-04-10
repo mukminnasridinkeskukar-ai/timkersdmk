@@ -306,6 +306,72 @@
             border: 1px solid #f5c6cb;
         }
 
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .modal-message {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-close:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
         .export-buttons {
             display: flex;
             gap: 15px;
@@ -314,6 +380,16 @@
     </style>
 </head>
 <body>
+    <!-- Modal Notification -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-content">
+            <div class="modal-icon" id="modalIcon">⏳</div>
+            <div class="modal-title" id="modalTitle">Mengirim...</div>
+            <div class="modal-message" id="modalMessage">Mohon tunggu sebentar</div>
+            <button class="modal-close" onclick="closeModal()">Tutup</button>
+        </div>
+    </div>
+
     <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
     
     <div class="sidebar" id="sidebar">
@@ -427,7 +503,7 @@
     <script>
         // Konfigurasi - URL GAS WebApp Anda
         // UPDATE SESUAI DEPLOYMENT ANDA
-        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxByqeVsFuP_87butuuE18tB0eTHYlL1WgjcnKJwqK6rBT7IHywNBdyUFTSvecNM9ezHw/exec';
+        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxB-8yrwWrRnSBmi1ln1atIq_C6aavwzzFptODj8Hr5AM8-z9HeV5VX1diRfby2L5JOSg/exec';
 
         // Inisialisasi canvas signature
         const canvas = document.getElementById('signatureCanvas');
@@ -517,6 +593,75 @@
             document.getElementById('sidebar').classList.toggle('open');
         }
 
+        // Modal functions
+        function showModal(type, title, message) {
+            const overlay = document.getElementById('modalOverlay');
+            const icon = document.getElementById('modalIcon');
+            const titleEl = document.getElementById('modalTitle');
+            const messageEl = document.getElementById('modalMessage');
+            
+            if (type === 'success') {
+                icon.textContent = '✅';
+                icon.style.color = '#28a745';
+            } else if (type === 'error') {
+                icon.textContent = '❌';
+                icon.style.color = '#dc3545';
+            } else if (type === 'loading') {
+                icon.textContent = '⏳';
+                icon.style.color = '#667eea';
+            } else if (type === 'warning') {
+                icon.textContent = '⚠️';
+                icon.style.color = '#ffc107';
+            }
+            
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            overlay.classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('show');
+        }
+
+        // JSONP submit for actual confirmation
+        function submitViaJSONP(formData) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'submit_callback_' + Date.now();
+                const params = new URLSearchParams();
+                params.append('submit', 'true');
+                params.append('callback', callbackName);
+                params.append('nama', formData.nama);
+                params.append('nip', formData.nip);
+                params.append('unitKerja', formData.unitKerja);
+                params.append('jabatan', formData.jabatan);
+                params.append('tandaTangan', formData.tandaTangan);
+                params.append('timestamp', formData.timestamp);
+                
+                const script = document.createElement('script');
+                script.src = BACKEND_URL + '?' + params.toString();
+                
+                window[callbackName] = (response) => {
+                    resolve(response);
+                    delete window[callbackName];
+                    document.head.removeChild(script);
+                };
+                
+                script.onerror = () => {
+                    delete window[callbackName];
+                    reject(new Error('Network error'));
+                };
+                
+                document.head.appendChild(script);
+                
+                setTimeout(() => {
+                    if (window[callbackName]) {
+                        delete window[callbackName];
+                        reject(new Error('Timeout'));
+                    }
+                }, 15000);
+            });
+        }
+
         // Form submit
         document.getElementById('absenForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -531,41 +676,54 @@
             };
 
             if (!signatureData) {
-                showMessage('formMessage', 'Tanda tangan wajib diisi!', 'error');
+                showModal('error', 'Error', 'Tanda tangan wajib diisi!');
                 return;
             }
 
+            showModal('loading', 'Mengirim...', 'Mohon tunggu sebentar');
+
+            try {
+                console.log('Mengirim data:', formData);
+                
+                // Try JSONP first for actual confirmation
+                const result = await submitViaJSONP(formData);
+                
+                if (result && result.status === 'success') {
+                    showModal('success', '✅ Berhasil!', 'Absensi berhasil disimpan ke Google Sheet!');
+                } else {
+                    showModal('error', '❌ Gagal', result?.message || 'Terjadi kesalahan');
+                }
+                
+                this.reset();
+                clearSignature();
+                setTimeout(() => {
+                    closeModal();
+                    loadDashboard();
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Submit error:', error);
+                // Fallback to regular POST
                 try {
-                    console.log('Mengirim data:', formData);
-                    
-                    // CORS-safe POST dengan FormData (no-cors mode)
                     const formDataToSend = new FormData();
                     formDataToSend.append('data', JSON.stringify(formData));
                     
-                    try {
-                        const response = await fetch(BACKEND_URL, {
-                            method: 'POST',
-                            mode: 'no-cors',
-                            body: formDataToSend
-                        });
-                        
-                        // no-cors returns opaque response, assume success
-                        showMessage('formMessage', '✅ Absensi berhasil disimpan ke Google Sheet!', 'success');
-                        this.reset();
-                        clearSignature();
-                        loadDashboard();
-                    } catch (error) {
-                        console.error('Submit error:', error);
-                        // Offline fallback - simpan localStorage
-                        localStorage.setItem('absensi_' + Date.now(), JSON.stringify(formData));
-                        showMessage('formMessage', `⚠️ Offline mode: Data tersimpan lokal (${localStorage.length} record).`, 'success');
-                        this.reset();
-                        clearSignature();
-                    }
-                } catch (error) {
-                    console.error('Form submit error:', error);
-                    showMessage('formMessage', '⚠️ Error: ' + error.message, 'error');
+                    await fetch(BACKEND_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        body: formDataToSend
+                    });
+                    
+                    showModal('success', '✅ Terkirim!', 'Absensi berhasil disimpan (via POST fallback)');
+                } catch (postError) {
+                    localStorage.setItem('absensi_' + Date.now(), JSON.stringify(formData));
+                    showModal('warning', '⚠️ Offline Mode', `Data tersimpan lokal (${localStorage.length} record).`);
                 }
+                
+                this.reset();
+                clearSignature();
+                setTimeout(closeModal, 3000);
+            }
         });
         async function loadDashboard() {
             try {
