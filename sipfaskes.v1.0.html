@@ -366,7 +366,7 @@
                         <div class="external-link-icon">🏛️</div>
                         <div class="external-link-title">REGFASYANKES</div>
                         <div class="external-link-desc">Registrasi Fasilitas Kesehatan Kemenkes RI</div>
-                        <a href="https://registrasifasyankes.kemkes.go.id/register/index" target="_blank" class="btn btn-success">Buka REGFASYANKES</a>
+                        <a href="https://regfasyankes.kemkes.go.id" target="_blank" class="btn btn-success">Buka REGFASYANKES</a>
                     </div>
                 </section>
 
@@ -467,7 +467,7 @@
     <script>
         // ==================== API CLIENT (Google Apps Script) ====================
         const API = {
-            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbxpDdNE71dgYhqfLTXBfNm4h6Gn4wWceHRkSs4ZBlw-nl88SipU1bOBdkunQKU0dPDH/exec',
+            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec',
             
             async request(action, data = {}) {
                 showSpinner();
@@ -518,36 +518,31 @@
             async loadData() {
                 showSpinner();
                 try {
-                    if (typeof google !== 'undefined' && google.script && google.script.run) {
-                        await google.script.run
-                            .withSuccessHandler(function(res) {
-                                hideSpinner();
-                                console.log('Response:', res);
-                                try {
-                                    if (typeof res === 'string') {
-                                        var parsed = JSON.parse(res);
-                                        AppState.dataUsulan = parsed.success ? (parsed.data || []) : [];
-                                    } else {
-                                        AppState.dataUsulan = (res && res.success) ? (res.data || []) : [];
-                                    }
-                                } catch (e) {
-                                    console.log('Parse error:', e);
-                                    AppState.dataUsulan = [];
-                                }
-                                Render.dashboard();
-                            })
-                            .withFailureHandler(function(err) {
-                                hideSpinner();
-                                console.log('GAS Error:', err);
-                                AppState.dataUsulan = [];
-                                Render.dashboard();
-                            })
-                            .getData();
-                    } else {
+                    // Use direct fetch to GAS Web App
+                    const form = new FormData();
+                    form.append('action', 'get');
+                    
+                    fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
+                        method: 'POST',
+                        body: form
+                    })
+                    .then(res => res.json())
+                    .then(res => {
                         hideSpinner();
+                        console.log('Data loaded:', res);
+                        if (res.success) {
+                            AppState.dataUsulan = res.data || [];
+                        } else {
+                            AppState.dataUsulan = [];
+                        }
+                        Render.dashboard();
+                    })
+                    .catch(err => {
+                        hideSpinner();
+                        console.log('Fetch error, using empty data:', err);
                         AppState.dataUsulan = [];
                         Render.dashboard();
-                    }
+                    });
                 } catch (e) {
                     hideSpinner();
                     console.log('Exception:', e);
@@ -763,40 +758,54 @@
             }
             
             showSpinner();
-            try {
-                await google.script.run.withSuccessHandler(res => {
-                    hideSpinner();
-                    if (res.success) {
-                        Toast.show('success', 'Berhasil', 'Pengajuan telah dikirim');
-                        document.getElementById('pengajuanForm').reset();
-                        AppState.dataUsulan.push({
-                            id: res.id,
-                            tanggal: new Date().toISOString().split('T')[0],
-                            namaFaskes, jenisUnit, alamat, pj, kontak, fileName, status: 'pending'
-                        });
-                        Render.dashboard();
-                    } else {
-                        Toast.show('error', 'Gagal', res.message);
-                    }
-                }).withFailureHandler(err => {
-                    hideSpinner();
-                    const newId = Date.now();
-                    AppState.dataUsulan.push({
-                        id: newId,
-                        tanggal: new Date().toISOString().split('T')[0],
-                        namaFaskes, jenisUnit, alamat, pj, kontak, fileName, status: 'pending'
-                    });
-                    Toast.show('success', 'Berhasil', 'Pengajuan telah disimpan (local)');
-                    document.getElementById('pengajuanForm').reset();
-                    Render.dashboard();
-                }).simpanData({
-                    namaFaskes, jenisUnit, alamat, pj: pj, kontak: kontak, fileName: fileName,
-                    email: pj.toLowerCase().replace(/ /g, '') + '@email.com', status: 'pending'
-                });
-            } catch (err) {
+            
+            const formData = {
+                namaFaskes: namaFaskes,
+                jenisUnit: jenisUnit,
+                alamat: alamat,
+                pj: pj,
+                kontak: kontak,
+                fileName: fileName,
+                email: pj.toLowerCase().replace(/ /g, '') + '@email.com',
+                status: 'pending',
+                tanggal: new Date().toISOString().split('T')[0]
+            };
+            
+            // Use direct fetch to GAS Web App
+            const form = new FormData();
+            form.append('action', 'save');
+            form.append('data', JSON.stringify(formData));
+            
+            fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
+                method: 'POST',
+                body: form
+            })
+            .then(res => res.json())
+            .then(res => {
                 hideSpinner();
-                Toast.show('error', 'Error', 'Gagal mengirim pengajuan');
-            }
+                if (res.success) {
+                    Toast.show('success', 'Berhasil', 'Pengajuan telah disimpan');
+                    document.getElementById('pengajuanForm').reset();
+                    AppState.dataUsulan.push({
+                        id: res.id || Date.now(),
+                        ...formData
+                    });
+                    Render.dashboard();
+                } else {
+                    Toast.show('error', 'Gagal', res.message || 'Terjadi kesalahan');
+                }
+            })
+            .catch(err => {
+                hideSpinner();
+                // Fallback: save locally
+                AppState.dataUsulan.push({
+                    id: Date.now(),
+                    ...formData
+                });
+                Toast.show('success', 'Berhasil', 'Pengajuan telah disimpan (offline)');
+                document.getElementById('pengajuanForm').reset();
+                Render.dashboard();
+            });
         }
 
         function showDetail(id) {
@@ -828,20 +837,25 @@
 
         async function approveUsulan(id) {
             showSpinner();
-            try {
-                await google.script.run.withSuccessHandler(res => {
-                    hideSpinner();
-                    const idx = AppState.dataUsulan.findIndex(u => u.id == id);
-                    if (idx !== -1) AppState.dataUsulan[idx].status = 'approved';
-                    Toast.show('success', 'Berhasil', 'Usulan disetujui');
-                    closeModal('detailModal');
-                    Render.adminTable();
-                    Render.dashboard();
-                }).withFailureHandler(() => {
-                    hideSpinner();
-                    Toast.show('error', 'Gagal', 'Tidak terhubung ke server');
-                }).updateStatus(id, 'approved');
-            } catch (e) {
+            const form = new FormData();
+            form.append('action', 'updateStatus');
+            form.append('data', JSON.stringify({ id: id, status: 'approved' }));
+            
+            fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
+                method: 'POST',
+                body: form
+            })
+            .then(res => res.json())
+            .then(res => {
+                hideSpinner();
+                const idx = AppState.dataUsulan.findIndex(u => u.id == id);
+                if (idx !== -1) AppState.dataUsulan[idx].status = 'approved';
+                Toast.show('success', 'Berhasil', 'Usulan disetujui');
+                closeModal('detailModal');
+                Render.adminTable();
+                Render.dashboard();
+            })
+            .catch(err => {
                 hideSpinner();
                 const idx = AppState.dataUsulan.findIndex(u => u.id == id);
                 if (idx !== -1) AppState.dataUsulan[idx].status = 'approved';
@@ -849,20 +863,39 @@
                 closeModal('detailModal');
                 Render.adminTable();
                 Render.dashboard();
-            }
+            });
         }
 
         async function rejectUsulan(id) {
             showSpinner();
-            try {
-                await google.script.run.withSuccessHandler(res => {
-                    hideSpinner();
-                    const idx = AppState.dataUsulan.findIndex(u => u.id == id);
-                    if (idx !== -1) AppState.dataUsulan[idx].status = 'rejected';
-                    Toast.show('error', 'Ditolak', 'Usulan ditolak');
-                    closeModal('detailModal');
-                    Render.adminTable();
-                    Render.dashboard();
+            const form = new FormData();
+            form.append('action', 'updateStatus');
+            form.append('data', JSON.stringify({ id: id, status: 'rejected' }));
+            
+            fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
+                method: 'POST',
+                body: form
+            })
+            .then(res => res.json())
+            .then(res => {
+                hideSpinner();
+                const idx = AppState.dataUsulan.findIndex(u => u.id == id);
+                if (idx !== -1) AppState.dataUsulan[idx].status = 'rejected';
+                Toast.show('error', 'Ditolak', 'Usulan ditolak');
+                closeModal('detailModal');
+                Render.adminTable();
+                Render.dashboard();
+            })
+            .catch(err => {
+                hideSpinner();
+                const idx = AppState.dataUsulan.findIndex(u => u.id == id);
+                if (idx !== -1) AppState.dataUsulan[idx].status = 'rejected';
+                Toast.show('error', 'Ditolak', 'Status updated (local)');
+                closeModal('detailModal');
+                Render.adminTable();
+                Render.dashboard();
+            });
+        }
                 }).withFailureHandler(() => {
                     hideSpinner();
                     Toast.show('error', 'Gagal', 'Tidak terhubung ke server');
@@ -881,24 +914,30 @@
         async function deleteUsulan(id) {
             if (!confirm('Yakin hapus?')) return;
             showSpinner();
-            try {
-                await google.script.run.withSuccessHandler(res => {
-                    hideSpinner();
-                    AppState.dataUsulan = AppState.dataUsulan.filter(u => u.id != id);
-                    Toast.show('warning', 'Terhapus', 'Data dihapus');
-                    Render.adminTable();
-                    Render.dashboard();
-                }).withFailureHandler(() => {
-                    hideSpinner();
-                    Toast.show('error', 'Gagal', 'Tidak terhubung ke server');
-                }).deleteData(id);
-            } catch (e) {
+            
+            const form = new FormData();
+            form.append('action', 'delete');
+            form.append('data', JSON.stringify({ id: id }));
+            
+            fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
+                method: 'POST',
+                body: form
+            })
+            .then(res => res.json())
+            .then(res => {
+                hideSpinner();
+                AppState.dataUsulan = AppState.dataUsulan.filter(u => u.id != id);
+                Toast.show('warning', 'Terhapus', 'Data dihapus');
+                Render.adminTable();
+                Render.dashboard();
+            })
+            .catch(err => {
                 hideSpinner();
                 AppState.dataUsulan = AppState.dataUsulan.filter(u => u.id != id);
                 Toast.show('warning', 'Terhapus', 'Data dihapus (local)');
                 Render.adminTable();
                 Render.dashboard();
-            }
+            });
         }
 
         function editUsulan(id) {
