@@ -467,7 +467,7 @@
     <script>
         // ==================== API CLIENT (Google Apps Script) ====================
         const API = {
-            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec',
+            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbxpDdNE71dgYhqfLTXBfNm4h6Gn4wWceHRkSs4ZBlw-nl88SipU1bOBdkunQKU0dPDH/exec',
             
             async request(action, data = {}) {
                 showSpinner();
@@ -518,22 +518,39 @@
             async loadData() {
                 showSpinner();
                 try {
-                    const result = await google.script.run.withSuccessHandler(res => {
+                    if (typeof google !== 'undefined' && google.script && google.script.run) {
+                        await google.script.run
+                            .withSuccessHandler(function(res) {
+                                hideSpinner();
+                                console.log('Response:', res);
+                                try {
+                                    if (typeof res === 'string') {
+                                        var parsed = JSON.parse(res);
+                                        AppState.dataUsulan = parsed.success ? (parsed.data || []) : [];
+                                    } else {
+                                        AppState.dataUsulan = (res && res.success) ? (res.data || []) : [];
+                                    }
+                                } catch (e) {
+                                    console.log('Parse error:', e);
+                                    AppState.dataUsulan = [];
+                                }
+                                Render.dashboard();
+                            })
+                            .withFailureHandler(function(err) {
+                                hideSpinner();
+                                console.log('GAS Error:', err);
+                                AppState.dataUsulan = [];
+                                Render.dashboard();
+                            })
+                            .getData();
+                    } else {
                         hideSpinner();
-                        if (res.success) {
-                            AppState.dataUsulan = res.data || [];
-                            Render.dashboard();
-                        } else {
-                            Toast.show('error', 'Error', res.message || 'Gagal load data');
-                        }
-                    }).withFailureHandler(err => {
-                        hideSpinner();
-                        console.log('GAS not connected, using empty data');
                         AppState.dataUsulan = [];
                         Render.dashboard();
-                    }).getData();
+                    }
                 } catch (e) {
                     hideSpinner();
+                    console.log('Exception:', e);
                     AppState.dataUsulan = [];
                     Render.dashboard();
                 }
