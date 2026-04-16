@@ -467,7 +467,7 @@
     <script>
         // ==================== API CLIENT (Google Apps Script) ====================
         const API = {
-            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbxmF0uSPTchJens11lw_jt9BQqhJdxqLMzGINIfyuZ1h1uyVNLkSjY_t7BsOZf6tFvH/exec',
+            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbz0YgqTTREK0WXR-e_LWAoypCY4K7okMvp3U1_aX4yUZE_SEWlvCTa7RgxwpkUoL7NS/exec',
             
             async request(action, data = {}) {
                 showSpinner();
@@ -518,36 +518,44 @@
             async loadData() {
                 showSpinner();
                 try {
-                    // Use direct fetch to GAS Web App
+                    // First load from localStorage
+                    const saved = localStorage.getItem('sipfaskes_data');
+                    if (saved) {
+                        AppState.dataUsulan = JSON.parse(saved);
+                        Render.dashboard();
+                    }
+                    
+                    // Then sync with GAS
                     const form = new FormData();
                     form.append('action', 'get');
                     
                     fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
                         method: 'POST',
-                        body: form
+                        body: form,
+                        redirect: 'follow'
                     })
-                    .then(res => res.json())
-                    .then(res => {
-                        hideSpinner();
-                        console.log('Data loaded:', res);
-                        if (res.success) {
-                            AppState.dataUsulan = res.data || [];
-                        } else {
-                            AppState.dataUsulan = [];
+                    .then(res => res.text())
+                    .then(text => {
+                        try {
+                            const res = JSON.parse(text);
+                            console.log('Data loaded:', res);
+                            if (res.success && res.data && res.data.length > 0) {
+                                AppState.dataUsulan = res.data;
+                                localStorage.setItem('sipfaskes_data', JSON.stringify(res.data));
+                            }
+                        } catch (e) {
+                            console.log('Parse error:', e);
                         }
                         Render.dashboard();
+                        hideSpinner();
                     })
                     .catch(err => {
+                        console.log('Fetch error:', err);
                         hideSpinner();
-                        console.log('Fetch error, using empty data:', err);
-                        AppState.dataUsulan = [];
-                        Render.dashboard();
                     });
                 } catch (e) {
                     hideSpinner();
                     console.log('Exception:', e);
-                    AppState.dataUsulan = [];
-                    Render.dashboard();
                 }
             }
         };
@@ -778,27 +786,48 @@
             
             fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
                 method: 'POST',
-                body: form
+                body: form,
+                redirect: 'follow'
             })
-            .then(res => res.json())
-            .then(res => {
-                hideSpinner();
-                if (res.success) {
-                    Toast.show('success', 'Berhasil', 'Pengajuan telah disimpan');
+            .then(res => res.text())
+            .then(text => {
+                try {
+                    const res = JSON.parse(text);
+                    hideSpinner();
+                    if (res.success) {
+                        Toast.show('success', 'Berhasil', 'Pengajuan telah disimpan');
+                        document.getElementById('pengajuanForm').reset();
+                        const newItem = {
+                            id: res.id || Date.now(),
+                            ...formData
+                        };
+                        AppState.dataUsulan.push(newItem);
+                        localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
+                        Render.dashboard();
+                    } else {
+                        Toast.show('error', 'Gagal', res.message || 'Terjadi kesalahan');
+                    }
+                } catch (e) {
+                    hideSpinner();
+                    // Fallback: save locally
+                    const newItem = { id: Date.now(), ...formData };
+                    AppState.dataUsulan.push(newItem);
+                    localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
+                    Toast.show('success', 'Berhasil', 'Pengajuan telah disimpan (offline)');
                     document.getElementById('pengajuanForm').reset();
-                    AppState.dataUsulan.push({
-                        id: res.id || Date.now(),
-                        ...formData
-                    });
                     Render.dashboard();
-                } else {
-                    Toast.show('error', 'Gagal', res.message || 'Terjadi kesalahan');
                 }
             })
             .catch(err => {
                 hideSpinner();
                 // Fallback: save locally
-                AppState.dataUsulan.push({
+                const newItem = { id: Date.now(), ...formData };
+                AppState.dataUsulan.push(newItem);
+                localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
+                Toast.show('success', 'Berhasil', 'Pengajuan telah disimpan (offline)');
+                document.getElementById('pengajuanForm').reset();
+                Render.dashboard();
+            });
                     id: Date.now(),
                     ...formData
                 });
@@ -843,13 +872,18 @@
             
             fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
                 method: 'POST',
-                body: form
+                body: form,
+                redirect: 'follow'
             })
-            .then(res => res.json())
-            .then(res => {
+            .then(res => res.text())
+            .then(text => {
+                try { JSON.parse(text); } catch(e) {}
                 hideSpinner();
                 const idx = AppState.dataUsulan.findIndex(u => u.id == id);
-                if (idx !== -1) AppState.dataUsulan[idx].status = 'approved';
+                if (idx !== -1) {
+                    AppState.dataUsulan[idx].status = 'approved';
+                    localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
+                }
                 Toast.show('success', 'Berhasil', 'Usulan disetujui');
                 closeModal('detailModal');
                 Render.adminTable();
@@ -858,7 +892,10 @@
             .catch(err => {
                 hideSpinner();
                 const idx = AppState.dataUsulan.findIndex(u => u.id == id);
-                if (idx !== -1) AppState.dataUsulan[idx].status = 'approved';
+                if (idx !== -1) {
+                    AppState.dataUsulan[idx].status = 'approved';
+                    localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
+                }
                 Toast.show('success', 'Berhasil', 'Status updated (local)');
                 closeModal('detailModal');
                 Render.adminTable();
@@ -874,13 +911,18 @@
             
             fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
                 method: 'POST',
-                body: form
+                body: form,
+                redirect: 'follow'
             })
-            .then(res => res.json())
-            .then(res => {
+            .then(res => res.text())
+            .then(text => {
+                try { JSON.parse(text); } catch(e) {}
                 hideSpinner();
                 const idx = AppState.dataUsulan.findIndex(u => u.id == id);
-                if (idx !== -1) AppState.dataUsulan[idx].status = 'rejected';
+                if (idx !== -1) {
+                    AppState.dataUsulan[idx].status = 'rejected';
+                    localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
+                }
                 Toast.show('error', 'Ditolak', 'Usulan ditolak');
                 closeModal('detailModal');
                 Render.adminTable();
@@ -889,7 +931,10 @@
             .catch(err => {
                 hideSpinner();
                 const idx = AppState.dataUsulan.findIndex(u => u.id == id);
-                if (idx !== -1) AppState.dataUsulan[idx].status = 'rejected';
+                if (idx !== -1) {
+                    AppState.dataUsulan[idx].status = 'rejected';
+                    localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
+                }
                 Toast.show('error', 'Ditolak', 'Status updated (local)');
                 closeModal('detailModal');
                 Render.adminTable();
@@ -907,12 +952,15 @@
             
             fetch('https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec', {
                 method: 'POST',
-                body: form
+                body: form,
+                redirect: 'follow'
             })
-            .then(res => res.json())
-            .then(res => {
+            .then(res => res.text())
+            .then(text => {
+                try { JSON.parse(text); } catch(e) {}
                 hideSpinner();
                 AppState.dataUsulan = AppState.dataUsulan.filter(u => u.id != id);
+                localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
                 Toast.show('warning', 'Terhapus', 'Data dihapus');
                 Render.adminTable();
                 Render.dashboard();
@@ -920,6 +968,7 @@
             .catch(err => {
                 hideSpinner();
                 AppState.dataUsulan = AppState.dataUsulan.filter(u => u.id != id);
+                localStorage.setItem('sipfaskes_data', JSON.stringify(AppState.dataUsulan));
                 Toast.show('warning', 'Terhapus', 'Data dihapus (local)');
                 Render.adminTable();
                 Render.dashboard();
