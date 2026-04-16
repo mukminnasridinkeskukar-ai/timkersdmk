@@ -350,6 +350,11 @@
                                     <input type="text" class="form-input" id="kontakFaskes" placeholder="Nomor telepon">
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label">Upload Surat Izin Operasional/Praktik</label>
+                                <input type="file" class="form-input" id="fileSuratIzin" accept=".pdf,.jpg,.jpeg,.png">
+                                <small style="color: var(--gray-500); font-size: 12px;">Format: PDF, JPG, PNG (max 5MB)</small>
+                            </div>
                             <button type="submit" class="btn btn-primary">Kirim Pengajuan</button>
                         </form>
                     </div>
@@ -404,6 +409,7 @@
                             <h3 class="card-title">Panel Admin</h3>
                             <div style="display: flex; gap: 12px;">
                                 <button class="btn btn-success btn-sm" onclick="exportExcel()">📊 Export</button>
+                                <button class="btn btn-danger btn-sm" onclick="logout()">🚪 Logout</button>
                             </div>
                         </div>
                         <div class="filter-bar">
@@ -461,7 +467,7 @@
     <script>
         // ==================== API CLIENT (Google Apps Script) ====================
         const API = {
-            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwXYhv52g2WzMMHCCf-LGZjuO46jxll9-ZwBukwTSGLgwKY9L70JeE3Z6aVgq0__Yr7/exec',
+            WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbwndSYdMezayfjHuHOeDjfr7zSWNddwD-Q5vuauewfidshoOE3hUMQu4aHJNt7k3FJg/exec',
             
             async request(action, data = {}) {
                 showSpinner();
@@ -515,21 +521,21 @@
                     const result = await google.script.run.withSuccessHandler(res => {
                         hideSpinner();
                         if (res.success) {
-                            this.dataUsulan = res.data || [];
-                            this.renderDashboard();
+                            AppState.dataUsulan = res.data || [];
+                            Render.dashboard();
                         } else {
                             Toast.show('error', 'Error', res.message || 'Gagal load data');
                         }
                     }).withFailureHandler(err => {
                         hideSpinner();
                         console.log('GAS not connected, using empty data');
-                        this.dataUsulan = [];
-                        this.renderDashboard();
+                        AppState.dataUsulan = [];
+                        Render.dashboard();
                     }).getData();
                 } catch (e) {
                     hideSpinner();
-                    this.dataUsulan = [];
-                    this.renderDashboard();
+                    AppState.dataUsulan = [];
+                    Render.dashboard();
                 }
             }
         };
@@ -716,6 +722,12 @@
             }
         }
 
+        function logout() {
+            AppState.isLoggedIn = false;
+            navigateTo('dashboard');
+            Toast.show('success', 'Logout', 'Berhasil logout');
+        }
+
         // ==================== ACTIONS ====================
         async function submitPengajuan(e) {
             e.preventDefault();
@@ -725,6 +737,8 @@
             const alamat = document.getElementById('alamatFaskes').value;
             const pj = document.getElementById('pjFaskes').value;
             const kontak = document.getElementById('kontakFaskes').value;
+            const fileInput = document.getElementById('fileSuratIzin');
+            const fileName = fileInput.files.length > 0 ? fileInput.files[0].name : '';
             
             if (!namaFaskes || !jenisUnit || !alamat || !pj || !kontak) {
                 Toast.show('error', 'Validasi', 'Mohon isi semua field wajib');
@@ -741,7 +755,7 @@
                         AppState.dataUsulan.push({
                             id: res.id,
                             tanggal: new Date().toISOString().split('T')[0],
-                            namaFaskes, jenisUnit, alamat, pj, kontak, status: 'pending'
+                            namaFaskes, jenisUnit, alamat, pj, kontak, fileName, status: 'pending'
                         });
                         Render.dashboard();
                     } else {
@@ -753,13 +767,13 @@
                     AppState.dataUsulan.push({
                         id: newId,
                         tanggal: new Date().toISOString().split('T')[0],
-                        namaFaskes, jenisUnit, alamat, pj, kontak, status: 'pending'
+                        namaFaskes, jenisUnit, alamat, pj, kontak, fileName, status: 'pending'
                     });
                     Toast.show('success', 'Berhasil', 'Pengajuan telah disimpan (local)');
                     document.getElementById('pengajuanForm').reset();
                     Render.dashboard();
                 }).simpanData({
-                    namaFaskes, jenisUnit, alamat, pj: pj, kontak: kontak,
+                    namaFaskes, jenisUnit, alamat, pj: pj, kontak: kontak, fileName: fileName,
                     email: pj.toLowerCase().replace(/ /g, '') + '@email.com', status: 'pending'
                 });
             } catch (err) {
@@ -780,6 +794,7 @@
                 <div class="detail-item"><div class="detail-label">Alamat</div><div class="detail-value">${usul.alamat || '-'}</div></div>
                 <div class="detail-item"><div class="detail-label">Penanggung Jawab</div><div class="detail-value">${usul.pj || '-'}</div></div>
                 <div class="detail-item"><div class="detail-label">Kontak</div><div class="detail-value">${usul.kontak || '-'}</div></div>
+                <div class="detail-item"><div class="detail-label">Surat Izin</div><div class="detail-value">${usul.fileName || '-'}</div></div>
                 <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value"><span class="status-badge status-${usul.status || 'pending'}">${Render.getStatusLabel(usul.status)}</span></div></div>
             `;
             
