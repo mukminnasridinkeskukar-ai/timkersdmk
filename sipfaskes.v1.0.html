@@ -196,13 +196,16 @@
         .external-link-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
         .external-link-desc { font-size: 14px; opacity: 0.9; margin-bottom: 20px; }
         
-        /* Responsive */
-        @media (max-width: 768px) {
+        /* Responsive - Landscape Only */
+        @media (max-width: 768px) and (orientation: portrait) {
             .sidebar { transform: translateX(-100%); }
             .main-content { margin-left: 0; }
-            .form-row { grid-template-columns: 1fr; }
-            .stats-grid { grid-template-columns: 1fr; }
-            .detail-grid { grid-template-columns: 1fr; }
+        }
+        
+        @media (max-width: 1024px) and (orientation: landscape) {
+            .sidebar { width: 220px; }
+            .main-content { margin-left: 220px; }
+            .content-area { padding: 20px; }
         }
         
         /* Animations */
@@ -212,32 +215,36 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Login Page -->
-        <div id="loginPage" class="login-container">
-            <div class="login-box">
-                <div class="login-header">
-                    <div class="login-logo">🏥</div>
-                    <div class="login-title">SIPFASKES</div>
-                    <div class="login-desc">Sistem Informasi Pendaftaran Fasilitas Kesehatan</div>
-                </div>
+        <!-- Login Modal for Admin -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Login Admin</h3>
+                <button class="modal-close" onclick="closeLoginModal()">✕</button>
+            </div>
+            <div class="modal-body">
                 <form id="loginForm">
                     <div class="form-group">
                         <label class="form-label">Username</label>
                         <input type="text" class="form-input" id="loginUsername" placeholder="Masukkan username">
-                        <div class="form-error">Username wajib diisi</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Password</label>
                         <input type="password" class="form-input" id="loginPassword" placeholder="Masukkan password">
-                        <div class="form-error">Password wajib diisi</div>
                     </div>
                     <button type="submit" class="btn btn-primary btn-block">Masuk</button>
                 </form>
-                <div style="text-align: center; margin-top: 20px; font-size: 13px; color: var(--gray-500);">
+                <div style="text-align: center; margin-top: 16px; font-size: 13px; color: var(--gray-500);">
                     demo: admin / 123
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Login Page (Tidak digunakan - login di modal admin) -->
+    <div id="loginPage" class="login-container" style="display: none;">
+        <div class="login-box"></div>
+    </div>
 
         <!-- Main App -->
         <div id="mainApp" style="display: none;">
@@ -286,10 +293,7 @@
                     <h1 class="page-title" id="pageTitle">Dashboard</h1>
                     <div class="topbar-right">
                         <span class="mode-badge" id="modeBadge">MODE DEMO</span>
-                        <div class="user-info">
-                            <div class="user-avatar">A</div>
-                            <span id="userName">Admin</span>
-                        </div>
+                        <button class="btn btn-primary btn-sm" id="loginBtn" onclick="showLoginModal()">Login</button>
                     </div>
                 </header>
 
@@ -639,17 +643,23 @@
         // ==================== MODULE: UI COMPONENTS ====================
         const UI = {
             chart: null,
+            isLoggedIn: false,
             
             init() {
                 this.setupNavigation();
                 this.setupForms();
                 this.initChart();
+                this.showMainApp();
             },
             
             setupNavigation() {
                 document.querySelectorAll('.nav-item').forEach(item => {
                     item.addEventListener('click', () => {
                         const page = item.dataset.page;
+                        if (page === 'admin' && !this.isLoggedIn) {
+                            this.showLoginModal();
+                            return;
+                        }
                         this.navigateTo(page);
                     });
                 });
@@ -676,20 +686,41 @@
                 if (page === 'usulan' || page === 'admin') this.renderAdminTable();
             },
             
+            showLoginModal() {
+                document.getElementById('loginModal').classList.add('active');
+            },
+            
+            closeLoginModal() {
+                document.getElementById('loginModal').classList.remove('active');
+            },
+            
+            doLogin() {
+                const username = document.getElementById('loginUsername').value;
+                const password = document.getElementById('loginPassword').value;
+                if (username === 'admin' && password === '123') {
+                    this.isLoggedIn = true;
+                    localStorage.setItem('sipfaskes_logged_in', 'true');
+                    this.closeLoginModal();
+                    this.navigateTo('admin');
+                    Toast.show('success', 'Login Berhasil', 'Selamat datang, Admin!');
+                } else {
+                    Toast.show('error', 'Login Gagal', 'Username atau password salah');
+                }
+            },
+            
             setupForms() {
+                const loginBtn = document.getElementById('loginBtn');
+                if (loginBtn) {
+                    loginBtn.addEventListener('click', () => this.doLogin());
+                }
+                
                 const loginForm = document.getElementById('loginForm');
-                loginForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const username = document.getElementById('loginUsername').value;
-                    const password = document.getElementById('loginPassword').value;
-                    if (username === 'admin' && password === '123') {
-                        localStorage.setItem('sipfaskes_logged_in', 'true');
-                        this.showMainApp();
-                        Toast.show('success', 'Login Berhasil', 'Selamat datang, Admin!');
-                    } else {
-                        Toast.show('error', 'Login Gagal', 'Username atau password salah');
-                    }
-                });
+                if (loginForm) {
+                    loginForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        this.doLogin();
+                    });
+                }
                 
                 const pengajuanForm = document.getElementById('pengajuanForm');
                 pengajuanForm.addEventListener('submit', (e) => {
@@ -707,7 +738,7 @@
             checkLogin() {
                 const loggedIn = localStorage.getItem('sipfaskes_logged_in');
                 if (loggedIn) {
-                    this.showMainApp();
+                    this.isLoggedIn = true;
                 }
             },
             
@@ -1095,7 +1126,11 @@
         }
         
         function closeModal(id) {
-            Modal.close(id);
+            document.getElementById(id).classList.remove('active');
+        }
+        
+        function showLoginModal() {
+            UI.showLoginModal();
         }
         
         function searchFaskes() {
@@ -1136,6 +1171,10 @@
         
         function exportPDF() {
             Actions.exportPDF();
+        }
+        
+        function closeLoginModal() {
+            UI.closeLoginModal();
         }
 
         // ==================== INITIALIZATION ====================
