@@ -302,7 +302,7 @@
     // CONFIG
     // ========================================
     const CONFIG = {
-      BASE_URL: 'https://script.google.com/macros/s/AKfycbyBn-QE-N8tW_mW8zErbMvqMT9lGvvAg0ojqMe9zTmf2Hxv-1hnk8QN-uUlgH5dL05z/exec',
+      BASE_URL: 'https://script.google.com/macros/s/AKfycbwFxiMyDggrtCESnJq_inbkWnDXtizlyjZVd8HEhn-bMsj9qdftandEppfAuBD8N1l3/exec',
       API_ENDPOINT: '?action=',
       SPREADSHEET_ID: '1qg-pyNnxhkMnq_oHKWyWAuZ419rEN3ofbnJ5QQF8LFA'
     };
@@ -694,14 +694,44 @@
       const finalUrl = params.toString() ? url + '&' + params : url;
       
       try {
-        const response = method === 'GET' ? await fetch(finalUrl) : await fetch(url, {
-          method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        const response = method === 'GET' ? await fetch(finalUrl, {
+          mode: 'cors',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        }) : await fetch(url, {
+          method: 'POST', 
+          mode: 'cors',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: params.toString()
         });
-        return await response.json();
+        
+        const text = await response.text();
+        try {
+          return JSON.parse(text);
+        } catch(e) {
+          console.log('Raw response:', text);
+          return { success: false, message: 'Invalid JSON: ' + text };
+        }
       } catch (e) {
-        console.error('API Error:', e);
-        return { success: false, message: e.message };
+        console.log('Fetch failed, trying JSONP...');
+        // Fallback to JSONP
+        return new Promise((resolve) => {
+          const callback = 'jsonp_' + Date.now();
+          const jsonpUrl = url + '&callback=' + callback + (params.toString() ? '&' + params.toString() : '');
+          
+          window[callback] = (data) => {
+            resolve(data);
+            delete window[callback];
+          };
+          
+          const script = document.createElement('script');
+          script.src = jsonpUrl;
+          script.onerror = () => {
+            console.error('JSONP also failed');
+            resolve({ success: false, message: e.message });
+            delete window[callback];
+          };
+          document.head.appendChild(script);
+        });
       }
     }
 
