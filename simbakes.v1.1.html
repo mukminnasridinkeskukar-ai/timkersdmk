@@ -423,7 +423,7 @@
           <div class="table-responsive">
             <table class="table">
               <thead>
-                <tr><th>No</th><th>Posisi</th><th>Fasilitas</th><th>Deskripsi</th><th>Kuota</th><th>Status</th>${currentUser ? '<th>Aksi</th>' : ''}</tr>
+                <tr><th>No</th><th>Jurusan</th><th>Jenis Pendidikan</th><th>Campus Pelaksana</th><th>Status</th><th>Tahun</th><th>Unit Tujuan</th>${currentUser ? '<th>Aksi</th>' : ''}</tr>
               </thead>
               <tbody id="roadmapTable">
                 <tr><td colspan="${currentUser ? 7 : 6}" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat...</td></tr>
@@ -595,12 +595,17 @@
           <div class="modal-header"><h3><i class="fas fa-map text-primary"></i> Tambah Roadmap</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
           <div class="modal-body">
             <form id="roadmapForm">
-              <div class="form-group"><label class="form-label">Nama Posisi <span class="required">*</span></label><input type="text" name="position_name" class="form-control" required></div>
-              <div class="form-group"><label class="form-label">Nama Fasilitas <span class="required">*</span></label><input type="text" name="facility_name" class="form-control" required></div>
-              <div class="form-group"><label class="form-label">Deskripsi</label><textarea name="description" class="form-control"></textarea></div>
               <div class="grid-2">
-                <div class="form-group"><label class="form-label">Kuota</label><input type="number" name="quota" class="form-control" value="1" min="1"></div>
-                <div class="form-group"><label class="form-label">Status</label><select name="is_active" class="form-control"><option value="true">Aktif</option><option value="false">Nonaktif</option></select></div>
+                <div class="form-group"><label class="form-label">Jurusan <span class="required">*</span></label><input type="text" name="jurusan" class="form-control" required></div>
+                <div class="form-group"><label class="form-label">Jenis Pendidikan <span class="required">*</span></label><input type="text" name="jenis_pendidikan" class="form-control" required></div>
+              </div>
+              <div class="grid-2">
+                <div class="form-group"><label class="form-label">Campus Pelaksana <span class="required">*</span></label><input type="text" name="campus" class="form-control" required></div>
+                <div class="form-group"><label class="form-label">Tahun Mulai <span class="required">*</span></label><select name="tahun_mulai" class="form-control" required><option value="">Pilih</option><option value="2026">2026</option><option value="2027">2027</option></select></div>
+              </div>
+              <div class="grid-2">
+                <div class="form-group"><label class="form-label">Status Calon</label><select name="status_calon" class="form-control"><option value="tersedia">Tersedia</option><option value="penuh">Penuh</option><option value="ditutup">Ditutup</option></select></div>
+                <div class="form-group"><label class="form-label">Unit Tujuan <span class="required">*</span></label><input type="text" name="unit_tujuan" class="form-control" required></div>
               </div>
             </form>
           </div>
@@ -626,6 +631,22 @@
 
     function closeModalOnOverlay(e) {
       if (e.target.id === 'modalOverlay') closeModal();
+    }
+
+    async function saveRoadmap() {
+      const form = document.getElementById('roadmapForm');
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      
+      const result = await callAPI('createRoadmap', 'POST', data);
+      if (result.success) {
+        showToast('Roadmap berhasil ditambahkan', 'success');
+        closeModal();
+        form.reset();
+        loadRoadmap();
+      } else {
+        showToast(result.message || 'Gagal menyimpan', 'error');
+      }
     }
 
     // ========================================
@@ -745,11 +766,12 @@
         tbody.innerHTML = result.data.map((item, idx) => `
           <tr>
             <td>${idx + 1}</td>
-            <td><strong>${escapeHtml(item.position_name)}</strong></td>
-            <td>${escapeHtml(item.facility_name)}</td>
-            <td>${escapeHtml(item.description || '-')}</td>
-            <td><span class="badge badge-processed">${item.quota}</span></td>
-            <td>${item.is_active ? '<span class="badge badge-approved">Aktif</span>' : '<span class="badge badge-rejected">Nonaktif</span>'}</td>
+            <td><strong>${escapeHtml(item.posisi)}</strong></td>
+            <td>${escapeHtml(item.jenis_pendidikan)}</td>
+            <td>${escapeHtml(item.campus)}</td>
+            <td>${item.status_calon === 'tersedia' ? '<span class="badge badge-approved">Tersedia</span>' : '<span class="badge badge-rejected">' + item.status_calon + '</span>'}</td>
+            <td>${escapeHtml(item.tahun_mulai)}</td>
+            <td>${escapeHtml(item.unit_tujuan)}</td>
             ${currentUser ? `<td>
               <button class="btn btn-sm btn-outline" onclick="editRoadmap(${item.id})"><i class="fas fa-edit"></i></button>
               <button class="btn btn-sm btn-danger" onclick="deleteRoadmap(${item.id})"><i class="fas fa-trash"></i></button>
@@ -757,7 +779,7 @@
           </tr>
         `).join('');
       } else {
-        tbody.innerHTML = `<tr><td colspan="${currentUser ? 7 : 6}" class="text-center">Belum ada data roadmap</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${currentUser ? 8 : 7}" class="text-center">Belum ada data roadmap</td></tr>`;
       }
     }
 
