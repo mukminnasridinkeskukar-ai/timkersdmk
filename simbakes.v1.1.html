@@ -7,7 +7,20 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
-    :root { --primary: #2563eb; --primary-dark: #1e40af; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0; --gray-500: #64748b; --gray-800: #1e293b; --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1e40af;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --gray-50: #f8fafc;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-500: #64748b;
+      --gray-800: #1e293b;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray-50); color: var(--gray-800); }
     .app-layout { display: flex; min-height: 100vh; }
@@ -96,7 +109,13 @@
     .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loader { text-align: center; padding: 2rem; }
-    @media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.active { transform: translateX(0); } .main-content { margin-left: 0; } .grid-2, .grid-3 { grid-template-columns: 1fr; } .menu-toggle { display: block; } }
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.active { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .menu-toggle { display: block; }
+    }
   </style>
 </head>
 <body>
@@ -131,7 +150,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycby7vPWkVuV10z4BrJ7CxjD_K-q2PxJQSClLokSlxzZPwB4ByVr5Wu0GkdsuDcvtpGUp/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbzxUJRz45vg_JEzJp1r6fZFviTHhl7z-1L8ik1k30nP2VcNH0X6ZjEHm4sMbvDV1a1q/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = false;
@@ -226,21 +245,6 @@
         try { delete window[cbName]; } catch(e) {}
       };
       document.head.appendChild(script);
-    }
-
-    function apiPost(action, params, callback, errorCallback) {
-      var formData = new FormData();
-      formData.append('action', action);
-      for (var key in params) {
-        formData.append(key, params[key]);
-      }
-      fetch(API_URL, {method: 'POST', body: formData})
-        .then(function(r) { return r.json(); })
-        .then(callback)
-        .catch(function(e) {
-          showToast('Error: ' + e.message, 'error');
-          if (errorCallback) errorCallback();
-        });
     }
 
     // ========================================
@@ -590,70 +594,8 @@
       });
     }
 
-    function updateStatus(id, status) {
-      var notes = document.getElementById('adminNotes').value;
-      apiCallWithData('updateApplicationStatus', {
-        id: id,
-        status: status,
-        admin_notes: notes
-      }, function(res) {
-        if (res && res.success) {
-          showToast('Status berhasil diperbarui');
-          closeModal();
-          loadApplications();
-        } else {
-          showToast(res ? res.message : 'Gagal update status', 'error');
-        }
-      });
-    }
-
-    function approveApplication(id) {
-      var notes = prompt('Catatan (opsional):') || '';
-      apiCallWithData('updateApplicationStatus', {
-        id: id,
-        status: 'approved',
-        admin_notes: notes
-      }, function(res) {
-        if (res && res.success) {
-          showToast('Pengajuan disetujui');
-          loadApplications();
-        } else {
-          showToast('Gagal', 'error');
-        }
-      });
-    }
-
-    function rejectApplication(id) {
-      var notes = prompt('Alasan penolakan:');
-      if (notes === null) return;
-      apiCallWithData('updateApplicationStatus', {
-        id: id,
-        status: 'rejected',
-        admin_notes: notes || ''
-      }, function(res) {
-        if (res && res.success) {
-          showToast('Pengajuan ditolak');
-          loadApplications();
-        } else {
-          showToast('Gagal', 'error');
-        }
-      });
-    }
-
-    function deleteApplication(id) {
-      if (!confirm('Yakin hapus data ini?')) return;
-      apiCallWithData('deleteApplication', {id: id}, function(res) {
-        if (res && res.success) {
-          showToast('Data dihapus');
-          loadApplications();
-        } else {
-          showToast('Gagal hapus', 'error');
-        }
-      });
-    }
-
     // ========================================
-    // FORM SUBMISSION WITH ALL FILES
+    // FORM SUBMISSION
     // ========================================
     function submitApplication(e) {
       e.preventDefault();
@@ -677,31 +619,29 @@
       }
 
       // Collect text fields only (exclude files)
-       var textParams = new FormData();
-       textParams.append('action', 'submitApplication');
-       for (var [key, value] of formData.entries()) {
-         if (!(value instanceof File)) {
-           textParams.append(key, value);
-         }
-       }
+      var textParams = new FormData();
+      textParams.append('action', 'submitApplication');
+      for (var [key, value] of formData.entries()) {
+        if (!(value instanceof File)) {
+          textParams.append(key, value);
+        }
+      }
 
       // Collect file info for later upload
       var allFiles = [];
       for (var i = 0; i < files.length; i++) {
         if (files[i].files[0]) {
           allFiles.push({
-            field: files[i].name,
-            inputName: files[i].getAttribute('name'),
+            fieldName: files[i].getAttribute('name'),
             file: files[i].files[0]
           });
         }
       }
 
-      // Submit application via POST (CORS)
+      // Submit application via POST
       fetch(API_URL, {
         method: 'POST',
-        body: textParams,
-        mode: 'cors'
+        body: textParams
       })
       .then(function(response) {
         if (!response.ok) throw new Error('Network response was not ok: ' + response.status);
@@ -737,7 +677,7 @@
         return;
       }
       var item = files[index];
-      uploadFile(appId, item.inputName, item.file, function(success) {
+      uploadFile(appId, item.fieldName, item.file, function(success) {
         if (success) {
           showToast('File terkirim: ' + item.file.name);
         } else {
@@ -752,6 +692,7 @@
       reader.onload = function(e) {
         var base64 = e.target.result.split(',')[1];
         var params = {
+          action: 'uploadFile',
           application_id: appId,
           file_field: fieldName,
           file_name: file.name,
@@ -759,7 +700,6 @@
           file_data: base64
         };
         var formData = new FormData();
-        formData.append('action', 'uploadFile');
         for (var key in params) {
           formData.append(key, params[key]);
         }
@@ -769,11 +709,13 @@
             if (res && res.success) {
               if (callback) callback(true);
             } else {
+              console.error('Upload failed:', res);
               showToast('Upload gagal: ' + (res.message || 'unknown error'), 'error');
               if (callback) callback(false);
             }
           })
           .catch(function(err) {
+            console.error('Upload error:', err);
             showToast('Upload error: ' + err.message, 'error');
             if (callback) callback(false);
           });
@@ -885,7 +827,25 @@
 
     function downloadTemplate(type) {
       if (type === 'permohonan') {
-        var template = `KEPADA YTH.\nDinas Kesehatan Kabupaten Kutai Kartanegara\nDi [Tempat]\n\nYang bertanda tangan di bawah ini:\nNama: [Nama]\nNIM/NIP: [NIM/NIP]\nAlamat: [Alamat]\n\nMencium hormat,\nDengan ini mengajukan permohonan beasiswa tematik kesehatan Kabupaten Kutai Kartanegara untuk:\nJurusan: [Jurusan]\nUniversitas: [Universitas]\nTahun Masuk: [Tahun]\n\nDemikian permohonan ini kami sampaikan, atas perhatian Bapak/Ibu kami ucapkan terima kasih.\n\nHormat kami,\n[Nama Lengkap]`;
+        var template = `KEPADA YTH.
+Dinas Kesehatan Kabupaten Kutai Kartanegara
+Di [Tempat]
+
+Yang bertanda tangan di bawah ini:
+Nama: [Nama]
+NIM/NIP: [NIM/NIP]
+Alamat: [Alamat]
+
+Mencium hormat,
+Dengan ini mengajukan permohonan beasiswa tematik kesehatan Kabupaten Kutai Kartanegara untuk:
+Jurusan: [Jurusan]
+Universitas: [Universitas]
+Tahun Masuk: [Tahun]
+
+Demikian permohonan ini kami sampaikan, atas perhatian Bapak/Ibu kami ucapkan terima kasih.
+
+Hormat kami,
+[Nama Lengkap]`;
         var blob = new Blob([template], { type: 'text/plain' });
         var url = window.URL.createObjectURL(blob);
         var a = document.createElement('a');
@@ -894,7 +854,26 @@
         a.click();
         window.URL.revokeObjectURL(url);
       } else if (type === 'pernyataan') {
-        var template = `SURAT PERNYATAAN\n\nSaya yang bertanda tangan di bawah ini:\nNama: [Nama Lengkap]\nTempat/Tgl Lahir: [Tempat]/[Tanggal]\nNIM/NIP: [NIM/NIP]\nAlamat: [Alamat]\n\nMenyatakan dengan sesungguhnya bahwa:\n1. Saya bersedia memberikan pilihan lokasi praktik/pengembangan di wilayah Kabupaten Kutai Kartanegara setelah lulus.\n2. Saya akan mengabdi minimal 5 (lima) tahun di instansi kesehatan yang ditetapkan oleh Dinas Kesehatan Kukar.\n3. Saya memahami bahwa apabila tidak memenuhi komitmen, maka saya wajib mengembalikan dana beasiswa yang telah diterima.\n\nDemikian surat pernyataan ini saya buat dengan sebenar-benarnya untuk digunakan sebagaimana mestinya.\n\n\n[Kota], [Tanggal]\nPernyataan,\n\n_________________________\n[Nama Lengkap]`;
+        var template = `SURAT PERNYATAAN
+
+Saya yang bertanda tangan di bawah ini:
+Nama: [Nama Lengkap]
+Tempat/Tgl Lahir: [Tempat]/[Tanggal]
+NIM/NIP: [NIM/NIP]
+Alamat: [Alamat]
+
+Menyatakan dengan sesungguhnya bahwa:
+1. Saya bersedia memberikan pilihan lokasi praktik/pengembangan di wilayah Kabupaten Kutai Kartanegara setelah lulus.
+2. Saya akan mengabdi minimal 5 (lima) tahun di instansi kesehatan yang ditetapkan oleh Dinas Kesehatan Kukar.
+3. Saya memahami bahwa apabila tidak memenuhi komitmen, maka saya wajib mengembalikan dana beasiswa yang telah diterima.
+
+Demikian surat pernyataan ini saya buat dengan sebenar-benarnya untuk digunakan sebagaimana mestinya.
+
+[Kota], [Tanggal]
+Pernyataan,
+
+_________________________
+[Nama Lengkap]`;
         var blob = new Blob([template], { type: 'text/plain' });
         var url = window.URL.createObjectURL(blob);
         var a = document.createElement('a');
