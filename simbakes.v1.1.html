@@ -150,7 +150,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbzksz_rsRFvXHuBJ6TvzNhzYZ7ZaCxIqFhsZOJj7K4Whj6fyZJswEwTvv6gkzq0Bqw/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
+    var API_URL = 'https://script.google.com/macros/s/AKfycbz3cNpM6S4PhIUB2gF8OZNcbm8zhBT0eEHcn2Qxkxr37OqWZqd2kQb44mfQnYz7W43g/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = false;
@@ -265,6 +265,13 @@
 
     function renderForm() {
       return '<div class="card"><div class="card-header"><h3><i class="fas fa-file-alt"></i> Formulir Pengajuan Beasiswa</h3></div>' +
+
+        '<div class="alert alert-info mb-3">' +
+        '<i class="fas fa-download"></i> <strong>Download Template Dokumen:</strong> ' +
+        '<a href="#" onclick="downloadTemplate(\'permohonan\')" class="btn btn-outline btn-sm" style="margin-left:0.5rem"><i class="fas fa-download"></i> Surat Permohonan</a>' +
+        '<a href="#" onclick="downloadTemplate(\'pernyataan\')" class="btn btn-outline btn-sm" style="margin-left:0.5rem"><i class="fas fa-download"></i> Surat Pernyataan</a>' +
+        '</div>' +
+
         '<form id="applicationForm" onsubmit="submitApplication(event)">' +
 
         '<div class="grid-2">' +
@@ -437,7 +444,10 @@
           '<div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div>' +
           '<button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button></div>';
       }
-      return '<div class="card"><div class="card-header"><h3><i class="fas fa-users"></i> Data Pengajuan</h3><button class="btn btn-secondary btn-sm" onclick="loadApplications()"><i class="fas fa-sync"></i> Refresh</button></div>' +
+      return '<div class="card"><div class="card-header"><h3><i class="fas fa-users"></i> Data Pengajuan</h3>' +
+        '<button class="btn btn-secondary btn-sm" onclick="loadApplications()"><i class="fas fa-sync"></i> Refresh</button> ' +
+        '<button class="btn btn-outline btn-sm" onclick="debugSheets()"><i class="fas fa-cog"></i> Debug Sheets</button>' +
+        '</div>' +
         '<div class="table-responsive"><table class="table"><thead><tr><th>No</th><th>Nomor</th><th>Nama</th><th>Jurusan</th><th>Jenis</th><th>Unit Tujuan</th><th>HP</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead>' +
         '<tbody id="applicationsTable"><tr><td colspan="10" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr></tbody></table></div></div>';
     }
@@ -563,6 +573,17 @@
       });
     }
 
+    function debugSheets() {
+      apiCall('debug', function(res) {
+        if (res && res.success && res.data) {
+          var info = JSON.stringify(res.data, null, 2);
+          alert('Debug Info:\n\n' + info.substring(0, 1000) + (info.length > 1000 ? '\n...(truncated)' : ''));
+        } else {
+          showToast('Gagal获取debug info', 'error');
+        }
+      });
+    }
+
     function viewApplication(id) {
       apiCallWithData('getApplicationDetail', {id: id}, function(res) {
         if (res && res.success && res.data) {
@@ -644,8 +665,24 @@
         body: textParams
       })
       .then(function(response) {
-        if (!response.ok) throw new Error('Network response was not ok: ' + response.status);
-        return response.json();
+        if (!response.ok) {
+          var err = new Error('Network response was not ok: ' + response.status + ' ' + response.statusText);
+          err.status = response.status;
+          err.statusText = response.statusText;
+          throw err;
+        }
+        var contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          return response.json();
+        } else {
+          return response.text().then(function(text) {
+            try {
+              return JSON.parse(text);
+            } catch(e) {
+            throw new Error('Invalid JSON response: ' + text.substring(0, 200));
+          }
+        });
+        }
       })
       .then(function(res) {
         btn.innerHTML = originalText;
@@ -658,15 +695,16 @@
             uploadAllFiles(res.data.id, allFiles, 0);
           }
         } else {
-          showToast(res ? res.message : 'Gagal mengirim', 'error');
+          var msg = (res && res.message) || 'Gagal mengirim';
+          showToast(msg, 'error');
           console.error('Submission error:', res);
         }
       })
       .catch(function(err) {
         btn.innerHTML = originalText;
         btn.disabled = false;
-        showToast('Error: ' + err.message, 'error');
-        console.error('Fetch error:', err);
+        console.error('Fetch error details:', err);
+        showToast('Error: ' + (err.message || 'Network error'), 'error');
       });
     }
 
@@ -693,22 +731,36 @@
       formData.append('application_id', appId);
       formData.append('file_field', fieldName);
       formData.append('file', file);
-      fetch(API_URL, {method: 'POST', body: formData})
-        .then(function(r) { return r.json(); })
-        .then(function(res) {
-          if (res && res.success) {
-            if (callback) callback(true);
-          } else {
-            console.error('Upload failed:', res);
-            showToast('Upload gagal: ' + (res.message || 'unknown error'), 'error');
+        fetch(API_URL, {method: 'POST', body: formData})
+          .then(function(r) {
+            var contentType = r.headers.get('content-type') || '';
+            if (!r.ok) {
+              return contentType.includes('application/json') 
+                ? r.json().then(function(errRes) {
+                    var err = new Error(errRes.message || 'Upload failed');
+                    err.details = errRes;
+                    throw err;
+                  })
+                : r.text().then(function(txt) {
+                    throw new Error('Upload failed: ' + txt.substring(0, 100));
+                  });
+            }
+            return contentType.includes('application/json') ? r.json() : r.text();
+          })
+          .then(function(res) {
+            if (res && res.success) {
+              if (callback) callback(true);
+            } else {
+              console.error('Upload failed:', res);
+              showToast('Upload gagal: ' + ((res && res.message) || 'unknown error'), 'error');
+              if (callback) callback(false);
+            }
+          })
+          .catch(function(err) {
+            console.error('Upload error:', err);
+            showToast('Upload error: ' + (err.message || 'Unknown error'), 'error');
             if (callback) callback(false);
-          }
-        })
-        .catch(function(err) {
-          console.error('Upload error:', err);
-          showToast('Upload error: ' + err.message, 'error');
-          if (callback) callback(false);
-        });
+          });
     }
 
 
