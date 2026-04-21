@@ -131,7 +131,7 @@
     // ========================================
     // CONFIG - GANTI DENGAN URL WEB APP ANDA
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbwyMOsfSRHoa8CFF1yp3fjWPOaqCWUSfzX7wJm9jIfR6ZJ6sA5tO58HkqRkd0yUOsxE/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbxAhu7Uaohc5KhQPPjt1xZvidTQSE3ZoO7DkqdFy3hVOiV_O_-xoNjAdx6WR6DfTZU/exec';
 
     var currentPage = 'dashboard';
     var currentUser = null;
@@ -186,7 +186,7 @@
     }
 
     // ========================================
-    // API CALL (JSONP)
+    // API CALL (JSONP) - Simple version without data
     // ========================================
     function apiCall(action, callback, errorCallback) {
       var cbName = 'jsonp_' + Date.now();
@@ -211,6 +211,34 @@
       document.head.appendChild(script);
     }
 
+    // JSONP with data payload
+    function apiCallWithData(action, data, callback, errorCallback) {
+      var cbName = 'jsonp_' + Date.now();
+      var url = API_URL + '?action=' + action;
+      
+      for (var key in data) {
+        if (data.hasOwnProperty(key) && data[key] !== null && data[key] !== undefined) {
+          url += '&' + encodeURIComponent(key) + '=' + encodeURIComponent(String(data[key]));
+        }
+      }
+      url += '&callback=' + cbName;
+      
+      window[cbName] = function(resp) {
+        if (callback) callback(resp);
+        try { delete window[cbName]; } catch(e) {}
+      };
+      
+      var script = document.createElement('script');
+      script.src = url;
+      script.onerror = function() {
+        showToast('Gagal koneksi', 'error');
+        if (errorCallback) errorCallback();
+        try { delete window[cbName]; } catch(e) {}
+      };
+      document.head.appendChild(script);
+    }
+
+    // POST using fetch (for file upload)
     function apiPost(action, params, callback, errorCallback) {
       var formData = new FormData();
       formData.append('action', action);
@@ -270,10 +298,10 @@
         '<select name="lama_domisili" class="form-control" required>' +
         '<option value="">Pilih...</option>' +
         '<option value="< 1 tahun">< 1 tahun</option>' +
-        '<option value="1-3 tahun">1-3 tahun</option>' +
-        '<option value=">3-5 tahun">>3-5 tahun</option>' +
+        '<option value="1-5 tahun">1-5 tahun</option>' +
         '<option value="5-10 tahun">5-10 tahun</option>' +
         '<option value="> 10 tahun">> 10 tahun</option>' +
+        '<option value="> 20 tahun">> 20 tahun</option>' +
         '</select></div>' +
         '</div>' +
 
@@ -288,9 +316,9 @@
         '<div class="form-group"><label class="form-label">Kondisi Pemohon <span class="required">*</span></label>' +
         '<select name="kondisi_pemohon" class="form-control" required>' +
         '<option value="">Pilih...</option>' +
-        '<option value="proses_seleksi">Proses Seleksi</option>' +
-        '<option value="sedang_studi">On Going/ Sedang Studi</option>' +
-        '<option value="sedang_pemberkasan">Sedang Pemberkasan Administratif</option>' +
+        '<option value="lulusan_baru">Lulusan Baru</option>' +
+        '<option value="sedang_studi">Sedang Studi</option>' +
+        '<option value="pekerja">Pekerja</option>' +
         '</select></div>' +
         '</div>' +
 
@@ -300,74 +328,22 @@
         '<div class="form-group"><label class="form-label">Jurusan yang dituju <span class="required">*</span></label>' +
         '<select name="jurusan_tujuan" class="form-control" required>' +
         '<option value="">Pilih Jurusan...</option>' +
-'<option value="spesialis_jantung_dan_pembuluh_darah">Spesialis Jantung dan Pembuluh Darah</option>' +
-'<option value="spesialis_jantung_intervensi">Spesialis Jantung - Intervensi</option>' +
-'<option value="spesialis_bedah_saraf_neurovaskular">Spesialis Bedah Saraf - Neurovaskular</option>' +
-'<option value="spesialis_obgyn_konsultan_onkologi">Spesialis Obstetri Ginekologi Konsultan Onkologi</option>' +
-'<option value="spesialis_penyakit_dalam_ginjal_hipertensi">Spesialis Penyakit Dalam Konsultan Ginjal Hipertensi</option>' +
-'<option value="spesialis_anak_hematologi_onkologi">Spesialis Anak Konsultan Hematologi Onkologi Medik</option>' +
-'<option value="spesialis_patologi_klinik">Spesialis Patologi Klinik</option>' +
-'<option value="spesialis_penyakit_dalam">Spesialis Penyakit Dalam</option>' +
-'<option value="spesialis_anak">Spesialis Anak</option>' +
-'<option value="spesialis_mata">Spesialis Mata</option>' +
-'<option value="spesialis_patologi_klinik_onkologi">Spesialis Patologi Klinik Konsultan Onkologi</option>' +
-'<option value="spesialis_obstetri_ginekologi">Spesialis Obstetri dan Ginekologi</option>' +
-'<option value="spesialis_onkologi_radiasi">Spesialis Onkologi Radiasi</option>' +
-'<option value="spesialis_emergency_medicine">Spesialis Emergensi Medicine</option>' +
-'<option value="spesialis_orthopedi_traumatologi">Spesialis Orthopedi dan Traumatologi</option>' +
-'<option value="spesialis_saraf_neurointervensi">Spesialis Saraf - Neurointervensi</option>' +
-'<option value="spesialis_bedah">Spesialis Bedah</option>' +
-'<option value="ners">NERS</option>' +
-'<option value="profesi_bidan">Profesi Bdn</option>' +
-'<option value="gizi">Gizi</option>' +
-'<option value="terapi_okupasi">Terapi Okupasi</option>' +
-'<option value="spesialis_bedah_toraks_kardiovaskular">Spesialis Bedah Toraks Kardiovaskular</option>' +
-'<option value="spesialis_keperawatan_gawat_darurat">Spesialis Keperawatan Gawat Darurat</option>' +
-'<option value="fisikawan_medis">Fisikawan Medis</option>' +
-'<option value="spesialis_urologi">Spesialis Urologi</option>' +
-'<option value="magister_farmasi_klinik">Magister Farmasi Klinik</option>' +
-'<option value="profesi_apoteker">Profesi Apoteker</option>' +
-'<option value="spesialis_radiologi">Spesialis Radiologi</option>' +
-'<option value="spesialis_bedah_anak">Spesialis Bedah Anak</option>' +
-'<option value="spesialis_mikrobiologi_klinik">Spesialis Mikrobiologi Klinik</option>' +
-'<option value="spesialis_neurologi">Spesialis Neurologi</option>' +
-'<option value="spesialis_orthopaedi_traumatologi">Spesialis Orthopaedi dan Traumatologi</option>' +
-'<option value="spesialis_keperawatan_medikal_bedah">Spesialis Keperawatan Medikal Bedah</option>' +
-'<option value="spesialis_keperawatan_anak">Spesialis Keperawatan Anak</option>' +
-'<option value="spesialis_rehabilitasi_medik">Spesialis Kedokteran Fisik dan Rehabilitasi</option>' +
-'<option value="spesialis_pulmonologi_respirasi">Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)</option>' +
-'<option value="spesialis_emergency_medic">Spesialis Emergency Medic (Kedaruratan Medik)</option>' +
-'<option value="spesialis_anestesiologi_terapi_intensif">Spesialis Anestesiologi dan Terapi Intensif</option>' +
-'<option value="manajemen_kebidanan">Manajemen dan kepemimpinan dalam Kebidanan</option>' +
-'<option value="spesialis_obgyn_alt">Spesialis Obstetri & Ginekologi</option>' +
-'<option value="spesialis_anestesi_alt">Spesialis Anestesiologi & Terapi Intensif</option>' +
-'<option value="spesialis_jantung_alt">Spesialis Jantung & Pembuluh Darah</option>' +
-'<option value="spesialis_saraf">Spesialis Saraf</option>' +
-'<option value="spesialis_kedokteran_jiwa">Spesialis Kedokteran Jiwa</option>' +
-'<option value="spesialis_ilmu_kesehatan_anak">Spesialis Ilmu Kesehatan Anak</option>' +
-'<option value="kklp_sp1">Kedokteran Keluarga Layanan Primer (KKLP) Sp1</option>' +
-'<option value="psikologi_klinis">Psikologi Klinis</option>' +
-'<option value="fisioterapis">Fisioterafis</option>' +
-'<option value="dokter_umum">Dokter Umum</option>' +
-'<option value="dokter_gigi">Dokter Gigi</option>' +
-'<option value="s1_farmasi_apoteker">S1 Farmasi + Apoteker</option>' +
-'<option value="nutrisionis">Nutrisionis</option>' +
-'<option value="atlm">Ahli Teknologi Laboratorium Medik</option>' +
-'<option value="sanitarian">Sanitarian</option>' +
+        '<option value="kedokteran">Kedokteran</option>' +
+        '<option value="keperawatan">Keperawatan</option>' +
+        '<option value="kebidanan">Kebidanan</option>' +
+        '<option value="farmasi">Farmasi</option>' +
+        '<option value="kedokteran_gigi">Kedokteran Gigi</option>' +
+        '<option value="kesehatan_masyarakat">Kesehatan Masyarakat</option>' +
+        '<option value="analis_kesehatan">Analis Kesehatan</option>' +
         '</select></div>' +
         '<div class="form-group"><label class="form-label">Jenis Pendidikan <span class="required">*</span></label>' +
         '<select name="jenis_pendidikan" class="form-control" required>' +
         '<option value="">Pilih...</option>' +
-        '<option value="">Pilih Jenjang...</option>' +
-'<option value="sp1">Sp1</option>' +
-'<option value="sp2">Sp2</option>' +
-'<option value="s1_profesi">S1 + Profesi</option>' +
-'<option value="d3">D3</option>' +
-'<option value="d4">D4</option>' +
-'<option value="kepsp">KepSp</option>' +
-'<option value="s1">S1</option>' +
-'<option value="s2">S2</option>' +
-'<option value="d4_profesi">D4 + Profesi</option>' +
+        '<option value="s1">S1 (Sarjana)</option>' +
+        '<option value="s2">S2 (Magister)</option>' +
+        '<option value="s3">S3 (Doktor)</option>' +
+        '<option value="d3">D3</option>' +
+        '<option value="diploma">Diploma</option>' +
         '</select></div>' +
         '</div>' +
 
@@ -543,11 +519,11 @@
       var email = document.getElementById('statusEmail').value;
       if (!phone && !email) return showToast('Masukkan nomor HP atau email', 'error');
       
-      var action = 'checkStatus';
-      if (phone) action += '&phone=' + encodeURIComponent(phone);
-      if (email) action += '&email=' + encodeURIComponent(email);
+      var data = {};
+      if (phone) data.phone = phone;
+      if (email) data.email = email;
       
-      apiCall(action, function(res) {
+      apiCallWithData('checkStatus', data, function(res) {
         var el = document.getElementById('statusResult');
         if (res && res.success && res.data && res.data.length > 0) {
           el.innerHTML = res.data.map(function(d) {
@@ -558,6 +534,8 @@
         } else {
           el.innerHTML = '<div class="alert alert-error mt-2">Data tidak ditemukan</div>';
         }
+      }, function() {
+        showToast('Gagal cek status', 'error');
       });
     }
 
@@ -565,7 +543,7 @@
       var u = document.getElementById('loginUser').value;
       var p = document.getElementById('loginPass').value;
       
-      apiCall('login&username=' + encodeURIComponent(u) + '&password=' + encodeURIComponent(p), function(res) {
+      apiCallWithData('login', {username: u, password: p}, function(res) {
         if (res && res.success) {
           currentUser = res.data.user;
           isAdminLoggedIn = true;
@@ -574,6 +552,8 @@
         } else {
           showToast(res ? res.message : 'Login gagal', 'error');
         }
+      }, function() {
+        showToast('Gagal koneksi', 'error');
       });
     }
 
@@ -602,7 +582,7 @@
     }
 
     function viewApplication(id) {
-      apiCall('getApplicationDetail&id=' + id, function(res) {
+      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
         if (res && res.success && res.data) {
           var app = res.data;
           var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
@@ -629,14 +609,18 @@
           
           showModal('Detail Pengajuan', html);
         }
+      }, function() {
+        showToast('Gagal memuat detail', 'error');
       });
     }
 
     function updateStatus(id, status) {
       var notes = document.getElementById('adminNotes').value;
-      var action = 'updateApplicationStatus&id=' + id + '&status=' + status + '&admin_notes=' + encodeURIComponent(notes);
-      
-      apiCall(action, function(res) {
+      apiCallWithData('updateApplicationStatus', {
+        id: id,
+        status: status,
+        admin_notes: notes
+      }, function(res) {
         if (res && res.success) {
           showToast('Status berhasil diperbarui');
           closeModal();
@@ -648,8 +632,12 @@
     }
 
     function approveApplication(id) {
-      var notes = prompt('Catatan (opsional):');
-      apiCall('updateApplicationStatus&id=' + id + '&status=approved&admin_notes=' + encodeURIComponent(notes || ''), function(res) {
+      var notes = prompt('Catatan (opsional):') || '';
+      apiCallWithData('updateApplicationStatus', {
+        id: id,
+        status: 'approved',
+        admin_notes: notes
+      }, function(res) {
         if (res && res.success) {
           showToast('Pengajuan disetujui');
           loadApplications();
@@ -662,7 +650,11 @@
     function rejectApplication(id) {
       var notes = prompt('Alasan penolakan:');
       if (notes === null) return;
-      apiCall('updateApplicationStatus&id=' + id + '&status=rejected&admin_notes=' + encodeURIComponent(notes || ''), function(res) {
+      apiCallWithData('updateApplicationStatus', {
+        id: id,
+        status: 'rejected',
+        admin_notes: notes || ''
+      }, function(res) {
         if (res && res.success) {
           showToast('Pengajuan ditolak');
           loadApplications();
@@ -674,7 +666,7 @@
 
     function deleteApplication(id) {
       if (!confirm('Yakin hapus data ini?')) return;
-      apiCall('deleteApplication&id=' + id, function(res) {
+      apiCallWithData('deleteApplication', {id: id}, function(res) {
         if (res && res.success) {
           showToast('Data dihapus');
           loadApplications();
@@ -889,7 +881,7 @@
       btn.innerHTML = '<span class="spinner"></span> Mengirim...';
       btn.disabled = true;
 
-      // Validasi file ukuran
+      // Validate file sizes
       var files = form.querySelectorAll('input[type="file"]');
       for (var i = 0; i < files.length; i++) {
         var file = files[i].files[0];
@@ -901,19 +893,37 @@
         }
       }
 
-      var params = {};
-      formData.forEach(function(v, k) { params[k] = v; });
+      // Collect text fields only (exclude files)
+      var textParams = new FormData();
+      for (var [key, value] of formData.entries()) {
+        if (!(value instanceof File)) {
+          textParams.append(key, value);
+        }
+      }
 
-      // Collect all files
+      // Collect file info for later upload
       var allFiles = [];
       for (var i = 0; i < files.length; i++) {
         if (files[i].files[0]) {
-          allFiles.push({field: files[i].name, file: files[i].files[0]});
+          allFiles.push({
+            field: files[i].name,
+            inputName: files[i].getAttribute('name'),
+            file: files[i].files[0]
+          });
         }
       }
-      params._files_count = allFiles.length;
 
-      apiCall('submitApplication', function(res) {
+      // Submit application via POST (CORS)
+      fetch(API_URL, {
+        method: 'POST',
+        body: textParams,
+        mode: 'cors'
+      })
+      .then(function(response) {
+        if (!response.ok) throw new Error('Network response was not ok: ' + response.status);
+        return response.json();
+      })
+      .then(function(res) {
         btn.innerHTML = originalText;
         btn.disabled = false;
 
@@ -922,23 +932,343 @@
           form.reset();
 
           // Upload all files sequentially
-          uploadAllFiles(res.data.id, allFiles, 0);
+          if (allFiles.length > 0) {
+            showToast('Mengunggah ' + allFiles.length + ' file...');
+            uploadAllFiles(res.data.id, allFiles, 0);
+          }
         } else {
           showToast(res ? res.message : 'Gagal mengirim', 'error');
+          console.error('Submission error:', res);
+        }
+      })
+      .catch(function(err) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        showToast('Error: ' + err.message, 'error');
+        console.error('Fetch error:', err);
+      });
+    }
+      // Template surat pernyataan
+      else if (type === 'pernyataan') {
+        var template = `SURAT PERNYATAAN\n\nSaya yang bertanda tangan di bawah ini:\nNama: [Nama Lengkap]\nTempat/Tgl Lahir: [Tempat]/[Tanggal]\nNIM/NIP: [NIM/NIP]\nAlamat: [Alamat]\n\nMenyatakan dengan sesungguhnya bahwa:\n1. Saya bersedia memberikan pilihan lokasi praktik/pengembangan di wilayah Kabupaten Kutai Kartanegara setelah lulus.\n2. Saya akan mengabdi minimal 5 (lima) tahun di instansi kesehatan yang ditetapkan oleh Dinas Kesehatan Kukar.\n3. Saya memahami bahwa apabila tidak memenuhi komitmen, maka saya wajib mengembalikan dana beasiswa yang telah diterima.\n\nDemikian surat pernyataan ini saya buat dengan sebenar-benarnya untuk digunakan sebagaimana mestinya.\n\n\n[Kota], [Tanggal]\nPernyataan,\n\n_________________________\n[Nama Lengkap]`;
+        var blob = new Blob([template], { type: 'text/plain' });
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'template_surat_pernyataan.txt';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+    }
+      // Template surat pernyataan
+      else if (type === 'pernyataan') {
+        var template = `SURAT PERNYATAAN\n\nSaya yang bertanda tangan di bawah ini:\nNama: [Nama Lengkap]\nTempat/Tgl Lahir: [Tempat]/[Tanggal]\nNIM/NIP: [NIM/NIP]\nAlamat: [Alamat]\n\nMenyatakan dengan sesungguhnya bahwa:\n1. Saya bersedia memberikan pilihan lokasi praktik/pengembangan di wilayah Kabupaten Kutai Kartanegara setelah lulus.\n2. Saya akan mengabdi minimal 5 (lima) tahun di instansi kesehatan yang ditetapkan oleh Dinas Kesehatan Kukar.\n3. Saya memahami bahwa apabila tidak memenuhi komitmen, maka saya wajib mengembalikan dana beasiswa yang telah diterima.\n\nDemikian surat pernyataan ini saya buat dengan sebenar-benarnya untuk digunakan sebagaimana mestinya.\n\n\n[Kota], [Tanggal]\nPernyataan,\n\n_________________________\n[Nama Lengkap]`;
+        var blob = new Blob([template], { type: 'text/plain' });
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'template_surat_pernyataan.txt';
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+    }
+
+    // ========================================
+    // FORM SUBMISSION WITH ALL FILES
+    // ========================================
+    function submitApplication(e) {
+      e.preventDefault();
+
+      var form = document.getElementById('applicationForm');
+      var formData = new FormData(form);
+      var btn = document.getElementById('submitBtn');
+      var originalText = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner"></span> Mengirim...';
+      btn.disabled = true;
+
+      // Validate file sizes
+      var files = form.querySelectorAll('input[type="file"]');
+      for (var i = 0; i < files.length; i++) {
+        var file = files[i].files[0];
+        if (file && file.size > 2 * 1024 * 1024) {
+          showToast('File ' + file.name + ' melebihi 2MB', 'error');
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          return;
+        }
+      }
+
+      // Collect text fields only (exclude files)
+      var textParams = new FormData();
+      for (var [key, value] of formData.entries()) {
+        if (!(value instanceof File)) {
+          textParams.append(key, value);
+        }
+      }
+
+      // Collect file info for later upload
+      var allFiles = [];
+      for (var i = 0; i < files.length; i++) {
+        if (files[i].files[0]) {
+          allFiles.push({
+            field: files[i].name,
+            inputName: files[i].getAttribute('name'),
+            file: files[i].files[0]
+          });
+        }
+      }
+
+      // Submit application via POST
+      fetch(API_URL, {
+        method: 'POST',
+        body: textParams,
+        mode: 'cors'
+      })
+      .then(function(response) {
+        if (!response.ok) throw new Error('Network response was not ok: ' + response.status);
+        return response.json();
+      })
+      .then(function(res) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        if (res && res.success) {
+          showToast('Pengajuan berhasil! No: ' + res.data.application_number);
+          form.reset();
+
+          // Upload all files sequentially
+          if (allFiles.length > 0) {
+            showToast('Mengunggah ' + allFiles.length + ' file...');
+            uploadAllFiles(res.data.id, allFiles, 0);
+          }
+        } else {
+          showToast(res ? res.message : 'Gagal mengirim', 'error');
+          console.error('Submission error:', res);
+        }
+      })
+      .catch(function(err) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        showToast('Error: ' + err.message, 'error');
+        console.error('Fetch error:', err);
+      });
+    }
+      }
+
+      // Collect form data
+      var params = {};
+      formData.forEach(function(v, k) { params[k] = v; });
+
+      // Collect file info
+      var allFiles = [];
+      for (var i = 0; i < files.length; i++) {
+        if (files[i].files[0]) {
+          allFiles.push({
+            field: files[i].name,
+            inputName: files[i].getAttribute('name'),
+            file: files[i].files[0]
+          });
+        }
+      }
+      params._files_count = allFiles.length;
+
+      // Submit via JSONP (GET) - works with Google Apps Script without CORS
+      submitViaJSONP('submitApplication', params, function(res) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        if (res && res.success) {
+          showToast('Pengajuan berhasil! No: ' + res.data.application_number);
+          form.reset();
+
+          // Upload all files sequentially
+          if (allFiles.length > 0) {
+            showToast('Mengunggah ' + allFiles.length + ' file...');
+            uploadAllFiles(res.data.id, allFiles, 0);
+          }
+        } else {
+          showToast(res ? res.message : 'Gagal mengirim', 'error');
+          console.error('Submission error:', res);
         }
       }, function() {
         btn.innerHTML = originalText;
         btn.disabled = false;
+        showToast('Koneksi gagal', 'error');
+      });
+    }
+
+    // Generic JSONP request with data
+    function submitViaJSONP(action, data, callback, errorCallback) {
+      var cbName = 'jsonp_' + Date.now();
+      var url = API_URL + '?action=' + action;
+      
+      // Add all data as query parameters (encode properly)
+      for (var key in data) {
+        if (data.hasOwnProperty(key) && data[key] !== null && data[key] !== undefined) {
+          url += '&' + encodeURIComponent(key) + '=' + encodeURIComponent(String(data[key]));
+        }
+      }
+      url += '&callback=' + cbName;
+      
+      window[cbName] = function(resp) {
+        callback(resp);
+        try { delete window[cbName]; } catch(e) {}
+      };
+      
+      var script = document.createElement('script');
+      script.src = url;
+      script.onerror = function() {
+        if (errorCallback) errorCallback();
+        try { delete window[cbName]; } catch(e) {}
+      };
+      document.head.appendChild(script);
+    }
+      }
+
+      // Collect form data as plain object for API call
+      var params = {};
+      formData.forEach(function(v, k) { params[k] = v; });
+
+      // Mark files for upload after submission
+      var allFiles = [];
+      for (var i = 0; i < files.length; i++) {
+        if (files[i].files[0]) {
+          allFiles.push({
+            field: files[i].name, 
+            file: files[i].files[0],
+            inputName: files[i].getAttribute('name')
+          });
+        }
+      }
+      params._files_count = allFiles.length;
+
+      // Submit application via POST
+      var postData = new FormData();
+      postData.append('action', 'submitApplication');
+      for (var key in params) {
+        postData.append(key, params[key]);
+      }
+
+      fetch(API_URL, {
+        method: 'POST',
+        body: postData,
+        mode: 'no-cors' // For JSONP-like behavior if CORS not configured
+      })
+      .then(function(response) {
+        // Since no-cors returns opaque response, we need alternative approach
+        // Use JSONP GET for now (works with GAS)
+        return handleJSONPResponse('submitApplication', params);
+      })
+      .then(function(res) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        if (res && res.success) {
+          showToast('Pengajuan berhasil! No: ' + res.data.application_number);
+          form.reset();
+
+          // Upload all files sequentially
+          if (allFiles.length > 0) {
+            showToast('Mengunggah ' + allFiles.length + ' file...');
+            uploadAllFiles(res.data.id, allFiles, 0);
+          }
+        } else {
+          showToast(res ? res.message : 'Gagal mengirim', 'error');
+          console.error('Submission error:', res);
+        }
+      })
+      .catch(function(err) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        showToast('Error: ' + err.message, 'error');
+        console.error('Fetch error:', err);
+      });
+    }
+
+    // Helper: Make JSONP request with data
+    function handleJSONPResponse(action, data) {
+      return new Promise(function(resolve, reject) {
+        var cbName = 'jsonp_' + Date.now();
+        var url = API_URL + '?action=' + action;
+        
+        for (var key in data) {
+          if (data.hasOwnProperty(key) && data[key] !== null && data[key] !== undefined) {
+            url += '&' + encodeURIComponent(key) + '=' + encodeURIComponent(data[key]);
+          }
+        }
+        url += '&callback=' + cbName;
+        
+        window[cbName] = function(resp) {
+          resolve(resp);
+          try { delete window[cbName]; } catch(e) {}
+        };
+        
+        var script = document.createElement('script');
+        script.src = url;
+        script.onerror = function() {
+          reject(new Error('Network error'));
+          try { delete window[cbName]; } catch(e) {}
+        };
+        document.head.appendChild(script);
+      });
+    }
+      }
+
+      // Collect form data as plain object
+      var params = {};
+      formData.forEach(function(v, k) { params[k] = v; });
+
+      // Mark files for upload after submission
+      var allFiles = [];
+      for (var i = 0; i < files.length; i++) {
+        if (files[i].files[0]) {
+          allFiles.push({
+            field: files[i].name, 
+            file: files[i].files[0],
+            inputName: files[i].getAttribute('name')
+          });
+        }
+      }
+      params._files_count = allFiles.length;
+
+      // Submit application via GET (JSONP) with all form data
+      apiCallWithData('submitApplication', params, function(res) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        if (res && res.success) {
+          showToast('Pengajuan berhasil! No: ' + res.data.application_number);
+          form.reset();
+
+          // Upload all files sequentially
+          if (allFiles.length > 0) {
+            showToast('Mengunggah ' + allFiles.length + ' file...');
+            uploadAllFiles(res.data.id, allFiles, 0);
+          }
+        } else {
+          showToast(res ? res.message : 'Gagal mengirim', 'error');
+          console.error('Submission error:', res);
+        }
+      }, function() {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        showToast('Koneksi gagal', 'error');
       });
     }
 
     function uploadAllFiles(appId, files, index) {
-      if (index >= files.length) return;
+      if (index >= files.length) {
+        showToast('Semua file terkirim!');
+        loadApplications(); // Refresh admin list if visible
+        return;
+      }
 
       var item = files[index];
-      uploadFile(appId, item.field, item.file, function(success) {
+      uploadFile(appId, item.inputName, item.file, function(success) {
         if (success) {
           showToast('File terkirim: ' + item.file.name);
+        } else {
+          showToast('Gagal upload: ' + item.file.name, 'error');
         }
         uploadAllFiles(appId, files, index + 1);
       });
@@ -956,16 +1286,27 @@
           file_data: base64
         };
 
-        apiPost('uploadFile', params, function(res) {
-          if (res && res.success) {
-            if (callback) callback(true);
-          } else {
-            showToast('Gagal upload: ' + file.name, 'error');
+        // Use POST for file upload (via fetch)
+        var formData = new FormData();
+        formData.append('action', 'uploadFile');
+        for (var key in params) {
+          formData.append(key, params[key]);
+        }
+
+        fetch(API_URL, {method: 'POST', body: formData})
+          .then(function(r) { return r.json(); })
+          .then(function(res) {
+            if (res && res.success) {
+              if (callback) callback(true);
+            } else {
+              showToast('Upload gagal: ' + (res.message || 'unknown error'), 'error');
+              if (callback) callback(false);
+            }
+          })
+          .catch(function(err) {
+            showToast('Upload error: ' + err.message, 'error');
             if (callback) callback(false);
-          }
-        }, function() {
-          if (callback) callback(false);
-        });
+          });
       };
       reader.readAsDataURL(file);
     }
