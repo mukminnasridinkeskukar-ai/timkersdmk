@@ -60,6 +60,8 @@
     select.form-control { background: white; cursor: pointer; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    @media (max-width: 768px) { .filters-grid { grid-template-columns: 1fr; } }
     .full-width { grid-column: 1 / -1; }
     .table-responsive { overflow-x: auto; }
     .table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
@@ -150,7 +152,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbx3FLczCEBZSztM-iDDLUcJVpywp02dYOk5syqoNpsgO-csvRVCHEHEGDyR0LDzoQQ5/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
+    var API_URL = 'https://script.google.com/macros/s/AKfycbza-ylZryUt6v5YwqVDaatfPMFFhLnjYMSfHIhUA7fm-3speuZJOCdE28iY_9UA6EXv/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = false;
@@ -421,8 +423,22 @@
     function renderRoadmap() {
       var adminControls = isAdminLoggedIn ? '<button class="btn btn-primary btn-sm" onclick="showRoadmapModal()"><i class="fas fa-plus"></i> Tambah</button>' : '';
       return '<div class="card"><div class="card-header"><h3><i class="fas fa-map-marked-alt"></i> Daftar Kebutuhan Tenaga Kesehatan</h3>' + adminControls + '</div>' +
+        '<div id="roadmapFilters" class="filters-section card p-3 mb-3" style="display:none;">' +
+          '<div class="filters-grid">' +
+            '<div class="form-group"><label class="form-label text-sm">Jurusan</label><select id="filterJurusan" class="form-control"><option value="">Semua Jurusan</option></select></div>' +
+            '<div class="form-group"><label class="form-label text-sm">Jenis Pendidikan</label><select id="filterJenis" class="form-control"><option value="">Semua Jenis</option></select></div>' +
+            '<div class="form-group"><label class="form-label text-sm">Kampus</label><select id="filterKampus" class="form-control"><option value="">Semua Kampus</option></select></div>' +
+            '<div class="form-group"><label class="form-label text-sm">Tahun</label><select id="filterTahun" class="form-control"><option value="">Semua Tahun</option></select></div>' +
+            '<div class="form-group"><label class="form-label text-sm">Tujuan</label><select id="filterTujuan" class="form-control"><option value="">Semua Tujuan</option></select></div>' +
+            '<div class="form-group"><label class="form-label text-sm">Cari</label><input id="filterSearch" class="form-control" placeholder="Ketik untuk cari..."></div>' +
+          '</div>' +
+          '<div class="flex gap-2 justify-between mt-2">' +
+            '<button class="btn btn-outline btn-sm" onclick="clearFilters()"><i class="fas fa-times"></i> Clear Filter</button>' +
+            '<span id="filterCount" class="text-muted text-sm"></span>' +
+          '</div>' +
+        '</div>' +
         '<div class="table-responsive"><table class="table"><thead><tr><th>No</th><th>Jurusan</th><th>Jenis Pendidikan</th><th>Kampus</th><th>Status</th><th>Tahun</th><th>Unit Tujuan</th>' + (isAdminLoggedIn ? '<th>Aksi</th>' : '') + '</tr></thead>' +
-        '<tbody id="roadmapTable"><tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr></tbody></table></div></div>';
+        '<tbody id="roadmapTable"><tr><td colspan="' + (isAdminLoggedIn ? 8 : 7) + '" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr></tbody></table></div></div>';
     }
 
     function renderStatus() {
@@ -459,6 +475,21 @@
       if (page === 'dashboard') loadDashboard();
       if (page === 'roadmap') loadRoadmap();
       if (page === 'admin' && isAdminLoggedIn) loadApplications();
+      
+      // Setup roadmap filter listeners
+      if (page === 'roadmap') {
+        ['filterJurusan', 'filterJenis', 'filterKampus', 'filterTahun', 'filterTujuan'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.addEventListener('change', applyFilters);
+        });
+        var searchEl = document.getElementById('filterSearch');
+        if (searchEl) {
+          searchEl.addEventListener('input', function() {
+            clearTimeout(window.roadmapTimeout);
+            window.roadmapTimeout = setTimeout(applyFilters, 300);
+          });
+        }
+      }
     }
 
     function loadDashboard() {
@@ -491,24 +522,120 @@
       });
     }
 
+    window.roadmapData = [];
+    window.roadmapTimeout = null;
+
     function loadRoadmap() {
       apiCall('getRoadmap', function(res) {
         var tbody = document.getElementById('roadmapTable');
-        if (!tbody) return;
-        if (res && res.success && res.data && res.data.length > 0) {
-          tbody.innerHTML = res.data.map(function(item, i) {
-            var badgeClass = item.status_calon === 'tersedia' ? 'badge-approved' : 'badge-pending';
-            var actions = isAdminLoggedIn ? '<button class="btn btn-warning btn-sm" onclick="editRoadmap(' + item.id + ')"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteRoadmap(' + item.id + ')"><i class="fas fa-trash"></i></button>' : '';
-            return '<tr><td>' + (i+1) + '</td><td><strong>' + escapeHtml(item.posisi) + '</strong></td>' +
-              '<td>' + escapeHtml(item.jenis_pendidikan) + '</td><td>' + escapeHtml(item.kampus) + '</td>' +
-              '<td><span class="badge ' + badgeClass + '">' + escapeHtml(item.status_calon) + '</span></td>' +
-              '<td>' + escapeHtml(item.tahun_mulai) + '</td><td>' + escapeHtml(item.unit_tujuan) + '</td>' +
-              (isAdminLoggedIn ? '<td>' + actions + '</td>' : '') + '</tr>';
-          }).join('');
+        var filtersDiv = document.getElementById('roadmapFilters');
+        if (!tbody || !filtersDiv) return;
+        
+        if (res && res.success && res.data) {
+          window.roadmapData = res.data;
+          populateFilters();
+          filtersDiv.style.display = 'block';
+          applyFilters();
         } else {
           tbody.innerHTML = '<tr><td colspan="' + (isAdminLoggedIn ? 8 : 7) + '" class="text-center">Belum ada data roadmap</td></tr>';
+          filtersDiv.style.display = 'none';
         }
       });
+    }
+
+    function populateFilters() {
+      var data = window.roadmapData;
+      
+      // Get unique values
+      var jurusan = [...new Set(data.map(d => d.posisi).filter(Boolean))].sort();
+      var jenis = [...new Set(data.map(d => d.jenis_pendidikan).filter(Boolean))].sort();
+      var kampus = [...new Set(data.map(d => d.kampus).filter(Boolean))].sort();
+      var tahun = [...new Set(data.map(d => d.tahun_mulai).filter(Boolean))].sort();
+      var tujuan = [...new Set(data.map(d => d.unit_tujuan).filter(Boolean))].sort();
+      
+      // Populate dropdowns
+      ['Jurusan', 'Jenis', 'Kampus', 'Tahun', 'Tujuan'].forEach(function(type, idx) {
+        var id = 'filter' + type;
+        var select = document.getElementById(id);
+        if (select) {
+          var opts = Array.from(select.options);
+          opts[0].textContent = 'Semua ' + type.toLowerCase();
+          opts[0].value = '';
+          
+          var uniqueVals = jurusan;
+          switch(type) {
+            case 'Jenis': uniqueVals = jenis; break;
+            case 'Kampus': uniqueVals = kampus; break;
+            case 'Tahun': uniqueVals = tahun; break;
+            case 'Tujuan': uniqueVals = tujuan; break;
+          }
+          
+          uniqueVals.forEach(function(val) {
+            if (!opts.find(o => o.value === val)) {
+              var opt = document.createElement('option');
+              opt.value = val;
+              opt.textContent = val;
+              select.appendChild(opt);
+            }
+          });
+        }
+      });
+    }
+
+    function applyFilters() {
+      var data = window.roadmapData;
+      var jurusan = document.getElementById('filterJurusan')?.value || '';
+      var jenis = document.getElementById('filterJenis')?.value || '';
+      var kampus = document.getElementById('filterKampus')?.value || '';
+      var tahun = document.getElementById('filterTahun')?.value || '';
+      var tujuan = document.getElementById('filterTujuan')?.value || '';
+      var search = (document.getElementById('filterSearch')?.value || '').toLowerCase();
+      
+      var filtered = data.filter(function(item) {
+        return (!jurusan || item.posisi === jurusan) &&
+               (!jenis || item.jenis_pendidikan === jenis) &&
+               (!kampus || item.kampus === kampus) &&
+               (!tahun || item.tahun_mulai === tahun) &&
+               (!tujuan || item.unit_tujuan === tujuan) &&
+               (!search || 
+                 item.posisi.toLowerCase().includes(search) ||
+                 item.jenis_pendidikan.toLowerCase().includes(search) ||
+                 item.kampus.toLowerCase().includes(search) ||
+                 item.unit_tujuan.toLowerCase().includes(search) ||
+                 item.tahun_mulai.toLowerCase().includes(search));
+      });
+      
+      renderRoadmapTable(filtered);
+      document.getElementById('filterCount').textContent = filtered.length + ' dari ' + data.length + ' hasil';
+    }
+
+    function renderRoadmapTable(data) {
+      var tbody = document.getElementById('roadmapTable');
+      if (!tbody) return;
+      
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="' + (isAdminLoggedIn ? 8 : 7) + '" class="text-center text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = data.map(function(item, i) {
+        var badgeClass = item.status_calon === 'tersedia' ? 'badge-approved' : 'badge-pending';
+        var actions = isAdminLoggedIn ? '<button class="btn btn-warning btn-sm" onclick="editRoadmap(' + item.id + ')"><i class="fas fa-edit"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteRoadmap(' + item.id + ')"><i class="fas fa-trash"></i></button>' : '';
+        return '<tr><td>' + (i+1) + '</td><td><strong>' + escapeHtml(item.posisi) + '</strong></td>' +
+          '<td>' + escapeHtml(item.jenis_pendidikan) + '</td><td>' + escapeHtml(item.kampus) + '</td>' +
+          '<td><span class="badge ' + badgeClass + '">' + escapeHtml(item.status_calon) + '</span></td>' +
+          '<td>' + escapeHtml(item.tahun_mulai) + '</td><td>' + escapeHtml(item.unit_tujuan) + '</td>' +
+          (isAdminLoggedIn ? '<td>' + actions + '</td>' : '') + '</tr>';
+      }).join('');
+    }
+
+    function clearFilters() {
+      ['filterJurusan', 'filterJenis', 'filterKampus', 'filterTahun', 'filterTujuan'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      document.getElementById('filterSearch').value = '';
+      applyFilters();
     }
 
     function checkStatus() {
