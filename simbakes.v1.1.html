@@ -152,7 +152,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbza-ylZryUt6v5YwqVDaatfPMFFhLnjYMSfHIhUA7fm-3speuZJOCdE28iY_9UA6EXv/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
+    var API_URL = 'https://script.google.com/macros/s/AKfycbx8cVzKYLcXZQt35fqR60efHi8ZEEnSKxgq2s7nwPgOVJMg_5kDT_x4Fnnx0vLQb2Xa/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = false;
@@ -678,14 +678,13 @@
       });
     }
 
-    function loadApplications() {
-      apiCall('getApplications', function(res) {
+
         var tbody = document.getElementById('applicationsTable');
         if (!tbody) return;
         if (res && res.success && res.data && res.data.applications) {
           var apps = res.data.applications;
-          if (apps.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center">Belum ada pengajuan</td></tr>';
+if (apps.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center">Belum ada pengajuan</td></tr>';
             return;
           }
           tbody.innerHTML = apps.reverse().map(function(app, i) {
@@ -695,7 +694,9 @@
             return '<tr><td>' + (i+1) + '</td><td><code>' + escapeHtml(app.application_number) + '</code></td><td>' + escapeHtml(app.full_name) + '</td><td>' + escapeHtml(app.jurusan_tujuan || '-') + '</td><td>' + escapeHtml(app.jenis_pendidikan || '-') + '</td><td>' + escapeHtml(app.unit_tujuan || '-') + '</td><td>' + escapeHtml(app.phone) + '</td><td><span class="badge ' + badge + '">' + (statusText[app.status] || app.status) + '</span></td><td>' + created + '</td><td><button class="btn btn-primary btn-sm" onclick="viewApplication(' + app.id + ')"><i class="fas fa-eye"></i></button> <button class="btn btn-success btn-sm" onclick="approveApplication(' + app.id + ')"><i class="fas fa-check"></i></button> <button class="btn btn-danger btn-sm" onclick="rejectApplication(' + app.id + ')"><i class="fas fa-times"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteApplication(' + app.id + ')"><i class="fas fa-trash"></i></button></td></tr>';
           }).join('');
         } else {
-          tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Gagal memuat data</td></tr>';
+
+  tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Gagal memuat data</td></tr>';
+
         }
       });
     }
@@ -705,11 +706,50 @@
         if (res && res.success && res.data) {
           var info = JSON.stringify(res.data, null, 2);
           alert('Debug Info:\n\n' + info.substring(0, 1000) + (info.length > 1000 ? '\n...(truncated)' : ''));
+
         } else {
-          showToast('Gagal获取debug info', 'error');
+          showToast('Gagal debug info', 'error');
         }
       });
     }
+
+    // Include admin functions for onclick handlers
+    function approveApplication(id) {
+      if (!confirm('Setujui pengajuan ini?')) return;
+      apiCallWithData('updateApplicationStatus', {id: id, status: 'approved'}, function(res) {
+        if (res && res.success) {
+          showToast('Status disetujui');
+          loadApplications();
+        } else {
+          showToast('Gagal', 'error');
+        }
+      });
+    }
+
+    function rejectApplication(id) {
+      if (!confirm('Tolak pengajuan ini?')) return;
+      apiCallWithData('updateApplicationStatus', {id: id, status: 'rejected'}, function(res) {
+        if (res && res.success) {
+          showToast('Status ditolak');
+          loadApplications();
+        } else {
+          showToast('Gagal', 'error');
+        }
+      });
+    }
+
+    function deleteApplication(id) {
+      if (!confirm('Hapus pengajuan ini?')) return;
+      apiCallWithData('deleteApplication', {id: id}, function(res) {
+        if (res && res.success) {
+          showToast('Dihapus');
+          loadApplications();
+        } else {
+          showToast('Gagal', 'error');
+        }
+      });
+    }
+
 
     function viewApplication(id) {
       apiCallWithData('getApplicationDetail', {id: id}, function(res) {
