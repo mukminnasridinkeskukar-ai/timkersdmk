@@ -169,7 +169,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbyP_hq6OAva-68duQ1v2VkUaHi_RN8NfMcTqGCraDoZMnMX5QhOgy1hx2WKE5hefZjF/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
+    var API_URL = 'https://script.google.com/macros/s/AKfycbwuRUUP1xyygd2KbYfoAZX6qeTGwDa-9g18Yq5pS4H0ush3baB4lbxbUF4wkaVWCilq/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -549,8 +549,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderStatus() {
       return '<div class="card text-center" style="max-width:500px;margin:0 auto;">' +
         '<h2 class="mb-3">Cek Status Permohonan</h2>' +
-        '<p class="text-muted mb-3">Masukkan nomor HP atau email yang digunakan saat pengajuan</p>' +
-        '<div class="form-group"><input type="tel" id="statusPhone" class="form-control" placeholder="Nomor HP" pattern="[0-9]+"></div>' +
+        '<p class="text-muted mb-3">Masukkan NIK atau email yang digunakan saat pengajuan</p>' +
+        '<div class="form-group"><input type="text" id="statusNIK" class="form-control" placeholder="NIK (Nomor Induk Kependudukan)" pattern="[0-9]+" maxlength="16"></div>' +
         '<p class="text-muted">atau</p>' +
         '<div class="form-group"><input type="email" id="statusEmail" class="form-control" placeholder="Email"></div>' +
         '<button class="btn btn-primary btn-block" onclick="checkStatus()"><i class="fas fa-search"></i> Cek Status</button>' +
@@ -745,25 +745,100 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function checkStatus() {
-      var phone = document.getElementById('statusPhone').value;
+      var nik = document.getElementById('statusNIK').value;
       var email = document.getElementById('statusEmail').value;
-      if (!phone && !email) return showToast('Masukkan nomor HP atau email', 'error');
+      if (!nik && !email) return showToast('Masukkan NIK atau email', 'error');
       var data = {};
-      if (phone) data.phone = phone;
+      if (nik) data.nik = nik;
       if (email) data.email = email;
       apiCallWithData('checkStatus', data, function(res) {
         var el = document.getElementById('statusResult');
         if (res && res.success && res.data && res.data.length > 0) {
+          // Tampilkan tombol untuk melihat profil lengkap
           el.innerHTML = res.data.map(function(d) {
             var badge = d.status === 'approved' ? 'badge-approved' : d.status === 'rejected' ? 'badge-rejected' : d.status === 'processed' ? 'badge-processed' : 'badge-pending';
             var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
-            return '<div class="card text-left mt-2"><div class="flex justify-between items-center mb-2"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + badge + '">' + (statusText[d.status] || d.status) + '</span></div><p class="text-sm">No. Pengajuan: <code>' + escapeHtml(d.application_number) + '</code></p></div>';
+            return '<div class="card text-left mt-2"><div class="flex justify-between items-center mb-2"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + badge + '">' + (statusText[d.status] || d.status) + '</span></div><p class="text-sm">No. Pengajuan: <code>' + escapeHtml(d.application_number) + '</code></p><button class="btn btn-primary btn-sm mt-2" onclick="showProfile(' + d.id + ')"><i class="fas fa-user"></i> Lihat Profil Lengkap</button></div>';
           }).join('');
         } else {
           el.innerHTML = '<div class="alert alert-error mt-2">Data tidak ditemukan</div>';
         }
       }, function() {
         showToast('Gagal cek status', 'error');
+      });
+    }
+
+    function showProfile(id) {
+      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+        if (res && res.success && res.data) {
+          var app = res.data;
+          var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
+          var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
+          
+          // Download button for approved applications
+          var downloadBtn = '';
+          if (app.status === 'approved') {
+            downloadBtn = '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + app.id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>';
+          }
+          
+          var html = '<div class="card" style="max-width:900px;"><div class="card-header"><h3>Profil Pengaju Beasiswa</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
+            '<div style="display:flex;gap:2rem;flex-wrap:wrap;">' +
+            '<div style="flex:0 0 250px;text-align:center;">' +
+            '<img src="' + (app.foto_url || 'https://via.placeholder.com/200x250?text=Foto') + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid var(--primary);" onclick="showFullScreenImage(this.src)" onerror="this.src=\'https://via.placeholder.com/200x250?text=Foto\'">' +
+            '</div>' +
+            '<div style="flex:1;min-width:300px;">' +
+            '<div class="grid-2">' +
+            '<div><p><strong>No. Pengajuan:</strong></p><p><strong>Nama Lengkap:</strong></p><p><strong>Tempat/Tgl Lahir:</strong></p><p><strong>NIK:</strong></p><p><strong>No. HP:</strong></p><p><strong>Email:</strong></p></div>' +
+            '<div><p>: ' + escapeHtml(app.application_number) + '</p><p>: ' + escapeHtml(app.full_name) + '</p><p>: ' + escapeHtml(app.tempat_lahir) + ', ' + escapeHtml(app.tanggal_lahir) + '</p><p>: ' + escapeHtml(app.nik || '-') + '</p><p>: ' + escapeHtml(app.phone) + '</p><p>: ' + escapeHtml(app.email) + '</p></div>' +
+            '</div>' +
+            '<hr style="margin:1rem 0;">' +
+            '<div class="grid-2">' +
+            '<div><p><strong>Alamat KTP:</strong></p><p><strong>Alamat Domisili:</strong></p><p><strong>Lama Domisili:</strong></p><p><strong>Status Pekerjaan:</strong></p><p><strong>Kondisi Pemohon:</strong></p><p><strong>Unit Kerja:</strong></p></div>' +
+            '<div><p>: ' + escapeHtml(app.alamat_ktp) + '</p><p>: ' + escapeHtml(app.alamat_domisili || '-') + '</p><p>: ' + escapeHtml(app.lama_domisili) + '</p><p>: ' + escapeHtml(app.status_pekerjaan) + '</p><p>: ' + escapeHtml(app.kondisi_pemohon) + '</p><p>: ' + escapeHtml(app.unit_kerja || '-') + '</p></div>' +
+            '</div>' +
+            '<hr style="margin:1rem 0;">' +
+            '<div class="grid-2">' +
+            '<div><p><strong>Jurusan Tujuan:</strong></p><p><strong>Jenis Pendidikan:</strong></p><p><strong>Unit Tujuan:</strong></p><p><strong>Rencana Tahun:</strong></p><p><strong>Status:</strong></p></div>' +
+            '<div><p>: ' + escapeHtml(app.jurusan_tujuan) + '</p><p>: ' + escapeHtml(app.jenis_pendidikan) + '</p><p>: ' + escapeHtml(app.unit_tujuan) + '</p><p>: ' + escapeHtml(app.rencana_tahun) + '</p><p>: <span class="badge ' + badge + '">' + (statusText[app.status] || app.status) + '</span></p></div>' +
+            '</div>' +
+            (app.admin_notes ? '<hr style="margin:1rem 0;"><p><strong>Catatan Admin:</strong> ' + escapeHtml(app.admin_notes) + '</p>' : '') +
+            downloadBtn +
+            '</div></div></div>';
+          showModal('Profil Pengaju', html);
+        }
+      }, function() {
+        showToast('Gagal memuat profil', 'error');
+      });
+    }
+
+    function showFullScreenImage(src) {
+      var container = document.getElementById('content');
+      var modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.id = 'fullscreenModal';
+      modal.style.zIndex = '10002';
+      modal.innerHTML = '<div style="text-align:center;" onclick="closeFullScreenImage()">' +
+        '<button class="modal-close" style="position:absolute;top:20px;right:20px;z-index:10003;" onclick="closeFullScreenImage()">&times;</button>' +
+        '<img src="' + src + '" alt="Foto Fullscreen" style="max-width:90%;max-height:90vh;object-fit:contain;border-radius:8px;">' +
+        '<p style="color:white;margin-top:1rem;">Klik di mana saja untuk menutup</p>' +
+        '</div>';
+      container.appendChild(modal);
+    }
+
+    function closeFullScreenImage() {
+      var m = document.getElementById('fullscreenModal');
+      if (m) m.remove();
+    }
+
+    function downloadRekomendasi(id) {
+      apiCallWithData('downloadRekomendasi', {id: id}, function(res) {
+        if (res && res.success && res.data && res.data.url) {
+          window.open(res.data.url, '_blank');
+        } else {
+          showToast(res ? res.message : 'Gagal download', 'error');
+        }
+      }, function() {
+        showToast('Gagal koneksi ke server', 'error');
       });
     }
 
