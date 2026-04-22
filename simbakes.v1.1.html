@@ -32,7 +32,16 @@
     .sidebar-menu li a:hover, .sidebar-menu li a.active { background: rgba(255,255,255,0.15); border-left-color: white; }
     .main-content { flex: 1; margin-left: 260px; min-height: 100vh; }
     .topbar { background: white; padding: 0.75rem 1.5rem; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-    .menu-toggle { display: none; background: none; border: none; font-size: 1.25rem; cursor: pointer; }
+    .menu-toggle { display: none; background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--gray-800); }
+    .sidebar-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 999;
+      opacity: 0;
+      animation: fadeIn 0.2s forwards;
+    }
+    @keyframes fadeIn { to { opacity: 1; } }
     .container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
     .card { background: white; border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); margin-bottom: 1.5rem; }
     .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--gray-200); }
@@ -112,9 +121,17 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .loader { text-align: center; padding: 2rem; }
     @media (max-width: 768px) {
-      .sidebar { transform: translateX(-100%); }
-      .sidebar.active { transform: translateX(0); }
-      .main-content { margin-left: 0; }
+      .sidebar { 
+        transform: translateX(-100%);
+        -webkit-transform: translateX(-100%);
+        -moz-transform: translateX(-100%);
+      }
+      .sidebar.active { 
+        transform: translateX(0);
+        -webkit-transform: translateX(0);
+        -moz-transform: translateX(0);
+      }
+      .main-content { margin-left: 0; position: relative; z-index: 10; }
       .grid-2, .grid-3 { grid-template-columns: 1fr; }
       .menu-toggle { display: block; }
     }
@@ -152,7 +169,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbwdqEUT2GqjvaMcP85woi-RvM5ZqJmWe--d1d2rfhr8M6WIhFsQYDREs9_0Em8uO5s/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyKRAJZHPjSXDGqdlnrQBQaGX8EQlMRz-6XGmSlwXuOFB5MCyI1Y5O5t2dWtTBXwEur/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = false;
@@ -170,10 +187,32 @@
     }
 
     function toggleSidebar() {
-      document.getElementById('sidebar').classList.toggle('active');
+      var sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('active');
+      console.log('Menu toggled:', sidebar.classList.contains('active') ? 'OPEN' : 'CLOSED');
+      
+      // Add backdrop for mobile
+      if (window.innerWidth <= 768) {
+        if (sidebar.classList.contains('active')) {
+          var backdrop = document.createElement('div');
+          backdrop.className = 'sidebar-backdrop';
+          backdrop.onclick = closeSidebar;
+          document.body.appendChild(backdrop);
+        } else {
+          var backdrop = document.querySelector('.sidebar-backdrop');
+          if (backdrop) backdrop.remove();
+        }
+      }
+    }
+
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.remove('active');
+      var backdrop = document.querySelector('.sidebar-backdrop');
+      if (backdrop) backdrop.remove();
     }
 
     function navigate(page) {
+      console.log('Navigating to:', page);
       currentPage = page;
       document.getElementById('pageTitle').textContent = getPageTitle(page);
       updateActiveMenu();
