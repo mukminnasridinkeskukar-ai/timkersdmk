@@ -172,7 +172,7 @@
     var API_URL = 'https://script.google.com/macros/s/AKfycbyKRAJZHPjSXDGqdlnrQBQaGX8EQlMRz-6XGmSlwXuOFB5MCyI1Y5O5t2dWtTBXwEur/exec'; // Ganti dengan URL Web App yang didapatkan setelah deploy
     var currentPage = 'dashboard';
     var currentUser = null;
-    var isAdminLoggedIn = false;
+    var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
 
 document.addEventListener('DOMContentLoaded', function() {
       var urlParams = new URLSearchParams(window.location.search);
@@ -320,8 +320,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         '<div class="alert alert-info mb-3">' +
         '<i class="fas fa-download"></i> <strong>Download Template Dokumen:</strong> ' +
-        '<a href="#" onclick="downloadTemplate(\'permohonan\')" class="btn btn-outline btn-sm" style="margin-left:0.5rem"><i class="fas fa-download"></i> Surat Permohonan</a>' +
-        '<a href="#" onclick="downloadTemplate(\'pernyataan\')" class="btn btn-outline btn-sm" style="margin-left:0.5rem"><i class="fas fa-download"></i> Surat Pernyataan</a>' +
+        '<button type="button" onclick="downloadTemplate(\'permohonan\')" class="btn btn-outline btn-sm" style="margin-left:0.5rem"><i class="fas fa-download"></i> Surat Permohonan</button>' +
+        '<button type="button" onclick="downloadTemplate(\'pernyataan\')" class="btn btn-outline btn-sm" style="margin-left:0.5rem"><i class="fas fa-download"></i> Surat Pernyataan</button>' +
         '</div>' +
 
         '<form id="applicationForm" onsubmit="submitApplication(event)">' +
@@ -505,12 +505,12 @@ document.addEventListener('DOMContentLoaded', function() {
         '<div class="form-group">' +
         '<label class="form-label">Surat Permohonan Beasiswa</label>' +
         '<input type="file" name="surat_permohonan" class="form-control" accept=".pdf,.doc,.docx">' +
-        '<small class="text-muted"><a href="#" onclick="downloadTemplate(\'permohonan\')">Download Template Surat Permohonan</a></small>' +
+        '<small class="text-muted"><button type="button" onclick="downloadTemplate(\'permohonan\')" style="background:none;border:none;color:var(--primary);cursor:pointer;text-decoration:underline;padding:0;font-size:inherit;">Download Template Surat Permohonan</button></small>' +
         '</div>' +
         '<div class="form-group">' +
         '<label class="form-label">Surat Pernyataan Kesediaan Pendayagunaan</label>' +
         '<input type="file" name="surat_pernyataan" class="form-control" accept=".pdf,.doc,.docx">' +
-        '<small class="text-muted"><a href="#" onclick="downloadTemplate(\'pernyataan\')">Download Template Surat Pernyataan</a></small>' +
+        '<small class="text-muted"><button type="button" onclick="downloadTemplate(\'pernyataan\')" style="background:none;border:none;color:var(--primary);cursor:pointer;text-decoration:underline;padding:0;font-size:inherit;">Download Template Surat Pernyataan</button></small>' +
         '</div>' +
         '</div>' +
 
@@ -567,7 +567,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       return '<div class="card"><div class="card-header"><h3><i class="fas fa-users"></i> Data Pengajuan</h3>' +
         '<button class="btn btn-secondary btn-sm" onclick="loadApplications()"><i class="fas fa-sync"></i> Refresh</button> ' +
-        '<button class="btn btn-outline btn-sm" onclick="debugSheets()"><i class="fas fa-cog"></i> Debug Sheets</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="exportApplications()"><i class="fas fa-download"></i> Export</button> ' +
+        '<button class="btn btn-outline btn-sm" onclick="debugSheets()"><i class="fas fa-cog"></i> Debug</button>' +
         '</div>' +
         '<div class="table-responsive"><table class="table"><thead><tr><th>No</th><th>Nomor</th><th>Nama</th><th>Jurusan</th><th>Jenis</th><th>Unit Tujuan</th><th>HP</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead>' +
         '<tbody id="applicationsTable"><tr><td colspan="10" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr></tbody></table></div></div>';
@@ -773,6 +774,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (res && res.success) {
           currentUser = res.data.user;
           isAdminLoggedIn = true;
+          localStorage.setItem('adminLoggedIn', 'true');
           showToast('Login berhasil!');
           navigate('admin');
         } else {
@@ -813,6 +815,20 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           showToast('Gagal debug info', 'error');
         }
+      });
+    }
+
+    function exportApplications() {
+      if (!confirm('Export data aplikasi ke CSV?')) return;
+      apiCall('exportApplications', function(res) {
+        if (res && res.success && res.data && res.data.url) {
+          showToast('Export berhasil! Membuka Google Sheet...');
+          window.open(res.data.url, '_blank');
+        } else {
+          showToast(res ? res.message : 'Gagal export', 'error');
+        }
+      }, function() {
+        showToast('Gagal koneksi ke server', 'error');
       });
     }
 
@@ -947,9 +963,9 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
               return JSON.parse(text);
             } catch(e) {
-            throw new Error('Invalid JSON response: ' + text.substring(0, 200));
-          }
-        });
+              throw new Error('Invalid JSON response: ' + text.substring(0, 200));
+            }
+          });
         }
       })
       .then(function(res) {
