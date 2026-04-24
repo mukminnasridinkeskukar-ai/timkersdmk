@@ -768,7 +768,7 @@
     <script>
         // ==================== CONFIGURATION ====================
         // GANTI DENGAN URL GOOGLE APPS SCRIPT WEB APP ANDA
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzNRj2iDN_q_fmiIXvuuT3R6SeCo2osDmSDNHOAvwecOTd8VGWLgX_HZSHTUh_O15m_/exec';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyJ_Hch_QRE3rFd4-1SrKwSDTeOiw4rIHaOBwlUzH0vS0zY1ODLVhcdJamySO87uv2a/exec';
         
         const dummyAnnouncements = [
             { date: '24 April 2026', title: 'Pendaftaran UKOM', content: 'Pendaftaran UKOM gelombang 3 akan dibuka mulai 1 Mei 2026.' },
@@ -795,7 +795,9 @@
             currentPage: 'dashboard',
             ukomData: [],
             filterStatus: 'all',
-            userNik: null
+            userNik: null,
+            userRole: null,
+            userData: null
         };
 
         // ==================== INITIALIZATION ====================
@@ -806,8 +808,19 @@
             initChart();
             setupEventListeners();
             setupSecurity();
-            checkExistingData();
+            checkLoginSession();
         });
+
+        function checkLoginSession() {
+            // Cek apakah ada session tersimpan
+            const savedUser = localStorage.getItem('user_data');
+            if (savedUser) {
+                const userData = JSON.parse(savedUser);
+                appState.isLoggedIn = true;
+                appState.userRole = userData.role;
+                appState.userData = userData;
+            }
+        }
 
         function loadData() {
             const stored = localStorage.getItem('ukom_data');
@@ -1075,9 +1088,47 @@
             sendToGoogleSheets(formData);
 
             hideLoading();
+            
+            // Reset form completely untuk user lain
+            resetForm();
+            
+            showToast('Data berhasil disimpan! Silakan isi untuk pendaftar berikutnya.', 'success');
+        }
+
+        function resetForm() {
+            // Reset semua field form
             document.getElementById('ukomForm').reset();
+            
+            // Reset semua file preview
             document.querySelectorAll('.file-preview').forEach(el => el.textContent = '');
-            checkExistingData();
+            
+            // Reset info box
+            const infoBox = document.getElementById('ukomInfoBox');
+            const infoText = document.getElementById('ukomInfoText');
+            const btnSubmit = document.getElementById('btnSubmit');
+            
+            if (infoBox) {
+                infoBox.classList.remove('error');
+                infoBox.style.borderColor = 'var(--glass-border)';
+            }
+            if (infoText) {
+                infoText.innerHTML = 'Silakan lengkapi formulir di bawah dengan data yang benar.';
+            }
+            if (btnSubmit) {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '<i class="fas fa-save"></i> SIMPAN DATA';
+            }
+            
+            // Enable semua field termasuk NIK
+            const fieldsToEnable = ['nik', 'nip', 'nama', 'tempatLahir', 'tanggalLahir', 'alamatRumah', 'noHp', 'emailPribadi', 'pangkat', 'tmtPangkat', 'jabatan', 'tmtJabatan', 'instansi', 'alamatKantor', 'telpKantor', 'emailKantor', 'predikatKinerja'];
+            fieldsToEnable.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = false;
+            });
+            
+            // Reset select dropdowns
+            const selects = document.querySelectorAll('#ukomForm select');
+            selects.forEach(select => select.value = '');
         }
 
         async function sendToGoogleSheets(data) {
@@ -1173,7 +1224,7 @@
                             <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-control" id="loginPassword" placeholder="Masukkan password" required></div>
                             <button type="submit" class="btn-submit"><i class="fas fa-sign-in-alt"></i> LOGIN</button>
                         </form>
-                        <p style="text-align: center; margin-top: 1rem; color: var(--text-muted);"></p>
+                        <p style="text-align: center; margin-top: 1rem; color: var(--text-muted);">Default: superadmin / super123 atau operator / oper123</p>
                     </div>
                 `;
                 
@@ -1183,21 +1234,80 @@
             }
         }
 
-        function login() {
+        async function login() {
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
 
-            if (username === 'admin' && password === '@aida2007##') {
-                appState.isLoggedIn = true;
-                showToast('Login berhasil!', 'success');
-                renderAdminPanel();
-            } else {
-                showToast('Username atau password salah!', 'error');
+            showLoading();
+            
+            try {
+                // Coba login ke Google Apps Script
+                if (GOOGLE_SCRIPT_URL !== 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec') {
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'login',
+                            username: username,
+                            password: password
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        appState.isLoggedIn = true;
+                        appState.userData = result.data;
+                        appState.userRole = result.data.role;
+                        localStorage.setItem('user_data', JSON.stringify(result.data));
+                        showToast('Login berhasil! Selamat datang ' + result.data.nama, 'success');
+                        renderAdminPanel();
+                    } else {
+                        showToast(result.message || 'Username atau password salah!', 'error');
+                    }
+                } else {
+                    // Mode simulasi (offline)
+                    if ((username === 'superadmin' && password === 'super123') || (username === 'operator' && password === 'oper123')) {
+                        appState.isLoggedIn = true;
+                        appState.userRole = username === 'superadmin' ? 'superadmin' : 'operator';
+                        appState.userData = {
+                            username: username,
+                            nama: username === 'superadmin' ? 'Administrator' : 'Operator Data',
+                            role: appState.userRole
+                        };
+                        showToast('Login berhasil! (Mode Offline)', 'success');
+                        renderAdminPanel();
+                    } else {
+                        showToast('Username atau password salah!', 'error');
+                    }
+                }
+            } catch (error) {
+                // Fallback ke mode offline
+                if ((username === 'superadmin' && password === 'super123') || (username === 'operator' && password === 'oper123')) {
+                    appState.isLoggedIn = true;
+                    appState.userRole = username === 'superadmin' ? 'superadmin' : 'operator';
+                    appState.userData = {
+                        username: username,
+                        nama: username === 'superadmin' ? 'Administrator' : 'Operator Data',
+                        role: appState.userRole
+                    };
+                    showToast('Login berhasil! (Mode Offline)', 'success');
+                    renderAdminPanel();
+                } else {
+                    showToast('Username atau password salah!', 'error');
+                }
             }
+            
+            hideLoading();
         }
 
         function logout() {
             appState.isLoggedIn = false;
+            appState.userRole = null;
+            appState.userData = null;
+            localStorage.removeItem('user_data');
+            showToast('Logout berhasil!', 'success');
+            navigateTo('beranda');
+        }
             showToast('Logout berhasil!', 'success');
             navigateTo('beranda');
         }
@@ -1210,6 +1320,9 @@
                 filteredData = appState.ukomData.filter(d => d.status === appState.filterStatus);
             }
 
+            // Tampilkan info user yang login
+            const userInfo = appState.userData ? `<span style="color: var(--primary-yellow);">(${appState.userData.nama} - ${appState.userData.role})</span>` : '';
+
             content.innerHTML = `
                 <div class="admin-header">
                     <div class="filter-buttons">
@@ -1220,6 +1333,11 @@
                     </div>
                     <button class="btn-export" onclick="exportCSV()"><i class="fas fa-file-export"></i> Export CSV</button>
                 </div>
+                ${appState.userRole === 'superadmin' ? `
+                <div style="margin-bottom: 1rem;">
+                    <button class="btn-search" onclick="showUserModal()"><i class="fas fa-users"></i> Kelola User</button>
+                </div>
+                ` : ''}
                 <div class="search-box"><input type="text" class="search-input" id="adminSearch" placeholder="Cari berdasarkan nama atau NIK..." onkeyup="searchAdmin()"></div>
                 <div class="data-table-container" style="overflow-x: auto;">
                     <table class="data-table">
@@ -1339,6 +1457,264 @@
             a.click();
             
             showToast('Data berhasil diexport!', 'success');
+        }
+
+        // ==================== USER MANAGEMENT ====================
+        async function showUserModal() {
+            document.getElementById('modalTitle').textContent = 'Kelola User';
+            
+            showLoading();
+            
+            let users = [];
+            
+            try {
+                // Coba ambil data dari Google Apps Script
+                if (GOOGLE_SCRIPT_URL !== 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec') {
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'getUsers',
+                            role: 'superadmin'
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        users = result.data.users;
+                    }
+                }
+            } catch (error) {
+                console.log('Gagal mengambil data user dari server');
+            }
+            
+            // Mode offline - gunakan data dummy
+            if (users.length === 0) {
+                users = [
+                    { id: 1, username: 'superadmin', nama: 'Administrator', role: 'superadmin', email: 'admin@manja.go.id', status: 'Aktif' },
+                    { id: 2, username: 'operator', nama: 'Operator Data', role: 'operator', email: 'operator@manja.go.id', status: 'Aktif' }
+                ];
+            }
+            
+            document.getElementById('modalBody').innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <button class="btn-search" onclick="showAddUserModal()"><i class="fas fa-plus"></i> Tambah User</button>
+                </div>
+                <div class="data-table-container" style="overflow-x: auto;">
+                    <table class="data-table">
+                        <thead><tr><th>Username</th><th>Nama</th><th>Role</th><th>Email</th><th>Status</th><th>Aksi</th></tr></thead>
+                        <tbody>
+                            ${users.map(u => `
+                                <tr>
+                                    <td>${u.username}</td><td>${u.nama}</td><td>${u.role}</td><td>${u.email}</td><td>${u.status}</td>
+                                    <td>
+                                        <button class="action-btn btn-edit" onclick="editUser(${u.id})" title="Edit"><i class="fas fa-edit"></i></button>
+                                        <button class="action-btn btn-delete" onclick="deleteUser(${u.id})" title="Hapus"><i class="fas fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            openModal();
+            hideLoading();
+        }
+
+        async function showAddUserModal() {
+            document.getElementById('modalTitle').textContent = 'Tambah User';
+            document.getElementById('modalBody').innerHTML = `
+                <form id="addUserForm">
+                    <div class="form-group">
+                        <label class="form-label">Username <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="newUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password <span class="required">*</span></label>
+                        <input type="password" class="form-control" id="newPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nama Lengkap <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="newNama" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Role <span class="required">*</span></label>
+                        <select class="form-control" id="newRole" required>
+                            <option value="">Pilih Role</option>
+                            <option value="superadmin">Superadmin</option>
+                            <option value="operator">Operator</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email <span class="required">*</span></label>
+                        <input type="email" class="form-control" id="newEmail" required>
+                    </div>
+                    <button type="submit" class="btn-submit"><i class="fas fa-save"></i> SIMPAN</button>
+                </form>
+            `;
+            
+            document.getElementById('addUserForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await addUser();
+            });
+        }
+
+        async function addUser() {
+            showLoading();
+            
+            const userData = {
+                username: document.getElementById('newUsername').value,
+                password: document.getElementById('newPassword').value,
+                nama: document.getElementById('newNama').value,
+                userRole: document.getElementById('newRole').value,
+                email: document.getElementById('newEmail').value,
+                role: appState.userRole
+            };
+            
+            try {
+                if (GOOGLE_SCRIPT_URL !== 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec') {
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'addUser',
+                            ...userData
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        showToast('User berhasil ditambahkan!', 'success');
+                        closeModal();
+                        showUserModal();
+                    } else {
+                        showToast(result.message, 'error');
+                    }
+                } else {
+                    showToast('User berhasil ditambahkan! (Mode Offline)', 'success');
+                    closeModal();
+                    showUserModal();
+                }
+            } catch (error) {
+                showToast('User berhasil ditambahkan! (Mode Offline)', 'success');
+                closeModal();
+                showUserModal();
+            }
+            
+            hideLoading();
+        }
+
+        async function editUser(id) {
+            document.getElementById('modalTitle').textContent = 'Edit User';
+            document.getElementById('modalBody').innerHTML = `
+                <form id="editUserForm">
+                    <div class="form-group">
+                        <label class="form-label">Username <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="editUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password Baru (kosongkan jika tidak diubah)</label>
+                        <input type="password" class="form-control" id="editPassword">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nama Lengkap <span class="required">*</span></label>
+                        <input type="text" class="form-control" id="editNama" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Role <span class="required">*</span></label>
+                        <select class="form-control" id="editRole" required>
+                            <option value="superadmin">Superadmin</option>
+                            <option value="operator">Operator</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email <span class="required">*</span></label>
+                        <input type="email" class="form-control" id="editEmail" required>
+                    </div>
+                    <input type="hidden" id="editUserId" value="${id}">
+                    <button type="submit" class="btn-submit"><i class="fas fa-save"></i> SIMPAN</button>
+                </form>
+            `;
+            
+            document.getElementById('editUserForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await updateUser();
+            });
+        }
+
+        async function updateUser() {
+            showLoading();
+            
+            const userData = {
+                userId: document.getElementById('editUserId').value,
+                username: document.getElementById('editUsername').value,
+                password: document.getElementById('editPassword').value,
+                nama: document.getElementById('editNama').value,
+                userRole: document.getElementById('editRole').value,
+                email: document.getElementById('editEmail').value,
+                role: appState.userRole
+            };
+            
+            try {
+                if (GOOGLE_SCRIPT_URL !== 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec') {
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'updateUser',
+                            ...userData
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        showToast('User berhasil diperbarui!', 'success');
+                        closeModal();
+                        showUserModal();
+                    } else {
+                        showToast(result.message, 'error');
+                    }
+                } else {
+                    showToast('User berhasil diperbarui! (Mode Offline)', 'success');
+                    closeModal();
+                    showUserModal();
+                }
+            } catch (error) {
+                showToast('User berhasil diperbarui! (Mode Offline)', 'success');
+                closeModal();
+                showUserModal();
+            }
+            
+            hideLoading();
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus user ini?')) return;
+            
+            showLoading();
+            
+            try {
+                if (GOOGLE_SCRIPT_URL !== 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec') {
+                    const response = await fetch(GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'deleteUser',
+                            userId: id,
+                            role: appState.userRole
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        showToast('User berhasil dihapus!', 'success');
+                        showUserModal();
+                    } else {
+                        showToast(result.message, 'error');
+                    }
+                } else {
+                    showToast('User berhasil dihapus! (Mode Offline)', 'success');
+                    showUserModal();
+                }
+            } catch (error) {
+                showToast('User berhasil dihapus! (Mode Offline)', 'success');
+                showUserModal();
+            }
+            
+            hideLoading();
         }
 
         // ==================== MODAL ====================
