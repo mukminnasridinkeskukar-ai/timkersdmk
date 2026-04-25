@@ -2447,11 +2447,30 @@
         }
 
         function getData(key) {
-            return JSON.parse(localStorage.getItem(key) || '[]');
+            try {
+                const data = JSON.parse(localStorage.getItem(key) || '[]');
+                // Sanitize SDM and kompetensi arrays to ensure required fields exist
+                if (key === 'dataSDM' || key === 'kompetensi') {
+                    return (Array.isArray(data) ? data : []).map(item => ({
+                        ...item,
+                        status: item && item.status ? item.status : 'belum',
+                        nama: item && item.nama ? item.nama : '-',
+                        unit: item && item.unit ? item.unit : '-'
+                    }));
+                }
+                return Array.isArray(data) ? data : [];
+            } catch (e) {
+                return [];
+            }
         }
 
         function setData(key, data) {
             localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        function formatStatus(status) {
+            if (!status || typeof status !== 'string') return 'Belum';
+            return status.charAt(0).toUpperCase() + status.slice(1);
         }
 
         // ============================================
@@ -2891,15 +2910,16 @@
             const tbody = document.getElementById('tbody-kompetensi');
             tbody.innerHTML = paginated.map((k, index) => {
                 const sdm = sdmData.find(s => s.id === k.id_sdm) || { nama: 'Unknown', unit: '-' };
-                let badgeClass = k.status === 'kompeten' ? 'success' : k.status === 'proses' ? 'warning' : 'danger';
+                const status = k.status || 'belum';
+                let badgeClass = status === 'kompeten' ? 'success' : status === 'proses' ? 'warning' : 'danger';
                 return `
                     <tr>
                         <td>${start + index + 1}</td>
                         <td>${sdm.nama}</td>
                         <td>${sdm.unit}</td>
-                        <td>${k.jenis}</td>
-                        <td><span class="badge badge-${badgeClass}">${k.status.charAt(0).toUpperCase() + k.status.slice(1)}</span></td>
-                        <td>${k.tanggal}</td>
+                        <td>${k.jenis || '-'}</td>
+                        <td><span class="badge badge-${badgeClass}">${formatStatus(status)}</span></td>
+                        <td>${k.tanggal || '-'}</td>
                         <td>
                             <div class="action-btns">
                                 <button class="action-btn edit" onclick="editKompetensi(${k.id})"><i class="fas fa-edit"></i></button>
@@ -3033,15 +3053,16 @@
 
             const tbody = document.getElementById('tbody-sdm');
             tbody.innerHTML = paginated.map((sdm, index) => {
-                let badgeClass = sdm.status === 'kompeten' ? 'success' : sdm.status === 'proses' ? 'warning' : 'danger';
+                const status = sdm.status || 'belum';
+                let badgeClass = status === 'kompeten' ? 'success' : status === 'proses' ? 'warning' : 'danger';
                 return `
                     <tr>
                         <td>${start + index + 1}</td>
-                        <td>${sdm.nama}</td>
-                        <td>${sdm.nip}</td>
-                        <td>${sdm.unit}</td>
-                        <td>${sdm.jabatan}</td>
-                        <td><span class="badge badge-${badgeClass}">${sdm.status.charAt(0).toUpperCase() + sdm.status.slice(1)}</span></td>
+                        <td>${sdm.nama || '-'}</td>
+                        <td>${sdm.nip || '-'}</td>
+                        <td>${sdm.unit || '-'}</td>
+                        <td>${sdm.jabatan || '-'}</td>
+                        <td><span class="badge badge-${badgeClass}">${formatStatus(status)}</span></td>
                         <td>
                             <div class="action-btns">
                                 <button class="action-btn edit" onclick="showDetailSDM(${sdm.id})"><i class="fas fa-eye"></i></button>
@@ -3067,28 +3088,29 @@
             renderSDM();
         }
 
-        function showDetailSDM(id) {
-            const sdmData = getData('dataSDM');
-            const sdm = sdmData.find(s => s.id === id);
-            if (!sdm) return;
+    function showDetailSDM(id) {
+        const sdmData = getData('dataSDM');
+        const sdm = sdmData.find(s => s.id === id);
+        if (!sdm) return;
 
-            const modal = document.getElementById('lightbox-modal');
-            const body = document.getElementById('lightbox-body');
+        const modal = document.getElementById('lightbox-modal');
+        const body = document.getElementById('lightbox-body');
+        const status = sdm.status || 'belum';
 
-            body.innerHTML = `
-                <h2 style="margin-bottom: 20px; color: var(--primary-red);">Detail SDM</h2>
-                <div style="display: grid; gap: 15px;">
-                    <div><strong>Nama:</strong> ${sdm.nama}</div>
-                    <div><strong>NIP:</strong> ${sdm.nip}</div>
-                    <div><strong>Unit Kerja:</strong> ${sdm.unit}</div>
-                    <div><strong>Jabatan:</strong> ${sdm.jabatan}</div>
-                    <div><strong>Status Kompetensi:</strong> <span class="badge badge-${sdm.status === 'kompeten' ? 'success' : sdm.status === 'proses' ? 'warning' : 'danger'}">${sdm.status}</span></div>
-                    <div><strong>Tingkat Kompetensi:</strong> ${sdm.kompetensi}%</div>
-                </div>
-            `;
+        body.innerHTML = `
+            <h2 style="margin-bottom: 20px; color: var(--primary-red);">Detail SDM</h2>
+            <div style="display: grid; gap: 15px;">
+                <div><strong>Nama:</strong> ${sdm.nama || '-'}</div>
+                <div><strong>NIP:</strong> ${sdm.nip || '-'}</div>
+                <div><strong>Unit Kerja:</strong> ${sdm.unit || '-'}</div>
+                <div><strong>Jabatan:</strong> ${sdm.jabatan || '-'}</div>
+                <div><strong>Status Kompetensi:</strong> <span class="badge badge-${status === 'kompeten' ? 'success' : status === 'proses' ? 'warning' : 'danger'}">${formatStatus(status)}</span></div>
+                <div><strong>Tingkat Kompetensi:</strong> ${sdm.kompetensi || 0}%</div>
+            </div>
+        `;
 
-            modal.classList.add('active');
-        }
+        modal.classList.add('active');
+    }
 
         function editSDM(id) {
             showToast('info', 'Edit', 'Fitur edit SDM');
@@ -3325,15 +3347,16 @@
             if (ajuan.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Belum ada pengajuan</td></tr>';
             } else {
-                tbody.innerHTML = ajuan.map((a, index) => {
-                    let badgeClass = a.status === 'disetujui' ? 'success' : a.status === 'ditolak' ? 'danger' : 'warning';
+            tbody.innerHTML = ajuan.map((a, index) => {
+                    const status = a.status || 'pending';
+                    let badgeClass = status === 'disetujui' ? 'success' : status === 'ditolak' ? 'danger' : 'warning';
                     return `
                         <tr>
                             <td>${index + 1}</td>
                             <td>${a.nama_lengkap || '-'}</td>
                             <td>${a.unit_kerja || '-'}</td>
                             <td>${a.nama_kegiatann || '-'}</td>
-                            <td><span class="badge badge-${badgeClass}">${a.status}</span></td>
+                            <td><span class="badge badge-${badgeClass}">${formatStatus(status)}</span></td>
                             <td>
                                 <div class="action-btns">
                                     <button class="action-btn edit" onclick="setujuAjuan(${a.id})" title="Setuju"><i class="fas fa-check"></i></button>
