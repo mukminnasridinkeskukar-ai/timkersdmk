@@ -768,7 +768,7 @@
     <script>
         // ==================== CONFIGURATION ====================
         // GANTI DENGAN URL GOOGLE APPS SCRIPT WEB APP ANDA
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6_9_7LSkJPrc59mfUkQ40XDB3t2ldn_HZGA0JNOB_Bx4DU6UoPMby4Nk_qYBmOI2o/exec';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzuuIzRxVnWPfxexXdNfXKoqtZB6cxV5G91mVAEZN4QIkWzhkPsiL8LAUNyA9RJ4lO/exec';
         
         const dummyAnnouncements = [];
 
@@ -987,7 +987,7 @@
         }
 
         // ==================== UKOM FORM ====================
-        function submitUKOM() {
+        async function submitUKOM() {
             showLoading();
             
             const formData = {
@@ -1032,24 +1032,37 @@
                 formData.id = appState.ukomData[existingIndex].id;
                 formData.tanggalDaftar = appState.ukomData[existingIndex].tanggalDaftar;
                 appState.ukomData[existingIndex] = formData;
-                showToast('Data berhasil diperbarui!', 'success');
             } else {
                 appState.ukomData.push(formData);
-                showToast('Data berhasil disimpan!', 'success');
             }
 
             appState.userNik = formData.nik;
             
             saveData();
             updateStats();
-            sendToGoogleSheets(formData);
+            
+            // Kirim ke Google Sheets dan tunggu hasil upload
+            let uploadResult = null;
+            try {
+                uploadResult = await sendToGoogleSheets(formData);
+            } catch (err) {
+                console.log('Upload error:', err);
+            }
 
             hideLoading();
             
             // Reset form completely untuk user lain
             resetForm();
             
-            showToast('Data berhasil disimpan! Silakan isi untuk pendaftar berikutnya.', 'success');
+            // Notifikasi detail sukses dengan info upload
+            let notifMessage = '✅ Data berhasil dikirim dan tersimpan di server!';
+            if (uploadResult && uploadResult.drive && uploadResult.drive.success) {
+                notifMessage += '\n📁 Dokumen berhasil diupload ke Google Drive';
+                if (uploadResult.drive.folderUrl) {
+                    notifMessage += '\n🔗 Folder: ' + uploadResult.drive.folderUrl;
+                }
+            }
+            showToast(notifMessage, 'success');
         }
 
         function resetForm() {
@@ -1102,6 +1115,8 @@
                             const ext = file.name.split('.').pop();
                             
                             // Kirim ke Google Apps Script
+                                    const ext = file.name.split('.').pop();
+                                    
                             if (GOOGLE_SCRIPT_URL !== 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec') {
                                 const formDataWithFile = {
                                     ...data,
@@ -1125,6 +1140,7 @@
                 console.log('Error sending to Google Sheets:', error);
             }
         }
+                                try {
 
         // ==================== CEK STATUS ====================
         function cekStatus() {
