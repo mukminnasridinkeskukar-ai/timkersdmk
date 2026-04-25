@@ -768,26 +768,11 @@
     <script>
         // ==================== CONFIGURATION ====================
         // GANTI DENGAN URL GOOGLE APPS SCRIPT WEB APP ANDA
-        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw0sQo60Dvmttf6V3eNyBhH7s7hpVK7Uivzh1bbXFmyxe8g-K61c3TsS6Vq4ocjJiay/exec';
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6_9_7LSkJPrc59mfUkQ40XDB3t2ldn_HZGA0JNOB_Bx4DU6UoPMby4Nk_qYBmOI2o/exec';
         
-        const dummyAnnouncements = [
-            { date: '24 April 2026', title: 'Pendaftaran UKOM', content: 'Pendaftaran UKOM gelombang 3 akan dibuka mulai 1 Mei 2026.' },
-            { date: '20 April 2026', title: 'Pengumuman Hasil UKOM Gelombang 2', content: 'Hasil UKOM gelombang 2 dapat dilihat di akun satusehat SDMK masing-masing.' },
-            { date: '15 April 2026', title: 'Update Inovasi MANJA', content: 'Sistem akan diperbaru berkala sesuai kebutuhan.' }
-        ];
+        const dummyAnnouncements = [];
 
-        const dummyDaerahData = [
-            { province: 'DKI Jakarta', city: 'Jakarta Pusat', total: 150, filled: 120, empty: 30 },
-            { province: 'DKI Jakarta', city: 'Jakarta Selatan', total: 180, filled: 145, empty: 35 },
-            { province: 'DKI Jakarta', city: 'Jakarta Timur', total: 160, filled: 130, empty: 30 },
-            { province: 'DKI Jakarta', city: 'Jakarta Barat', total: 140, filled: 110, empty: 30 },
-            { province: 'Jawa Barat', city: 'Bandung', total: 200, filled: 165, empty: 35 },
-            { province: 'Jawa Barat', city: 'Bekasi', total: 170, filled: 140, empty: 30 },
-            { province: 'Jawa Timur', city: 'Surabaya', total: 220, filled: 180, empty: 40 },
-            { province: 'Jawa Tengah', city: 'Semarang', total: 190, filled: 155, empty: 35 },
-            { province: 'Sumatera Utara', city: 'Medan', total: 175, filled: 140, empty: 35 },
-            { province: 'Sulawesi Selatan', city: 'Makassar', total: 165, filled: 130, empty: 35 }
-        ];
+        const dummyDaerahData = [];
 
         // ==================== STATE MANAGEMENT ====================
         let appState = {
@@ -802,39 +787,17 @@
 
         // ==================== INITIALIZATION ====================
         document.addEventListener('DOMContentLoaded', function() {
-            loadData();
+            appState.ukomData = [];
+            updateStats();
             renderAnnouncements();
             renderDaerahTable();
             initChart();
             setupEventListeners();
             setupSecurity();
-            checkLoginSession();
         });
 
-        function checkLoginSession() {
-            // Cek apakah ada session tersimpan
-            const savedUser = localStorage.getItem('user_data');
-            if (savedUser) {
-                const userData = JSON.parse(savedUser);
-                appState.isLoggedIn = true;
-                appState.userRole = userData.role;
-                appState.userData = userData;
-            }
-        }
-
-        function loadData() {
-            const stored = localStorage.getItem('ukom_data');
-            if (stored) {
-                appState.ukomData = JSON.parse(stored);
-            } else {
-                appState.ukomData = [];
-                saveData();
-            }
-            updateStats();
-        }
-
         function saveData() {
-            localStorage.setItem('ukom_data', JSON.stringify(appState.ukomData));
+            // Data disimpan hanya di memori (tanpa localStorage)
         }
 
         function updateStats() {
@@ -976,12 +939,7 @@
 
         // ==================== CHECK EXISTING DATA ====================
         function checkExistingData() {
-            const savedNik = localStorage.getItem('user_nik');
-            if (savedNik) {
-                appState.userNik = savedNik;
-                const existingData = appState.ukomData.find(d => d.nik === savedNik);
-                if (existingData) updateFormWithData(existingData);
-            }
+            // Tidak menggunakan localStorage - data diambil dari server
         }
 
         function updateFormWithData(data) {
@@ -1080,7 +1038,6 @@
                 showToast('Data berhasil disimpan!', 'success');
             }
 
-            localStorage.setItem('user_nik', formData.nik);
             appState.userNik = formData.nik;
             
             saveData();
@@ -1132,10 +1089,7 @@
         }
 
         async function sendToGoogleSheets(data) {
-            // Ini adalah simulasi. Ganti dengan URL Google Apps Script Web App yang sebenarnya
             try {
-                console.log('Data yang akan dikirim ke Google Sheets:', data);
-                
                 // Jika ada file, konversi ke base64 dan kirim
                 const fileFields = ['pasFoto', 'cv', 'ijazah', 'skPangkat', 'skPak'];
                 for (const field of fileFields) {
@@ -1168,7 +1122,7 @@
                     }
                 }
             } catch (error) {
-                console.log('Error sending to Google Sheets (ini simulasi):', error);
+                console.log('Error sending to Google Sheets:', error);
             }
         }
 
@@ -1224,7 +1178,7 @@
                             <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-control" id="loginPassword" placeholder="Masukkan password" required></div>
                             <button type="submit" class="btn-submit"><i class="fas fa-sign-in-alt"></i> LOGIN</button>
                         </form>
-                        <p style="text-align: center; margin-top: 1rem; color: var(--text-muted);"></p>
+                        <p style="text-align: center; margin-top: 1rem; color: var(--text-muted);">Silakan masukkan kredensial admin Anda</p>
                     </div>
                 `;
                 
@@ -1241,60 +1195,28 @@
             showLoading();
             
             try {
-                // Coba login ke Google Apps Script
-                if (GOOGLE_SCRIPT_URL !== 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec') {
-                    const response = await fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'login',
-                            username: username,
-                            password: password
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        appState.isLoggedIn = true;
-                        appState.userData = result.data;
-                        appState.userRole = result.data.role;
-                        localStorage.setItem('user_data', JSON.stringify(result.data));
-                        showToast('Login berhasil! Selamat datang ' + result.data.nama, 'success');
-                        renderAdminPanel();
-                    } else {
-                        showToast(result.message || 'Username atau password salah!', 'error');
-                    }
-                } else {
-                    // Mode simulasi (offline)
-                    if ((username === 'superadmin' && password === 'super123') || (username === 'operator' && password === 'oper123')) {
-                        appState.isLoggedIn = true;
-                        appState.userRole = username === 'superadmin' ? 'superadmin' : 'operator';
-                        appState.userData = {
-                            username: username,
-                            nama: username === 'superadmin' ? 'Administrator' : 'Operator Data',
-                            role: appState.userRole
-                        };
-                        showToast('Login berhasil! (Mode Offline)', 'success');
-                        renderAdminPanel();
-                    } else {
-                        showToast('Username atau password salah!', 'error');
-                    }
-                }
-            } catch (error) {
-                // Fallback ke mode offline
-                if ((username === 'superadmin' && password === 'super123') || (username === 'operator' && password === 'oper123')) {
-                    appState.isLoggedIn = true;
-                    appState.userRole = username === 'superadmin' ? 'superadmin' : 'operator';
-                    appState.userData = {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        action: 'login',
                         username: username,
-                        nama: username === 'superadmin' ? 'Administrator' : 'Operator Data',
-                        role: appState.userRole
-                    };
-                    showToast('Login berhasil! (Mode Offline)', 'success');
+                        password: password
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    appState.isLoggedIn = true;
+                    appState.userData = result.data;
+                    appState.userRole = result.data.role;
+                    showToast('Login berhasil! Selamat datang ' + result.data.nama, 'success');
                     renderAdminPanel();
                 } else {
-                    showToast('Username atau password salah!', 'error');
+                    showToast(result.message || 'Username atau password salah!', 'error');
                 }
+            } catch (error) {
+                showToast('Gagal terhubung ke server. Periksa koneksi internet Anda.', 'error');
             }
             
             hideLoading();
@@ -1304,7 +1226,6 @@
             appState.isLoggedIn = false;
             appState.userRole = null;
             appState.userData = null;
-            localStorage.removeItem('user_data');
             showToast('Logout berhasil!', 'success');
             navigateTo('beranda');
         }
@@ -1483,12 +1404,8 @@
                 console.log('Gagal mengambil data user dari server');
             }
             
-            // Mode offline - gunakan data dummy
             if (users.length === 0) {
-                users = [
-                    { id: 1, username: 'superadmin', nama: 'Administrator', role: 'superadmin', email: 'admin@manja.go.id', status: 'Aktif' },
-                    { id: 2, username: 'operator', nama: 'Operator Data', role: 'operator', email: 'operator@manja.go.id', status: 'Aktif' }
-                ];
+                users = [];
             }
             
             document.getElementById('modalBody').innerHTML = `
