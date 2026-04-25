@@ -1647,7 +1647,7 @@
                     <i class="fas fa-sign-in-alt"></i> Masuk
                 </button>
                 <p class="login-error" id="login-error">Username atau password salah!</p>
-                <p class="login-hint">Demo: admin / 123 atau user / 123</p>
+                <p class="login-hint">Demo: admin / 123</p>
             </form>
         </div>
     </div>
@@ -1728,8 +1728,8 @@
                     <i class="fas fa-user"></i>
                 </div>
                 <div class="user-info">
-                    <div class="user-name" id="display-name">Admin</div>
-                    <div class="user-role" id="display-role">Administrator</div>
+                    <div class="user-name" id="display-name">Tamu</div>
+                    <div class="user-role" id="display-role">Guest</div>
                 </div>
                 <button class="logout-btn" id="logout-btn" title="Logout">
                     <i class="fas fa-sign-out-alt"></i>
@@ -1756,7 +1756,7 @@
                 <!-- Dashboard Page -->
                 <div class="page active" id="page-dashboard">
                     <div class="greeting">
-                        <h2 class="greeting-title" id="greeting-text">Selamat Datang, Admin!</h2>
+                        <h2 class="greeting-title" id="greeting-text">Selamat Datang, Tamu!</h2>
                         <p class="greeting-subtitle">Berikut ringkasan data kompetensi dan mutu SDM kesehatan</p>
                     </div>
 
@@ -2548,7 +2548,7 @@
         }
 
         // ============================================
-        // LOGIN SYSTEM
+        // LOGIN SYSTEM - Admin Only
         // ============================================
         
         function initLogin() {
@@ -2556,22 +2556,28 @@
             const loginPage = document.getElementById('login-page');
             const app = document.getElementById('app');
 
+            // Langsung tampilkan app tanpa login (mode guest)
+            loginPage.classList.add('hidden');
+            app.classList.add('active');
+            initApp();
+            showToast('info', 'Mode Tamu', 'Selamat datang! Login diperlukan untuk Panel Admin.');
+
             loginForm.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
                 const loginError = document.getElementById('login-error');
 
-                if ((username === 'admin' || username === 'user') && password === '123') {
+                if (username === 'admin' && password === '123') {
                     localStorage.setItem('currentUser', JSON.stringify({
                         username: username,
-                        nama: username === 'admin' ? 'Administrator' : 'User',
-                        role: username === 'admin' ? 'Administrator' : 'Pengguna'
+                        nama: 'Administrator',
+                        role: 'Administrator'
                     }));
-                    loginPage.classList.add('hidden');
-                    app.classList.add('active');
-                    initApp();
-                    showToast('success', 'Login Berhasil', `Selamat datang, ${username === 'admin' ? 'Administrator' : 'User'}!`);
+                    document.getElementById('display-name').textContent = 'Administrator';
+                    document.getElementById('display-role').textContent = 'Administrator';
+                    document.getElementById('greeting-text').textContent = 'Selamat Datang, Administrator!';
+                    showToast('success', 'Login Berhasil', 'Selamat datang, Administrator!');
                 } else {
                     loginError.classList.add('show');
                     setTimeout(() => {
@@ -2598,6 +2604,18 @@
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
                     const page = this.getAttribute('data-page');
+                    
+                    // Cek apakah menu admin dan user belum login
+                    if (page === 'admin') {
+                        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                        if (!user || user.role !== 'Administrator') {
+                            // Tampilkan form login
+                            document.getElementById('login-page').classList.remove('hidden');
+                            document.getElementById('app').classList.remove('active');
+                            showToast('warning', 'Akses Terbatas', 'Login sebagai Administrator untuk mengakses Panel Admin');
+                            return;
+                        }
+                    }
                     
                     menuLinks.forEach(l => l.classList.remove('active'));
                     this.classList.add('active');
