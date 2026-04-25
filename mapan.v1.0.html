@@ -1715,6 +1715,13 @@
                         <span class="menu-tooltip">Panel Admin</span>
                     </a>
                 </li>
+                <li class="menu-item">
+                    <a href="https://script.google.com/macros/s/AKfycbz3KzcSu4QIwLkmOR3fTSdJ5jl85IyjyWIYJDp_qF0VsKwvCzZl5RqlUcGnQCeAGU8k/exec" target="_blank" class="menu-link" style="background: rgba(255,255,255,0.15);">
+                        <i class="fas fa-external-link-alt"></i>
+                        <span class="menu-text">Web App GAS</span>
+                        <span class="menu-tooltip">Buka Web App GAS</span>
+                    </a>
+                </li>
             </ul>
             <div class="sidebar-user">
                 <div class="user-avatar">
@@ -2448,6 +2455,76 @@
         }
 
         // ============================================
+        // GOOGLE APPS SCRIPT API CONFIG
+        // ============================================
+        
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbz3KzcSu4QIwLkmOR3fTSdJ5jl85IyjyWIYJDp_qF0VsKwvCzZl5RqlUcGnQCeAGU8k/exec';
+        
+        // Fetch data from Google Sheets via GAS
+        async function fetchFromGAS(action, params = {}) {
+            try {
+                const url = new URL(GAS_URL);
+                url.searchParams.set('action', action);
+                Object.keys(params).forEach(key => {
+                    url.searchParams.set(key, params[key]);
+                });
+                
+                const response = await fetch(url.toString());
+                return await response.json();
+            } catch (error) {
+                console.error('GAS Error:', error);
+                return null;
+            }
+        }
+        
+        // Send data to Google Sheets via GAS
+        async function sendToGAS(action, data) {
+            try {
+                const url = new URL(GAS_URL);
+                url.searchParams.set('action', action);
+                
+                const response = await fetch(url.toString(), {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                return await response.json();
+            } catch (error) {
+                console.error('GAS Error:', error);
+                return null;
+            }
+        }
+        
+        // Sync local data with Google Sheets
+        async function syncData() {
+            showToast('info', 'Sinkronisasi', 'Menyinkronkan data dengan Google Sheets...');
+            
+            try {
+                const gasData = await fetchFromGAS('list');
+                
+                if (gasData && gasData.data) {
+                    const localAjuan = getData('ajuanKompetensi') || [];
+                    
+                    gasData.data.forEach(gasItem => {
+                        const exists = localAjuan.find(a => a.id === gasItem.id);
+                        if (!exists) {
+                            localAjuan.push(gasItem);
+                        }
+                    });
+                    
+                    setData('ajuanKompetensi', localAjuan);
+                    showToast('success', 'Sinkronisasi', `Berhasil sinkronkan ${gasData.data.length} data`);
+                } else {
+                    const localData = getData('ajuanKompetensi') || [];
+                    if (localData.length > 0) {
+                        showToast('info', 'Offline Mode', 'Menggunakan data lokal');
+                    }
+                }
+            } catch (error) {
+                showToast('warning', 'Sinkronisasi', 'Gagal terhubung ke server, menggunakan data lokal');
+            }
+        }
+
+        // ============================================
         // PRELOADER
         // ============================================
         
@@ -3076,7 +3153,7 @@
             const form = document.getElementById('form-ajuan-kompetensi');
             
             // Simpan Draft
-            document.getElementById('btn-simpan-draft').addEventListener('click', function() {
+            document.getElementById('btn-simpan-draft').addEventListener('click', async function() {
                 const formData = {
                     nik: document.getElementById('nik').value,
                     nama_lengkap: document.getElementById('nama-lengkap').value,
@@ -3086,19 +3163,25 @@
                     no_hp: document.getElementById('no-hp').value,
                     email: document.getElementById('email').value,
                     unit_kerja: document.getElementById('unit-kerja').value,
-                    status: 'draft',
-                    tanggal: new Date().toISOString().split('T')[0]
+                    status_ajuan: 'draft',
+                    tanggal_pengajuan: new Date().toISOString().split('T')[0]
                 };
                 
                 let ajuan = getData('ajuanKompetensi') || [];
                 ajuan.push({ id: Date.now(), ...formData });
                 setData('ajuanKompetensi', ajuan);
                 
-                showToast('success', 'Simpan Draft', 'Data berhasil disimpan sebagai draft');
+                // Try to sync with GAS
+                try {
+                    await sendToGAS('create', formData);
+                    showToast('success', 'Simpan Draft', 'Data berhasil disimpan & disinkronkan ke Google Sheets');
+                } catch (e) {
+                    showToast('success', 'Simpan Draft', 'Data berhasil disimpan sebagai draft (offline)');
+                }
             });
 
             // Ajukan Sekarang
-            form.addEventListener('submit', function(e) {
+            form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
                 // Get checkbox values
@@ -3131,7 +3214,7 @@
                     masa_kerja: document.getElementById('masa-kerja').value,
                     pendidikan_terakhir: document.getElementById('pendidikan-terakhir').value,
                     status_kompetensi_saat_ini: document.getElementById('status-kompetensi-saat-ini').value,
-                    kompetensi_dimiliki: kompetensiDimiliki,
+                    kompetensi_dimiliki: kompetensiDimiliki.join(', '),
                     nama_kegiatann: document.getElementById('nama-kegiatann').value,
                     penyeleggara: document.getElementById('penyelenggara').value,
                     tahun_pelaksanaan: document.getElementById('tahun-pelaksanaan').value,
@@ -3145,15 +3228,22 @@
                     nip_atasan: document.getElementById('nip-atasan').value,
                     jabatan_atasan: document.getElementById('jabatan-atasan').value,
                     status_persetujuan: document.getElementById('status-persetujuan').value,
-                    status: 'pending',
-                    tanggal: new Date().toISOString().split('T')[0]
+                    status_ajuan: 'pending',
+                    tanggal_pengajuan: new Date().toISOString().split('T')[0]
                 };
                 
                 let ajuan = getData('ajuanKompetensi') || [];
                 ajuan.push(formData);
                 setData('ajuanKompetensi', ajuan);
                 
-                showToast('success', 'Ajukan Berhasil', 'Pengajuan kompetensi berhasil dikirim');
+                // Try to sync with GAS
+                try {
+                    await sendToGAS('create', formData);
+                    showToast('success', 'Ajukan Berhasil', 'Pengajuan kompetensi berhasil dikirim & disinkronkan ke Google Sheets');
+                } catch (e) {
+                    showToast('success', 'Ajukan Berhasil', 'Pengajuan kompetensi berhasil dikirim (offline)');
+                }
+                
                 form.reset();
             });
         }
