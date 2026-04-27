@@ -375,11 +375,35 @@
       margin-bottom: 26px;
     }
 
-    .stat-card {
+    .stat-card,
+    .chart-card {
       padding: 22px;
       border-radius: 22px;
       background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
       border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .chart-card {
+      display: grid;
+      gap: 18px;
+    }
+
+    .chart-card h3 {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .chart-card canvas {
+      width: 100% !important;
+      height: 280px !important;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-bottom: 26px;
     }
 
     .stat-card h3 {
@@ -703,16 +727,31 @@
 
       <div class="cards-grid">
         <div class="stat-card">
-          <h3>Total Jabatan</h3>
+          <h3>Total Pengajuan</h3>
           <strong id="totalPositions">128</strong>
         </div>
         <div class="stat-card">
-          <h3>Proses Verifikasi</h3>
+          <h3>Menunggu Verifikasi</h3>
           <strong id="pendingCount">24</strong>
         </div>
         <div class="stat-card">
-          <h3>Staf Aktif</h3>
-          <strong id="activeStaff">96</strong>
+          <h3>Disetujui</h3>
+          <strong id="approvedCount">82</strong>
+        </div>
+        <div class="stat-card">
+          <h3>Ditolak</h3>
+          <strong id="rejectedCount">22</strong>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Distribusi Jenjang</h3>
+          <canvas id="jenjangChart"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Jenis Jabfung</h3>
+          <canvas id="jabfungChart"></canvas>
         </div>
       </div>
 
@@ -749,8 +788,8 @@
         </table>
       </div>
       <div class="table-footer">
-        <span>Menampilkan 3 dari 128 total data</span>
-        <span>Update terakhir 1 menit lalu</span>
+        <span id="tableSummary">Menampilkan 3 dari 128 total data</span>
+        <span id="tableUpdated">Update terakhir 1 menit lalu</span>
       </div>
     </div>
     <button class="fab" id="openModalBtn" aria-label="Tambah Jabatan">+</button>
@@ -798,6 +837,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const landingPage = document.getElementById('landingPage');
     const dashboardPage = document.getElementById('dashboardPage');
@@ -813,12 +853,20 @@
     const dataRows = document.getElementById('dataRows');
     const totalPositions = document.getElementById('totalPositions');
     const pendingCount = document.getElementById('pendingCount');
-    const activeStaff = document.getElementById('activeStaff');
+    const approvedCount = document.getElementById('approvedCount');
+    const rejectedCount = document.getElementById('rejectedCount');
     const employeeName = document.getElementById('employeeName');
     const positionTitle = document.getElementById('positionTitle');
     const unitName = document.getElementById('unitName');
     const statusSelect = document.getElementById('statusSelect');
     const notes = document.getElementById('notes');
+    const tableSummary = document.getElementById('tableSummary');
+    const tableUpdated = document.getElementById('tableUpdated');
+    const jenjangCanvas = document.getElementById('jenjangChart');
+    const jabfungCanvas = document.getElementById('jabfungChart');
+
+    const SHEET_ID = 'YOUR_SHEET_ID_HERE';
+    const SHEET_NAME = 'Sheet1';
 
     const announcements = [
       { title: 'Integrasi API SSO berhasil', detail: 'Akses data jabatan lebih aman dan cepat melalui integrasi otentikasi internal.' },
@@ -827,10 +875,13 @@
     ];
 
     const entries = [
-      { name: 'Andri Wijaya', position: 'Dokter Spesialis', unit: 'RSU Kebayoran', status: 'Aktif' },
-      { name: 'Maria Nur', position: 'Perawat Pelaksana', unit: 'Puskesmas Menteng', status: 'Menunggu' },
-      { name: 'Rizky Hidayat', position: 'Apoteker', unit: 'RSUD Jakarta', status: 'Aktif' }
+      { name: 'Andri Wijaya', position: 'Dokter Spesialis', unit: 'RSU Kebayoran', status: 'Disetujui', jenjang: 'Dokter', jenisJabfung: 'Medis' },
+      { name: 'Maria Nur', position: 'Perawat Pelaksana', unit: 'Puskesmas Menteng', status: 'Menunggu', jenjang: 'Perawat', jenisJabfung: 'Keperawatan' },
+      { name: 'Rizky Hidayat', position: 'Apoteker', unit: 'RSUD Jakarta', status: 'Ditolak', jenjang: 'Apoteker', jenisJabfung: 'Farmasi' }
     ];
+
+    let jenjangChart = null;
+    let jabfungChart = null;
 
     function renderAnnouncements() {
       announcementList.innerHTML = announcements.map(item => `
@@ -841,8 +892,53 @@
       `).join('');
     }
 
-    function renderTable() {
-      dataRows.innerHTML = entries.map(item => `
+    function normalizeHeader(value) {
+      return value ? value.toString().trim().toLowerCase() : '';
+    }
+
+    function mapRow(header, row) {
+      const entry = {};
+      header.forEach((column, index) => {
+        entry[normalizeHeader(column)] = row[index] || '';
+      });
+      return {
+        name: entry['nama pegawai'] || entry['nama'] || 'Tanpa Nama',
+        position: entry['jabatan'] || entry['posisi'] || '',
+        unit: entry['unit'] || entry['unit kerja'] || '',
+        status: entry['status'] || '',
+        jenjang: entry['jenjang'] || 'Tidak Tersedia',
+        jenisJabfung: entry['jenis jabfung'] || entry['jenis jabfung kesehatan'] || 'Tidak Tersedia'
+      };
+    }
+
+    function parseSheetData(text) {
+      const jsonText = text.replace(/^[^\{]*\{/, '{').replace(/\};?$/, '}');
+      const data = JSON.parse(jsonText);
+      const header = data.table.cols.map(col => col.label || col.id || '');
+      return data.table.rows.map(row => row.c.map(cell => (cell && cell.v !== null ? cell.v : ''))).map(row => mapRow(header, row));
+    }
+
+    function summarize(rows) {
+      const summary = {
+        total: rows.length,
+        pending: rows.filter(item => item.status.toLowerCase().includes('menunggu')).length,
+        approved: rows.filter(item => item.status.toLowerCase().includes('setuju') || item.status.toLowerCase().includes('approved')).length,
+        rejected: rows.filter(item => item.status.toLowerCase().includes('tolak') || item.status.toLowerCase().includes('rejected')).length
+      };
+      return summary;
+    }
+
+    function groupBy(rows, key) {
+      return rows.reduce((acc, item) => {
+        const value = item[key] || 'Tidak Tersedia';
+        acc[value] = (acc[value] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    function renderTable(filteredEntries = entries) {
+      const lastItems = filteredEntries.slice(0, 10);
+      dataRows.innerHTML = lastItems.map(item => `
         <tr>
           <td><strong>${item.name}</strong></td>
           <td>${item.position}</td>
@@ -850,15 +946,95 @@
           <td><span class="status-pill">${item.status}</span></td>
         </tr>
       `).join('');
-      totalPositions.textContent = entries.length;
-      pendingCount.textContent = entries.filter(entry => entry.status === 'Menunggu').length;
-      activeStaff.textContent = entries.filter(entry => entry.status === 'Aktif').length;
+    }
+
+    function updateStats(rows = entries) {
+      const stats = summarize(rows);
+      totalPositions.textContent = stats.total;
+      pendingCount.textContent = stats.pending;
+      approvedCount.textContent = stats.approved;
+      rejectedCount.textContent = stats.rejected;
+    }
+
+    function buildChart(chartRef, context, labels, values, type, options = {}) {
+      if (chartRef) chartRef.destroy();
+      return new Chart(context, {
+        type,
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: labels.map((_, index) => [
+              'rgba(255, 214, 0, 0.78)',
+              'rgba(211, 47, 47, 0.74)',
+              'rgba(25, 118, 210, 0.68)',
+              'rgba(255, 255, 255, 0.22)'
+            ][index % 4]),
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1
+          }]
+        },
+        options: Object.assign({
+          responsive: true,
+          plugins: {
+            legend: {
+              labels: { color: '#cfd8dc' }
+            }
+          },
+          scales: {
+            x: { ticks: { color: '#cfd8dc' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+            y: { ticks: { color: '#cfd8dc' }, grid: { color: 'rgba(255,255,255,0.08)' } }
+          }
+        }, options)
+      });
+    }
+
+    function renderCharts(rows = entries) {
+      const jenjangData = groupBy(rows, 'jenjang');
+      const jabfungData = groupBy(rows, 'jenisJabfung');
+      jenjangChart = buildChart(jenjangChart, jenjangCanvas.getContext('2d'), Object.keys(jenjangData), Object.values(jenjangData), 'doughnut', {maintainAspectRatio: false});
+      jabfungChart = buildChart(jabfungChart, jabfungCanvas.getContext('2d'), Object.keys(jabfungData), Object.values(jabfungData), 'bar', {maintainAspectRatio: false});
+    }
+
+    function updateFooter(rows = entries) {
+      const total = rows.length;
+      tableSummary.textContent = `Menampilkan ${Math.min(total, 10)} dari ${total} data terbaru`;
+      tableUpdated.textContent = `Update terakhir ${new Date().toLocaleTimeString('id-ID')}`;
+    }
+
+    function updateDashboard(rows = entries) {
+      renderTable(rows);
+      updateStats(rows);
+      renderCharts(rows);
+      updateFooter(rows);
+    }
+
+    async function loadSheetData() {
+      if (SHEET_ID === 'YOUR_SHEET_ID_HERE') {
+        updateDashboard(entries);
+        return;
+      }
+
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        const sheetEntries = parseSheetData(text);
+        if (sheetEntries.length) {
+          entries.splice(0, entries.length, ...sheetEntries);
+        }
+        updateDashboard(entries);
+      } catch (error) {
+        console.warn('Google Sheet data tidak dapat dimuat:', error);
+        updateDashboard(entries);
+      }
     }
 
     function showDashboard() {
       landingPage.style.display = 'none';
       dashboardPage.classList.add('active');
       document.body.style.overflow = 'auto';
+      loadSheetData();
     }
 
     function toggleSidebar() {
@@ -907,9 +1083,11 @@
 
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', event => {
-        event.preventDefault();
-        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-        item.classList.add('active');
+        if (item.dataset.section) {
+          event.preventDefault();
+          document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+          item.classList.add('active');
+        }
       });
     });
 
