@@ -722,7 +722,7 @@
                 <i class="fas fa-bars"></i>
             </button>
             <ul class="topbar-menu">
-                <li><a href="https://timkersdmk.mukminnasri.com/" data-page="beranda">Beranda</a></li>
+                <li><a href="#" data-page="beranda">Beranda</a></li>
                 <li>
                     <a href="#">Aplikasi & Inovasi</a>
                     <ul class="submenu">
@@ -852,27 +852,50 @@
         <div class="page" id="tambah-unit">
             <h2>Form Tambah Unit Kerja</h2>
             <div class="card">
-                <form id="unit-form">
+                <form id="unit-form" enctype="multipart/form-data">
                     <div class="form-group">
-                        <label>Nama Unit</label>
-                        <input type="text" class="form-control" name="nama" required>
+                        <label>Nama Pemohon</label>
+                        <input type="text" class="form-control" name="namaPemohon" required>
                     </div>
                     <div class="form-group">
-                        <label>Jenis Unit</label>
-                        <select class="form-control" name="jenis" required>
-                            <option value="">Pilih Jenis</option>
-                            <option value="RS">Rumah Sakit</option>
-                            <option value="Puskesmas">Puskesmas</option>
-                            <option value="Klinik">Klinik</option>
-                        </select>
+                        <label>Nomor Whatsapp</label>
+                        <input type="tel" class="form-control" name="whatsapp" required>
                     </div>
                     <div class="form-group">
-                        <label>Alamat</label>
-                        <textarea class="form-control" name="alamat" required></textarea>
+                        <label>Alamat Email</label>
+                        <input type="email" class="form-control" name="emailPemohon" required>
                     </div>
                     <div class="form-group">
-                        <label>Jumlah Tenaga</label>
-                        <input type="number" class="form-control" name="jumlah" required>
+                        <label>Nama Unit Kerja</label>
+                        <input type="text" class="form-control" name="namaUnit" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Alamat Lengkap</label>
+                        <textarea class="form-control" name="alamatLengkap" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Kecamatan</label>
+                        <input type="text" class="form-control" name="kecamatan" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kelurahan/Desa</label>
+                        <input type="text" class="form-control" name="kelurahan" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Kode Pos</label>
+                        <input type="text" class="form-control" name="kodePos" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Telpon Kantor</label>
+                        <input type="tel" class="form-control" name="telponKantor" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email Kantor</label>
+                        <input type="email" class="form-control" name="emailKantor" required>
+                    </div>
+                    <div class="form-group">
+                        <label>File Izin Operasional/Praktik</label>
+                        <input type="file" class="form-control" name="fileIzin" accept=".pdf,.jpg,.png,.jpeg" required>
                     </div>
                     <button type="submit" class="btn btn-success">Simpan Unit</button>
                 </form>
@@ -1290,24 +1313,37 @@
             }).addTo(sebaranMap);
         }
 
+        // Google Apps Script URL - Ganti dengan URL web app Anda
+        const GS_URL = 'https://script.google.com/macros/s/AKfycbwt1M8HibX3nTmG8Q2oKyut5O4UVG1MDp7tFmJ3_ovS-FNE9cqR9T7eVmt-wWyCImYS/exec';
+
         // Forms functionality
-        function saveUnit(e) {
+        async function saveUnit(e) {
             e.preventDefault();
+            showLoading();
+
             const formData = new FormData(e.target);
-            const unit = {
-                nama: formData.get('nama'),
-                jenis: formData.get('jenis'),
-                alamat: formData.get('alamat'),
-                jumlah: formData.get('jumlah')
-            };
 
-            let units = JSON.parse(localStorage.getItem('units') || '[]');
-            units.push(unit);
-            localStorage.setItem('units', JSON.stringify(units));
+            try {
+                const response = await fetch(GS_URL, {
+                    method: 'POST',
+                    body: formData
+                });
 
-            showToast('Unit kerja berhasil ditambahkan');
-            e.target.reset();
-            updateDashboardStats();
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('Unit kerja berhasil ditambahkan dan tersimpan ke database');
+                    e.target.reset();
+                    updateDashboardStats();
+                } else {
+                    showToast('Gagal menyimpan data: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Terjadi kesalahan saat menyimpan data', 'error');
+            } finally {
+                hideLoading();
+            }
         }
 
         function sendContact(e) {
