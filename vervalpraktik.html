@@ -887,7 +887,7 @@
 
     <script>
         // Web App URL - Dari Google Apps Script
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyH7EwIZCj91seZAi62U9lgnOesC001G-655mPCUgS7_5faqXM-xnBcq0JGVIRWhZEI/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwn8aUSGNxIFlKIxUOtsv1Sd9IZeYJBi-kuF8lZTLNyIQA3y4YsmTmeJUbSMeR2lECS/exec';
 
         // Loading element
         const loading = document.createElement('div');
@@ -944,9 +944,8 @@
                 'nomorSip', 'fasilitasKesehatan', 'alamatPraktik'
             ];
 
-            const fileFields = [
-                'fileKtp', 'fileStr', 'fileSip', 'fileIjazah', 'fileRekomendasi'
-            ];
+            // 4 required files: KTP, STR, SIP, Ijazah
+            const fileFields = ['fileKtp', 'fileStr', 'fileSip', 'fileIjazah'];
 
             let emptyFields = [];
 
@@ -955,14 +954,15 @@
                 const field = document.getElementById(fieldId);
                 if (field && !field.value.trim()) {
                     field.classList.add('error');
-                    emptyFields.push(field.previousElementSibling.textContent.trim());
+                    const label = field.closest('.form-group').querySelector('label');
+                    emptyFields.push(label ? label.textContent.replace('*', '').trim() : fieldId);
                 } else if (field) {
                     field.classList.remove('error');
                 }
             });
 
-            // Check file fields (4 required: KTP, STR, SIP, Ijazah)
-            fileFields.slice(0, 4).forEach(fieldId => {
+            // Check file fields (required)
+            fileFields.forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 if (field && !field.value) {
                     const label = field.closest('.form-group').querySelector('label');
@@ -1042,6 +1042,14 @@
                 }
             });
 
+            // Additional documentation files (optional)
+            for (let i = 1; i <= 10; i++) {
+                const input = document.getElementById('fileDoc' + i);
+                if (input && input.files[0]) {
+                    formInputs.append('fileDoc' + i, input.files[0]);
+                }
+            }
+
             // Checkboxes
             formInputs.append('cekIdentitas', document.getElementById('cekIdentitas').checked ? 'Ya' : 'Tidak');
             formInputs.append('cekStr', document.getElementById('cekStr').checked ? 'Ya' : 'Tidak');
@@ -1056,21 +1064,46 @@
             formInputs.append('tanggalVerifikasi', document.getElementById('tanggalVerifikasi').value);
             formInputs.append('namaVerifikator', document.getElementById('namaVerifikator').value);
 
-            // Kirim ke Google Apps Script via fetch (no-cors untuk testing)
+            // Debug: log form data entries
+            console.log('Submitting form data...');
+            for (let pair of formInputs.entries()) {
+                if (pair[1] instanceof File) {
+                    console.log(pair[0] + ' => [File] ' + pair[1].name + ' (' + pair[1].size + ' bytes)');
+                } else {
+                    console.log(pair[0] + ' => ' + pair[1]);
+                }
+            }
+
+            // Send with CORS mode
             fetch(WEB_APP_URL, {
                 method: 'POST',
-                mode: 'no-cors',
+                mode: 'cors',
                 body: formInputs
             })
-            .then(function() {
-                console.log('Request sent (no-cors mode)');
-                // Since no-cors gives opaque response, assume success
-                showNotification('Data berhasil disimpan!', 'success');
-                resetForm(false);
+            .then(function(response) {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                return response.json();
+            })
+            .then(function(result) {
+                console.log('Response:', result);
+                if (result.success) {
+                    showNotification(result.message || 'Data berhasil disimpan!', 'success');
+                    resetForm(false);
+                } else {
+                    showNotification(result.message || 'Gagal menyimpan data', 'error');
+                }
             })
             .catch(function(error) {
                 console.error('Fetch error:', error);
-                showNotification('Terjadi kesalahan: ' + error.message, 'error');
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+
+                let errorMsg = 'Terjadi kesalahan: ' + error.message;
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    errorMsg = 'Gagal terhubung ke server. Pastikan:\n1. Web App sudah di-deploy\n2. URL benar\n3. CORS diizinkan';
+                }
+                showNotification(errorMsg, 'error');
             })
             .finally(function() {
                 document.getElementById('loadingOverlay').style.display = 'none';
