@@ -3,413 +3,269 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMANTRI V2.0 - Peta Puskesmas Kutai Kartanegara</title>
+    <title>SIMANTRI V3.0 - Peta Faskes Kaltim Timur</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            height: 100vh;
-            overflow: hidden;
+            height: 100vh; overflow: hidden;
         }
         
         .header {
-            background: rgba(255,255,255,0.95);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            backdrop-filter: blur(10px);
-            position: relative;
-            z-index: 1000;
+            background: rgba(255,255,255,0.95); padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); backdrop-filter: blur(10px);
+            position: relative; z-index: 1000;
         }
         
-        .header h1 {
-            color: #1e3c72;
-            font-size: 1.5rem;
-            font-weight: 700;
+        .header h1 { color: #1e3c72; font-size: 1.5rem; font-weight: 700; }
+        .header p { color: #666; font-size: 0.9rem; margin-top: 0.25rem; }
+        
+        .controls {
+            position: absolute; top: 5rem; left: 2rem; z-index: 1000;
+            background: rgba(255,255,255,0.95); padding: 1.5rem;
+            border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px); min-width: 350px;
         }
         
-        .header p {
-            color: #666;
-            font-size: 0.9rem;
-            margin-top: 0.25rem;
-        }
+        .control-group { margin-bottom: 1rem; }
+        .control-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: #1e3c72; }
+        select, input { width: 100%; padding: 0.75rem; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 1rem; }
+        select:focus, input:focus { outline: none; border-color: #1e3c72; }
         
-        .search-container {
-            position: absolute;
-            top: 5rem;
-            left: 2rem;
-            z-index: 1000;
-            background: rgba(255,255,255,0.95);
-            padding: 1rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            backdrop-filter: blur(10px);
-            min-width: 300px;
-        }
+        #map { height: calc(100vh - 80px); width: 100%; border-radius: 0 0 20px 20px; }
         
-        #searchInput {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
+        .legend { position: absolute; bottom: 2rem; right: 2rem; background: rgba(255,255,255,0.95);
+            padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px); min-width: 200px; }
+        .legend h3 { color: #1e3c72; margin-bottom: 1rem; font-size: 1.1rem; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 0.75rem; }
+        .legend-icon { width: 20px; height: 20px; border-radius: 50%; margin-right: 0.75rem; border: 3px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
         
-        #searchInput:focus {
-            outline: none;
-            border-color: #1e3c72;
-            box-shadow: 0 0 0 3px rgba(30,60,114,0.1);
-        }
+        .loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30,60,114,0.95);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; color: white; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid white;
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        #map {
-            height: calc(100vh - 80px);
-            width: 100%;
-            border-radius: 0 0 20px 20px;
-        }
-        
-        .legend {
-            position: absolute;
-            bottom: 2rem;
-            left: 2rem;
-            background: rgba(255,255,255,0.95);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            backdrop-filter: blur(10px);
-            border-left: 5px solid #28a745;
-        }
-        
-        .legend h3 {
-            color: #1e3c72;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-        
-        .legend-icon {
-            width: 24px;
-            height: 24px;
-            background: #28a745;
-            border-radius: 50%;
-            margin-right: 0.75rem;
-            box-shadow: 0 2px 8px rgba(40,167,69,0.4);
-        }
-        
-        .loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(30,60,114,0.95);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            color: white;
-            font-size: 1.2rem;
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top: 4px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 1rem;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .stats {
-            background: rgba(255,255,255,0.9);
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 600;
-            color: #1e3c72;
-            margin-top: 1rem;
-        }
+        .stats { background: rgba(255,255,255,0.9); padding: 0.5rem 1rem; border-radius: 20px;
+            font-weight: 600; color: #1e3c72; margin-top: 1rem; text-align: center; }
         
         @media (max-width: 768px) {
-            .header h1 { font-size: 1.2rem; }
-            .search-container { 
-                position: relative;
-                top: auto;
-                left: auto;
-                margin: 1rem;
-                min-width: auto;
-            }
-            .legend { 
-                position: relative;
-                bottom: auto;
-                left: auto;
-                margin: 1rem;
-            }
+            .controls { position: relative; top: auto; left: auto; margin: 1rem; min-width: auto; }
+            .legend { position: relative; bottom: auto; right: auto; margin: 1rem; }
         }
     </style>
 </head>
 <body>
     <div class="loading" id="loading">
         <div class="spinner"></div>
-        <div>Memuat data Puskesmas...</div>
-        <div id="progress" style="margin-top: 1rem; font-size: 1rem;"></div>
+        <div>Memuat data Faskes...</div>
+        <div id="progress" style="margin-top: 1rem;"></div>
     </div>
     
     <div class="header">
-        <h1>🩺 SIMANTRI V2.0</h1>
-        <p>Peta Interaktif Puskesmas Kabupaten Kutai Kartanegara</p>
+        <h1>🏥 SIMANTRI V3.0</h1>
+        <p>Peta Interaktif Faskes Kaltim Timur (Real-time Spreadsheet)</p>
     </div>
     
-    <div class="search-container">
-        <input type="text" id="searchInput" placeholder="🔍 Cari Puskesmas atau Kecamatan...">
+    <div class="controls">
+        <div class="control-group">
+            <label>Google Apps Script URL:</label>
+            <input type="url" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec" value="">
+            <small style="color: #666;">Paste Web App URL here</small>
+        </div>
+        <div class="control-group">
+            <label>Jenis Faskes:</label>
+            <select id="filterJenis"><option value="">Semua</option></select>
+        </div>
+        <div class="control-group">
+            <label>Kecamatan:</label>
+            <select id="filterKec"><option value="">Semua</option></select>
+        </div>
+        <div class="control-group">
+            <label>Cari Faskes:</label>
+            <input type="text" id="searchInput" placeholder="Nama faskes...">
+        </div>
+        <button onclick="loadData()" style="width:100%; padding:0.75rem; background:#28a745; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🔄 Muat Ulang Data</button>
     </div>
     
     <div id="map"></div>
     
     <div class="legend">
         <h3>📍 Legenda</h3>
-        <div class="legend-item">
-            <div class="legend-icon"></div>
-            <span>Puskesmas (32 titik)</span>
-        </div>
-        <div class="stats" id="stats">Memuat...</div>
+        <div class="legend-item"><div class="legend-icon" style="background:#28a745;"></div><span>🟢 Puskesmas</span></div>
+        <div class="legend-item"><div class="legend-icon" style="background:#007bff;"></div><span>🔵 Pustu</span></div>
+        <div class="legend-item"><div class="legend-icon" style="background:#ffc107;"></div><span>🟡 Polindes</span></div>
+        <div class="legend-item"><div class="legend-icon" style="background:#dc3545;"></div><span>🔴 Rumah Sakit</span></div>
+        <div class="stats" id="stats">Siap memuat...</div>
     </div>
     
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-        // Data Puskesmas
-        const puskesmas = [
-            {nama:"Puskesmas Samboja", kec:"Samboja"},
-            {nama:"Puskesmas Sungai Merdeka", kec:"Samboja"},
-            {nama:"Puskesmas Handil Baru", kec:"Samboja"},
-            {nama:"Puskesmas Muara Jawa", kec:"Muara Jawa"},
-            {nama:"Puskesmas Sanga-Sanga", kec:"Sanga-Sanga"},
-            {nama:"Puskesmas Loa Janan", kec:"Loa Janan"},
-            {nama:"Puskesmas Batuah", kec:"Loa Janan"},
-            {nama:"Puskesmas Loa Duri", kec:"Loa Janan"},
-            {nama:"Puskesmas Loa Kulu", kec:"Loa Kulu"},
-            {nama:"Puskesmas Loa Ipuh", kec:"Tenggarong"},
-            {nama:"Puskesmas Mangkurawang", kec:"Tenggarong"},
-            {nama:"Puskesmas Rapak Mahang", kec:"Tenggarong"},
-            {nama:"Puskesmas Kota Bangun", kec:"Kota Bangun"},
-            {nama:"Puskesmas Rimba Ayu", kec:"Kota Bangun"},
-            {nama:"Puskesmas Muara Muntai", kec:"Muara Muntai"},
-            {nama:"Puskesmas Muara Wis", kec:"Muara Wis"},
-            {nama:"Puskesmas Muara Kaman", kec:"Muara Kaman"},
-            {nama:"Puskesmas Sebulu I", kec:"Sebulu"},
-            {nama:"Puskesmas Sebulu II", kec:"Sebulu"},
-            {nama:"Puskesmas Tenggarong Seberang", kec:"Tenggarong Seberang"},
-            {nama:"Puskesmas Separi III", kec:"Tenggarong Seberang"},
-            {nama:"Puskesmas Teluk Dalam", kec:"Tenggarong Seberang"},
-            {nama:"Puskesmas Anggana", kec:"Anggana"},
-            {nama:"Puskesmas Sungai Mariam", kec:"Anggana"},
-            {nama:"Puskesmas Muara Badak", kec:"Muara Badak"},
-            {nama:"Puskesmas Badak Baru", kec:"Muara Badak"},
-            {nama:"Puskesmas Marangkayu", kec:"Marangkayu"},
-            {nama:"Puskesmas Perangat", kec:"Marangkayu"},
-            {nama:"Puskesmas Muara Kaman Ilir", kec:"Muara Kaman"},
-            {nama:"Puskesmas Muara Kaman Ulu", kec:"Muara Kaman"},
-            {nama:"Puskesmas Tabang", kec:"Tabang"},
-            {nama:"Puskesmas Ritan Baru", kec:"Tabang"}
-        ];
+        let map, markers = L.layerGroup(), allBounds = L.latLngBounds(), faskesData = [];
+        let jenisSet = new Set(), kecSet = new Set();
         
-        let map;
-        let markers = [];
-        let allBounds = L.latLngBounds();
-        let coordsCache = {};
-        
-        // Inisialisasi peta
         function initMap() {
             map = L.map('map').setView([-0.5, 117.0], 9);
-            
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&amp;copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '&amp;copy; OpenStreetMap contributors'
             }).addTo(map);
-            
-            // Custom green icon
-            const greenIcon = L.divIcon({
-                className: 'custom-marker',
-                html: '<div style="background:#28a745;border-radius:50%;width:20px;height:20px;box-shadow:0 2px 8px rgba(40,167,69,0.5);border:3px solid white;"></div>',
-                iconSize: [26, 26],
-                iconAnchor: [13, 26]
-            });
-            
-            loadCoords();
+            markers.addTo(map);
         }
         
-        // Load coordinates dari localStorage atau geocode
-        async function loadCoords() {
+        function getIcon(jenis) {
+            const size = [30, 30];
+            const icons = {
+                'Puskesmas': {color: '#28a745'},
+                'Pustu': {color: '#007bff'},
+                'Polindes': {color: '#ffc107'},
+                'RS': {color: '#dc3545'},
+                default: {color: '#6c757d'}
+            };
+            const cfg = icons[jenis] || icons.default;
+            return L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="background:${cfg.color};border-radius:50%;width:${size[0]}px;height:${size[1]}px;box-shadow:0 4px 12px ${cfg.color}20;border:4px solid white;"></div>`,
+                iconSize: size, iconAnchor: [size[0]/2, size[1]]
+            });
+        }
+        
+        async function loadData(url = null) {
             const loading = document.getElementById('loading');
             const progress = document.getElementById('progress');
             const stats = document.getElementById('stats');
-            
-            // Cek cache
-            const cached = localStorage.getItem('puskesmas_coords');
-            if (cached) {
-                coordsCache = JSON.parse(cached);
-                await addAllMarkers();
-                loading.style.display = 'none';
-                stats.textContent = `${Object.keys(coordsCache).length} Puskesmas dimuat dari cache`;
-                return;
-            }
-            
-            // Geocode sequential dengan delay
-            for (let i = 0; i < puskesmas.length; i++) {
-                const p = puskesmas[i];
-                const address = `${p.nama}, ${p.kec}, Kutai Kartanegara, Kalimantan Timur, Indonesia`;
-                
-                progress.textContent = `Geocoding ${i+1}/${puskesmas.length}: ${p.nama}`;
-                
-                try {
-                    const coords = await geocodeAddress(address);
-                    if (coords) {
-                        coordsCache[p.nama] = coords;
-                    }
-                } catch (e) {
-                    console.error(`Error geocoding ${p.nama}:`, e);
-                }
-                
-                // Delay 1 detik
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-            
-            // Simpan ke localStorage
-            localStorage.setItem('puskesmas_coords', JSON.stringify(coordsCache));
-            
-            await addAllMarkers();
-            loading.style.display = 'none';
-            stats.textContent = `${Object.keys(coordsCache).length} Puskesmas berhasil dimuat`;
-        }
-        
-        // Geocode menggunakan Nominatim
-        async function geocodeAddress(address) {
-            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=id&addressdetails=1`;
+            loading.style.display = 'flex';
             
             try {
-                const response = await fetch(url, {
-                    headers: { 'User-Agent': 'SIMANTRI-V2/1.0 (simantri@example.com)' }
-                });
-                const data = await response.json();
+                const apiUrl = url || document.getElementById('apiUrl').value.trim();
+                if (!apiUrl) throw new Error('Masukkan Google Apps Script URL');
                 
-                if (data.length > 0) {
-                    console.log(`Geocoded ${address}:`, data[0]);
-                    return {
-                        lat: parseFloat(data[0].lat),
-                        lng: parseFloat(data[0].lon)
-                    };
+                progress.textContent = 'Mengambil data...';
+                const cacheKey = 'simantri_cache_' + btoa(apiUrl).slice(0,20);
+                const cache = localStorage.getItem(cacheKey);
+                const cacheTime = cache ? JSON.parse(cache).time : 0;
+                
+                let data;
+                if (cache && Date.now() - cacheTime < 3600000) { // 1 jam
+                    data = JSON.parse(cache).data;
+                    progress.textContent = 'Menggunakan cache';
                 } else {
-                    console.warn('No results for:', address);
+                    const res = await fetch(apiUrl);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    data = await res.json();
+                    localStorage.setItem(cacheKey, JSON.stringify({data, time: Date.now()}));
                 }
+                
+                displayMarkers(data);
+                stats.textContent = `${faskesData.length} faskes dimuat`;
+                
             } catch (error) {
-                console.error('Geocoding error for', address, error);
-            }
-            return null;
-        }
-        
-        // Tambah semua markers
-        async function addAllMarkers() {
-            const greenIcon = L.divIcon({
-                className: 'custom-marker',
-                html: '<div style="background:#28a745;border-radius:50%;width:20px;height:20px;box-shadow:0 2px 8px rgba(40,167,69,0.5);border:3px solid white;"></div>',
-                iconSize: [26, 26],
-                iconAnchor: [13, 26]
-            });
-            
-            Object.keys(coordsCache).forEach(nama => {
-                const p = puskesmas.find(item => item.nama === nama);
-                const coords = coordsCache[nama];
-                const kec = p.kec;
-                
-                const marker = L.marker([coords.lat, coords.lng], {icon: greenIcon})
-                    .bindPopup(
-                        `<div style="min-width:200px;">
-                            <h3 style="color:#1e3c72;margin-bottom:0.5rem;font-size:1.2rem;"><b>${nama}</b></h3>
-                            <p><strong>Kecamatan:</strong> ${kec}</p>
-                            <p><strong>Lat:</strong> ${coords.lat.toFixed(6)}</p>
-                            <p><strong>Lng:</strong> ${coords.lng.toFixed(6)}</p>
-                        </div>`,
-                        { maxWidth: 250 }
-                    )
-                    .bindTooltip(nama, {
-                        permanent: false,
-                        direction: 'top',
-                        offset: [0, -10],
-                        className: 'custom-tooltip'
-                    });
-                
-                marker.puskesmasData = {nama, kec};
-                marker.addTo(map);
-                markers.push(marker);
-                allBounds.extend([coords.lat, coords.lng]);
-            });
-            
-            // Auto fit bounds
-            if (allBounds.isValid()) {
-                map.fitBounds(allBounds, { padding: [50, 50] });
+                console.error(error);
+                stats.textContent = `Error: ${error.message}`;
+                progress.textContent = 'Gagal memuat data';
+            } finally {
+                loading.style.display = 'none';
             }
         }
         
-// Search functionality
-        document.getElementById('searchInput').addEventListener('input', function(e) {
+        function displayMarkers(data) {
+            // Clear
+            markers.clearLayers();
+            allBounds = L.latLngBounds();
+            jenisSet.clear(); kecSet.clear();
+            
+            faskesData = [];
+            const filterJenis = document.getElementById('filterJenis').value;
+            const filterKec = document.getElementById('filterKec').value;
+            
+            data.forEach((row, idx) => {
+                if (!row.latitude || !row.longitude || isNaN(parseFloat(row.latitude)) || isNaN(parseFloat(row.longitude))) {
+                    console.warn(`Baris ${idx+2}: Koordinat belum diisi - ${row.nama_faskes}`);
+                    return;
+                }
+                
+                const lat = parseFloat(row.latitude), lng = parseFloat(row.longitude);
+                const show = (!filterJenis || row.jenis_faskes === filterJenis) &&
+                             (!filterKec || row.kecamatan === filterKec);
+                
+                if (show) {
+                    const marker = L.marker([lat, lng], {icon: getIcon(row.jenis_faskes)})
+                        .bindPopup(`
+                            <div style="min-width:250px;">
+                                <h3 style="color:#1e3c72;font-size:1.3rem;"><b>${row.nama_faskes}</b></h3>
+                                <p><strong>Jenis:</strong> ${row.jenis_faskes}</p>
+                                <p><strong>Kecamatan:</strong> ${row.kecamatan}</p>
+                                <p><strong>Status:</strong> ${row.status || 'Unknown'}</p>
+                                <p><strong>Alamat:</strong> ${row.alamat || ''}</p>
+                                <p><strong>Koordinat:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+                                <p>${row.keterangan || ''}</p>
+                                <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" style="color:#007bff;">🗺️ Buka di Google Maps</a>
+                            </div>
+                        `)
+                        .bindTooltip(row.nama_faskes, {className: 'custom-tooltip'});
+                    
+                    marker.addTo(markers);
+                    allBounds.extend([lat, lng]);
+                    
+                    faskesData.push(row);
+                }
+                
+                jenisSet.add(row.jenis_faskes);
+                kecSet.add(row.kecamatan);
+            });
+            
+            updateFilters();
+            if (allBounds.isValid()) map.fitBounds(allBounds, {padding: [50,50]});
+        }
+        
+        function updateFilters() {
+            const jenisSel = document.getElementById('filterJenis');
+            const kecSel = document.getElementById('filterKec');
+            
+            Array.from(jenisSel.options).forEach(opt => opt.remove());
+            jenisSel.innerHTML = '<option value="">Semua Jenis</option>';
+            Array.from(kecSet).sort().forEach(kec => {
+                kecSel.innerHTML += `<option value="${kec}">${kec}</option>`;
+            });
+            
+            Array.from(jenisSet).sort().forEach(jenis => {
+                jenisSel.innerHTML += `<option value="${jenis}">${jenis}</option>`;
+            });
+        }
+        
+        // Event listeners
+        document.getElementById('filterJenis').addEventListener('change', () => displayMarkers(faskesData));
+        document.getElementById('filterKec').addEventListener('change', () => displayMarkers(faskesData));
+        document.getElementById('searchInput').addEventListener('input', (e) => {
             const query = e.target.value.toLowerCase().trim();
-            if (!query) {
-                markers.forEach(marker => map.addLayer(marker));
-                return;
-            }
-            markers.forEach(marker => {
-                const nama = marker.puskesmasData?.nama?.toLowerCase() || '';
-                const kec = marker.puskesmasData?.kec?.toLowerCase() || '';
-                
-                if (nama.includes(query) || kec.includes(query)) {
+            faskesData.forEach(row => {
+                const marker = markers.getLayers().find(m => 
+                    m.getPopup().getContent().toLowerCase().includes(row.nama_faskes.toLowerCase())
+                );
+                if (marker && row.nama_faskes.toLowerCase().includes(query)) {
                     map.addLayer(marker);
-                } else {
+                } else if (marker) {
                     map.removeLayer(marker);
                 }
             });
         });
         
-        // Inisialisasi saat fully loaded
-        window.addEventListener('load', initMap);
+        // Init
+        document.addEventListener('DOMContentLoaded', initMap);
         
-        // Custom tooltip style
+        // Custom styles
         const style = document.createElement('style');
         style.textContent = `
-            .custom-tooltip {
-                background: rgba(255,255,255,0.95);
-                border-radius: 8px;
-                padding: 6px 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-                font-weight: 600;
-                color: #1e3c72;
-                font-size: 14px;
-            }
-            .custom-marker {
-                background: transparent;
-                border: none;
-            }
+            .custom-tooltip { background: rgba(255,255,255,0.95); border-radius: 8px; padding: 8px 12px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-weight: 600; color: #1e3c72; font-size: 14px; }
+            .custom-marker { background: transparent; border: none; }
         `;
         document.head.appendChild(style);
     </script>
