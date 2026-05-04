@@ -1,80 +1,409 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SIMANTRI - Peta Puskesmas Kukar</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<style>
-body { margin:0; font-family: Arial, sans-serif; }
-#map { height: 100vh; }
-.header {
-  position:absolute;
-  top:10px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#0d6efd;
-  color:white;
-  padding:10px 20px;
-  border-radius:10px;
-  z-index:1000;
-  font-weight:bold;
-}
-.legend {
-  position:absolute;
-  bottom:20px;
-  left:20px;
-  background:white;
-  padding:10px;
-  border-radius:8px;
-  box-shadow:0 0 10px rgba(0,0,0,0.2);
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMANTRI V2.0 - Peta Puskesmas Kutai Kartanegara</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: rgba(255,255,255,0.95);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .header h1 {
+            color: #1e3c72;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+        
+        .search-container {
+            position: absolute;
+            top: 5rem;
+            left: 2rem;
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            padding: 1rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+            min-width: 300px;
+        }
+        
+        #searchInput {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        #searchInput:focus {
+            outline: none;
+            border-color: #1e3c72;
+            box-shadow: 0 0 0 3px rgba(30,60,114,0.1);
+        }
+        
+        #map {
+            height: calc(100vh - 80px);
+            width: 100%;
+            border-radius: 0 0 20px 20px;
+        }
+        
+        .legend {
+            position: absolute;
+            bottom: 2rem;
+            left: 2rem;
+            background: rgba(255,255,255,0.95);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            backdrop-filter: blur(10px);
+            border-left: 5px solid #28a745;
+        }
+        
+        .legend h3 {
+            color: #1e3c72;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .legend-icon {
+            width: 24px;
+            height: 24px;
+            background: #28a745;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+            box-shadow: 0 2px 8px rgba(40,167,69,0.4);
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30,60,114,0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+            font-size: 1.2rem;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats {
+            background: rgba(255,255,255,0.9);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            color: #1e3c72;
+            margin-top: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 { font-size: 1.2rem; }
+            .search-container { 
+                position: relative;
+                top: auto;
+                left: auto;
+                margin: 1rem;
+                min-width: auto;
+            }
+            .legend { 
+                position: relative;
+                bottom: auto;
+                left: auto;
+                margin: 1rem;
+            }
+        }
+    </style>
 </head>
 <body>
-
-<div class="header">SIMANTRI v2.0 - Peta Puskesmas Kutai Kartanegara</div>
-<div id="map"></div>
-
-<div class="legend">
-<b>Legenda:</b><br>
-🟢 Puskesmas
-</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-var map = L.map('map').setView([-0.5, 117.0], 9);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap'
-}).addTo(map);
-
-var data = [
-  {name:"Puskesmas Samboja", kec:"Samboja", lat:-1.0545, lng:117.0952},
-  {name:"Puskesmas Muara Jawa", kec:"Muara Jawa", lat:-0.9895, lng:117.0487},
-  {name:"Puskesmas Loa Janan", kec:"Loa Janan", lat:-0.9872, lng:117.0110},
-  {name:"Puskesmas Kota Bangun", kec:"Kota Bangun", lat:-0.3295, lng:116.6280},
-  {name:"Puskesmas Mangkurawang", kec:"Tenggarong", lat:-0.4189, lng:116.9815},
-  {name:"Puskesmas Rapak Mahang", kec:"Tenggarong", lat:-0.4232, lng:116.9903},
-  {name:"Puskesmas Sungai Mariam", kec:"Anggana", lat:-0.7382, lng:117.2125},
-  {name:"Puskesmas Muara Badak", kec:"Muara Badak", lat:-0.8075, lng:117.3950},
-  {name:"Puskesmas Marangkayu", kec:"Marangkayu", lat:-0.9175, lng:117.3162},
-  {name:"Puskesmas Muara Kaman", kec:"Muara Kaman", lat:-0.4385, lng:116.8712}
-];
-
-// Marker
-
-data.forEach(function(p){
-  var marker = L.marker([p.lat, p.lng]).addTo(map);
-  marker.bindPopup("<b>"+p.name+"</b><br>Kecamatan: "+p.kec+"<br><button onclick='detail("+JSON.stringify(p)+")'>Detail</button>");
-});
-
-// Detail function
-function detail(p){
-  alert("Nama: " + p.name + "\nKecamatan: " + p.kec + "\nStatus: Aktif");
-}
-
-</script>
-
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Memuat data Puskesmas...</div>
+        <div id="progress" style="margin-top: 1rem; font-size: 1rem;"></div>
+    </div>
+    
+    <div class="header">
+        <h1>🩺 SIMANTRI V2.0</h1>
+        <p>Peta Interaktif Puskesmas Kabupaten Kutai Kartanegara</p>
+    </div>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="🔍 Cari Puskesmas atau Kecamatan...">
+    </div>
+    
+    <div id="map"></div>
+    
+    <div class="legend">
+        <h3>📍 Legenda</h3>
+        <div class="legend-item">
+            <div class="legend-icon"></div>
+            <span>Puskesmas (32 titik)</span>
+        </div>
+        <div class="stats" id="stats">Memuat...</div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Data Puskesmas
+        const puskesmas = [
+            {nama:"Puskesmas Samboja", kec:"Samboja"},
+            {nama:"Puskesmas Sungai Merdeka", kec:"Samboja"},
+            {nama:"Puskesmas Handil Baru", kec:"Samboja"},
+            {nama:"Puskesmas Muara Jawa", kec:"Muara Jawa"},
+            {nama:"Puskesmas Sanga-Sanga", kec:"Sanga-Sanga"},
+            {nama:"Puskesmas Loa Janan", kec:"Loa Janan"},
+            {nama:"Puskesmas Batuah", kec:"Loa Janan"},
+            {nama:"Puskesmas Loa Duri", kec:"Loa Janan"},
+            {nama:"Puskesmas Loa Kulu", kec:"Loa Kulu"},
+            {nama:"Puskesmas Loa Ipuh", kec:"Tenggarong"},
+            {nama:"Puskesmas Mangkurawang", kec:"Tenggarong"},
+            {nama:"Puskesmas Rapak Mahang", kec:"Tenggarong"},
+            {nama:"Puskesmas Kota Bangun", kec:"Kota Bangun"},
+            {nama:"Puskesmas Rimba Ayu", kec:"Kota Bangun"},
+            {nama:"Puskesmas Muara Muntai", kec:"Muara Muntai"},
+            {nama:"Puskesmas Muara Wis", kec:"Muara Wis"},
+            {nama:"Puskesmas Muara Kaman", kec:"Muara Kaman"},
+            {nama:"Puskesmas Sebulu I", kec:"Sebulu"},
+            {nama:"Puskesmas Sebulu II", kec:"Sebulu"},
+            {nama:"Puskesmas Tenggarong Seberang", kec:"Tenggarong Seberang"},
+            {nama:"Puskesmas Separi III", kec:"Tenggarong Seberang"},
+            {nama:"Puskesmas Teluk Dalam", kec:"Tenggarong Seberang"},
+            {nama:"Puskesmas Anggana", kec:"Anggana"},
+            {nama:"Puskesmas Sungai Mariam", kec:"Anggana"},
+            {nama:"Puskesmas Muara Badak", kec:"Muara Badak"},
+            {nama:"Puskesmas Badak Baru", kec:"Muara Badak"},
+            {nama:"Puskesmas Marangkayu", kec:"Marangkayu"},
+            {nama:"Puskesmas Perangat", kec:"Marangkayu"},
+            {nama:"Puskesmas Muara Kaman Ilir", kec:"Muara Kaman"},
+            {nama:"Puskesmas Muara Kaman Ulu", kec:"Muara Kaman"},
+            {nama:"Puskesmas Tabang", kec:"Tabang"},
+            {nama:"Puskesmas Ritan Baru", kec:"Tabang"}
+        ];
+        
+        let map;
+        let markers = [];
+        let allBounds = L.latLngBounds();
+        let coordsCache = {};
+        
+        // Inisialisasi peta
+        function initMap() {
+            map = L.map('map').setView([-0.5, 117.0], 9);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&amp;copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Custom green icon
+            const greenIcon = L.divIcon({
+                className: 'custom-marker',
+                html: '<div style="background:#28a745;border-radius:50%;width:20px;height:20px;box-shadow:0 2px 8px rgba(40,167,69,0.5);border:3px solid white;"></div>',
+                iconSize: [26, 26],
+                iconAnchor: [13, 26]
+            });
+            
+            loadCoords();
+        }
+        
+        // Load coordinates dari localStorage atau geocode
+        async function loadCoords() {
+            const loading = document.getElementById('loading');
+            const progress = document.getElementById('progress');
+            const stats = document.getElementById('stats');
+            
+            // Cek cache
+            const cached = localStorage.getItem('puskesmas_coords');
+            if (cached) {
+                coordsCache = JSON.parse(cached);
+                await addAllMarkers();
+                loading.style.display = 'none';
+                stats.textContent = `${Object.keys(coordsCache).length} Puskesmas dimuat dari cache`;
+                return;
+            }
+            
+            // Geocode sequential dengan delay
+            for (let i = 0; i < puskesmas.length; i++) {
+                const p = puskesmas[i];
+                const address = `${p.nama}, ${p.kec}, Kutai Kartanegara, Kalimantan Timur, Indonesia`;
+                
+                progress.textContent = `Geocoding ${i+1}/${puskesmas.length}: ${p.nama}`;
+                
+                try {
+                    const coords = await geocodeAddress(address);
+                    if (coords) {
+                        coordsCache[p.nama] = coords;
+                    }
+                } catch (e) {
+                    console.error(`Error geocoding ${p.nama}:`, e);
+                }
+                
+                // Delay 1 detik
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            // Simpan ke localStorage
+            localStorage.setItem('puskesmas_coords', JSON.stringify(coordsCache));
+            
+            await addAllMarkers();
+            loading.style.display = 'none';
+            stats.textContent = `${Object.keys(coordsCache).length} Puskesmas berhasil dimuat`;
+        }
+        
+        // Geocode menggunakan Nominatim
+        async function geocodeAddress(address) {
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=id`;
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { 'User-Agent': 'SIMANTRI-V2/1.0' }
+                });
+                const data = await response.json();
+                
+                if (data.length > 0) {
+                    return {
+                        lat: parseFloat(data[0].lat),
+                        lng: parseFloat(data[0].lon)
+                    };
+                }
+            } catch (error) {
+                console.error('Geocoding error:', error);
+            }
+            return null;
+        }
+        
+        // Tambah semua markers
+        async function addAllMarkers() {
+            const greenIcon = L.divIcon({
+                className: 'custom-marker',
+                html: '<div style="background:#28a745;border-radius:50%;width:20px;height:20px;box-shadow:0 2px 8px rgba(40,167,69,0.5);border:3px solid white;"></div>',
+                iconSize: [26, 26],
+                iconAnchor: [13, 26]
+            });
+            
+            Object.keys(coordsCache).forEach(nama => {
+                const p = puskesmas.find(item => item.nama === nama);
+                const coords = coordsCache[nama];
+                const kec = p.kec;
+                
+                const marker = L.marker([coords.lat, coords.lng], {icon: greenIcon})
+                    .bindPopup(
+                        `<div style="min-width:200px;">
+                            <h3 style="color:#1e3c72;margin-bottom:0.5rem;font-size:1.2rem;"><b>${nama}</b></h3>
+                            <p><strong>Kecamatan:</strong> ${kec}</p>
+                            <p><strong>Lat:</strong> ${coords.lat.toFixed(6)}</p>
+                            <p><strong>Lng:</strong> ${coords.lng.toFixed(6)}</p>
+                        </div>`,
+                        { maxWidth: 250 }
+                    )
+                    .bindTooltip(nama, {
+                        permanent: false,
+                        direction: 'top',
+                        offset: [0, -10],
+                        className: 'custom-tooltip'
+                    });
+                
+                marker.addTo(map);
+                markers.push(marker);
+                allBounds.extend([coords.lat, coords.lng]);
+            });
+            
+            // Auto fit bounds
+            if (allBounds.isValid()) {
+                map.fitBounds(allBounds, { padding: [50, 50] });
+            }
+        }
+        
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            markers.forEach(marker => {
+                const nama = marker.puskesmasData?.nama?.toLowerCase() || '';
+                const kec = marker.puskesmasData?.kec?.toLowerCase() || '';
+                
+                if (nama.includes(query) || kec.includes(query)) {
+                    marker.addTo(map);
+                } else {
+                    map.removeLayer(marker);
+                }
+            });
+        });
+        
+        // Inisialisasi saat DOM ready
+        document.addEventListener('DOMContentLoaded', initMap);
+        
+        // Custom tooltip style
+        const style = document.createElement('style');
+        style.textContent = `
+            .custom-tooltip {
+                background: rgba(255,255,255,0.95);
+                border-radius: 8px;
+                padding: 6px 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                font-weight: 600;
+                color: #1e3c72;
+                font-size: 14px;
+            }
+            .custom-marker {
+                background: transparent;
+                border: none;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
