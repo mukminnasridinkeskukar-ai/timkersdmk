@@ -306,22 +306,25 @@
         
         // Geocode menggunakan Nominatim
         async function geocodeAddress(address) {
-            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=id`;
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=id&addressdetails=1`;
             
             try {
                 const response = await fetch(url, {
-                    headers: { 'User-Agent': 'SIMANTRI-V2/1.0' }
+                    headers: { 'User-Agent': 'SIMANTRI-V2/1.0 (simantri@example.com)' }
                 });
                 const data = await response.json();
                 
                 if (data.length > 0) {
+                    console.log(`Geocoded ${address}:`, data[0]);
                     return {
                         lat: parseFloat(data[0].lat),
                         lng: parseFloat(data[0].lon)
                     };
+                } else {
+                    console.warn('No results for:', address);
                 }
             } catch (error) {
-                console.error('Geocoding error:', error);
+                console.error('Geocoding error for', address, error);
             }
             return null;
         }
@@ -357,6 +360,7 @@
                         className: 'custom-tooltip'
                     });
                 
+                marker.puskesmasData = {nama, kec};
                 marker.addTo(map);
                 markers.push(marker);
                 allBounds.extend([coords.lat, coords.lng]);
@@ -368,23 +372,27 @@
             }
         }
         
-        // Search functionality
+// Search functionality
         document.getElementById('searchInput').addEventListener('input', function(e) {
-            const query = e.target.value.toLowerCase();
+            const query = e.target.value.toLowerCase().trim();
+            if (!query) {
+                markers.forEach(marker => map.addLayer(marker));
+                return;
+            }
             markers.forEach(marker => {
                 const nama = marker.puskesmasData?.nama?.toLowerCase() || '';
                 const kec = marker.puskesmasData?.kec?.toLowerCase() || '';
                 
                 if (nama.includes(query) || kec.includes(query)) {
-                    marker.addTo(map);
+                    map.addLayer(marker);
                 } else {
                     map.removeLayer(marker);
                 }
             });
         });
         
-        // Inisialisasi saat DOM ready
-        document.addEventListener('DOMContentLoaded', initMap);
+        // Inisialisasi saat fully loaded
+        window.addEventListener('load', initMap);
         
         // Custom tooltip style
         const style = document.createElement('style');
