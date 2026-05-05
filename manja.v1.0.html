@@ -859,23 +859,35 @@
         function populateFormasiTable() {
             showLoading(true);
             
-            try {
-                // Live Google Sheets integration
-                const response = await fetch('https://script.google.com/macros/s/AKfycbyiPen5Lu_HZ32pJrzPli-d-gT1N7vJ73G5O3IgSqDS7lJyrBKlwD3zK8aZJ7snhzw/exec');
+            fetch('https://script.google.com/macros/s/AKfycbyiPen5Lu_HZ32pJrzPli-d-gT1N7vJ73G5O3IgSqDS7lJyrBKlwD3zK8aZJ7snhzw/exec')
+            .then(response => {
                 if (response.ok) {
-                    const newData = await response.json();
-                    if (newData.error) {
-                        console.warn('Sheets error:', newData.error);
-                    } else {
-                        bazettingData = newData;
-                        showToast(`Data Bazetting JFK dimuat dari Google Sheets (${bazettingData.length} rows)!`, 'success');
-                        return; // Skip dummy
-                    }
+                    return response.json();
                 } else {
-                    console.warn('Sheets fetch failed:', response.status);
+                    throw new Error('Fetch failed: ' + response.status);
                 }
-                
-                // Pakai dummy data sementara
+            })
+            .then(newData => {
+                if (newData.error) {
+                    console.warn('Sheets error:', newData.error);
+                } else {
+                    bazettingData = newData;
+                    showToast(`Data Bazetting JFK dimuat dari Google Sheets (${bazettingData.length} rows)!`, 'success');
+                    populateTable();
+                    showLoading(false);
+                    return;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
+                showToast('Menggunakan data dummy lokal', 'warning');
+                populateTable();
+            })
+            .finally(() => {
+                showLoading(false);
+            });
+            
+            function populateTable() {
                 const tbody = document.querySelector('#formasiTable tbody');
                 tbody.innerHTML = '';
                 bazettingData.forEach(row => {
@@ -894,13 +906,6 @@
                     tbody.appendChild(tr);
                 });
                 showToast(`${bazettingData.length} data Bazetting JFK dimuat`, 'success');
-                
-            } catch (error) {
-                console.error('Error loading data:', error);
-                showToast('Menggunakan data dummy lokal', 'warning');
-                // Fallback ke dummy data (sudah ada di atas)
-            } finally {
-                showLoading(false);
             }
         }
 
