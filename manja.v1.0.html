@@ -810,12 +810,8 @@
     </div>
 
     <script>
-        // Dummy Data
-        let ukomData = JSON.parse(localStorage.getItem('ukomData')) || [
-            { id: 1, nama: 'Dr. Andi Susanto', nip: '196709091993031001', jabatan: 'Dokter Spesialis Penyakit Dalam', unit: 'RSUD Dr. Soedono', jenjang: 'Penata Muda Tk.I', jenis: 'UKOM Kenaikan', status: 'Disetujui', dokumen: 'dok1.pdf' },
-            { id: 2, nama: 'Ns. Siti Nurhaliza', nip: '197802252006042001', jabatan: 'Perawat', unit: 'Puskesmas Jatinangor', jenjang: 'Penata', jenis: 'UKOM Pertama', status: 'Proses', dokumen: '' },
-            { id: 3, nama: 'drg. Budi Santoso', nip: '198103152005011002', jabatan: 'Dokter Gigi', unit: 'RSUD Sumedang', jenjang: 'Penata Muda', jenis: 'UKOM Kenaikan', status: 'Ditolak', dokumen: 'dok3.pdf' }
-        ];
+        // Live data from Google Sheets Formulir
+        let ukomData = JSON.parse(localStorage.getItem('ukomData')) || [];
 
         let bazettingData = [
             { instansi: 'RSUD Dr. Soedono', jenis_jabatan: 'Dokter Spesialis Anak', jenjang: 'Penata Muda Tk.I', kebutuhan: 5, pemangku: 3, lowongan: 2, pemangku_sekarang: 'Dr. Andi, Dr. Budi', pemangku_disetujui: 'Ns. Siti', sisa: 1 },
@@ -894,7 +890,7 @@
         function populateFormasiTable() {
             showLoading(true);
             
-            fetch('https://script.google.com/macros/s/AKfycbyiPen5Lu_HZ32pJrzPli-d-gT1N7vJ73G5O3IgSqDS7lJyrBKlwD3zK8aZJ7snhzw/exec')
+            fetch('https://script.google.com/macros/s/AKfycbxPBrf6nxuCbzLl7LOR82cq-EQ5ZNwhGz1wu5_sOO1SHCEFhUdQQSQEr2auOtx1StGmwg/exec')
             .then(response => {
                 if (response.ok) {
                     return response.json();
@@ -945,18 +941,42 @@
         }
 
         function populateUkomTable() {
+            showLoading(true);
+            // Fetch live data from Google Sheets Formulir sheet
+            fetch('https://script.google.com/macros/s/AKfycbxPBrf6nxuCbzLl7LOR82cq-EQ5ZNwhGz1wu5_sOO1SHCEFhUdQQSQEr2auOtx1StGmwg/exec?action=getFormulir')
+            .then(response => response.json())
+            .then(data => {
+                ukomData = data;
+                localStorage.setItem('ukomData', JSON.stringify(ukomData));
+                renderUkomTable();
+                showToast(`Formulir data loaded: ${ukomData.length} records from Google Sheets`, 'success');
+            })
+            .catch(error => {
+                console.error('Formulir fetch failed:', error);
+                renderUkomTable();
+                showToast('Using cached data (fetch failed)', 'warning');
+            })
+            .finally(() => showLoading(false));
+        }
+
+        function renderUkomTable() {
             const tbody = document.querySelector('#ucomTable tbody');
             tbody.innerHTML = '';
+            if (ukomData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--gray);">Belum ada data pengajuan UKOM</td></tr>';
+                return;
+            }
             ukomData.forEach(row => {
                 const statusColor = row.status === 'Disetujui' ? 'var(--accent-green)' : 
-                                   row.status === 'Ditolak' ? 'var(--danger-red)' : 'var(--warning-yellow)';
+                                   row.status === 'Ditolak' ? 'var(--danger-red)' : row.status === 'Proses' ? 'var(--warning-yellow)' : 'var(--gray)';
+                const status = row.status || 'Proses';
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td>${row.nama || '-'}</td>
+                    <td>${row.namalengkap || row.nama || '-'}</td>
                     <td>${row.jenisjabatan || row.jenis_jabatan || '-'}</td>
                     <td>${row.pangkatgolongan || row.pangkat || '-'}</td>
-                    <td>${row.unit || row.unitkerja || '-'}</td>
-                    <td style="color: ${statusColor}; font-weight: bold;">${row.status}</td>
+                    <td>${row.unitkerja || row.unit || '-'}</td>
+                    <td style="color: ${statusColor}; font-weight: bold;">${status}</td>
                 `;
                 tbody.appendChild(tr);
             });
