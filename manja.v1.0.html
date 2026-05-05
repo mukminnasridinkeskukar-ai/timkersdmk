@@ -861,7 +861,7 @@
             
             try {
                 // Live Google Sheets integration
-                const response = await fetch('https://script.google.com/macros/s/AKfycbx50s1DE-Rqt0ZXJXETqQe2EsQmz6AVMVzFB9Rwze8LIKs6caeBf0uPgLdykOv9KpxaNw/exec');
+                const response = await fetch('https://script.google.com/macros/s/AKfycbyXZVlHMqodypSpG7joeBafYDkpu7nuNUPy0NoJmKpuzKA3OE1PCQkUz_kRf0MaY2gj4w/exec');
                 if (response.ok) {
                     const newData = await response.json();
                     if (newData.error) {
@@ -999,39 +999,55 @@
             e.preventDefault();
             showLoading(true);
             
-            setTimeout(() => {
-                const timestamp = new Date().toLocaleString('id-ID');
-                const newData = {
-                    id: Date.now(),
-                    timestamp: timestamp,
-                    periode: document.getElementById('ucomPeriode').value,
-                    namaLengkap: document.getElementById('ucomNamaLengkap').value,
-                    nik: document.getElementById('ucomNik').value,
-                    nip: document.getElementById('ucomNip').value,
-                    telpon: document.getElementById('ucomTelpon').value,
-                    email: document.getElementById('ucomEmail').value,
-                    unitKerja: document.getElementById('ucomUnitKerja').value,
-                    jenisJabatan: document.getElementById('ucomJenisJabatan').value,
-                    jenjangJabatan: document.getElementById('ucomJenjangJabatan').value,
-                    pangkat: document.getElementById('ucomPangkat').value,
-                    nilaiPak: document.getElementById('ucomPak').value,
-                    nomorStr: document.getElementById('ucomStr').value,
-                    kategoriPenjenjangan: document.getElementById('ucomKategoriPenjenjangan').value,
-                    jabatan: document.getElementById('ucomJabatan').value,
-                    jabatanTujuan: document.getElementById('ucomJabatanTujuan').value,
-                    jenjangTujuan: document.getElementById('ucomJenjangTujuan').value,
-                    foto: document.getElementById('ucomFoto').files[0]?.name || '',
-                    dokumen: Array.from(document.getElementById('ucomDokumen').files).map(f => f.name).join(', '),
-                    status: 'Proses'
-                };
+            // Submit to Google Sheets + local backup
+            const timestamp = new Date().toLocaleString('id-ID');
+            const formData = {
+                action: 'submitForm',
+                periode: document.getElementById('ucomPeriode').value,
+                namalengkap: document.getElementById('ucomNamaLengkap').value,
+                nik: document.getElementById('ucomNik').value,
+                nip: document.getElementById('ucomNip').value,
+                telponwa: document.getElementById('ucomTelpon').value,
+                emailaktif: document.getElementById('ucomEmail').value,
+                unitkerja: document.getElementById('ucomUnitKerja').value,
+                jenisjabatan: document.getElementById('ucomJenisJabatan').value,
+                jenjangjabatan: document.getElementById('ucomJenjangJabatan').value,
+                pangkatgolongan: document.getElementById('ucomPangkat').value,
+                nilaipakterakhir: document.getElementById('ucomPak').value,
+                nomorstr: document.getElementById('ucomStr').value,
+                kategoripenjenjangan: document.getElementById('ucomKategoriPenjenjangan').value,
+                jabatan: document.getElementById('ucomJabatan').value,
+                namajabatanfungsionalyangdituju: document.getElementById('ucomJabatanTujuan').value,
+                jenjangjabatantujuan: document.getElementById('ucomJenjangTujuan').value,
+                uploadfotolatarmerah: document.getElementById('ucomFoto').files[0]?.name || '',
+                uploadkelengkapandokumen: Array.from(document.getElementById('ucomDokumen').files).map(f => f.name).join(', ')
+            };
+            
+            try {
+                const response = await fetch('https://script.google.com/macros/s/AKfycbyXZVlHMqodypSpG7joeBafYDkpu7nuNUPy0NoJmKpuzKA3OE1PCQkUz_kRf0MaY2gj4w/exec?' + new URLSearchParams(formData));
+                const result = await response.json();
                 
-                ukomData.unshift(newData);
-                populateTables();
-                saveData();
-                closeModal('ucomModal');
-                showToast(`Pengajuan UKOM ${newData.namaLengkap} berhasil disubmit! (${timestamp})`, 'success');
-                showLoading(false);
-            }, 1500);
+                if (result.success) {
+                    showToast(result.message, 'success');
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showToast('Backup lokal: ' + error.message, 'warning');
+            }
+            
+            // Local backup
+            const newData = {
+                id: Date.now(),
+                timestamp: timestamp,
+                ...formData,
+                status: 'Proses'
+            };
+            ukomData.unshift(newData);
+            populateTables();
+            saveData();
+            closeModal('ucomModal');
+            showLoading(false);
         });
 
         // Admin Login
