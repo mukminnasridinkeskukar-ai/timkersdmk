@@ -947,15 +947,19 @@
             showLoading(true);
             // Fetch live data from Google Sheets Formulir sheet
             fetch(\`${GS_WEBAPP_URL}?action=getFormulir\`)
-            .then(response => response.json())
+            .then(response => {
+              if (!response.ok) throw new Error('HTTP ' + response.status);
+              return response.json();
+            })
             .then(data => {
-                ukomData = data;
+                ukomData = data || [];
                 localStorage.setItem('ukomData', JSON.stringify(ukomData));
                 renderUkomTable();
                 showToast(`Formulir data loaded: ${ukomData.length} records from Google Sheets`, 'success');
             })
             .catch(error => {
                 console.error('Formulir fetch failed:', error);
+                ukomData = JSON.parse(localStorage.getItem('ukomData')) || [];
                 renderUkomTable();
                 showToast('Using cached data (fetch failed)', 'warning');
             })
@@ -1089,7 +1093,14 @@
             // Submit to Google Sheets via GET (simplified)
             const gsUrl = \`${GS_WEBAPP_URL}?${new URLSearchParams(formData)}\`;
             fetch(gsUrl)
-              .then(() => showToast('Data berhasil dikirim ke Google Sheets! (Periksa spreadsheet)', 'success'))
+              .then(response => response.json())
+              .then(result => {
+                if (result.success) {
+                  showToast('Data berhasil dikirim ke Google Sheets!', 'success');
+                } else {
+                  showToast('GS error: ' + (result.message || 'Unknown'), 'error');
+                }
+              })
               .catch(error => {
                 console.warn('GS Submit error:', error);
                 showToast('Data tersimpan lokal - GS sync gagal', 'warning');
