@@ -298,7 +298,7 @@
                 <div id="content-verval-izin" class="content-section hidden">
                     <div class="glass p-6 rounded-lg">
                         <h2 class="text-xl font-semibold text-blue-800 mb-6">Formulir Verval Izin Praktik</h2>
-                        <form id="verval-form" class="space-y-6">
+                        <form id="verval-form" class="space-y-6" enctype="multipart/form-data">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">NIK</label>
@@ -395,6 +395,20 @@
                                 <div class="md:col-span-2">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Jam Operasional/Praktik</label>
                                     <input type="text" name="jam_operasional" placeholder="Contoh: 08:00 - 17:00" required class="w-full p-3 border rounded-lg">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload STR (PDF)</label>
+                                    <input type="file" name="str_file" accept=".pdf" class="w-full p-3 border rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload SIP (PDF)</label>
+                                    <input type="file" name="sip_file" accept=".pdf" class="w-full p-3 border rounded-lg">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload Ijazah (PDF)</label>
+                                    <input type="file" name="ijazah_file" accept=".pdf" class="w-full p-3 border rounded-lg">
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -609,19 +623,17 @@
         // Verval form submit
         document.getElementById('verval-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData(this);
-            const data = Object.fromEntries(formData);
-            // Send to Google Sheets via Apps Script
-            fetch('YOUR_SCRIPT_URL', {  // Ganti dengan URL Apps Script Anda
+            var formData = new FormData(this);
+            // Ganti YOUR_SCRIPT_URL dengan URL Apps Script yang sudah di-deploy
+            fetch('YOUR_SCRIPT_URL', {
                 method: 'POST',
-                body: JSON.stringify(data),
-                headers: {'Content-Type': 'application/json'}
+                body: formData
             })
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    showToast('Data berhasil disimpan ke Google Sheets!', 'success');
-                    this.reset();
+                    showToast('Data berhasil disimpan ke Google Sheets dan dokumen terupload ke Drive!', 'success');
+                    document.getElementById('verval-form').reset();
                 } else {
                     showToast('Gagal menyimpan data: ' + result.error, 'error');
                 }
@@ -641,30 +653,32 @@
                 if (result.error) {
                     container.innerHTML = '<p class="text-red-600">' + result.error + '</p>';
                 } else {
-                    container.innerHTML = `
-                        <div class="glass p-6 rounded-lg">
-                            <h3 class="text-lg font-semibold text-blue-800 mb-4">Data Ditemukan</h3>
-                            <p><strong>NIK:</strong> ${result.nik}</p>
-                            <p><strong>Nama Lengkap:</strong> ${result.nama}</p>
-                            <p><strong>Jenis Kelamin:</strong> ${result.jenis_kelamin}</p>
-                            <p><strong>Tempat Lahir:</strong> ${result.tempat_lahir}</p>
-                            <p><strong>Tanggal Lahir:</strong> ${result.tanggal_lahir}</p>
-                            <p><strong>Alamat KTP:</strong> ${result.alamat_ktp}</p>
-                            <p><strong>Nomor STR:</strong> ${result.nomor_str}</p>
-                            <p><strong>Status STR:</strong> ${result.status_str}</p>
-                            <p><strong>SIP:</strong> ${result.sip_ada}</p>
-                            <p><strong>Nomor SIP:</strong> ${result.nomor_sip}</p>
-                            <p><strong>Masa Belaku SIP:</strong> ${result.masa_belaku_sip}</p>
-                            <p><strong>Unit Kerja:</strong> ${result.unit_kerja}</p>
-                            <p><strong>Alamat Unit Kerja:</strong> ${result.alamat_unit_kerja}</p>
-                            <p><strong>Desa/Kelurahan Unit:</strong> ${result.desa_kelurahan_unit}</p>
-                            <p><strong>Status SatuSehat:</strong> ${result.status_satusehat}</p>
-                            <p><strong>SOP:</strong> ${result.sop_pelayan ? 'Pelayan ' : ''}${result.sop_profesi ? 'Profesi ' : ''}${result.sop_etika ? 'Etika' : ''}</p>
-                            <p><strong>Jumlah SDMK:</strong> ${result.sdmk_named ? 'Named ' : ''}${result.sdmk_nakes ? 'Nakes ' : ''}${result.sdmk_admin ? 'Admin' : ''}</p>
-                            <p><strong>Jam Operasional:</strong> ${result.jam_operasional}</p>
-                            <p><strong>Status:</strong> Aktif</p>
-                        </div>
-                    `;
+                container.innerHTML = `
+                    <div class="glass p-6 rounded-lg">
+                        <h3 class="text-lg font-semibold text-blue-800 mb-4">Data Ditemukan</h3>
+                        <p><strong>NIK:</strong> ${result.nik}</p>
+                        <p><strong>Nama Lengkap:</strong> ${result.nama}</p>
+                        <p><strong>Jenis Kelamin:</strong> ${result.jenis_kelamin}</p>
+                        <p><strong>Tempat Lahir:</strong> ${result.tempat_lahir}</p>
+                        <p><strong>Tanggal Lahir:</strong> ${result.tanggal_lahir}</p>
+                        <p><strong>Alamat KTP:</strong> ${result.alamat_ktp}</p>
+                        <p><strong>Nomor STR:</strong> ${result.nomor_str}</p>
+                        <p><strong>Status STR:</strong> ${result.status_str}</p>
+                        <p><strong>SIP:</strong> ${result.sip_ada}</p>
+                        <p><strong>Nomor SIP:</strong> ${result.nomor_sip}</p>
+                        <p><strong>Masa Belaku SIP:</strong> ${result.masa_belaku_sip}</p>
+                        <p><strong>Unit Kerja:</strong> ${result.unit_kerja}</p>
+                        <p><strong>Alamat Unit Kerja:</strong> ${result.alamat_unit_kerja}</p>
+                        <p><strong>Desa/Kelurahan Unit:</strong> ${result.desa_kelurahan_unit}</p>
+                        <p><strong>Status SatuSehat:</strong> ${result.status_satusehat}</p>
+                        <p><strong>SOP:</strong> ${result.sop_pelayan} Pelayan, ${result.sop_profesi} Profesi, ${result.sop_etika} Etika</p>
+                        <p><strong>Jumlah SDMK:</strong> ${result.sdmk_named} Named, ${result.sdmk_nakes} Nakes, ${result.sdmk_admin} Admin</p>
+                        <p><strong>Jam Operasional:</strong> ${result.jam_operasional}</p>
+                        ${result.str_url ? '<p><strong>Link STR:</strong> <a href="' + result.str_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                        ${result.sip_url ? '<p><strong>Link SIP:</strong> <a href="' + result.sip_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                        ${result.ijazah_url ? '<p><strong>Link Ijazah:</strong> <a href="' + result.ijazah_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                    </div>
+                `;
                 }
             })
             .catch(error => {
