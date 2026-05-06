@@ -79,6 +79,12 @@
             max-width: 600px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
+        .modal-full .modal-content {
+            max-width: 95%;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
         .btn-primary {
             background: #0066cc;
             color: white;
@@ -298,7 +304,7 @@
                 <div id="content-verval-izin" class="content-section hidden">
                     <div class="glass p-6 rounded-lg">
                         <h2 class="text-xl font-semibold text-blue-800 mb-6">Formulir Verval Izin Praktik</h2>
-                        <form id="verval-form" class="space-y-6" enctype="multipart/form-data">
+                        <form id="verval-form" class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">NIK</label>
@@ -397,20 +403,6 @@
                                     <input type="text" name="jam_operasional" placeholder="Contoh: 08:00 - 17:00 WITA" required class="w-full p-3 border rounded-lg">
                                 </div>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload STR (PDF)</label>
-                                    <input type="file" name="str_file" accept=".pdf" class="w-full p-3 border rounded-lg">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload SIP (PDF)</label>
-                                    <input type="file" name="sip_file" accept=".pdf" class="w-full p-3 border rounded-lg">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload Ijazah (PDF)</label>
-                                    <input type="file" name="ijazah_file" accept=".pdf" class="w-full p-3 border rounded-lg">
-                                </div>
-                            </div>
                             <div class="flex space-x-4">
                                 <button type="submit" class="btn-primary">Simpan</button>
                                 <button type="reset" class="btn-secondary">Reset</button>
@@ -449,19 +441,21 @@
                         <div class="glass p-6 rounded-lg mb-6">
                             <h2 class="text-xl font-semibold text-blue-800 mb-4">Dashboard Admin</h2>
                             <button id="btn-tambah-data" class="btn-primary mb-4">Tambah Data</button>
-                            <table class="w-full bg-white rounded-lg overflow-hidden">
-                                <thead class="bg-blue-600 text-white">
-                                    <tr>
-                                        <th class="p-3 text-left">Nama</th>
-                                        <th class="p-3 text-left">NIK</th>
-                                        <th class="p-3 text-left">Profesi</th>
-                                        <th class="p-3 text-left">Faskes</th>
-                                        <th class="p-3 text-left">Status</th>
-                                        <th class="p-3 text-left">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="admin-table-body"></tbody>
-                            </table>
+                            <div class="overflow-x-auto">
+                                <table class="w-full bg-white rounded-lg overflow-hidden">
+                                    <thead class="bg-blue-600 text-white">
+                                        <tr>
+                                            <th class="p-3 text-left">NIK</th>
+                                            <th class="p-3 text-left">Nama Lengkap</th>
+                                            <th class="p-3 text-left">Jenis Kelamin</th>
+                                            <th class="p-3 text-left">Unit Kerja</th>
+                                            <th class="p-3 text-left">SIP</th>
+                                            <th class="p-3 text-left">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-table-body"></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -490,9 +484,16 @@
         }
 
         // Modal functions
-        function openModal(content) {
-            document.getElementById('modal-content').innerHTML = content;
-            document.getElementById('modal').style.display = 'block';
+        function openModal(content, isFull = false) {
+            const modal = document.getElementById('modal');
+            const modalContent = document.getElementById('modal-content');
+            modalContent.innerHTML = content;
+            if (isFull) {
+                modal.classList.add('modal-full');
+            } else {
+                modal.classList.remove('modal-full');
+            }
+            modal.style.display = 'block';
         }
 
         function closeModal() {
@@ -506,14 +507,8 @@
             }
         });
 
-        // Data storage (localStorage)
-        let vervalData = JSON.parse(localStorage.getItem('vervalData')) || [];
-        let currentUser = null;
-
-        // Save to localStorage
-        function saveData() {
-            localStorage.setItem('vervalData', JSON.stringify(vervalData));
-        }
+        // Constants
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzvNWWVprNVutaJl3zgn32RfZISD4sPgAi4t5MMkWy8sD0M9MuowMJ7Squ_vjIsoaqg/exec';
 
         // Navigation
         document.getElementById('enter-system').addEventListener('click', function() {
@@ -542,6 +537,11 @@
             });
             document.getElementById(`content-${menu}`).classList.remove('hidden');
             document.getElementById('page-title').textContent = menu.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+            
+            // Load data for specific pages
+            if (menu === 'panel-admin' && currentUser) {
+                loadAdminTable();
+            }
         }
 
         // Dashboard charts and map
@@ -583,10 +583,18 @@
         // Profil Nakes search
         document.getElementById('btn-search').addEventListener('click', function() {
             const query = document.getElementById('search-nama').value.toLowerCase();
-            const results = vervalData.filter(item => 
-                item.nama.toLowerCase().includes(query) || item.nik.includes(query)
-            );
-            displayProfilResults(results);
+            fetch(`${SCRIPT_URL}?search=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(resp => {
+                    if (resp.data) {
+                        displayProfilResults(resp.data);
+                    } else {
+                        showToast('Data tidak ditemukan', 'error');
+                    }
+                })
+                .catch(error => {
+                    showToast('Error: ' + error.message, 'error');
+                });
         });
 
         function displayProfilResults(results) {
@@ -598,9 +606,9 @@
                 card.innerHTML = `
                     <h3 class="text-lg font-semibold text-blue-800 mb-2">${item.nama}</h3>
                     <p class="text-gray-600"><strong>NIK:</strong> ${item.nik}</p>
-                    <p class="text-gray-600"><strong>Profesi:</strong> ${item.jenis_tenaga}</p>
-                    <p class="text-gray-600"><strong>Faskes:</strong> ${item.nama_faskes}</p>
-                    <p class="text-gray-600"><strong>Status:</strong> Aktif</p>
+                    <p class="text-gray-600"><strong>Jenis Kelamin:</strong> ${item.jenis_kelamin}</p>
+                    <p class="text-gray-600"><strong>Unit Kerja:</strong> ${item.unit_kerja}</p>
+                    <p class="text-gray-600"><strong>SIP:</strong> ${item.sip_ada}</p>
                 `;
                 container.appendChild(card);
             });
@@ -609,17 +617,16 @@
         // Verval form submit
         document.getElementById('verval-form').addEventListener('submit', function(e) {
             e.preventDefault();
-            var formData = new FormData(this);
-            // Ganti YOUR_SCRIPT_URL dengan URL Apps Script yang sudah di-deploy
-            fetch('https://script.google.com/macros/s/AKfycbxwEnEVow35rxHXc1OswdTbwWi6XXD04LAhHae4C2WTjTaPRNqbtSVUhWqaQ76NIS__/exec', {
+            const formData = new FormData(this);
+            fetch(SCRIPT_URL, {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    showToast('Data berhasil disimpan ke Google Sheets dan dokumen terupload ke Drive!', 'success');
-                    document.getElementById('verval-form').reset();
+                    showToast('Data berhasil disimpan ke Google Sheets!', 'success');
+                    this.reset();
                 } else {
                     showToast('Gagal menyimpan data: ' + result.error, 'error');
                 }
@@ -632,39 +639,45 @@
         // Cek Status
         document.getElementById('btn-cek-status').addEventListener('click', function() {
             const nik = document.getElementById('cek-nik').value;
-            fetch('https://script.google.com/macros/s/AKfycbxwEnEVow35rxHXc1OswdTbwWi6XXD04LAhHae4C2WTjTaPRNqbtSVUhWqaQ76NIS__/exec?nik=' + nik)  // Ganti dengan URL Apps Script Anda
+            fetch(`${SCRIPT_URL}?nik=${encodeURIComponent(nik)}`)
             .then(response => response.json())
             .then(result => {
                 const container = document.getElementById('status-result');
                 if (result.error) {
-                    container.innerHTML = '<p class="text-red-600">' + result.error + '</p>';
+                    container.innerHTML = '<p class="text-red-600">Data tidak ditemukan</p>';
                 } else {
-                container.innerHTML = `
-                    <div class="glass p-6 rounded-lg">
-                        <h3 class="text-lg font-semibold text-blue-800 mb-4">Data Ditemukan</h3>
-                        <p><strong>NIK:</strong> ${result.nik}</p>
-                        <p><strong>Nama Lengkap:</strong> ${result.nama}</p>
-                        <p><strong>Jenis Kelamin:</strong> ${result.jenis_kelamin}</p>
-                        <p><strong>Tempat Lahir:</strong> ${result.tempat_lahir}</p>
-                        <p><strong>Tanggal Lahir:</strong> ${result.tanggal_lahir}</p>
-                        <p><strong>Alamat KTP:</strong> ${result.alamat_ktp}</p>
-                        <p><strong>Nomor STR:</strong> ${result.nomor_str}</p>
-                        <p><strong>Status STR:</strong> ${result.status_str}</p>
-                        <p><strong>SIP:</strong> ${result.sip_ada}</p>
-                        <p><strong>Nomor SIP:</strong> ${result.nomor_sip}</p>
-                        <p><strong>Masa Belaku SIP:</strong> ${result.masa_belaku_sip}</p>
-                        <p><strong>Unit Kerja:</strong> ${result.unit_kerja}</p>
-                        <p><strong>Alamat Unit Kerja:</strong> ${result.alamat_unit_kerja}</p>
-                        <p><strong>Desa/Kelurahan Unit:</strong> ${result.desa_kelurahan_unit}</p>
-                        <p><strong>Status SatuSehat:</strong> ${result.status_satusehat}</p>
-                        <p><strong>SOP:</strong> ${result.sop_pelayan} Pelayan, ${result.sop_profesi} Profesi, ${result.sop_etika} Etika</p>
-                        <p><strong>Jumlah SDMK:</strong> ${result.sdmk_named} Named, ${result.sdmk_nakes} Nakes, ${result.sdmk_admin} Admin</p>
-                        <p><strong>Jam Operasional:</strong> ${result.jam_operasional}</p>
-                        ${result.str_url ? '<p><strong>Link STR:</strong> <a href="' + result.str_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
-                        ${result.sip_url ? '<p><strong>Link SIP:</strong> <a href="' + result.sip_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
-                        ${result.ijazah_url ? '<p><strong>Link Ijazah:</strong> <a href="' + result.ijazah_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
-                    </div>
-                `;
+                    container.innerHTML = `
+                        <div class="glass p-6 rounded-lg">
+                            <h3 class="text-lg font-semibold text-blue-800 mb-4">Data Ditemukan</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <p><strong>NIK:</strong> ${result.nik}</p>
+                                <p><strong>Nama Lengkap:</strong> ${result.nama}</p>
+                                <p><strong>Jenis Kelamin:</strong> ${result.jenis_kelamin}</p>
+                                <p><strong>Tempat Lahir:</strong> ${result.tempat_lahir}</p>
+                                <p><strong>Tanggal Lahir:</strong> ${result.tanggal_lahir}</p>
+                                <p><strong>Alamat KTP:</strong> ${result.alamat_ktp}</p>
+                                <p><strong>Nomor STR:</strong> ${result.nomor_str}</p>
+                                <p><strong>Status STR:</strong> ${result.status_str}</p>
+                                <p><strong>SIP:</strong> ${result.sip_ada}</p>
+                                <p><strong>Nomor SIP:</strong> ${result.nomor_sip}</p>
+                                <p><strong>Masa Belaku SIP:</strong> ${result.masa_belaku_sip}</p>
+                                <p><strong>Unit Kerja:</strong> ${result.unit_kerja}</p>
+                                <p><strong>Alamat Unit Kerja:</strong> ${result.alamat_unit_kerja}</p>
+                                <p><strong>Desa/Kelurahan Unit:</strong> ${result.desa_kelurahan_unit}</p>
+                                <p><strong>Status SatuSehat:</strong> ${result.status_satusehat}</p>
+                                <p><strong>SOP Pelayan:</strong> ${result.sop_pelayan}</p>
+                                <p><strong>SOP Profesi:</strong> ${result.sop_profesi}</p>
+                                <p><strong>SOP Etika:</strong> ${result.sop_etika}</p>
+                                <p><strong>SDMK Named:</strong> ${result.sdmk_named}</p>
+                                <p><strong>SDMK Nakes:</strong> ${result.sdmk_nakes}</p>
+                                <p><strong>SDMK Admin:</strong> ${result.sdmk_admin}</p>
+                                <p><strong>Jam Operasional:</strong> ${result.jam_operasional}</p>
+                                ${result.str_url ? '<p class="col-span-2"><strong>Link STR:</strong> <a href="' + result.str_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                                ${result.sip_url ? '<p class="col-span-2"><strong>Link SIP:</strong> <a href="' + result.sip_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                                ${result.ijazah_url ? '<p class="col-span-2"><strong>Link Ijazah:</strong> <a href="' + result.ijazah_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                            </div>
+                        </div>
+                    `;
                 }
             })
             .catch(error => {
@@ -688,105 +701,282 @@
             }
         });
 
-        // Admin CRUD
+        // Admin CRUD - Load table from Google Sheets
         function loadAdminTable() {
+            fetch(`${SCRIPT_URL}?all=1`)
+                .then(response => response.json())
+                .then(resp => {
+                    if (resp.data) {
+                        renderAdminTable(resp.data);
+                    } else {
+                        showToast('Tidak ada data', 'error');
+                    }
+                })
+                .catch(error => {
+                    showToast('Error loading data: ' + error.message, 'error');
+                });
+        }
+
+        function renderAdminTable(data) {
             const tbody = document.getElementById('admin-table-body');
             tbody.innerHTML = '';
-            vervalData.forEach((item, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="p-3">${item.nama}</td>
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                     <td class="p-3">${item.nik}</td>
-                    <td class="p-3">${item.jenis_tenaga}</td>
-                    <td class="p-3">${item.nama_faskes}</td>
-                    <td class="p-3">Aktif</td>
+                    <td class="p-3">${item.nama}</td>
+                    <td class="p-3">${item.jenis_kelamin}</td>
+                    <td class="p-3">${item.unit_kerja}</td>
+                    <td class="p-3">${item.sip_ada}</td>
                     <td class="p-3 space-x-2">
-                        <button class="btn-secondary text-xs" onclick="viewDetail(${index})">Detail</button>
-                        <button class="btn-primary text-xs" onclick="editData(${index})">Edit</button>
-                        <button class="btn-danger text-xs" onclick="deleteData(${index})">Hapus</button>
+                        <button class="btn-secondary text-xs" onclick="viewDetail('${item.nik}')">Detail</button>
+                        <button class="btn-primary text-xs" onclick="editData('${item.nik}')">Edit</button>
+                        <button class="btn-danger text-xs" onclick="deleteData('${item.nik}')">Hapus</button>
                     </td>
                 `;
-                tbody.appendChild(row);
+                tbody.appendChild(tr);
             });
         }
 
+        // Admin Add Data
         document.getElementById('btn-tambah-data').addEventListener('click', function() {
-            openModal(`
-                <h2 class="text-xl font-semibold text-blue-800 mb-6">Tambah Data</h2>
-                <form id="add-form" class="space-y-4">
-                    <input type="text" name="nama" placeholder="Nama" required class="w-full p-3 border rounded-lg">
-                    <input type="text" name="nik" placeholder="NIK" required class="w-full p-3 border rounded-lg">
-                    <select name="jenis_tenaga" required class="w-full p-3 border rounded-lg">
-                        <option value="">Jenis Tenaga</option>
-                        <option value="Dokter">Dokter</option>
-                        <option value="Perawat">Perawat</option>
-                        <option value="Bidan">Bidan</option>
-                        <option value="Apoteker">Apoteker</option>
-                        <option value="Lainnya">Lainnya</option>
-                    </select>
-                    <input type="text" name="nama_faskes" placeholder="Nama Faskes" required class="w-full p-3 border rounded-lg">
+            const formHTML = `
+                <h2 class="text-xl font-semibold text-blue-800 mb-6">Tambah Data Verval</h2>
+                <form id="admin-add-form" enctype="multipart/form-data" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" name="nik" required placeholder="NIK" class="w-full p-3 border rounded-lg">
+                        <input type="text" name="nama" required placeholder="Nama Lengkap" class="w-full p-3 border rounded-lg">
+                        <select name="jenis_kelamin" required class="w-full p-3 border rounded-lg">
+                            <option value="">Pilih Jenis Kelamin</option>
+                            <option value="Laki-laki">Laki-laki</option>
+                            <option value="Perempuan">Perempuan</option>
+                        </select>
+                        <input type="text" name="tempat_lahir" required placeholder="Tempat Lahir" class="w-full p-3 border rounded-lg">
+                        <input type="date" name="tanggal_lahir" required class="w-full p-3 border rounded-lg">
+                        <input type="text" name="alamat_ktp" required placeholder="Alamat Sesuai KTP" class="w-full p-3 border rounded-lg">
+                        <input type="text" name="nomor_str" required placeholder="Nomor STR" class="w-full p-3 border rounded-lg">
+                        <select name="status_str" required class="w-full p-3 border rounded-lg">
+                            <option value="">Pilih Status STR</option>
+                            <option value="Seumur Hidup">Seumur Hidup</option>
+                            <option value="Berlaku">Berlaku</option>
+                        </select>
+                        <select name="sip_ada" required class="w-full p-3 border rounded-lg">
+                            <option value="">Pilih SIP</option>
+                            <option value="Ada">Ada</option>
+                            <option value="Belum">Belum</option>
+                        </select>
+                        <input type="text" name="nomor_sip" placeholder="Nomor SIP" class="w-full p-3 border rounded-lg">
+                        <input type="date" name="masa_belaku_sip" class="w-full p-3 border rounded-lg">
+                        <input type="text" name="unit_kerja" required placeholder="Unit Kerja" class="w-full p-3 border rounded-lg">
+                        <input type="text" name="alamat_unit_kerja" required placeholder="Alamat Unit Kerja" class="w-full p-3 border rounded-lg">
+                        <input type="text" name="desa_kelurahan_unit" required placeholder="Desa/Kelurahan Unit" class="w-full p-3 border rounded-lg">
+                        <select name="status_satusehat" required class="w-full p-3 border rounded-lg">
+                            <option value="">Pilih Status SatuSehat</option>
+                            <option value="Ada">Ada</option>
+                            <option value="Belum Ada">Belum Ada</option>
+                        </select>
+                        <div class="col-span-2 space-y-2">
+                            <label class="flex items-center"><input type="checkbox" name="sop_pelayan" class="mr-2"> SOP Pelayan</label>
+                            <label class="flex items-center"><input type="checkbox" name="sop_profesi" class="mr-2"> SOP Profesi</label>
+                            <label class="flex items-center"><input type="checkbox" name="sop_etika" class="mr-2"> SOP Etika</label>
+                        </div>
+                        <div class="col-span-2 space-y-2">
+                            <label class="flex items-center"><input type="checkbox" name="sdmk_named" class="mr-2"> SDMK Named</label>
+                            <label class="flex items-center"><input type="checkbox" name="sdmk_nakes" class="mr-2"> SDMK Nakes</label>
+                            <label class="flex items-center"><input type="checkbox" name="sdmk_admin" class="mr-2"> SDMK Admin</label>
+                        </div>
+                        <input type="text" name="jam_operasional" required placeholder="Jam Operasional (cth: 08:00 - 17:00)" class="col-span-2 w-full p-3 border rounded-lg">
+                        <div class="col-span-2 grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload STR (PDF)</label>
+                                <input type="file" name="str_file" accept=".pdf" class="w-full p-3 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload SIP (PDF)</label>
+                                <input type="file" name="sip_file" accept=".pdf" class="w-full p-3 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Upload Ijazah (PDF)</label>
+                                <input type="file" name="ijazah_file" accept=".pdf" class="w-full p-3 border rounded-lg">
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="action" value="tambah">
                     <button type="submit" class="btn-primary">Simpan</button>
                 </form>
-            `);
-            document.getElementById('add-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const data = Object.fromEntries(new FormData(this));
-                vervalData.push(data);
-                saveData();
-                loadAdminTable();
-                closeModal();
-                showToast('Data berhasil ditambahkan!', 'success');
-            });
+            `;
+            openModal(formHTML, false);
+            setTimeout(() => {
+                document.getElementById('admin-add-form').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+                    fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(r => r.json())
+                    .then(result => {
+                        if (result.success) {
+                            showToast('Data berhasil ditambahkan', 'success');
+                            closeModal();
+                            loadAdminTable();
+                        } else {
+                            showToast('Gagal: ' + result.error, 'error');
+                        }
+                    })
+                    .catch(err => showToast('Error: ' + err.message, 'error'));
+                }, {once: true});
+            }, 0);
         });
 
-        window.viewDetail = function(index) {
-            const item = vervalData[index];
-            openModal(`
-                <h2 class="text-xl font-semibold text-blue-800 mb-6">Detail Data</h2>
-                <p><strong>Nama:</strong> ${item.nama}</p>
-                <p><strong>NIK:</strong> ${item.nik}</p>
-                <p><strong>Jenis Tenaga:</strong> ${item.jenis_tenaga}</p>
-                <p><strong>Faskes:</strong> ${item.nama_faskes}</p>
-                <p><strong>Status:</strong> Aktif</p>
-            `);
+        // View Detail (full-screen modal)
+        window.viewDetail = function(nik) {
+            fetch(`${SCRIPT_URL}?nik=${encodeURIComponent(nik)}`)
+                .then(r => r.json())
+                .then(item => {
+                    if (item.error) {
+                        showToast('Data tidak ditemukan', 'error');
+                        return;
+                    }
+                    const content = `
+                        <div class="detail-full">
+                            <h2 class="text-2xl font-bold text-blue-800 mb-6">Detail Data Verval</h2>
+                            <div class="grid grid-cols-2 gap-4">
+                                <p><strong>NIK:</strong> ${item.nik}</p>
+                                <p><strong>Nama Lengkap:</strong> ${item.nama}</p>
+                                <p><strong>Jenis Kelamin:</strong> ${item.jenis_kelamin}</p>
+                                <p><strong>Tempat Lahir:</strong> ${item.tempat_lahir}</p>
+                                <p><strong>Tanggal Lahir:</strong> ${item.tanggal_lahir}</p>
+                                <p><strong>Alamat KTP:</strong> ${item.alamat_ktp}</p>
+                                <p><strong>Nomor STR:</strong> ${item.nomor_str}</p>
+                                <p><strong>Status STR:</strong> ${item.status_str}</p>
+                                <p><strong>SIP:</strong> ${item.sip_ada}</p>
+                                <p><strong>Nomor SIP:</strong> ${item.nomor_sip}</p>
+                                <p><strong>Masa Belaku SIP:</strong> ${item.masa_belaku_sip}</p>
+                                <p><strong>Unit Kerja:</strong> ${item.unit_kerja}</p>
+                                <p><strong>Alamat Unit Kerja:</strong> ${item.alamat_unit_kerja}</p>
+                                <p><strong>Desa/Kelurahan Unit:</strong> ${item.desa_kelurahan_unit}</p>
+                                <p><strong>Status SatuSehat:</strong> ${item.status_satusehat}</p>
+                                <p><strong>SOP Pelayan:</strong> ${item.sop_pelayan}</p>
+                                <p><strong>SOP Profesi:</strong> ${item.sop_profesi}</p>
+                                <p><strong>SOP Etika:</strong> ${item.sop_etika}</p>
+                                <p><strong>SDMK Named:</strong> ${item.sdmk_named}</p>
+                                <p><strong>SDMK Nakes:</strong> ${item.sdmk_nakes}</p>
+                                <p><strong>SDMK Admin:</strong> ${item.sdmk_admin}</p>
+                                <p><strong>Jam Operasional:</strong> ${item.jam_operasional}</p>
+                                ${item.str_url ? '<p class="col-span-2"><strong>Link STR:</strong> <a href="' + item.str_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                                ${item.sip_url ? '<p class="col-span-2"><strong>Link SIP:</strong> <a href="' + item.sip_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                                ${item.ijazah_url ? '<p class="col-span-2"><strong>Link Ijazah:</strong> <a href="' + item.ijazah_url + '" target="_blank" class="text-blue-600">Lihat Dokumen</a></p>' : ''}
+                            </div>
+                        </div>
+                    `;
+                    openModal(content, true);
+                })
+                .catch(err => showToast('Error: ' + err.message, 'error'));
         };
 
-        window.editData = function(index) {
-            const item = vervalData[index];
-            openModal(`
-                <h2 class="text-xl font-semibold text-blue-800 mb-6">Edit Data</h2>
-                <form id="edit-form" class="space-y-4">
-                    <input type="text" name="nama" value="${item.nama}" required class="w-full p-3 border rounded-lg">
-                    <input type="text" name="nik" value="${item.nik}" required class="w-full p-3 border rounded-lg">
-                    <select name="jenis_tenaga" required class="w-full p-3 border rounded-lg">
-                        <option value="${item.jenis_tenaga}" selected>${item.jenis_tenaga}</option>
-                        <option value="Dokter">Dokter</option>
-                        <option value="Perawat">Perawat</option>
-                        <option value="Bidan">Bidan</option>
-                        <option value="Apoteker">Apoteker</option>
-                        <option value="Lainnya">Lainnya</option>
-                    </select>
-                    <input type="text" name="nama_faskes" value="${item.nama_faskes}" required class="w-full p-3 border rounded-lg">
-                    <button type="submit" class="btn-primary">Update</button>
-                </form>
-            `);
-            document.getElementById('edit-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const data = Object.fromEntries(new FormData(this));
-                vervalData[index] = { ...vervalData[index], ...data };
-                saveData();
-                loadAdminTable();
-                closeModal();
-                showToast('Data berhasil diupdate!', 'success');
-            });
+        // Edit Data
+        window.editData = function(nik) {
+            fetch(`${SCRIPT_URL}?nik=${encodeURIComponent(nik)}`)
+                .then(r => r.json())
+                .then(item => {
+                    if (item.error) {
+                        showToast('Data tidak ditemukan', 'error');
+                        return;
+                    }
+                    const formHTML = `
+                        <h2 class="text-xl font-semibold text-blue-800 mb-6">Edit Data Verval</h2>
+                        <form id="edit-form" class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <input type="text" name="nik" value="${item.nik}" readonly placeholder="NIK (tidak bisa diubah)" class="w-full p-3 border rounded-lg bg-gray-100">
+                                <input type="text" name="nama" value="${item.nama}" required placeholder="Nama Lengkap" class="w-full p-3 border rounded-lg">
+                                <select name="jenis_kelamin" required class="w-full p-3 border rounded-lg">
+                                    <option value="Laki-laki" ${item.jenis_kelamin === 'Laki-laki' ? 'selected' : ''}>Laki-laki</option>
+                                    <option value="Perempuan" ${item.jenis_kelamin === 'Perempuan' ? 'selected' : ''}>Perempuan</option>
+                                </select>
+                                <input type="text" name="tempat_lahir" value="${item.tempat_lahir}" required placeholder="Tempat Lahir" class="w-full p-3 border rounded-lg">
+                                <input type="date" name="tanggal_lahir" value="${item.tanggal_lahir}" required class="w-full p-3 border rounded-lg">
+                                <input type="text" name="alamat_ktp" value="${item.alamat_ktp}" required placeholder="Alamat KTP" class="w-full p-3 border rounded-lg">
+                                <input type="text" name="nomor_str" value="${item.nomor_str}" required placeholder="Nomor STR" class="w-full p-3 border rounded-lg">
+                                <select name="status_str" required class="w-full p-3 border rounded-lg">
+                                    <option value="Seumur Hidup" ${item.status_str === 'Seumur Hidup' ? 'selected' : ''}>Seumur Hidup</option>
+                                    <option value="Berlaku" ${item.status_str === 'Berlaku' ? 'selected' : ''}>Berlaku</option>
+                                </select>
+                                <select name="sip_ada" required class="w-full p-3 border rounded-lg">
+                                    <option value="Ada" ${item.sip_ada === 'Ada' ? 'selected' : ''}>Ada</option>
+                                    <option value="Belum" ${item.sip_ada === 'Belum' ? 'selected' : ''}>Belum</option>
+                                </select>
+                                <input type="text" name="nomor_sip" value="${item.nomor_sip}" placeholder="Nomor SIP" class="w-full p-3 border rounded-lg">
+                                <input type="date" name="masa_belaku_sip" value="${item.masa_belaku_sip}" class="w-full p-3 border rounded-lg">
+                                <input type="text" name="unit_kerja" value="${item.unit_kerja}" required placeholder="Unit Kerja" class="w-full p-3 border rounded-lg">
+                                <input type="text" name="alamat_unit_kerja" value="${item.alamat_unit_kerja}" required placeholder="Alamat Unit Kerja" class="w-full p-3 border rounded-lg">
+                                <input type="text" name="desa_kelurahan_unit" value="${item.desa_kelurahan_unit}" required placeholder="Desa/Kelurahan Unit" class="w-full p-3 border rounded-lg">
+                                <select name="status_satusehat" required class="w-full p-3 border rounded-lg">
+                                    <option value="Ada" ${item.status_satusehat === 'Ada' ? 'selected' : ''}>Ada</option>
+                                    <option value="Belum Ada" ${item.status_satusehat === 'Belum Ada' ? 'selected' : ''}>Belum Ada</option>
+                                </select>
+                                <div class="col-span-2 space-y-2">
+                                    <label class="flex items-center"><input type="checkbox" name="sop_pelayan" ${item.sop_pelayan === 'Ya' ? 'checked' : ''}> SOP Pelayan</label>
+                                    <label class="flex items-center"><input type="checkbox" name="sop_profesi" ${item.sop_profesi === 'Ya' ? 'checked' : ''}> SOP Profesi</label>
+                                    <label class="flex items-center"><input type="checkbox" name="sop_etika" ${item.sop_etika === 'Ya' ? 'checked' : ''}> SOP Etika</label>
+                                </div>
+                                <div class="col-span-2 space-y-2">
+                                    <label class="flex items-center"><input type="checkbox" name="sdmk_named" ${item.sdmk_named === 'Ya' ? 'checked' : ''}> SDMK Named</label>
+                                    <label class="flex items-center"><input type="checkbox" name="sdmk_nakes" ${item.sdmk_nakes === 'Ya' ? 'checked' : ''}> SDMK Nakes</label>
+                                    <label class="flex items-center"><input type="checkbox" name="sdmk_admin" ${item.sdmk_admin === 'Ya' ? 'checked' : ''}> SDMK Admin</label>
+                                </div>
+                                <input type="text" name="jam_operasional" value="${item.jam_operasional}" required placeholder="Jam Operasional (cth: 08:00 - 17:00)" class="col-span-2 w-full p-3 border rounded-lg">
+                            </div>
+                            <input type="hidden" name="action" value="edit">
+                            <button type="submit" class="btn-primary">Update</button>
+                        </form>
+                    `;
+                    openModal(formHTML, false);
+                    setTimeout(() => {
+                        document.getElementById('edit-form').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            const formData = new FormData(this);
+                            fetch(SCRIPT_URL, {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(r => r.json())
+                            .then(result => {
+                                if (result.success) {
+                                    showToast('Data berhasil diupdate', 'success');
+                                    closeModal();
+                                    loadAdminTable();
+                                } else {
+                                    showToast('Gagal: ' + result.error, 'error');
+                                }
+                            })
+                            .catch(err => showToast('Error: ' + err.message, 'error'));
+                        }, {once: true});
+                    }, 0);
+                })
+                .catch(err => showToast('Error: ' + err.message, 'error'));
         };
 
-        window.deleteData = function(index) {
+        // Delete Data
+        window.deleteData = function(nik) {
             if (confirm('Apakah Anda yakin ingin menghapus data ini?')) {
-                vervalData.splice(index, 1);
-                saveData();
-                loadAdminTable();
-                showToast('Data berhasil dihapus!', 'success');
+                const formData = new FormData();
+                formData.append('action', 'hapus');
+                formData.append('nik', nik);
+                fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(result => {
+                    if (result.success) {
+                        showToast('Data berhasil dihapus', 'success');
+                        loadAdminTable();
+                    } else {
+                        showToast('Gagal: ' + result.error, 'error');
+                    }
+                })
+                .catch(err => showToast('Error: ' + err.message, 'error'));
             }
         };
     </script>
