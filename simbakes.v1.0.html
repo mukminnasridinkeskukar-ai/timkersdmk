@@ -183,7 +183,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbx58DXNYoOBkQYkxgNF1z3zqhOrhktHBtty7T1onvZxIOFDCXflNkKXooMJ_mjuxPWo/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbzQ85_-btMDSFW6CqQ48svEcXFJP2RD-SCBjtHuhrCGTfdNIe7R8XBD7K25OhaSQXQR/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1018,6 +1018,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function approveApplication(id) {
       if (!confirm('Setujui pengajuan ini?')) return;
+      // Catatan admin tidak dikirim saat approve (agar tidak mengubah kolom lain)
       apiCallWithData('updateApplicationStatus', {id: id, status: 'approved'}, function(res) {
         if (res && res.success) {
           showToast('Status disetujui');
@@ -1028,9 +1029,18 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
 
+
     function rejectApplication(id) {
+      // Minta catatan admin khusus untuk status rejected
+      var note = prompt('Catatan Admin (wajib diisi untuk Ditolak/Rejected):');
+      if (note === null) return; // cancelled
+      note = String(note).trim();
+      if (!note) {
+        showToast('Catatan Admin wajib diisi untuk Ditolak', 'error');
+        return;
+      }
       if (!confirm('Tolak pengajuan ini?')) return;
-      apiCallWithData('updateApplicationStatus', {id: id, status: 'rejected'}, function(res) {
+      apiCallWithData('updateApplicationStatus', {id: id, status: 'rejected', admin_notes: note}, function(res) {
         if (res && res.success) {
           showToast('Status ditolak');
           loadApplications();
@@ -1039,6 +1049,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
     }
+
 
     function editApplication(id) {
       if (!confirm('Edit status pengajuan? (View/Edit di modal)')) return;
