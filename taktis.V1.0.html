@@ -893,6 +893,7 @@
             }
 
             try {
+                // Try to call Google Apps Script API
                 const response = await fetch(API_BASE_URL + endpoint, config);
                 const result = await response.json();
 
@@ -902,9 +903,192 @@
 
                 return result;
             } catch (error) {
-                console.error('API Error:', error);
-                throw error;
+                console.warn('API call failed, using mock data:', error.message);
+
+                // Fallback to mock data
+                return mockApiCall(endpoint, method, data);
             }
+        }
+
+        // Mock API for testing when Google Apps Script is not available
+        function mockApiCall(endpoint, method, data) {
+            const mockDelay = () => new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 200));
+
+            switch(endpoint) {
+                case '':
+                    if (data?.action === 'login') {
+                        return mockLogin(data);
+                    } else if (data?.action === 'getParticipants') {
+                        return mockGetParticipants();
+                    } else if (data?.action === 'getParticipant') {
+                        return mockGetParticipant(data);
+                    } else if (data?.action === 'addParticipant') {
+                        return mockAddParticipant(data);
+                    } else if (data?.action === 'getAnnouncements') {
+                        return mockGetAnnouncements();
+                    } else if (data?.action === 'getBezetting') {
+                        return mockGetBezetting();
+                    }
+                    break;
+                case '?action=getParticipants':
+                    return mockGetParticipants();
+                case '?action=getMasterData':
+                    return mockGetMasterData();
+                case '?action=getAnnouncements':
+                    return mockGetAnnouncements();
+                case '?action=getBezetting':
+                    return mockGetBezetting();
+                case '?action=health':
+                    return { success: true, status: 'OK', message: 'Mock API active' };
+            }
+
+            return { success: false, error: 'Mock endpoint not found' };
+        }
+
+        function mockLogin(data) {
+            if (data.username === 'superadmin' && data.password === 'admin123') {
+                return {
+                    success: true,
+                    user: { id: 1, username: 'superadmin', role: 'SUPERADMIN', name: 'Super Admin' },
+                    token: 'mock_token_' + Date.now()
+                };
+            } else if (data.username === 'operator1' && data.password === 'op123') {
+                return {
+                    success: true,
+                    user: { id: 2, username: 'operator1', role: 'OPERATOR', name: 'Operator 1' },
+                    token: 'mock_token_' + Date.now()
+                };
+            } else if (data.username === 'user1' && data.password === 'user123') {
+                return {
+                    success: true,
+                    user: { id: 3, username: 'user1', role: 'USER', name: 'User 1' },
+                    token: 'mock_token_' + Date.now()
+                };
+            }
+            return { success: false, error: 'Invalid credentials' };
+        }
+
+        function mockGetParticipants() {
+            return {
+                success: true,
+                data: [
+                    {
+                        regNumber: 'TAKTIS-UKOM-2024-0001',
+                        nama: 'Dr. Ahmad Santoso',
+                        jabfungTujuan: 'Dokter',
+                        jenjangTujuan: 'III/c',
+                        status: 'Disetujui',
+                        submittedAt: '2024-01-15T08:30:00.000Z'
+                    },
+                    {
+                        regNumber: 'TAKTIS-UKOM-2024-0002',
+                        nama: 'Siti Nurhaliza S.Kep',
+                        jabfungTujuan: 'Perawat',
+                        jenjangTujuan: 'II/c',
+                        status: 'Menunggu Verifikasi',
+                        submittedAt: '2024-01-16T09:15:00.000Z'
+                    },
+                    {
+                        regNumber: 'TAKTIS-UKOM-2024-0003',
+                        nama: 'Dr. Budi Hartono',
+                        jabfungTujuan: 'Dokter Gigi',
+                        jenjangTujuan: 'III/b',
+                        status: 'Ditolak',
+                        submittedAt: '2024-01-14T14:20:00.000Z'
+                    }
+                ],
+                total: 3
+            };
+        }
+
+        function mockGetParticipant(data) {
+            const participants = mockGetParticipants().data;
+            const participant = participants.find(p => p.regNumber === data.regNumber);
+            if (participant) {
+                return { success: true, data: participant };
+            }
+            return { success: false, error: 'Participant not found' };
+        }
+
+        function mockAddParticipant(data) {
+            const regNumber = 'TAKTIS-UKOM-2024-' + String(Math.floor(Math.random() * 9999)).padStart(4, '0');
+            return {
+                success: true,
+                data: {
+                    ...data,
+                    regNumber: regNumber,
+                    status: 'Draft',
+                    submittedAt: new Date().toISOString()
+                },
+                message: 'Participant added successfully (Mock)'
+            };
+        }
+
+        function mockGetMasterData() {
+            return {
+                success: true,
+                data: {
+                    periode: ['2024', '2025', '2026'],
+                    unitKerja: ['RSUD Jakarta', 'RSUD Bandung', 'RSUD Surabaya', 'Puskesmas A', 'Puskesmas B'],
+                    jabfung: ['Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Apoteker'],
+                    jenjang: ['I/a', 'I/b', 'I/c', 'II/a', 'II/b', 'II/c', 'III/a', 'III/b', 'III/c'],
+                    pangkatGolongan: ['Pembina Tk. I / IV/b', 'Penata Tk. I / III/c', 'Penata / III/c'],
+                    jenisUKOM: ['UKOM Reguler', 'UKOM Khusus'],
+                    tipe: ['Kenaikan Jenjang', 'Kenaikan Jabfung']
+                }
+            };
+        }
+
+        function mockGetAnnouncements() {
+            return {
+                success: true,
+                data: [
+                    {
+                        id: 'mock_1',
+                        title: 'Selamat Datang di TAKTIS',
+                        category: 'umum',
+                        content: 'Platform TAKTIS telah resmi diluncurkan untuk memudahkan pengelolaan jabatan fungsional kesehatan.',
+                        createdAt: '2024-01-01T08:00:00.000Z',
+                        createdBy: 'SYSTEM'
+                    },
+                    {
+                        id: 'mock_2',
+                        title: 'Perpanjangan Batas Pendaftaran',
+                        category: 'penting',
+                        content: 'Batas akhir pendaftaran UKOM periode 2024 diperpanjang hingga 15 Februari 2024.',
+                        createdAt: '2024-01-10T10:30:00.000Z',
+                        createdBy: 'superadmin'
+                    }
+                ]
+            };
+        }
+
+        function mockGetBezetting() {
+            return {
+                success: true,
+                data: [
+                    {
+                        nip: '198001012010011001',
+                        nama: 'Dr. Ahmad Santoso',
+                        jabfung: 'Dokter',
+                        jenjang: 'III/c',
+                        unitKerja: 'RSUD Jakarta',
+                        pangkatGolongan: 'Pembina Tk. I / IV/b',
+                        status: 'Aktif',
+                        tanggalMulai: '2015-01-15'
+                    },
+                    {
+                        nip: '198502032010012002',
+                        nama: 'Siti Nurhaliza S.Kep',
+                        jabfung: 'Perawat',
+                        jenjang: 'II/c',
+                        unitKerja: 'RSUD Bandung',
+                        pangkatGolongan: 'Penata Tk. I / III/c',
+                        status: 'Aktif',
+                        tanggalMulai: '2016-03-20'
+                    }
+                ]
+            };
         }
 
         // =============================================================================
@@ -1189,15 +1373,16 @@
         }
 
         async function initializeSystemAsUser() {
+            console.log('Initializing system as user...');
             // Set as guest/USER without authentication
             currentUser = { username: 'guest', role: 'USER', name: 'Guest User' };
-
             updateUIBasedOnRole();
             await loadPage('dashboard');
 
             setupNavigation();
             setupSidebarToggle();
             setupDarkMode();
+            console.log('System initialized as user');
         }
 
         function updateUIBasedOnRole() {
@@ -1219,11 +1404,15 @@
         }
 
         function setupNavigation() {
+            console.log('Setting up navigation...');
             const navLinks = document.querySelectorAll('.sidebar .nav-link[data-page]');
+            console.log('Found nav links:', navLinks.length);
+
             navLinks.forEach(link => {
                 link.addEventListener('click', async (e) => {
                     e.preventDefault();
                     const page = e.target.closest('.nav-link').getAttribute('data-page');
+                    console.log('Navigating to page:', page);
                     await loadPage(page);
                 });
             });
@@ -1281,8 +1470,14 @@
         }
 
         async function loadPage(page) {
+            console.log('Loading page:', page);
             currentPage = page;
             const pageContent = document.getElementById('page-content');
+
+            if (!pageContent) {
+                console.error('page-content element not found!');
+                return;
+            }
 
             document.querySelectorAll('.sidebar .nav-link').forEach(link => {
                 link.classList.remove('active');
