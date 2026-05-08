@@ -742,10 +742,10 @@
                         </a>
                     </li>
                 </ul>
-                <hr class="my-3" id="adminDivider" style="display: none;">
+                <hr class="my-3">
                 <ul class="nav flex-column">
-                    <li class="nav-item" id="adminMenu" style="display: none;">
-                        <a class="nav-link text-danger fw-bold" href="#" data-page="admin">
+                    <li class="nav-item">
+                        <a class="nav-link text-danger fw-bold" href="#" onclick="handleAdminAccess()">
                             <i class="fas fa-cog me-2"></i>ADMIN
                         </a>
                     </li>
@@ -994,7 +994,8 @@
         }
 
         function requireAuth(role = 'USER') {
-            if (!currentUser) {
+            if (!currentUser || currentUser.role === 'USER' && currentUser.username === 'guest') {
+                // Guest user trying to access admin - show login
                 showAdminLogin();
                 return false;
             }
@@ -1031,7 +1032,7 @@
         function enterSystem() {
             document.getElementById('landing-page').style.display = 'none';
             document.getElementById('system-layout').style.display = 'block';
-            initializeSystem();
+            initializeSystemAsUser();
         }
 
         function showLandingPage() {
@@ -1132,7 +1133,15 @@
                     }).then(() => {
                         document.getElementById('admin-login').style.display = 'none';
                         document.getElementById('system-layout').style.display = 'block';
-                        initializeSystem();
+
+                        // Check if this is admin login (from admin panel access)
+                        if (hasRole('OPERATOR')) {
+                            // Admin login - go to admin panel
+                            loadPage('admin');
+                        } else {
+                            // Regular user login - go to dashboard
+                            loadPage('dashboard');
+                        }
                     });
                 } else {
                     throw new Error('Invalid credentials');
@@ -1168,21 +1177,33 @@
             setupDarkMode();
         }
 
+        async function initializeSystemAsUser() {
+            // Set as guest/USER without authentication
+            currentUser = { username: 'guest', role: 'USER', name: 'Guest User' };
+
+            updateUIBasedOnRole();
+            await loadPage('dashboard');
+
+            setupNavigation();
+            setupSidebarToggle();
+            setupDarkMode();
+        }
+
         function updateUIBasedOnRole() {
-            const adminMenu = document.getElementById('adminMenu');
-            const adminDivider = document.getElementById('adminDivider');
-
-            if (hasRole('OPERATOR')) {
-                adminMenu.style.display = 'block';
-                adminDivider.style.display = 'block';
-            } else {
-                adminMenu.style.display = 'none';
-                adminDivider.style.display = 'none';
-            }
-
             const userInfo = document.querySelector('.navbar .dropdown-toggle');
             if (userInfo && currentUser) {
                 userInfo.innerHTML = `<i class="fas fa-user"></i> ${currentUser.username} (${currentUser.role})`;
+            }
+        }
+
+        function handleAdminAccess() {
+            // Check if user is already authenticated as admin
+            if (currentUser && hasRole('OPERATOR')) {
+                // Already logged in as admin, go to admin panel
+                loadPage('admin');
+            } else {
+                // Show admin login
+                showAdminLogin();
             }
         }
 
@@ -1283,6 +1304,9 @@
                         if (requireAuth('OPERATOR')) {
                             pageContent.innerHTML = await getAdminContent();
                             await initializeAdmin();
+                        } else {
+                            // If auth failed, stay on current page or redirect
+                            return;
                         }
                         break;
                     default:
@@ -1295,7 +1319,7 @@
         }
 
         function logout(reason = 'User logged out') {
-            if (currentUser) {
+            if (currentUser && currentUser.username !== 'guest') {
                 apiCall('', 'POST', {
                     action: 'logActivity',
                     action: 'LOGOUT',
@@ -1312,7 +1336,11 @@
                 timer: 1500,
                 showConfirmButton: false
             }).then(() => {
-                location.reload();
+                // Return to landing page
+                document.getElementById('system-layout').style.display = 'none';
+                document.getElementById('admin-login').style.display = 'none';
+                document.getElementById('landing-page').style.display = 'block';
+                window.scrollTo(0, 0);
             });
         }
 
