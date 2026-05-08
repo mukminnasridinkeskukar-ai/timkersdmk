@@ -183,7 +183,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbx58DXNYoOBkQYkxgNF1z3zqhOrhktHBtty7T1onvZxIOFDCXflNkKXooMJ_mjuxPWo/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbzaCK0GyIrqhlwfdq09SeQwJOL5okjVi5V2Bdpzv78uiA4eFwwfy1KxxK3t4-x-NXnD/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -628,7 +628,7 @@ document.addEventListener('DOMContentLoaded', function() {
         '<div class="alert alert-info mb-3">' +
         '<i class="fas fa-info-circle"></i> Gunakan tombol <strong>Tambah</strong> untuk buat pengajuan baru. Refresh otomatis setelah CRUD. Kolom Dokumen dari Sheet V.' +
         '</div>' +
-        '<div class="table-responsive"><table class="table"><thead><tr><th>No</th><th>Nomor</th><th>Nama</th><th>Jurusan</th><th>Jenis</th><th>Unit Tujuan</th><th>HP</th><th>Dokumen</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead>' +
+        '<div class="table-responsive"><table class="table"><thead><tr><th>No</th><th>Nomor</th><th>Nama</th><th>Jurusan</th><th>Jenis</th><th>Unit Tujuan</th><th>HP</th><th>Foto</th><th>Dokumen</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead>' +
         '<tbody id="applicationsTable"><tr><td colspan="12" class="text-center p-4"><div class="spinner"></div> Memuat data pengajuan...</td></tr></tbody></table></div>' +
         '<div id="noDataMsg" class="text-center p-4 text-muted hidden">' +
         '<i class="fas fa-inbox fa-3x mb-3" style="opacity:0.5;"></i>' +
@@ -895,17 +895,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function showFullScreenImage(src) {
-      var container = document.getElementById('content');
       var modal = document.createElement('div');
       modal.className = 'modal';
       modal.id = 'fullscreenModal';
-      modal.style.zIndex = '10002';
+      modal.style.zIndex = '100000';
       modal.innerHTML = '<div style="text-align:center;" onclick="closeFullScreenImage()">' +
-        '<button class="modal-close" style="position:absolute;top:20px;right:20px;z-index:10003;" onclick="closeFullScreenImage()">&times;</button>' +
-        '<img src="' + src + '" alt="Foto Fullscreen" style="max-width:90%;max-height:90vh;object-fit:contain;border-radius:8px;">' +
+        '<button class="modal-close" style="position:absolute;top:20px;right:20px;z-index:100001;" onclick="closeFullScreenImage()">&times;</button>' +
+        '<img src="' + src + '" alt="Foto Fullscreen" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;">' +
         '<p style="color:white;margin-top:1rem;">Klik di mana saja untuk menutup</p>' +
         '</div>';
-      container.appendChild(modal);
+      document.body.appendChild(modal);
     }
 
     function closeFullScreenImage() {
@@ -963,7 +962,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (noDataMsg) noDataMsg.classList.add('hidden');
       
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4"><div class="spinner"></div> Memuat data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4"><div class="spinner"></div> Memuat data...</td></tr>';
       }
       
       apiCall('getApplications', function(res) {
@@ -981,9 +980,30 @@ document.addEventListener('DOMContentLoaded', function() {
               var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
               var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
               var created = app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : (app.created_at ? new Date(app.created_at).toLocaleDateString('id-ID') : '-');
+
+              var fotoThumb = app.foto_url ? (
+                '<img src="' + escapeHtml(app.foto_url) + '" alt="Foto" style="width:60px;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" />'
+              ) : (
+                '<div style="width:60px;height:80px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px dashed var(--gray-500);color:var(--gray-500);font-size:12px;">-</div>'
+              );
+
               var docLinks = app.documents ? '<a href="' + escapeHtml(app.documents) + '" target="_blank" title="' + escapeHtml(app.documents) + '"><i class="fas fa-paperclip text-primary" style="cursor:pointer;"></i></a>' : '-';
               var downloadBtn = app.status === 'approved' ? getDownloadBtnHTML(app.id) : '';
-              return '<tr><td>' + (i+1) + '</td><td><code>' + escapeHtml(app.application_number || '-') + '</code></td><td>' + escapeHtml(app.full_name || '-') + '</td><td>' + escapeHtml(app.jurusan_tujuan || '-') + '</td><td>' + escapeHtml(app.jenis_pendidikan || '-') + '</td><td>' + escapeHtml(app.unit_tujuan || '-') + '</td><td>' + escapeHtml(app.phone || '-') + '</td><td>' + docLinks + '</td><td><span class="badge ' + badge + '">' + (statusText[app.status] || app.status) + '</span></td><td>' + created + '</td><td>' + downloadBtn + '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + app.id + ')"><i class="fas fa-eye"></i></button> <button class="btn btn-warning btn-sm" onclick="rejectApplication(' + app.id + ')"><i class="fas fa-times"></i></button> <button class="btn btn-success btn-sm" onclick="approveApplication(' + app.id + ')"><i class="fas fa-check"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteApplication(' + app.id + ')"><i class="fas fa-trash"></i></button></td></tr>';
+
+              return '<tr>' +
+                '<td>' + (i+1) + '</td>' +
+                '<td><code>' + escapeHtml(app.application_number || '-') + '</code></td>' +
+                '<td>' + escapeHtml(app.full_name || '-') + '</td>' +
+                '<td>' + escapeHtml(app.jurusan_tujuan || '-') + '</td>' +
+                '<td>' + escapeHtml(app.jenis_pendidikan || '-') + '</td>' +
+                '<td>' + escapeHtml(app.unit_tujuan || '-') + '</td>' +
+                '<td>' + escapeHtml(app.phone || '-') + '</td>' +
+                '<td>' + fotoThumb + '</td>' +
+                '<td>' + docLinks + '</td>' +
+                '<td><span class="badge ' + badge + '">' + (statusText[app.status] || app.status) + '</span></td>' +
+                '<td>' + created + '</td>' +
+                '<td>' + downloadBtn + '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + app.id + ')"><i class="fas fa-eye"></i></button> <button class="btn btn-warning btn-sm" onclick="rejectApplication(' + app.id + ')"><i class="fas fa-times"></i></button> <button class="btn btn-success btn-sm" onclick="approveApplication(' + app.id + ')"><i class="fas fa-check"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteApplication(' + app.id + ')"><i class="fas fa-trash"></i></button></td>' +
+                '</tr>';
             });
             tbody.innerHTML = rows.join('');
           } else {
