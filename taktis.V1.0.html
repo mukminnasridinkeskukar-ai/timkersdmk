@@ -19,6 +19,9 @@
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
 
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
     <style>
         :root {
             --primary-color: #007bff;
@@ -37,6 +40,9 @@
             --text-color: #212529;
             --sidebar-bg: #ffffff;
             --card-bg: rgba(255, 255, 255, 0.9);
+            --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
 
         [data-theme="dark"] {
@@ -49,23 +55,69 @@
             --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Poppins', sans-serif;
             overflow-x: hidden;
             background-color: var(--bg-color);
             color: var(--text-color);
             transition: background-color 0.3s ease, color 0.3s ease;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Loading Animation */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--gradient-1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Skeleton Loading */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
 
         /* Landing Page Styles */
         .hero-section {
             height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--gradient-1);
             position: relative;
+            overflow: hidden;
         }
 
-        .particles-container::before {
-            content: '';
+        .particles-container {
             position: absolute;
             top: 0;
             left: 0;
@@ -76,154 +128,418 @@
             animation: particleMove 20s linear infinite;
         }
 
-        @keyframes particleMove {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-50px); }
-        }
-
-        .gradient-text {
-            background: linear-gradient(45deg, #fff, #007bff);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .glass-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            transition: all 0.3s ease;
-        }
-
-        .glass-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
-        }
-
-        .floating-card {
-            animation: floating 3s ease-in-out infinite;
-            display: inline-block;
-            padding: 2rem;
-            border-radius: var(--border-radius);
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-        }
-
-        @keyframes floating {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .counter {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: var(--primary-color);
-            margin: 0;
-        }
-
-        /* System Layout Styles */
-        .sidebar {
-            width: 250px;
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            left: 0;
-            z-index: 1000;
-            background-color: var(--sidebar-bg);
-            transition: transform 0.3s ease, background-color 0.3s ease;
-        }
-
-        .sidebar.collapsed {
-            transform: translateX(-100%);
-        }
-
-        .sidebar .nav-link {
-            color: #495057;
-            font-weight: 500;
-            padding: 0.75rem 1rem;
-            border-radius: 8px;
-            margin-bottom: 0.25rem;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar .nav-link:hover {
-            background-color: #e9ecef;
-            color: var(--primary-color);
-        }
-
-        .sidebar .nav-link.active {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .main-content {
-            margin-left: 250px;
-            min-height: 100vh;
-            background-color: var(--bg-color);
-            transition: margin-left 0.3s ease, background-color 0.3s ease;
-        }
-
-        .main-content.expanded {
-            margin-left: 0;
-        }
-
-        .content-wrapper {
-            min-height: calc(100vh - 70px);
-        }
-
-        /* Login Page Styles */
-        .login-container {
-            min-height: 100vh;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .login-background {
+        .particles-container::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            z-index: -1;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></svg>');
+            animation: float 15s linear infinite;
         }
 
-        .login-form-container {
+        @keyframes particleMove {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-50px); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .gradient-text {
+            background: var(--gradient-2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-content h1 {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .hero-content h2 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .hero-content p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+        }
+
+        .hero-buttons {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
 
-        .login-card {
+        .hero-buttons .btn {
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 500;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-buttons .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
             width: 100%;
-            max-width: 400px;
-            padding: 2rem;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .hero-buttons .btn:hover::before {
+            left: 100%;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            padding: 2rem;
         }
 
-        /* Wizard Styles */
-        .step-indicator {
+        .glass-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .floating-card {
+            animation: floating 6s ease-in-out infinite;
+            display: inline-block;
+        }
+
+        @keyframes floating {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* Stats Section */
+        .stats-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 5rem 0;
+        }
+
+        .counter {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 0;
+            background: var(--gradient-2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-card {
             text-align: center;
-            flex: 1;
+            padding: 2rem;
+            border-radius: 20px;
+            transition: transform 0.3s ease;
         }
 
-        .step-indicator.active .step-number {
-            background-color: var(--primary-color) !important;
-            color: white !important;
+        .stat-card:hover {
+            transform: scale(1.05);
+        }
+
+        .stat-card i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Features Section */
+        .features-section {
+            padding: 5rem 0;
+            background: var(--bg-color);
+        }
+
+        .feature-card {
+            height: 100%;
+            padding: 2rem;
+            text-align: center;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-card i {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Services Section */
+        .services-section {
+            padding: 5rem 0;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .service-step {
+            padding: 2rem;
+            border-radius: 15px;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .service-step:hover {
+            transform: translateY(-5px);
         }
 
         .step-number {
-            width: 40px;
-            height: 40px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
-            background-color: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0 auto 1rem;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--dark-color);
+            color: white;
+            padding: 3rem 0 1rem;
+        }
+
+        .footer h5 {
+            color: white;
+            margin-bottom: 1rem;
+        }
+
+        .footer a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer a:hover {
+            color: white;
+        }
+
+        /* System Layout */
+        .sidebar {
+            width: 280px;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--glass-border);
+            transition: all 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+        .sidebar.collapsed .sidebar-menu {
+            display: none;
+        }
+
+        .sidebar .nav-link {
+            color: var(--text-color);
+            font-weight: 500;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            margin: 0.25rem 0.5rem;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .sidebar .nav-link:hover {
+            background: var(--glass-bg);
+            color: var(--primary-color);
+            transform: translateX(5px);
+        }
+
+        .sidebar .nav-link.active {
+            background: var(--gradient-1);
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
+        }
+
+        .sidebar .nav-link i {
+            width: 20px;
+            margin-right: 10px;
+        }
+
+        .sidebar.collapsed .nav-link span {
+            display: none;
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            min-height: 100vh;
+            background: var(--bg-color);
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content.expanded {
+            margin-left: 70px;
+        }
+
+        .topbar {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .topbar .breadcrumb {
+            margin: 0;
+            background: transparent;
+        }
+
+        .topbar .breadcrumb-item a {
+            color: var(--text-color);
+            text-decoration: none;
+        }
+
+        .topbar .breadcrumb-item.active {
+            color: var(--primary-color);
+        }
+
+        .content-wrapper {
+            padding: 2rem;
+            min-height: calc(100vh - 80px);
+        }
+
+        /* Dashboard */
+        .dashboard-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow);
+        }
+
+        .dashboard-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .running-text {
+            background: linear-gradient(45deg, var(--primary-color), var(--info-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+            white-space: nowrap;
+            animation: slide 30s linear infinite;
+        }
+
+        @keyframes slide {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        /* Forms */
+        .form-wizard {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+        }
+
+        .wizard-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .wizard-steps::before {
+            content: '';
+            position: absolute;
+            top: 25px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--glass-border);
+            z-index: 1;
+        }
+
+        .wizard-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #e9ecef;
             color: #6c757d;
             display: flex;
             align-items: center;
@@ -231,74 +547,147 @@
             margin: 0 auto 8px;
             font-weight: bold;
             transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .wizard-step.active .step-number {
+            background: var(--gradient-1);
+            color: white;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+        }
+
+        .wizard-step.completed .step-number {
+            background: var(--success-color);
+            color: white;
         }
 
         .step-label {
             font-size: 0.875rem;
             color: #6c757d;
+            font-weight: 500;
         }
 
-        .step-indicator.active .step-label {
+        .wizard-step.active .step-label {
             color: var(--primary-color);
-            font-weight: 500;
         }
 
         .form-step {
-            min-height: 400px;
+            min-height: 500px;
         }
 
-        /* Activity Feed */
-        .activity-feed {
-            max-height: 400px;
-            overflow-y: auto;
+        .form-group {
+            margin-bottom: 1.5rem;
         }
 
-        .activity-item {
-            display: flex;
-            align-items: flex-start;
-            padding: 15px 0;
-            border-bottom: 1px solid #e9ecef;
+        .form-control {
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+            padding: 0.75rem 1rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
         }
 
-        .activity-item:last-child {
-            border-bottom: none;
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            background: var(--card-bg);
         }
 
-        .activity-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            flex-shrink: 0;
-        }
-
-        .activity-content p {
-            margin-bottom: 2px;
+        .btn-wizard {
+            border-radius: 25px;
+            padding: 0.75rem 2rem;
             font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        /* Upload */
+        .upload-area {
+            border: 2px dashed var(--glass-border);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+            background: var(--card-bg);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--success-color);
+            background: rgba(40, 167, 69, 0.1);
+        }
+
+        /* Tables */
+        .table-responsive {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .table {
+            margin: 0;
+        }
+
+        .table thead th {
+            background: var(--gradient-1);
+            color: white;
+            border: none;
+            font-weight: 600;
+            padding: 1rem;
+        }
+
+        .table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        .table tbody tr:hover {
+            background: var(--glass-bg);
+        }
+
+        /* Modal */
+        .modal-content {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.5rem 2rem;
+        }
+
+        .modal-body {
+            padding: 2rem;
         }
 
         /* Timeline */
         .timeline {
             position: relative;
-            padding-left: 30px;
+            padding-left: 50px;
         }
 
         .timeline::before {
             content: '';
             position: absolute;
-            left: 15px;
+            left: 25px;
             top: 0;
             bottom: 0;
             width: 2px;
-            background: #e9ecef;
+            background: var(--gradient-1);
         }
 
         .timeline-item {
             position: relative;
-            margin-bottom: 20px;
+            margin-bottom: 2rem;
         }
 
         .timeline-marker {
@@ -308,93 +697,82 @@
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            background: #e9ecef;
-            border: 2px solid #fff;
+            background: var(--primary-color);
+            border: 2px solid white;
         }
 
-        .timeline-item.completed .timeline-marker {
-            background: var(--success-color);
+        .timeline-content {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 1.5rem;
         }
 
-        .timeline-item.current .timeline-marker {
-            background: var(--warning-color);
-            animation: pulse 2s infinite;
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
         }
 
-        .timeline-item.pending .timeline-marker {
-            background: #e9ecef;
+        .toast {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            box-shadow: var(--shadow);
         }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
-        }
-
-        .timeline-content h6 {
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-
-        /* Dashboard specific styles */
-        .icon-circle {
-            width: 50px;
-            height: 50px;
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .running-text-container {
-            overflow: hidden;
-            white-space: nowrap;
-        }
-
-        .running-text {
-            display: inline-block;
-            animation: runningText 30s linear infinite;
-        }
-
-        @keyframes runningText {
-            0% { transform: translateX(100%); }
-            100% { transform: translateX(-100%); }
-        }
-
-        /* Announcement styles */
-        .announcement-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .announcement-card {
+            background: var(--gradient-1);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
             cursor: pointer;
-            transition: transform 0.3s ease;
+            transition: all 0.3s ease;
+            z-index: 1000;
         }
 
-        .announcement-card:hover {
-            transform: translateY(-5px);
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.6);
         }
 
-        /* Mobile responsive */
-        @media (max-width: 768px) {
-            .hero-section {
-                height: auto;
-                padding: 5rem 0;
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
             }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
 
-            .display-4 {
+        .fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .hero-content h1 {
                 font-size: 2.5rem;
             }
 
-            .hero-buttons .btn {
-                width: 100%;
-                margin-bottom: 1rem;
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
             }
 
             .sidebar {
@@ -408,26 +786,106 @@
             .main-content {
                 margin-left: 0;
             }
+
+            .main-content.expanded {
+                margin-left: 0;
+            }
+
+            .wizard-steps {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .wizard-steps::before {
+                display: none;
+            }
+
+            .counter {
+                font-size: 2rem;
+            }
         }
 
-        .btn {
-            border-radius: 25px;
-            padding: 0.75rem 2rem;
-            font-weight: 500;
+        /* Dark Mode Toggle */
+        .dark-mode-toggle {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.2rem;
+            cursor: pointer;
             transition: all 0.3s ease;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        .dark-mode-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        /* Loading States */
+        .loading-skeleton {
+            background: var(--glass-bg);
+            border-radius: 10px;
+            height: 20px;
+            margin: 10px 0;
+        }
+
+        .loading-skeleton.circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+
+        .loading-skeleton.text {
+            height: 16px;
+        }
+
+        /* Admin Styles */
+        .admin-menu {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+        }
+
+        .admin-menu .nav-link {
+            color: rgba(255,255,255,0.9);
+        }
+
+        .admin-menu .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        /* QR Code */
+        .qr-code {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            background: var(--gradient-1);
+            transition: width 0.3s ease;
+        }
+
+        /* Signature Pad */
+        .signature-pad {
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            background: white;
         }
     </style>
 </head>
 <body>
-    <!-- Landing Page Section -->
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Landing Page -->
     <div id="landing-page">
         <!-- Navbar -->
-        <nav class="navbar navbar-expand-lg navbar-dark bg-transparent position-fixed w-100" style="z-index: 1000;">
+        <nav class="navbar navbar-expand-lg navbar-dark position-fixed w-100" style="z-index: 1000; background: rgba(0,0,0,0.1); backdrop-filter: blur(20px);">
             <div class="container">
                 <a class="navbar-brand fw-bold" href="#">
                     <i class="fas fa-stethoscope me-2"></i>TAKTIS
@@ -441,46 +899,42 @@
                         <li class="nav-item"><a class="nav-link" href="#features">Fitur</a></li>
                         <li class="nav-item"><a class="nav-link" href="#services">Layanan</a></li>
                         <li class="nav-item"><a class="nav-link" href="#stats">Statistik</a></li>
-                        <li class="nav-item"><button class="btn btn-outline-light ms-3" onclick="enterSystem()">Masuk Sistem</button></li>
+                        <li class="nav-item">
+                            <button class="btn btn-outline-light ms-3" onclick="enterSystem()">
+                                <i class="fas fa-sign-in-alt me-2"></i>Masuk Sistem
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div>
         </nav>
 
         <!-- Hero Section -->
-        <section id="hero" class="hero-section position-relative overflow-hidden">
+        <section id="hero" class="hero-section">
             <div class="particles-container"></div>
             <div class="container h-100 d-flex align-items-center">
                 <div class="row align-items-center">
                     <div class="col-lg-6" data-aos="fade-right">
                         <div class="hero-content">
-                            <h1 class="display-4 fw-bold text-white mb-4">
-                                <span class="gradient-text">TAKTIS</span>
-                            </h1>
-                            <h2 class="h4 text-light mb-4">
-                                Tata Kelola Jabatan Fungsional Kesehatan Terintegrasi
-                            </h2>
-                            <p class="lead text-light mb-5">
-                                Platform digital modern untuk pengelolaan jabatan fungsional kesehatan dengan sistem terintegrasi dan efisien.
-                            </p>
+                            <h1 class="gradient-text">TAKTIS</h1>
+                            <h2>Tata Kelola Jabatan Fungsional Kesehatan Terintegrasi</h2>
+                            <p>Platform digital modern untuk pengelolaan jabatan fungsional kesehatan dengan sistem terintegrasi dan efisien.</p>
                             <div class="hero-buttons">
-                                <button class="btn btn-primary btn-lg me-3 mb-3" onclick="enterSystem()">
+                                <button class="btn btn-primary" onclick="enterSystem()">
                                     <i class="fas fa-sign-in-alt me-2"></i>Masuk Sistem
                                 </button>
-                                <button class="btn btn-outline-light btn-lg me-3 mb-3" onclick="enterSystemAndGoTo('pengumuman')">
+                                <button class="btn btn-outline-light" onclick="scrollToSection('pengumuman')">
                                     <i class="fas fa-bullhorn me-2"></i>Pengumuman
                                 </button>
-                                <button class="btn btn-success btn-lg mb-3" onclick="enterSystemAndGoTo('daftar-ukom')">
+                                <button class="btn btn-success" onclick="scrollToSection('daftar-ukom')">
                                     <i class="fas fa-user-plus me-2"></i>Daftar UKOM
                                 </button>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-6" data-aos="fade-left">
-                        <div class="hero-image text-center">
-                            <div class="floating-card">
-                                <i class="fas fa-chart-line display-1 text-primary"></i>
-                            </div>
+                    <div class="col-lg-6 text-center" data-aos="fade-left">
+                        <div class="floating-card">
+                            <i class="fas fa-chart-line display-1 text-primary"></i>
                         </div>
                     </div>
                 </div>
@@ -488,32 +942,32 @@
         </section>
 
         <!-- Stats Section -->
-        <section id="stats" class="stats-section py-5 bg-light">
+        <section id="stats" class="stats-section">
             <div class="container">
                 <div class="row text-center">
                     <div class="col-md-3 mb-4" data-aos="fade-up">
-                        <div class="stat-card glass-card p-4">
+                        <div class="stat-card glass-card">
                             <i class="fas fa-users fa-3x text-primary mb-3"></i>
                             <h3 class="counter" data-target="1500">0</h3>
                             <p class="text-muted">Total Peserta UKOM</p>
                         </div>
                     </div>
                     <div class="col-md-3 mb-4" data-aos="fade-up" data-aos-delay="100">
-                        <div class="stat-card glass-card p-4">
+                        <div class="stat-card glass-card">
                             <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
                             <h3 class="counter" data-target="1200">0</h3>
                             <p class="text-muted">Terverifikasi</p>
                         </div>
                     </div>
                     <div class="col-md-3 mb-4" data-aos="fade-up" data-aos-delay="200">
-                        <div class="stat-card glass-card p-4">
+                        <div class="stat-card glass-card">
                             <i class="fas fa-clock fa-3x text-warning mb-3"></i>
                             <h3 class="counter" data-target="250">0</h3>
                             <p class="text-muted">Sedang Diproses</p>
                         </div>
                     </div>
                     <div class="col-md-3 mb-4" data-aos="fade-up" data-aos-delay="300">
-                        <div class="stat-card glass-card p-4">
+                        <div class="stat-card glass-card">
                             <i class="fas fa-trophy fa-3x text-info mb-3"></i>
                             <h3 class="counter" data-target="1050">0</h3>
                             <p class="text-muted">Disetujui</p>
@@ -524,29 +978,29 @@
         </section>
 
         <!-- Features Section -->
-        <section id="features" class="features-section py-5">
+        <section id="features" class="features-section">
             <div class="container">
                 <div class="text-center mb-5" data-aos="fade-up">
-                    <h2 class="display-5 fw-bold">Fitur Utama Platform</h2>
+                    <h2 class="display-5 fw-bold gradient-text">Fitur Utama Platform</h2>
                     <p class="lead text-muted">Sistem terintegrasi untuk kemudahan pengelolaan jabatan fungsional kesehatan</p>
                 </div>
                 <div class="row">
                     <div class="col-md-4 mb-4" data-aos="fade-up">
-                        <div class="feature-card glass-card p-4 text-center h-100">
+                        <div class="feature-card glass-card">
                             <i class="fas fa-chart-bar fa-3x text-primary mb-3"></i>
                             <h4>Dashboard Analytics</h4>
                             <p>Monitoring real-time data peserta UKOM dengan visualisasi yang informatif</p>
                         </div>
                     </div>
                     <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="100">
-                        <div class="feature-card glass-card p-4 text-center h-100">
+                        <div class="feature-card glass-card">
                             <i class="fas fa-file-alt fa-3x text-success mb-3"></i>
                             <h4>Formulir Digital</h4>
                             <p>Pendaftaran UKOM dengan wizard multi-step dan validasi real-time</p>
                         </div>
                     </div>
                     <div class="col-md-4 mb-4" data-aos="fade-up" data-aos-delay="200">
-                        <div class="feature-card glass-card p-4 text-center h-100">
+                        <div class="feature-card glass-card">
                             <i class="fas fa-search fa-3x text-info mb-3"></i>
                             <h4>Cek Status</h4>
                             <p>Pantau status pendaftaran dan proses verifikasi secara real-time</p>
@@ -557,7 +1011,7 @@
         </section>
 
         <!-- Services Section -->
-        <section id="services" class="services-section py-5 bg-light">
+        <section id="services" class="services-section">
             <div class="container">
                 <div class="text-center mb-5" data-aos="fade-up">
                     <h2 class="display-5 fw-bold">Alur Pelayanan</h2>
@@ -565,29 +1019,29 @@
                 </div>
                 <div class="row">
                     <div class="col-md-3 mb-4" data-aos="fade-up">
-                        <div class="service-step text-center">
-                            <div class="step-number bg-primary text-white rounded-circle mx-auto mb-3">1</div>
+                        <div class="service-step">
+                            <div class="step-number bg-primary text-white">1</div>
                             <h5>Pendaftaran</h5>
                             <p>Isi formulir pendaftaran UKOM dengan data yang lengkap</p>
                         </div>
                     </div>
                     <div class="col-md-3 mb-4" data-aos="fade-up" data-aos-delay="100">
-                        <div class="service-step text-center">
-                            <div class="step-number bg-success text-white rounded-circle mx-auto mb-3">2</div>
+                        <div class="service-step">
+                            <div class="step-number bg-success text-white">2</div>
                             <h5>Upload Berkas</h5>
                             <p>Unggah dokumen pendukung dalam format yang ditentukan</p>
                         </div>
                     </div>
                     <div class="col-md-3 mb-4" data-aos="fade-up" data-aos-delay="200">
-                        <div class="service-step text-center">
-                            <div class="step-number bg-info text-white rounded-circle mx-auto mb-3">3</div>
+                        <div class="service-step">
+                            <div class="step-number bg-info text-white">3</div>
                             <h5>Verifikasi</h5>
                             <p>Admin melakukan verifikasi berkas dan data yang diajukan</p>
                         </div>
                     </div>
                     <div class="col-md-3 mb-4" data-aos="fade-up" data-aos-delay="300">
-                        <div class="service-step text-center">
-                            <div class="step-number bg-warning text-white rounded-circle mx-auto mb-3">4</div>
+                        <div class="service-step">
+                            <div class="step-number bg-warning text-white">4</div>
                             <h5>Persetujuan</h5>
                             <p>Penerimaan hasil UKOM dan pengumuman status akhir</p>
                         </div>
@@ -597,7 +1051,7 @@
         </section>
 
         <!-- Footer -->
-        <footer class="footer bg-dark text-light py-5">
+        <footer class="footer">
             <div class="container">
                 <div class="row">
                     <div class="col-md-4 mb-4">
@@ -608,10 +1062,10 @@
                     <div class="col-md-4 mb-4">
                         <h5>Quick Links</h5>
                         <ul class="list-unstyled">
-                            <li><a href="#" class="text-light text-decoration-none">Dashboard</a></li>
-                            <li><a href="#" class="text-light text-decoration-none">Pengumuman</a></li>
-                            <li><a href="#" class="text-light text-decoration-none">Bezetting</a></li>
-                            <li><a href="#" class="text-light text-decoration-none">Daftar UKOM</a></li>
+                            <li><a href="#" onclick="enterSystem()">Dashboard</a></li>
+                            <li><a href="#" onclick="scrollToSection('pengumuman')">Pengumuman</a></li>
+                            <li><a href="#" onclick="scrollToSection('bezetting')">Bezetting</a></li>
+                            <li><a href="#" onclick="scrollToSection('daftar-ukom')">Daftar UKOM</a></li>
                         </ul>
                     </div>
                     <div class="col-md-4 mb-4">
@@ -627,7 +1081,7 @@
                 </div>
                 <hr class="my-4">
                 <div class="text-center">
-                    <p class="mb-0">&copy; 2024 TAKTIS. All rights reserved.</p>
+                    <p class="mb-0">&copy; 2026 TAKTIS. All rights reserved.</p>
                 </div>
             </div>
         </footer>
@@ -702,51 +1156,49 @@
         </div>
     </div>
 
-    <!-- System Layout Section -->
+    <!-- System Layout -->
     <div id="system-layout" style="display: none;">
         <!-- Sidebar -->
-        <nav id="sidebar" class="sidebar bg-white shadow">
-            <div class="sidebar-header p-3 border-bottom">
-                <h5 class="mb-0 fw-bold text-primary">
-                    <i class="fas fa-stethoscope me-2"></i>TAKTIS
-                </h5>
-                <button class="btn btn-sm btn-outline-secondary ms-auto d-md-none" id="sidebarToggle">
-                    <i class="fas fa-times"></i>
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h5><i class="fas fa-stethoscope me-2"></i><span>TAKTIS</span></h5>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
                 </button>
             </div>
-            <div class="sidebar-menu p-3">
+            <div class="sidebar-menu">
                 <ul class="nav flex-column">
-                    <li class="nav-item mb-2">
+                    <li class="nav-item">
                         <a class="nav-link active" href="#" data-page="dashboard">
-                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
                         </a>
                     </li>
-                    <li class="nav-item mb-2">
+                    <li class="nav-item">
                         <a class="nav-link" href="#" data-page="pengumuman">
-                            <i class="fas fa-bullhorn me-2"></i>Pengumuman
+                            <i class="fas fa-bullhorn"></i><span>Pengumuman</span>
                         </a>
                     </li>
-                    <li class="nav-item mb-2">
+                    <li class="nav-item">
                         <a class="nav-link" href="#" data-page="bezetting">
-                            <i class="fas fa-table me-2"></i>Bezetting
+                            <i class="fas fa-table"></i><span>Bezetting</span>
                         </a>
                     </li>
-                    <li class="nav-item mb-2">
+                    <li class="nav-item">
                         <a class="nav-link" href="#" data-page="daftar-ukom">
-                            <i class="fas fa-user-plus me-2"></i>Daftar UKOM
+                            <i class="fas fa-user-plus"></i><span>Daftar UKOM</span>
                         </a>
                     </li>
-                    <li class="nav-item mb-2">
+                    <li class="nav-item">
                         <a class="nav-link" href="#" data-page="cek-status">
-                            <i class="fas fa-search me-2"></i>Cek Status
+                            <i class="fas fa-search"></i><span>Cek Status</span>
                         </a>
                     </li>
                 </ul>
                 <hr class="my-3">
-                <ul class="nav flex-column">
+                <ul class="nav flex-column admin-menu">
                     <li class="nav-item">
-                        <a class="nav-link text-danger fw-bold" href="#" onclick="handleAdminAccess()">
-                            <i class="fas fa-cog me-2"></i>ADMIN
+                        <a class="nav-link" href="#" onclick="handleAdminAccess()">
+                            <i class="fas fa-cog"></i><span>ADMIN</span>
                         </a>
                     </li>
                 </ul>
@@ -756,52 +1208,46 @@
         <!-- Main Content -->
         <div class="main-content">
             <!-- Topbar -->
-            <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom px-3">
-                <button class="btn btn-outline-secondary d-md-none me-2" id="sidebarToggleMobile">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <span class="navbar-brand mb-0 fw-bold d-md-none">TAKTIS</span>
-
-                <div class="ms-auto d-flex align-items-center">
-                    <div class="dropdown me-3">
-                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-bell"></i>
-                            <span class="badge bg-danger ms-1">3</span>
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#">Notifikasi 1</a></li>
-                            <li><a class="dropdown-item" href="#">Notifikasi 2</a></li>
-                            <li><a class="dropdown-item" href="#">Notifikasi 3</a></li>
-                        </ul>
-                    </div>
-                    <button class="btn btn-outline-secondary me-3" id="darkModeToggle" title="Toggle Dark Mode">
+            <div class="topbar">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="#" onclick="loadPage('dashboard')">TAKTIS</a></li>
+                        <li class="breadcrumb-item active" id="currentPage">Dashboard</li>
+                    </ol>
+                </nav>
+                <div class="d-flex align-items-center">
+                    <button class="dark-mode-toggle me-3" id="darkModeToggle">
                         <i class="fas fa-moon"></i>
                     </button>
                     <div class="dropdown">
                         <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user"></i> User
+                            <i class="fas fa-user me-2"></i><span id="userName">User</span>
                         </button>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#">Profile</a></li>
-                            <li><a class="dropdown-item" href="#">Settings</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showProfile()">Profile</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showSettings()">Settings</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" onclick="logout()">Logout</a></li>
                         </ul>
                     </div>
                 </div>
-            </nav>
+            </div>
 
             <!-- Content Wrapper -->
-            <div class="content-wrapper p-4">
-                <!-- Page Content will be loaded here -->
+            <div class="content-wrapper">
                 <div id="page-content">
-                    <!-- Dashboard content will be loaded by default -->
+                    <!-- Page content will be loaded here -->
                 </div>
             </div>
         </div>
 
-        <!-- Overlay for mobile -->
-        <div class="sidebar-overlay d-md-none" id="sidebarOverlay"></div>
+        <!-- Floating Action Button -->
+        <button class="fab" id="fab" onclick="showQuickActions()">
+            <i class="fas fa-plus"></i>
+        </button>
+
+        <!-- Toast Container -->
+        <div class="toast-container" id="toastContainer"></div>
     </div>
 
     <!-- JavaScript Libraries -->
@@ -818,17 +1264,68 @@
         // CONFIGURATION & GLOBAL VARIABLES
         // =============================================================================
 
-        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbx8NGWcgbS77ZAAC9UcwwEckmhhHeUqY-nDtaiCMpAuPwVz1G67NQfl6qMBvuctfFn9/exec'; // Replace with actual URL
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbx8NGWcgbS77ZAAC9UcwwEckmhhHeUqY-nDtaiCMpAuPwVz1G67NQfl6qMBvuctfFn9/exec'; // Replace with actual deployment URL
+        const DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID'; // Replace with actual folder ID
 
         let currentUser = null;
         let sessionTimeout = null;
         let currentPage = 'dashboard';
+        let isDarkMode = false;
         let currentStep = 1;
-        const totalSteps = 4;
+        const totalSteps = 5;
 
         // =============================================================================
         // UTILITY FUNCTIONS
         // =============================================================================
+
+        function showToast(message, type = 'info', duration = 3000) {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+
+            const toastHTML = `
+                <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement, { delay: duration });
+            toast.show();
+
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('id-ID', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function formatDateTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('id-ID', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function generateRegNumber() {
+            const timestamp = Date.now();
+            const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            return `TAKTIS-UKOM-${new Date().getFullYear()}-${random}`;
+        }
 
         function sanitizeInput(input) {
             if (typeof input !== 'string') return input;
@@ -844,36 +1341,50 @@
             });
         }
 
-        function generateToken() {
-            return Math.random().toString(36).substr(2) + Date.now().toString(36);
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
         }
 
-        function formatDate(date) {
-            return new Date(date).toLocaleDateString('id-ID');
+        function validatePhone(phone) {
+            const re = /^[\+]?[0-9\-\(\)\s]+$/;
+            return re.test(phone) && phone.length >= 10;
         }
 
-        function showToast(message, type = 'info') {
-            const toastTypes = {
-                success: 'text-success',
-                error: 'text-danger',
-                warning: 'text-warning',
-                info: 'text-info'
-            };
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
 
-            const toast = document.createElement('div');
-            toast.className = `toast align-items-center ${toastTypes[type]} border-0 show`;
-            toast.setAttribute('role', 'alert');
-            toast.innerHTML = `
-                <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
-                </div>
-            `;
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
 
-            document.body.appendChild(toast);
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
+        function animateCounters() {
+            const counters = document.querySelectorAll('.counter');
+            counters.forEach(counter => {
+                const target = +counter.getAttribute('data-target');
+                const increment = target / 200;
+                let current = 0;
+
+                const updateCounter = () => {
+                    current += increment;
+                    if (current < target) {
+                        counter.textContent = Math.ceil(current);
+                        requestAnimationFrame(updateCounter);
+                    } else {
+                        counter.textContent = target;
+                    }
+                };
+
+                updateCounter();
+            });
+        }
+
+        function scrollToSection(sectionId) {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+            }
         }
 
         // =============================================================================
@@ -881,91 +1392,94 @@
         // =============================================================================
 
         async function apiCall(endpoint, method = 'GET', data = null) {
-            const config = {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            };
-
-            if (data && method !== 'GET') {
-                config.body = JSON.stringify({ action: data.action, ...data });
-            }
-
+            showLoading();
             try {
-                // Try to call Google Apps Script API
-                const response = await fetch(API_BASE_URL + endpoint, config);
+                const config = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                };
+
+                if (data && method !== 'GET') {
+                    config.body = JSON.stringify(data);
+                }
+
+                const url = endpoint.startsWith('?') ? API_BASE_URL + endpoint : API_BASE_URL + '?action=' + endpoint;
+                const response = await fetch(url, config);
                 const result = await response.json();
 
-                if (!result.success && !result.token) {
+                if (!result.success) {
                     throw new Error(result.error || 'API call failed');
                 }
 
                 return result;
             } catch (error) {
-                console.warn('API call failed, using mock data:', error.message);
-
-                // Fallback to mock data
+                console.error('API call failed:', error);
+                // Fallback to mock data for development
                 return mockApiCall(endpoint, method, data);
+            } finally {
+                hideLoading();
             }
         }
 
-        // Mock API for testing when Google Apps Script is not available
+        // Mock API for development
         function mockApiCall(endpoint, method, data) {
-            const mockDelay = () => new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 200));
+            const delay = () => new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 200));
 
-            switch(endpoint) {
-                case '':
-                    if (data?.action === 'login') {
-                        return mockLogin(data);
-                    } else if (data?.action === 'getParticipants') {
+            return delay().then(() => {
+                switch(endpoint) {
+                    case 'getDashboardData':
+                        return mockGetDashboardData();
+                    case 'getParticipants':
                         return mockGetParticipants();
-                    } else if (data?.action === 'getParticipant') {
+                    case 'getParticipant':
                         return mockGetParticipant(data);
-                    } else if (data?.action === 'addParticipant') {
+                    case 'addParticipant':
                         return mockAddParticipant(data);
-                    } else if (data?.action === 'getAnnouncements') {
+                    case 'getAnnouncements':
                         return mockGetAnnouncements();
-                    } else if (data?.action === 'getBezetting') {
+                    case 'getBezetting':
                         return mockGetBezetting();
-                    }
-                    break;
-                case '?action=getParticipants':
-                    return mockGetParticipants();
-                case '?action=getMasterData':
-                    return mockGetMasterData();
-                case '?action=getAnnouncements':
-                    return mockGetAnnouncements();
-                case '?action=getBezetting':
-                    return mockGetBezetting();
-                case '?action=health':
-                    return { success: true, status: 'OK', message: 'Mock API active' };
-            }
-
-            return { success: false, error: 'Mock endpoint not found' };
+                    case 'getMasterData':
+                        return mockGetMasterData();
+                    case 'login':
+                        return mockLogin(data);
+                    default:
+                        return { success: false, error: 'Endpoint not found' };
+                }
+            });
         }
 
-        function mockLogin(data) {
-            if (data.username === 'superadmin' && data.password === 'admin123') {
-                return {
-                    success: true,
-                    user: { id: 1, username: 'superadmin', role: 'SUPERADMIN', name: 'Super Admin' },
-                    token: 'mock_token_' + Date.now()
-                };
-            } else if (data.username === 'operator1' && data.password === 'op123') {
-                return {
-                    success: true,
-                    user: { id: 2, username: 'operator1', role: 'OPERATOR', name: 'Operator 1' },
-                    token: 'mock_token_' + Date.now()
-                };
-            } else if (data.username === 'user1' && data.password === 'user123') {
-                return {
-                    success: true,
-                    user: { id: 3, username: 'user1', role: 'USER', name: 'User 1' },
-                    token: 'mock_token_' + Date.now()
-                };
-            }
-            return { success: false, error: 'Invalid credentials' };
+        function mockGetDashboardData() {
+            return {
+                success: true,
+                data: {
+                    totalParticipants: 1500,
+                    verified: 1200,
+                    pending: 250,
+                    approved: 1050,
+                    chartData: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [{
+                            label: 'Peserta UKOM',
+                            data: [120, 150, 180, 200, 250, 300],
+                            backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                            borderColor: 'rgba(0, 123, 255, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    jabfungData: {
+                        labels: ['Dokter', 'Perawat', 'Bidan', 'Apoteker', 'Lainnya'],
+                        datasets: [{
+                            data: [400, 350, 300, 250, 200],
+                            backgroundColor: [
+                                '#007bff', '#28a745', '#ffc107', '#dc3545', '#6c757d'
+                            ]
+                        }]
+                    }
+                }
+            };
         }
 
         function mockGetParticipants() {
@@ -987,31 +1501,50 @@
                         jenjangTujuan: 'II/c',
                         status: 'Menunggu Verifikasi',
                         submittedAt: '2024-01-16T09:15:00.000Z'
-                    },
-                    {
-                        regNumber: 'TAKTIS-UKOM-2024-0003',
-                        nama: 'Dr. Budi Hartono',
-                        jabfungTujuan: 'Dokter Gigi',
-                        jenjangTujuan: 'III/b',
-                        status: 'Ditolak',
-                        submittedAt: '2024-01-14T14:20:00.000Z'
                     }
                 ],
-                total: 3
+                total: 2
             };
         }
 
         function mockGetParticipant(data) {
             const participants = mockGetParticipants().data;
-            const participant = participants.find(p => p.regNumber === data.regNumber);
+            const participant = participants.find(p => p.regNumber === data.regNumber || p.nik === data.nik || p.email === data.email);
             if (participant) {
-                return { success: true, data: participant };
+                return {
+                    success: true,
+                    data: {
+                        ...participant,
+                        nik: '1234567890123456',
+                        nip: '198001012010011001',
+                        unitKerja: 'RSUD Jakarta',
+                        pangkatGolongan: 'Pembina Tk. I / IV/b',
+                        jenisKelamin: 'Laki-laki',
+                        whatsapp: '+6281234567890',
+                        email: 'ahmad.santoso@email.com',
+                        nilaiPak: '350',
+                        jabfungSaatIni: 'Dokter',
+                        jenjangSaatIni: 'III/b',
+                        tipe: 'Kenaikan Jenjang',
+                        jenisUkom: 'UKOM Reguler',
+                        jabfungTujuan: 'Dokter',
+                        jenjangTujuan: 'III/c',
+                        status: 'Disetujui',
+                        timeline: [
+                            { status: 'Draft', date: '2024-01-15T08:30:00.000Z', note: 'Pendaftaran dibuat' },
+                            { status: 'Menunggu Verifikasi', date: '2024-01-15T08:35:00.000Z', note: 'Berkas lengkap' },
+                            { status: 'Diverifikasi', date: '2024-01-16T10:00:00.000Z', note: 'Verifikasi berhasil' },
+                            { status: 'Disetujui', date: '2024-01-17T14:00:00.000Z', note: 'Persetujuan diberikan' }
+                        ],
+                        catatan: 'Semua berkas lengkap dan valid'
+                    }
+                };
             }
             return { success: false, error: 'Participant not found' };
         }
 
         function mockAddParticipant(data) {
-            const regNumber = 'TAKTIS-UKOM-2024-' + String(Math.floor(Math.random() * 9999)).padStart(4, '0');
+            const regNumber = generateRegNumber();
             return {
                 success: true,
                 data: {
@@ -1020,22 +1553,7 @@
                     status: 'Draft',
                     submittedAt: new Date().toISOString()
                 },
-                message: 'Participant added successfully (Mock)'
-            };
-        }
-
-        function mockGetMasterData() {
-            return {
-                success: true,
-                data: {
-                    periode: ['2024', '2025', '2026'],
-                    unitKerja: ['RSUD Jakarta', 'RSUD Bandung', 'RSUD Surabaya', 'Puskesmas A', 'Puskesmas B'],
-                    jabfung: ['Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Apoteker'],
-                    jenjang: ['I/a', 'I/b', 'I/c', 'II/a', 'II/b', 'II/c', 'III/a', 'III/b', 'III/c'],
-                    pangkatGolongan: ['Pembina Tk. I / IV/b', 'Penata Tk. I / III/c', 'Penata / III/c'],
-                    jenisUKOM: ['UKOM Reguler', 'UKOM Khusus'],
-                    tipe: ['Kenaikan Jenjang', 'Kenaikan Jabfung']
-                }
+                message: 'Pendaftaran berhasil disimpan'
             };
         }
 
@@ -1044,7 +1562,7 @@
                 success: true,
                 data: [
                     {
-                        id: 'mock_1',
+                        id: '1',
                         title: 'Selamat Datang di TAKTIS',
                         category: 'umum',
                         content: 'Platform TAKTIS telah resmi diluncurkan untuk memudahkan pengelolaan jabatan fungsional kesehatan.',
@@ -1052,7 +1570,7 @@
                         createdBy: 'SYSTEM'
                     },
                     {
-                        id: 'mock_2',
+                        id: '2',
                         title: 'Perpanjangan Batas Pendaftaran',
                         category: 'penting',
                         content: 'Batas akhir pendaftaran UKOM periode 2024 diperpanjang hingga 15 Februari 2024.',
@@ -1091,6 +1609,44 @@
             };
         }
 
+        function mockGetMasterData() {
+            return {
+                success: true,
+                data: {
+                    periode: ['2024', '2025', '2026'],
+                    unitKerja: ['RSUD Jakarta', 'RSUD Bandung', 'RSUD Surabaya', 'Puskesmas A', 'Puskesmas B'],
+                    jabfung: ['Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Apoteker'],
+                    jenjang: ['I/a', 'I/b', 'I/c', 'II/a', 'II/b', 'II/c', 'III/a', 'III/b', 'III/c'],
+                    pangkatGolongan: ['Pembina Tk. I / IV/b', 'Penata Tk. I / III/c', 'Penata / III/c'],
+                    jenisUKOM: ['UKOM Reguler', 'UKOM Khusus'],
+                    tipe: ['Kenaikan Jenjang', 'Kenaikan Jabfung']
+                }
+            };
+        }
+
+        function mockLogin(data) {
+            if (data.username === 'superadmin' && data.password === 'admin123') {
+                return {
+                    success: true,
+                    user: { id: 1, username: 'superadmin', role: 'SUPERADMIN', name: 'Super Admin' },
+                    token: 'mock_token_' + Date.now()
+                };
+            } else if (data.username === 'operator1' && data.password === 'op123') {
+                return {
+                    success: true,
+                    user: { id: 2, username: 'operator1', role: 'OPERATOR', name: 'Operator 1' },
+                    token: 'mock_token_' + Date.now()
+                };
+            } else if (data.username === 'user1' && data.password === 'user123') {
+                return {
+                    success: true,
+                    user: { id: 3, username: 'user1', role: 'USER', name: 'User 1' },
+                    token: 'mock_token_' + Date.now()
+                };
+            }
+            return { success: false, error: 'Invalid credentials' };
+        }
+
         // =============================================================================
         // AUTHENTICATION FUNCTIONS
         // =============================================================================
@@ -1115,7 +1671,7 @@
                 user: user,
                 loginTime: Date.now(),
                 remember: remember,
-                token: generateToken()
+                token: 'token_' + Date.now()
             };
 
             const storage = remember ? localStorage : sessionStorage;
@@ -1153,16 +1709,6 @@
             sessionTimeout = setTimeout(() => {
                 logout('Session expired due to inactivity');
             }, timeout);
-
-            ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-                document.addEventListener(event, resetSessionTimeout, true);
-            });
-        }
-
-        function resetSessionTimeout() {
-            if (currentUser) {
-                setupSessionTimeout();
-            }
         }
 
         function hasRole(role) {
@@ -1177,35 +1723,15 @@
             return roles[currentUser.role] >= roles[role];
         }
 
-        function requireAuth(role = 'USER') {
-            if (!currentUser || currentUser.role === 'USER' && currentUser.username === 'guest') {
-                // Guest user trying to access admin - show login
-                showAdminLogin();
-                return false;
-            }
-
-            if (!hasRole(role)) {
-                Swal.fire({
-                    title: 'Access Denied',
-                    text: 'You do not have permission to access this feature.',
-                    icon: 'error'
-                });
-                return false;
-            }
-
-            return true;
-        }
-
         async function authenticateUser(username, password) {
             try {
-                const result = await apiCall('', 'POST', {
-                    action: 'login',
+                const result = await apiCall('login', 'POST', {
                     username: username,
                     password: password
                 });
                 return result;
             } catch (error) {
-                throw new Error('Invalid credentials');
+                throw new Error('Authentication failed');
             }
         }
 
@@ -1216,23 +1742,7 @@
         function enterSystem() {
             document.getElementById('landing-page').style.display = 'none';
             document.getElementById('system-layout').style.display = 'block';
-            initializeSystemAsUser();
-        }
-
-        async function enterSystemAndGoTo(page) {
-            document.getElementById('landing-page').style.display = 'none';
-            document.getElementById('system-layout').style.display = 'block';
-
-            // Set as guest/USER without authentication
-            currentUser = { username: 'guest', role: 'USER', name: 'Guest User' };
-            updateUIBasedOnRole();
-
-            setupNavigation();
-            setupSidebarToggle();
-            setupDarkMode();
-
-            // Go to requested page
-            await loadPage(page);
+            initializeSystem();
         }
 
         function showLandingPage() {
@@ -1242,48 +1752,1316 @@
             window.scrollTo(0, 0);
         }
 
-
-
-        function animateCounters() {
-            const counters = document.querySelectorAll('.counter');
-            counters.forEach(counter => {
-                const target = +counter.getAttribute('data-target');
-                const increment = target / 200;
-                let current = 0;
-
-                const updateCounter = () => {
-                    current += increment;
-                    if (current < target) {
-                        counter.textContent = Math.ceil(current);
-                        requestAnimationFrame(updateCounter);
-                    } else {
-                        counter.textContent = target;
-                    }
-                };
-
-                updateCounter();
+        function showQuickActions() {
+            Swal.fire({
+                title: 'Quick Actions',
+                html: `
+                    <div class="text-center">
+                        <button class="btn btn-primary m-2" onclick="loadPage('daftar-ukom')">
+                            <i class="fas fa-user-plus me-2"></i>Daftar UKOM
+                        </button>
+                        <button class="btn btn-info m-2" onclick="loadPage('cek-status')">
+                            <i class="fas fa-search me-2"></i>Cek Status
+                        </button>
+                        <button class="btn btn-success m-2" onclick="loadPage('pengumuman')">
+                            <i class="fas fa-bullhorn me-2"></i>Pengumuman
+                        </button>
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCloseButton: true
             });
         }
 
         // =============================================================================
-        // LOGIN PAGE FUNCTIONS
+        // SYSTEM INITIALIZATION
         // =============================================================================
+
+        function initializeSystem() {
+            currentUser = { username: 'guest', role: 'USER', name: 'Guest User' };
+            updateUIBasedOnRole();
+            setupNavigation();
+            setupSidebarToggle();
+            setupDarkMode();
+            loadPage('dashboard');
+        }
+
+        function updateUIBasedOnRole() {
+            const userNameElement = document.getElementById('userName');
+            if (userNameElement) {
+                userNameElement.textContent = currentUser ? currentUser.name : 'User';
+            }
+
+            // Show/hide admin menu based on role
+            const adminMenu = document.querySelector('.admin-menu');
+            if (adminMenu) {
+                adminMenu.style.display = hasRole('OPERATOR') ? 'block' : 'none';
+            }
+        }
+
+        function setupNavigation() {
+            document.querySelectorAll('[data-page]').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = this.getAttribute('data-page');
+                    loadPage(page);
+                });
+            });
+        }
+
+        function setupSidebarToggle() {
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function() {
+                    const sidebar = document.getElementById('sidebar');
+                    const mainContent = document.querySelector('.main-content');
+                    
+                    sidebar.classList.toggle('collapsed');
+                    mainContent.classList.toggle('expanded');
+                });
+            }
+        }
+
+        function setupDarkMode() {
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) {
+                darkModeToggle.addEventListener('click', toggleDarkMode);
+            }
+
+            // Load saved theme
+            const savedTheme = localStorage.getItem('taktis_theme');
+            if (savedTheme === 'dark') {
+                enableDarkMode();
+            }
+        }
+
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                enableDarkMode();
+            } else {
+                disableDarkMode();
+            }
+            localStorage.setItem('taktis_theme', isDarkMode ? 'dark' : 'light');
+        }
+
+        function enableDarkMode() {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            const toggleIcon = document.querySelector('#darkModeToggle i');
+            if (toggleIcon) {
+                toggleIcon.className = 'fas fa-sun';
+            }
+            isDarkMode = true;
+        }
+
+        function disableDarkMode() {
+            document.documentElement.removeAttribute('data-theme');
+            const toggleIcon = document.querySelector('#darkModeToggle i');
+            if (toggleIcon) {
+                toggleIcon.className = 'fas fa-moon';
+            }
+            isDarkMode = false;
+        }
+
+        // =============================================================================
+        // PAGE LOADING FUNCTIONS
+        // =============================================================================
+
+        async function loadPage(pageName) {
+            currentPage = pageName;
+            updateBreadcrumb(pageName);
+            updateActiveNav(pageName);
+
+            const pageContent = document.getElementById('page-content');
+            pageContent.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div></div>';
+
+            try {
+                let content = '';
+                switch(pageName) {
+                    case 'dashboard':
+                        content = await loadDashboardPage();
+                        break;
+                    case 'pengumuman':
+                        content = await loadPengumumanPage();
+                        break;
+                    case 'bezetting':
+                        content = await loadBezettingPage();
+                        break;
+                    case 'daftar-ukom':
+                        content = await loadDaftarUkomPage();
+                        break;
+                    case 'cek-status':
+                        content = await loadCekStatusPage();
+                        break;
+                    default:
+                        content = '<div class="text-center"><h3>Page not found</h3></div>';
+                }
+
+                pageContent.innerHTML = content;
+
+                // Initialize page-specific features
+                if (pageName === 'dashboard') {
+                    initializeDashboardCharts();
+                } else if (pageName === 'bezetting') {
+                    initializeDataTable();
+                }
+
+                // Add fade-in animation
+                pageContent.classList.add('fade-in-up');
+
+            } catch (error) {
+                console.error('Error loading page:', error);
+                pageContent.innerHTML = '<div class="text-center text-danger"><h3>Error loading page</h3><p>Please try again later.</p></div>';
+            }
+        }
+
+        function updateBreadcrumb(pageName) {
+            const breadcrumbElement = document.getElementById('currentPage');
+            const pageTitles = {
+                'dashboard': 'Dashboard',
+                'pengumuman': 'Pengumuman',
+                'bezetting': 'Bezetting',
+                'daftar-ukom': 'Daftar UKOM',
+                'cek-status': 'Cek Status'
+            };
+            breadcrumbElement.textContent = pageTitles[pageName] || 'Unknown';
+        }
+
+        function updateActiveNav(pageName) {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            const activeLink = document.querySelector(`[data-page="${pageName}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+        }
+
+        // =============================================================================
+        // DASHBOARD PAGE
+        // =============================================================================
+
+        async function loadDashboardPage() {
+            const dashboardData = await apiCall('getDashboardData');
+
+            return `
+                <div class="row mb-4">
+                    <div class="col-md-3 mb-3">
+                        <div class="dashboard-card">
+                            <div class="d-flex align-items-center">
+                                <div class="dashboard-icon bg-primary">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h3 class="mb-0">${dashboardData.data.totalParticipants}</h3>
+                                    <p class="mb-0 text-muted">Total Peserta</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="dashboard-card">
+                            <div class="d-flex align-items-center">
+                                <div class="dashboard-icon bg-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h3 class="mb-0">${dashboardData.data.verified}</h3>
+                                    <p class="mb-0 text-muted">Diverifikasi</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="dashboard-card">
+                            <div class="d-flex align-items-center">
+                                <div class="dashboard-icon bg-warning">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h3 class="mb-0">${dashboardData.data.pending}</h3>
+                                    <p class="mb-0 text-muted">Pending</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="dashboard-card">
+                            <div class="d-flex align-items-center">
+                                <div class="dashboard-icon bg-info">
+                                    <i class="fas fa-trophy"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h3 class="mb-0">${dashboardData.data.approved}</h3>
+                                    <p class="mb-0 text-muted">Disetujui</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-8 mb-4">
+                        <div class="dashboard-card">
+                            <h5 class="mb-3">Grafik Peserta per Periode</h5>
+                            <div class="chart-container">
+                                <canvas id="participantsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-4">
+                        <div class="dashboard-card">
+                            <h5 class="mb-3">Distribusi Jabfung</h5>
+                            <div class="chart-container">
+                                <canvas id="jabfungChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="dashboard-card">
+                            <h5 class="mb-3">Peserta Terbaru</h5>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>No. Registrasi</th>
+                                            <th>Nama</th>
+                                            <th>Jabfung Tujuan</th>
+                                            <th>Jenjang Tujuan</th>
+                                            <th>Status</th>
+                                            <th>Tanggal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentParticipantsTable">
+                                        <!-- Data will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="dashboard-card">
+                            <h5 class="mb-3">Informasi</h5>
+                            <div class="running-text">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Selamat datang di Platform TAKTIS - Tata Kelola Jabatan Fungsional Kesehatan Terintegrasi |
+                                Sistem UKOM online telah aktif | Pastikan data yang diisi lengkap dan benar |
+                                Untuk informasi lebih lanjut hubungi admin |
+                                Periode pendaftaran UKOM 2024 masih dibuka
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initializeDashboardCharts() {
+            // Load data and initialize charts
+            apiCall('getDashboardData').then(data => {
+                // Participants Chart
+                const ctx1 = document.getElementById('participantsChart');
+                if (ctx1) {
+                    new Chart(ctx1, {
+                        type: 'line',
+                        data: data.data.chartData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                // Jabfung Chart
+                const ctx2 = document.getElementById('jabfungChart');
+                if (ctx2) {
+                    new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: data.data.jabfungData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+
+                // Recent participants table
+                const tableBody = document.getElementById('recentParticipantsTable');
+                if (tableBody) {
+                    apiCall('getParticipants').then(participantsData => {
+                        tableBody.innerHTML = participantsData.data.slice(0, 5).map(p => `
+                            <tr>
+                                <td>${p.regNumber}</td>
+                                <td>${p.nama}</td>
+                                <td>${p.jabfungTujuan}</td>
+                                <td>${p.jenjangTujuan}</td>
+                                <td><span class="badge bg-${getStatusColor(p.status)}">${p.status}</span></td>
+                                <td>${formatDate(p.submittedAt)}</td>
+                            </tr>
+                        `).join('');
+                    });
+                }
+            });
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'Draft': 'secondary',
+                'Menunggu Verifikasi': 'warning',
+                'Perbaikan Berkas': 'danger',
+                'Diverifikasi': 'info',
+                'Disetujui': 'success',
+                'Ditolak': 'danger'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        // =============================================================================
+        // PENGUMUMAN PAGE
+        // =============================================================================
+
+        async function loadPengumumanPage() {
+            const announcements = await apiCall('getAnnouncements');
+
+            const announcementCards = announcements.data.map(announcement => `
+                <div class="col-md-6 mb-4">
+                    <div class="announcement-card glass-card p-4 h-100">
+                        <div class="d-flex align-items-start mb-3">
+                            <div class="announcement-icon bg-${getAnnouncementColor(announcement.category)} me-3">
+                                <i class="fas fa-${getAnnouncementIcon(announcement.category)}"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="mb-2">${announcement.title}</h5>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="badge bg-${getAnnouncementColor(announcement.category)}">${announcement.category}</span>
+                                    <small class="text-muted">${formatDate(announcement.createdAt)}</small>
+                                </div>
+                                <p class="mb-3">${announcement.content.substring(0, 150)}...</p>
+                                <button class="btn btn-outline-primary btn-sm" onclick="showAnnouncementDetail('${announcement.id}')">
+                                    <i class="fas fa-eye me-1"></i>Baca Selengkapnya
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            return `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3>Pengumuman</h3>
+                    ${hasRole('OPERATOR') ? '<button class="btn btn-primary" onclick="showAddAnnouncementModal()"><i class="fas fa-plus me-2"></i>Tambah Pengumuman</button>' : ''}
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="announcementSearch" placeholder="Cari pengumuman...">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="announcementFilter">
+                            <option value="">Semua Kategori</option>
+                            <option value="umum">Umum</option>
+                            <option value="penting">Penting</option>
+                            <option value="info">Info</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row" id="announcementsContainer">
+                    ${announcementCards}
+                </div>
+            `;
+        }
+
+        function getAnnouncementColor(category) {
+            const colors = {
+                'umum': 'primary',
+                'penting': 'danger',
+                'info': 'info'
+            };
+            return colors[category] || 'secondary';
+        }
+
+        function getAnnouncementIcon(category) {
+            const icons = {
+                'umum': 'info-circle',
+                'penting': 'exclamation-triangle',
+                'info': 'bullhorn'
+            };
+            return icons[category] || 'info-circle';
+        }
+
+        function showAnnouncementDetail(id) {
+            // Implementation for showing announcement detail modal
+            apiCall('getAnnouncements').then(data => {
+                const announcement = data.data.find(a => a.id === id);
+                if (announcement) {
+                    Swal.fire({
+                        title: announcement.title,
+                        html: `
+                            <div class="text-start">
+                                <div class="mb-3">
+                                    <span class="badge bg-${getAnnouncementColor(announcement.category)}">${announcement.category}</span>
+                                    <small class="text-muted ms-2">${formatDateTime(announcement.createdAt)}</small>
+                                </div>
+                                <p>${announcement.content}</p>
+                                <hr>
+                                <small class="text-muted">Dibuat oleh: ${announcement.createdBy}</small>
+                            </div>
+                        `,
+                        showConfirmButton: false,
+                        showCloseButton: true,
+                        width: '600px'
+                    });
+                }
+            });
+        }
+
+        // =============================================================================
+        // BEZETTING PAGE
+        // =============================================================================
+
+        async function loadBezettingPage() {
+            return `
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3>Bezetting Jabatan Fungsional</h3>
+                    <div>
+                        <button class="btn btn-success me-2" onclick="exportBezetting('excel')">
+                            <i class="fas fa-file-excel me-1"></i>Export Excel
+                        </button>
+                        <button class="btn btn-danger" onclick="exportBezetting('pdf')">
+                            <i class="fas fa-file-pdf me-1"></i>Export PDF
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <select class="form-select" id="jabfungFilter">
+                            <option value="">Semua Jabfung</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="jenjangFilter">
+                            <option value="">Semua Jenjang</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="unitKerjaFilter">
+                            <option value="">Semua Unit Kerja</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-secondary w-100" onclick="resetBezettingFilters()">
+                            <i class="fas fa-undo me-1"></i>Reset Filter
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="bezettingTable" class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>NIP</th>
+                                <th>Nama</th>
+                                <th>Jabfung</th>
+                                <th>Jenjang</th>
+                                <th>Unit Kerja</th>
+                                <th>Pangkat/Golongan</th>
+                                <th>Status</th>
+                                <th>Tanggal Mulai</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function initializeDataTable() {
+            $('#bezettingTable').DataTable({
+                ajax: function(data, callback, settings) {
+                    apiCall('getBezetting').then(result => {
+                        callback({
+                            data: result.data
+                        });
+                    });
+                },
+                columns: [
+                    { data: 'nip' },
+                    { data: 'nama' },
+                    { data: 'jabfung' },
+                    { data: 'jenjang' },
+                    { data: 'unitKerja' },
+                    { data: 'pangkatGolongan' },
+                    { 
+                        data: 'status',
+                        render: function(data) {
+                            return `<span class="badge bg-${data === 'Aktif' ? 'success' : 'secondary'}">${data}</span>`;
+                        }
+                    },
+                    { 
+                        data: 'tanggalMulai',
+                        render: function(data) {
+                            return formatDate(data);
+                        }
+                    }
+                ],
+                pageLength: 25,
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/id.json'
+                }
+            });
+        }
+
+        function exportBezetting(format) {
+            showToast(`Export ${format.toUpperCase()} sedang diproses...`, 'info');
+            // Implementation for export functionality
+        }
+
+        function resetBezettingFilters() {
+            document.getElementById('jabfungFilter').value = '';
+            document.getElementById('jenjangFilter').value = '';
+            document.getElementById('unitKerjaFilter').value = '';
+            // Reset DataTable filters
+        }
+
+        // =============================================================================
+        // DAFTAR UKOM PAGE
+        // =============================================================================
+
+        async function loadDaftarUkomPage() {
+            const masterData = await apiCall('getMasterData');
+
+            return `
+                <div class="row justify-content-center">
+                    <div class="col-lg-10">
+                        <div class="form-wizard">
+                            <h3 class="text-center mb-4">Formulir Pendaftaran UKOM</h3>
+                            
+                            <!-- Progress Bar -->
+                            <div class="wizard-steps mb-4">
+                                <div class="wizard-step active" data-step="1">
+                                    <div class="step-number">1</div>
+                                    <div class="step-label">Data Pribadi</div>
+                                </div>
+                                <div class="wizard-step" data-step="2">
+                                    <div class="step-number">2</div>
+                                    <div class="step-label">Data Jabfung</div>
+                                </div>
+                                <div class="wizard-step" data-step="3">
+                                    <div class="step-number">3</div>
+                                    <div class="step-label">Upload Berkas</div>
+                                </div>
+                                <div class="wizard-step" data-step="4">
+                                    <div class="step-number">4</div>
+                                    <div class="step-label">Konfirmasi</div>
+                                </div>
+                            </div>
+
+                            <!-- Form Steps -->
+                            <form id="ukomForm">
+                                <!-- Step 1: Data Pribadi -->
+                                <div class="form-step" id="step1">
+                                    <h5 class="mb-3">Data Pribadi</h5>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">NIK *</label>
+                                                <input type="text" class="form-control" name="nik" required maxlength="16" pattern="[0-9]{16}">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">NIP *</label>
+                                                <input type="text" class="form-control" name="nip" required maxlength="18">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Nama Lengkap (Tanpa Gelar) *</label>
+                                                <input type="text" class="form-control" name="nama" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Jenis Kelamin *</label>
+                                                <select class="form-select" name="jenisKelamin" required>
+                                                    <option value="">Pilih Jenis Kelamin</option>
+                                                    <option value="Laki-laki">Laki-laki</option>
+                                                    <option value="Perempuan">Perempuan</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Nomor WhatsApp *</label>
+                                                <input type="tel" class="form-control" name="whatsapp" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Email Aktif *</label>
+                                                <input type="email" class="form-control" name="email" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2: Data Jabfung -->
+                                <div class="form-step d-none" id="step2">
+                                    <h5 class="mb-3">Data Jabatan Fungsional</h5>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Periode *</label>
+                                                <select class="form-select" name="periode" required>
+                                                    <option value="">Pilih Periode</option>
+                                                    ${masterData.data.periode.map(p => `<option value="${p}">${p}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Unit Kerja *</label>
+                                                <select class="form-select" name="unitKerja" required>
+                                                    <option value="">Pilih Unit Kerja</option>
+                                                    ${masterData.data.unitKerja.map(u => `<option value="${u}">${u}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Pangkat dan Golongan *</label>
+                                                <select class="form-select" name="pangkatGolongan" required>
+                                                    <option value="">Pilih Pangkat/Golongan</option>
+                                                    ${masterData.data.pangkatGolongan.map(p => `<option value="${p}">${p}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="form-group">
+                                                <label class="form-label">Nilai PAK Terakhir</label>
+                                                <input type="number" class="form-control" name="nilaiPak" step="0.01">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Jabfung Saat Ini *</label>
+                                                <select class="form-select" name="jabfungSaatIni" required>
+                                                    <option value="">Pilih Jabfung</option>
+                                                    ${masterData.data.jabfung.map(j => `<option value="${j}">${j}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Jenjang Saat Ini *</label>
+                                                <select class="form-select" name="jenjangSaatIni" required>
+                                                    <option value="">Pilih Jenjang</option>
+                                                    ${masterData.data.jenjang.map(j => `<option value="${j}">${j}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Tipe *</label>
+                                                <select class="form-select" name="tipe" required>
+                                                    <option value="">Pilih Tipe</option>
+                                                    ${masterData.data.tipe.map(t => `<option value="${t}">${t}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Jenis UKOM *</label>
+                                                <select class="form-select" name="jenisUkom" required>
+                                                    <option value="">Pilih Jenis UKOM</option>
+                                                    ${masterData.data.jenisUKOM.map(j => `<option value="${j}">${j}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Jabfung Tujuan *</label>
+                                                <select class="form-select" name="jabfungTujuan" required>
+                                                    <option value="">Pilih Jabfung Tujuan</option>
+                                                    ${masterData.data.jabfung.map(j => `<option value="${j}">${j}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-group">
+                                                <label class="form-label">Jenjang Tujuan *</label>
+                                                <select class="form-select" name="jenjangTujuan" required>
+                                                    <option value="">Pilih Jenjang Tujuan</option>
+                                                    ${masterData.data.jenjang.map(j => `<option value="${j}">${j}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 3: Upload Berkas -->
+                                <div class="form-step d-none" id="step3">
+                                    <h5 class="mb-3">Upload Berkas</h5>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Pastikan semua berkas dalam format PDF dan ukuran maksimal 5MB
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Foto 4x6 Latar Merah *</label>
+                                            <div class="upload-area" onclick="triggerFileInput('foto')">
+                                                <i class="fas fa-camera fa-2x mb-2"></i>
+                                                <p>Klik untuk upload foto</p>
+                                                <input type="file" id="foto" name="foto" accept="image/*" style="display: none;" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Daftar Riwayat Hidup *</label>
+                                            <div class="upload-area" onclick="triggerFileInput('riwayatHidup')">
+                                                <i class="fas fa-file-alt fa-2x mb-2"></i>
+                                                <p>Klik untuk upload file</p>
+                                                <input type="file" id="riwayatHidup" name="riwayatHidup" accept=".pdf" style="display: none;" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Ijazah Terakhir *</label>
+                                            <div class="upload-area" onclick="triggerFileInput('ijazah')">
+                                                <i class="fas fa-graduation-cap fa-2x mb-2"></i>
+                                                <p>Klik untuk upload ijazah</p>
+                                                <input type="file" id="ijazah" name="ijazah" accept=".pdf" style="display: none;" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">STR (Surat Tanda Registrasi) *</label>
+                                            <div class="upload-area" onclick="triggerFileInput('str')">
+                                                <i class="fas fa-certificate fa-2x mb-2"></i>
+                                                <p>Klik untuk upload STR</p>
+                                                <input type="file" id="str" name="str" accept=".pdf" style="display: none;" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">SK Pangkat Terakhir *</label>
+                                            <div class="upload-area" onclick="triggerFileInput('skPangkat')">
+                                                <i class="fas fa-file-contract fa-2x mb-2"></i>
+                                                <p>Klik untuk upload SK</p>
+                                                <input type="file" id="skPangkat" name="skPangkat" accept=".pdf" style="display: none;" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">SK PAK Terakhir *</label>
+                                            <div class="upload-area" onclick="triggerFileInput('skPak')">
+                                                <i class="fas fa-file-invoice fa-2x mb-2"></i>
+                                                <p>Klik untuk upload SK PAK</p>
+                                                <input type="file" id="skPak" name="skPak" accept=".pdf" style="display: none;" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">SKP 2 Tahun Terakhir *</label>
+                                            <div class="upload-area" onclick="triggerFileInput('skp')">
+                                                <i class="fas fa-chart-line fa-2x mb-2"></i>
+                                                <p>Klik untuk upload SKP</p>
+                                                <input type="file" id="skp" name="skp" accept=".pdf" style="display: none;" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Keterangan Tidak Sedang Menjalani Hukuman Disiplin *</label>
+                                            <div class="upload-area" onclick="triggerFileInput('keteranganHukuman')">
+                                                <i class="fas fa-gavel fa-2x mb-2"></i>
+                                                <p>Klik untuk upload surat keterangan</p>
+                                                <input type="file" id="keteranganHukuman" name="keteranganHukuman" accept=".pdf" style="display: none;" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 4: Konfirmasi -->
+                                <div class="form-step d-none" id="step4">
+                                    <h5 class="mb-3">Konfirmasi Data</h5>
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        Pastikan semua data yang Anda isi sudah benar. Setelah submit, data tidak dapat diubah.
+                                    </div>
+                                    <div id="confirmationData">
+                                        <!-- Data will be displayed here -->
+                                    </div>
+                                    <div class="form-check mt-3">
+                                        <input class="form-check-input" type="checkbox" id="agreeCheck" required>
+                                        <label class="form-check-label" for="agreeCheck">
+                                            Saya menyatakan bahwa data yang saya berikan adalah benar dan saya bertanggung jawab atas kebenarannya.
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Navigation Buttons -->
+                                <div class="d-flex justify-content-between mt-4">
+                                    <button type="button" class="btn btn-secondary btn-wizard" id="prevBtn" disabled>
+                                        <i class="fas fa-arrow-left me-2"></i>Sebelumnya
+                                    </button>
+                                    <button type="button" class="btn btn-primary btn-wizard" id="nextBtn">
+                                        Selanjutnya<i class="fas fa-arrow-right ms-2"></i>
+                                    </button>
+                                    <button type="submit" class="btn btn-success btn-wizard d-none" id="submitBtn">
+                                        <i class="fas fa-paper-plane me-2"></i>Submit Pendaftaran
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Wizard form functions
+        function initializeWizardForm() {
+            currentStep = 1;
+            updateWizardSteps();
+
+            document.getElementById('nextBtn').addEventListener('click', nextStep);
+            document.getElementById('prevBtn').addEventListener('click', prevStep);
+            document.getElementById('ukomForm').addEventListener('submit', submitForm);
+        }
+
+        function updateWizardSteps() {
+            // Update step indicators
+            document.querySelectorAll('.wizard-step').forEach((step, index) => {
+                const stepNum = index + 1;
+                step.classList.toggle('active', stepNum === currentStep);
+                step.classList.toggle('completed', stepNum < currentStep);
+            });
+
+            // Show current step content
+            document.querySelectorAll('.form-step').forEach((step, index) => {
+                step.classList.toggle('d-none', index + 1 !== currentStep);
+            });
+
+            // Update navigation buttons
+            document.getElementById('prevBtn').disabled = currentStep === 1;
+            document.getElementById('nextBtn').classList.toggle('d-none', currentStep === totalSteps);
+            document.getElementById('submitBtn').classList.toggle('d-none', currentStep !== totalSteps);
+        }
+
+        function nextStep() {
+            if (validateCurrentStep()) {
+                if (currentStep === totalSteps - 1) {
+                    populateConfirmationData();
+                }
+                currentStep++;
+                updateWizardSteps();
+            }
+        }
+
+        function prevStep() {
+            currentStep--;
+            updateWizardSteps();
+        }
+
+        function validateCurrentStep() {
+            const currentStepElement = document.getElementById(`step${currentStep}`);
+            const requiredFields = currentStepElement.querySelectorAll('[required]');
+            
+            for (let field of requiredFields) {
+                if (!field.value.trim()) {
+                    showToast('Harap lengkapi semua field yang wajib diisi', 'warning');
+                    field.focus();
+                    return false;
+                }
+            }
+
+            // Additional validation for step 1
+            if (currentStep === 1) {
+                const nik = document.querySelector('[name="nik"]').value;
+                const nip = document.querySelector('[name="nip"]').value;
+                const whatsapp = document.querySelector('[name="whatsapp"]').value;
+                const email = document.querySelector('[name="email"]').value;
+
+                if (nik.length !== 16 || !/^\d+$/.test(nik)) {
+                    showToast('NIK harus 16 digit angka', 'warning');
+                    return false;
+                }
+
+                if (!validatePhone(whatsapp)) {
+                    showToast('Format nomor WhatsApp tidak valid', 'warning');
+                    return false;
+                }
+
+                if (!validateEmail(email)) {
+                    showToast('Format email tidak valid', 'warning');
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function populateConfirmationData() {
+            const formData = new FormData(document.getElementById('ukomForm'));
+            const confirmationData = document.getElementById('confirmationData');
+            
+            let html = '<div class="row">';
+            for (let [key, value] of formData.entries()) {
+                if (value && key !== 'agreeCheck') {
+                    const label = getFieldLabel(key);
+                    html += `
+                        <div class="col-md-6 mb-2">
+                            <strong>${label}:</strong> ${value}
+                        </div>
+                    `;
+                }
+            }
+            html += '</div>';
+            
+            confirmationData.innerHTML = html;
+        }
+
+        function getFieldLabel(key) {
+            const labels = {
+                'nik': 'NIK',
+                'nip': 'NIP',
+                'nama': 'Nama Lengkap',
+                'jenisKelamin': 'Jenis Kelamin',
+                'whatsapp': 'WhatsApp',
+                'email': 'Email',
+                'periode': 'Periode',
+                'unitKerja': 'Unit Kerja',
+                'pangkatGolongan': 'Pangkat/Golongan',
+                'nilaiPak': 'Nilai PAK',
+                'jabfungSaatIni': 'Jabfung Saat Ini',
+                'jenjangSaatIni': 'Jenjang Saat Ini',
+                'tipe': 'Tipe',
+                'jenisUkom': 'Jenis UKOM',
+                'jabfungTujuan': 'Jabfung Tujuan',
+                'jenjangTujuan': 'Jenjang Tujuan'
+            };
+            return labels[key] || key;
+        }
+
+        async function submitForm(e) {
+            e.preventDefault();
+            
+            if (!document.getElementById('agreeCheck').checked) {
+                showToast('Harap centang persetujuan sebelum submit', 'warning');
+                return;
+            }
+
+            try {
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries());
+                data.regNumber = generateRegNumber();
+
+                const result = await apiCall('addParticipant', 'POST', data);
+                
+                if (result.success) {
+                    Swal.fire({
+                        title: 'Berhasil!',
+                        html: `
+                            <div class="text-center">
+                                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                <h5>Pendaftaran Berhasil</h5>
+                                <p>Nomor Registrasi: <strong>${result.data.regNumber}</strong></p>
+                                <p>Simpan nomor registrasi ini untuk cek status pendaftaran.</p>
+                            </div>
+                        `,
+                        confirmButtonText: 'Lihat Status',
+                        showCancelButton: true,
+                        cancelButtonText: 'Kembali ke Dashboard'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            loadPage('cek-status');
+                        } else {
+                            loadPage('dashboard');
+                        }
+                    });
+                }
+            } catch (error) {
+                showToast('Terjadi kesalahan saat submit pendaftaran', 'error');
+            }
+        }
+
+        function triggerFileInput(inputId) {
+            document.getElementById(inputId).click();
+        }
+
+        // =============================================================================
+        // CEK STATUS PAGE
+        // =============================================================================
+
+        async function loadCekStatusPage() {
+            return `
+                <div class="row justify-content-center">
+                    <div class="col-lg-8">
+                        <div class="glass-card p-4">
+                            <h3 class="text-center mb-4">Cek Status Pendaftaran UKOM</h3>
+                            
+                            <form id="cekStatusForm" class="mb-4">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label class="form-label">Nomor Registrasi</label>
+                                            <input type="text" class="form-control" id="searchRegNumber" placeholder="TAKTIS-UKOM-...">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label class="form-label">NIK</label>
+                                            <input type="text" class="form-control" id="searchNik" placeholder="16 digit NIK">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label class="form-label">Email</label>
+                                            <input type="email" class="form-control" id="searchEmail" placeholder="email@domain.com">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        <i class="fas fa-search me-2"></i>Cek Status
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div id="statusResult" class="d-none">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="status-card glass-card p-4 mb-4">
+                                            <h5 class="mb-3">Informasi Peserta</h5>
+                                            <div id="participantInfo"></div>
+                                        </div>
+                                        
+                                        <div class="status-card glass-card p-4">
+                                            <h5 class="mb-3">Timeline Proses</h5>
+                                            <div id="statusTimeline"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="status-card glass-card p-4 mb-4">
+                                            <h5 class="mb-3">Status Saat Ini</h5>
+                                            <div id="currentStatus" class="text-center"></div>
+                                        </div>
+                                        
+                                        <div class="qr-card glass-card p-4 text-center">
+                                            <h6 class="mb-3">QR Code Registrasi</h6>
+                                            <div class="qr-code mx-auto mb-3">
+                                                <i class="fas fa-qrcode fa-3x"></i>
+                                            </div>
+                                            <button class="btn btn-outline-primary btn-sm" onclick="printStatus()">
+                                                <i class="fas fa-print me-1"></i>Cetak PDF
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initializeCekStatusForm() {
+            document.getElementById('cekStatusForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const regNumber = document.getElementById('searchRegNumber').value.trim();
+                const nik = document.getElementById('searchNik').value.trim();
+                const email = document.getElementById('searchEmail').value.trim();
+                
+                if (!regNumber && !nik && !email) {
+                    showToast('Harap isi minimal satu field pencarian', 'warning');
+                    return;
+                }
+
+                try {
+                    let searchData = {};
+                    if (regNumber) searchData.regNumber = regNumber;
+                    if (nik) searchData.nik = nik;
+                    if (email) searchData.email = email;
+
+                    const result = await apiCall('getParticipant', 'POST', searchData);
+                    
+                    if (result.success) {
+                        displayStatusResult(result.data);
+                    } else {
+                        showToast('Data tidak ditemukan', 'error');
+                    }
+                } catch (error) {
+                    showToast('Terjadi kesalahan saat mencari data', 'error');
+                }
+            });
+        }
+
+        function displayStatusResult(data) {
+            const statusResult = document.getElementById('statusResult');
+            const participantInfo = document.getElementById('participantInfo');
+            const currentStatus = document.getElementById('currentStatus');
+            const statusTimeline = document.getElementById('statusTimeline');
+
+            // Participant Info
+            participantInfo.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Nomor Registrasi:</strong> ${data.regNumber}</p>
+                        <p><strong>Nama:</strong> ${data.nama}</p>
+                        <p><strong>NIK:</strong> ${data.nik}</p>
+                        <p><strong>NIP:</strong> ${data.nip}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Unit Kerja:</strong> ${data.unitKerja}</p>
+                        <p><strong>Jabfung Tujuan:</strong> ${data.jabfungTujuan}</p>
+                        <p><strong>Jenjang Tujuan:</strong> ${data.jenjangTujuan}</p>
+                        <p><strong>Email:</strong> ${data.email}</p>
+                    </div>
+                </div>
+                ${data.catatan ? `<div class="mt-3"><strong>Catatan Admin:</strong> ${data.catatan}</div>` : ''}
+            `;
+
+            // Current Status
+            const statusColor = getStatusColor(data.status);
+            currentStatus.innerHTML = `
+                <div class="status-indicator mb-3">
+                    <span class="badge bg-${statusColor} fs-5 px-3 py-2">${data.status}</span>
+                </div>
+                <p class="text-muted">Terakhir diperbarui: ${formatDateTime(data.submittedAt)}</p>
+            `;
+
+            // Timeline
+            if (data.timeline && data.timeline.length > 0) {
+                statusTimeline.innerHTML = `
+                    <div class="timeline">
+                        ${data.timeline.map(item => `
+                            <div class="timeline-item ${item.status === data.status ? 'current' : item.status === 'Disetujui' || item.status === 'Diverifikasi' ? 'completed' : ''}">
+                                <div class="timeline-marker"></div>
+                                <div class="timeline-content">
+                                    <h6>${item.status}</h6>
+                                    <p class="mb-1">${item.note}</p>
+                                    <small class="text-muted">${formatDateTime(item.date)}</small>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            statusResult.classList.remove('d-none');
+        }
+
+        function printStatus() {
+            window.print();
+        }
+
+        // =============================================================================
+        // LOGIN FUNCTIONS
+        // =============================================================================
+
+        function handleAdminAccess() {
+            showAdminLogin();
+        }
 
         function showAdminLogin() {
             document.getElementById('landing-page').style.display = 'none';
             document.getElementById('system-layout').style.display = 'none';
             document.getElementById('admin-login').style.display = 'block';
-            initializeLoginPage();
         }
 
-        function initializeLoginPage() {
-            const loginForm = document.getElementById('loginForm');
-            const togglePassword = document.getElementById('togglePassword');
+        async function handleLogin(e) {
+            e.preventDefault();
 
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+
+            try {
+                const result = await authenticateUser(username, password);
+                
+                if (result.success) {
+                    setSession(result.user, rememberMe);
+                    document.getElementById('admin-login').style.display = 'none';
+                    document.getElementById('system-layout').style.display = 'block';
+                    updateUIBasedOnRole();
+                    loadPage('dashboard');
+                    showToast(`Selamat datang, ${result.user.name}!`, 'success');
+                } else {
+                    showToast('Username atau password salah', 'error');
+                }
+            } catch (error) {
+                showToast('Terjadi kesalahan saat login', 'error');
+            }
+        }
+
+        function logout(message = 'Anda telah logout') {
+            clearSession();
+            showLandingPage();
+            showToast(message, 'info');
+        }
+
+        function showProfile() {
+            // Implementation for profile modal
+            showToast('Fitur profile akan segera hadir', 'info');
+        }
+
+        function showSettings() {
+            // Implementation for settings modal
+            showToast('Fitur settings akan segera hadir', 'info');
+        }
+
+        // =============================================================================
+        // INITIALIZATION
+        // =============================================================================
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hide loading overlay
+            setTimeout(() => {
+                document.getElementById('loading-overlay').style.display = 'none';
+            }, 1000);
+
+            // Initialize AOS
+            if (typeof AOS !== 'undefined') {
+                AOS.init({
+                    duration: 800,
+                    once: true
+                });
+            }
+
+            // Initialize counters on landing page
+            if (document.getElementById('landing-page').style.display !== 'none') {
+                setTimeout(animateCounters, 500);
+            }
+
+            // Initialize login form
+            const loginForm = document.getElementById('loginForm');
             if (loginForm) {
                 loginForm.addEventListener('submit', handleLogin);
             }
 
+            // Initialize toggle password
+            const togglePassword = document.getElementById('togglePassword');
             if (togglePassword) {
                 togglePassword.addEventListener('click', function() {
                     const passwordInput = document.getElementById('password');
@@ -1298,734 +3076,41 @@
                     }
                 });
             }
-        }
 
-        async function handleLogin(e) {
-            e.preventDefault();
-
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const rememberMe = document.getElementById('rememberMe').checked;
-            const loginBtn = document.getElementById('loginBtn');
-
-            loginBtn.disabled = true;
-            document.querySelector('.btn-text').classList.add('d-none');
-            document.querySelector('.btn-spinner').classList.remove('d-none');
-
-            try {
-                const user = await authenticateUser(username, password);
-
-                if (user) {
-                    setSession(user.user, rememberMe);
-                    updateUIBasedOnRole();
-
-                    Swal.fire({
-                        title: 'Login Successful!',
-                        text: `Welcome back, ${user.user.name}!`,
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => {
-                        document.getElementById('admin-login').style.display = 'none';
-                        document.getElementById('system-layout').style.display = 'block';
-
-                        // Check if this is admin login (from admin panel access)
-                        if (hasRole('OPERATOR')) {
-                            // Admin login - go to admin panel
-                            loadPage('admin');
-                        } else {
-                            // Regular user login - go to dashboard
-                            loadPage('dashboard');
-                        }
-                    });
-                } else {
-                    throw new Error('Invalid credentials');
-                }
-            } catch (error) {
-                Swal.fire({
-                    title: 'Login Failed',
-                    text: error.message || 'Invalid username or password',
-                    icon: 'error'
-                });
-            } finally {
-                loginBtn.disabled = false;
-                document.querySelector('.btn-text').classList.remove('d-none');
-                document.querySelector('.btn-spinner').classList.add('d-none');
-            }
-        }
-
-        // =============================================================================
-        // SYSTEM FUNCTIONS
-        // =============================================================================
-
-        async function initializeSystem() {
+            // Check if user is already logged in
             if (initializeAuth()) {
+                document.getElementById('landing-page').style.display = 'none';
+                document.getElementById('system-layout').style.display = 'block';
                 updateUIBasedOnRole();
-                await loadPage('dashboard');
-            } else {
-                showAdminLogin();
-                return;
-            }
-
-            setupNavigation();
-            setupSidebarToggle();
-            setupDarkMode();
-        }
-
-        async function initializeSystemAsUser() {
-            console.log('Initializing system as user...');
-            // Set as guest/USER without authentication
-            currentUser = { username: 'guest', role: 'USER', name: 'Guest User' };
-            updateUIBasedOnRole();
-            await loadPage('dashboard');
-
-            setupNavigation();
-            setupSidebarToggle();
-            setupDarkMode();
-            console.log('System initialized as user');
-        }
-
-        function updateUIBasedOnRole() {
-            const userInfo = document.querySelector('.navbar .dropdown-toggle');
-            if (userInfo && currentUser) {
-                userInfo.innerHTML = `<i class="fas fa-user"></i> ${currentUser.username} (${currentUser.role})`;
-            }
-        }
-
-        function handleAdminAccess() {
-            // Check if user is already authenticated as admin
-            if (currentUser && hasRole('OPERATOR')) {
-                // Already logged in as admin, go to admin panel
-                loadPage('admin');
-            } else {
-                // Show admin login
-                showAdminLogin();
-            }
-        }
-
-        function setupNavigation() {
-            console.log('Setting up navigation...');
-            const navLinks = document.querySelectorAll('.sidebar .nav-link[data-page]');
-            console.log('Found nav links:', navLinks.length);
-
-            navLinks.forEach(link => {
-                link.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    const page = e.target.closest('.nav-link').getAttribute('data-page');
-                    console.log('Navigating to page:', page);
-                    await loadPage(page);
-                });
-            });
-        }
-
-        function setupSidebarToggle() {
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            const sidebarToggleMobile = document.getElementById('sidebarToggleMobile');
-            const sidebarOverlay = document.getElementById('sidebarOverlay');
-            const sidebar = document.getElementById('sidebar');
-            const mainContent = document.querySelector('.main-content');
-
-            if (sidebarToggle) {
-                sidebarToggle.addEventListener('click', () => {
-                    sidebar.classList.toggle('collapsed');
-                    mainContent.classList.toggle('expanded');
-                });
-            }
-
-            if (sidebarToggleMobile) {
-                sidebarToggleMobile.addEventListener('click', () => {
-                    sidebar.classList.toggle('show');
-                    sidebarOverlay.classList.toggle('active');
-                });
-            }
-
-            if (sidebarOverlay) {
-                sidebarOverlay.addEventListener('click', () => {
-                    sidebar.classList.remove('show');
-                    sidebarOverlay.classList.remove('active');
-                });
-            }
-        }
-
-        function setupDarkMode() {
-            const toggle = document.getElementById('darkModeToggle');
-            if (toggle) {
-                toggle.addEventListener('click', () => {
-                    const currentTheme = document.documentElement.getAttribute('data-theme');
-                    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                    document.documentElement.setAttribute('data-theme', newTheme);
-                    localStorage.setItem('theme', newTheme);
-
-                    const icon = toggle.querySelector('i');
-                    icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-                });
-            }
-
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            const icon = document.querySelector('#darkModeToggle i');
-            if (icon) {
-                icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
-        }
-
-        async function loadPage(page) {
-            console.log('Loading page:', page);
-            currentPage = page;
-            const pageContent = document.getElementById('page-content');
-
-            if (!pageContent) {
-                console.error('page-content element not found!');
-                return;
-            }
-
-            document.querySelectorAll('.sidebar .nav-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            document.querySelector(`.sidebar .nav-link[data-page="${page}"]`).classList.add('active');
-
-            try {
-                switch(page) {
-                    case 'dashboard':
-                        pageContent.innerHTML = await getDashboardContent();
-                        await initializeDashboard();
-                        break;
-                    case 'pengumuman':
-                        pageContent.innerHTML = await getPengumumanContent();
-                        await initializePengumuman();
-                        break;
-                    case 'bezetting':
-                        pageContent.innerHTML = await getBezettingContent();
-                        await initializeBezetting();
-                        break;
-                    case 'daftar-ukom':
-                        pageContent.innerHTML = await getDaftarUKOMContent();
-                        await initializeDaftarUKOM();
-                        break;
-                    case 'cek-status':
-                        pageContent.innerHTML = await getCekStatusContent();
-                        await initializeCekStatus();
-                        break;
-                    case 'admin':
-                        if (requireAuth('OPERATOR')) {
-                            pageContent.innerHTML = await getAdminContent();
-                            await initializeAdmin();
-                        } else {
-                            // If auth failed, stay on current page or redirect
-                            return;
-                        }
-                        break;
-                    default:
-                        pageContent.innerHTML = '<h2>Page not found</h2>';
-                }
-            } catch (error) {
-                console.error('Error loading page:', error);
-                pageContent.innerHTML = '<div class="alert alert-danger">Error loading page content</div>';
-            }
-        }
-
-        function logout(reason = 'User logged out') {
-            if (currentUser && currentUser.username !== 'guest') {
-                apiCall('', 'POST', {
-                    action: 'logActivity',
-                    action: 'LOGOUT',
-                    details: `${currentUser.username}: ${reason}`,
-                    user: currentUser.username
-                }).catch(console.error);
-            }
-
-            clearSession();
-            Swal.fire({
-                title: 'Logged Out',
-                text: reason,
-                icon: 'info',
-                timer: 1500,
-                showConfirmButton: false
-            }).then(() => {
-                // Return to landing page
-                document.getElementById('system-layout').style.display = 'none';
-                document.getElementById('admin-login').style.display = 'none';
-                document.getElementById('landing-page').style.display = 'block';
-                window.scrollTo(0, 0);
-            });
-        }
-
-        // =============================================================================
-        // DASHBOARD FUNCTIONS
-        // =============================================================================
-
-        async function getDashboardContent() {
-            return `
-                <div class="container-fluid">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2 class="mb-0">Dashboard</h2>
-                        <button class="btn btn-primary" onclick="refreshDashboard()">
-                            <i class="fas fa-sync-alt me-2"></i>Refresh
-                        </button>
-                    </div>
-
-                    <div class="row mb-4">
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card glass-card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex align-items-center">
-                                        <div class="flex-grow-1">
-                                            <h5 class="card-title text-muted">Total Peserta UKOM</h5>
-                                            <h3 class="mb-0 text-primary" id="totalParticipants">0</h3>
-                                            <small class="text-success">
-                                                <i class="fas fa-arrow-up"></i> +12% dari bulan lalu
-                                            </small>
-                                        </div>
-                                        <div class="icon-circle bg-primary text-white">
-                                            <i class="fas fa-users fa-2x"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card glass-card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex align-items-center">
-                                        <div class="flex-grow-1">
-                                            <h5 class="card-title text-muted">Terverifikasi</h5>
-                                            <h3 class="mb-0 text-success" id="verifiedCount">0</h3>
-                                            <small class="text-success">
-                                                <i class="fas fa-arrow-up"></i> +8% dari bulan lalu
-                                            </small>
-                                        </div>
-                                        <div class="icon-circle bg-success text-white">
-                                            <i class="fas fa-check-circle fa-2x"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card glass-card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex align-items-center">
-                                        <div class="flex-grow-1">
-                                            <h5 class="card-title text-muted">Sedang Diproses</h5>
-                                            <h3 class="mb-0 text-warning" id="pendingCount">0</h3>
-                                            <small class="text-warning">
-                                                <i class="fas fa-minus"></i> -3% dari bulan lalu
-                                            </small>
-                                        </div>
-                                        <div class="icon-circle bg-warning text-white">
-                                            <i class="fas fa-clock fa-2x"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-xl-3 col-md-6 mb-4">
-                            <div class="card glass-card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex align-items-center">
-                                        <div class="flex-grow-1">
-                                            <h5 class="card-title text-muted">Disetujui</h5>
-                                            <h3 class="mb-0 text-info" id="approvedCount">0</h3>
-                                            <small class="text-success">
-                                                <i class="fas fa-arrow-up"></i> +15% dari bulan lalu
-                                            </small>
-                                        </div>
-                                        <div class="icon-circle bg-info text-white">
-                                            <i class="fas fa-trophy fa-2x"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row mb-4">
-                        <div class="col-lg-8 mb-4">
-                            <div class="card glass-card">
-                                <div class="card-header">
-                                    <h5 class="mb-0">Peserta UKOM per Periode</h5>
-                                </div>
-                                <div class="card-body">
-                                    <canvas id="periodChart" height="300"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-4 mb-4">
-                            <div class="card glass-card">
-                                <div class="card-header">
-                                    <h5 class="mb-0">Jenis Jabfung</h5>
-                                </div>
-                                <div class="card-body">
-                                    <canvas id="jabfungChart" height="300"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card glass-card mb-4">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Peserta Terbaru</h5>
-                            <a href="#" class="btn btn-sm btn-outline-primary" onclick="loadPage('bezetting')">Lihat Semua</a>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>No. Registrasi</th>
-                                            <th>Nama</th>
-                                            <th>Jabfung</th>
-                                            <th>Jenjang</th>
-                                            <th>Status</th>
-                                            <th>Tanggal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="recentParticipantsTable">
-                                        <tr>
-                                            <td colspan="6" class="text-center">Loading...</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card glass-card">
-                        <div class="card-body">
-                            <div class="running-text-container">
-                                <i class="fas fa-bullhorn text-warning me-2"></i>
-                                <span class="running-text">
-                                    Pengumuman: Pendaftaran UKOM Periode 2024 telah dibuka. Batas akhir pendaftaran tanggal 31 Januari 2024. |
-                                    Pengumuman: Template dokumen terbaru telah tersedia untuk diunduh. |
-                                    Pengumuman: Sistem akan mengalami maintenance pada tanggal 20 Januari 2024 pukul 22:00 - 24:00 WIB.
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        async function initializeDashboard() {
-            try {
-                const participants = await apiCall('', 'GET', { action: 'getParticipants' });
-
-                updateDashboardStats(participants.data);
-                initializeCharts(participants.data);
-            } catch (error) {
-                console.error('Failed to load dashboard data:', error);
-                // Fallback to empty data
-                updateDashboardStats([]);
-                initializeCharts([]);
-            }
-        }
-
-        function updateDashboardStats(participants) {
-            const total = participants.length;
-            const verified = participants.filter(p => p.status === 'Diverifikasi').length;
-            const pending = participants.filter(p => p.status === 'Menunggu Verifikasi').length;
-            const approved = participants.filter(p => p.status === 'Disetujui').length;
-
-            document.getElementById('totalParticipants').textContent = total;
-            document.getElementById('verifiedCount').textContent = verified;
-            document.getElementById('pendingCount').textContent = pending;
-            document.getElementById('approvedCount').textContent = approved;
-        }
-
-        function initializeCharts(participants) {
-            const monthlyData = {};
-            participants.forEach(p => {
-                const month = new Date(p.submittedAt || p.timestamp).getMonth();
-                monthlyData[month] = (monthlyData[month] || 0) + 1;
-            });
-
-            const periodCtx = document.getElementById('periodChart').getContext('2d');
-            new Chart(periodCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                    datasets: [{
-                        label: 'Peserta UKOM',
-                        data: Array.from({length: 12}, (_, i) => monthlyData[i] || 0),
-                        borderColor: 'rgb(75, 192, 192)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-
-            const jabfungData = {};
-            participants.forEach(p => {
-                const jabfung = p.jabfungTujuan || 'Lainnya';
-                jabfungData[jabfung] = (jabfungData[jabfung] || 0) + 1;
-            });
-
-            const jabfungCtx = document.getElementById('jabfungChart').getContext('2d');
-            new Chart(jabfungCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(jabfungData),
-                    datasets: [{
-                        data: Object.values(jabfungData),
-                        backgroundColor: [
-                            'rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 205, 86)',
-                            'rgb(75, 192, 192)', 'rgb(153, 102, 255)', 'rgb(255, 159, 64)'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
-
-            populateRecentParticipants(participants);
-        }
-
-        function populateRecentParticipants(participants) {
-            const tbody = document.getElementById('recentParticipantsTable');
-            const sorted = participants.sort((a, b) =>
-                new Date(b.submittedAt || b.timestamp) - new Date(a.submittedAt || a.timestamp)
-            ).slice(0, 5);
-
-            tbody.innerHTML = sorted.map(p => `
-                <tr>
-                    <td>${p.regNumber}</td>
-                    <td>${p.nama}</td>
-                    <td>${p.jabfungTujuan}</td>
-                    <td>${p.jenjangTujuan}</td>
-                    <td><span class="badge bg-${getStatusColor(p.status)}">${p.status}</span></td>
-                    <td>${formatDate(p.submittedAt || p.timestamp)}</td>
-                </tr>
-            `).join('');
-        }
-
-        function getStatusColor(status) {
-            const colors = {
-                'Draft': 'secondary',
-                'Menunggu Verifikasi': 'warning',
-                'Diverifikasi': 'info',
-                'Disetujui': 'success',
-                'Ditolak': 'danger'
-            };
-            return colors[status] || 'secondary';
-        }
-
-        async function refreshDashboard() {
-            Swal.fire({
-                title: 'Menyegarkan...',
-                timer: 1000,
-                showConfirmButton: false,
-                willOpen: () => { Swal.showLoading(); }
-            }).then(() => {
                 loadPage('dashboard');
-            });
-        }
+            }
+        });
 
         // =============================================================================
-        // PENGUMUMAN FUNCTIONS
+        // UTILITY EVENT LISTENERS
         // =============================================================================
 
-        async function getPengumumanContent() {
-            return `
-                <div class="container-fluid">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2 class="mb-0">Pengumuman</h2>
-                        ${hasRole('OPERATOR') ? '<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAnnouncementModal"><i class="fas fa-plus me-2"></i>Tambah Pengumuman</button>' : ''}
-                    </div>
-
-                    <div class="row" id="announcementsContainer">
-                        <div class="col-12 text-center">
-                            <div class="spinner-border" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                ${hasRole('OPERATOR') ? `
-                <div class="modal fade" id="addAnnouncementModal" tabindex="-1">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Tambah Pengumuman Baru</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <form id="announcementForm">
-                                    <div class="mb-3">
-                                        <label class="form-label">Judul Pengumuman *</label>
-                                        <input type="text" class="form-control" id="announcementTitle" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Kategori *</label>
-                                        <select class="form-select" id="announcementCategory" required>
-                                            <option value="">Pilih kategori</option>
-                                            <option value="penting">Penting</option>
-                                            <option value="umum">Umum</option>
-                                            <option value="maintenance">Maintenance</option>
-                                            <option value="hasil">Hasil</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Isi Pengumuman *</label>
-                                        <textarea class="form-control" id="announcementContent" rows="5" required></textarea>
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                <button type="button" class="btn btn-primary" onclick="saveAnnouncement()">Simpan</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal fade" id="detailModal" tabindex="-1">
-                    <div class="modal-dialog modal-xl">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="detailTitle"></h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body" id="detailContent"></div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                ` : ''}
-            `;
-        }
-
-        async function initializePengumuman() {
-            try {
-                const announcements = await apiCall('', 'GET', { action: 'getAnnouncements' });
-                displayAnnouncements(announcements.data);
-            } catch (error) {
-                console.error('Failed to load announcements:', error);
-                displayAnnouncements([]);
+        // Handle sidebar overlay click
+        document.addEventListener('click', function(e) {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.querySelector('.sidebar-overlay');
+            
+            if (sidebarOverlay && e.target === sidebarOverlay) {
+                sidebar.classList.add('collapsed');
+                sidebarOverlay.style.display = 'none';
             }
-        }
+        });
 
-        function displayAnnouncements(announcements) {
-            const container = document.getElementById('announcementsContainer');
-
-            if (announcements.length === 0) {
-                container.innerHTML = `
-                    <div class="col-12">
-                        <div class="text-center py-5">
-                            <i class="fas fa-bullhorn fa-3x text-muted mb-3"></i>
-                            <h5 class="text-muted">Belum ada pengumuman</h5>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = announcements.map(announcement => `
-                <div class="col-md-6 mb-4">
-                    <div class="card glass-card announcement-card" onclick="showAnnouncementDetail('${announcement.id}')">
-                        <div class="card-body">
-                            <div class="d-flex align-items-start">
-                                <div class="announcement-icon bg-${getAnnouncementIcon(announcement.category).color} text-white me-3">
-                                    <i class="fas ${getAnnouncementIcon(announcement.category).icon}"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <h5 class="card-title mb-0">${sanitizeInput(announcement.title)}</h5>
-                                        <span class="badge bg-${getAnnouncementBadge(announcement.category)}">${announcement.category.toUpperCase()}</span>
-                                    </div>
-                                    <p class="card-text text-muted mb-2">${sanitizeInput(announcement.content.substring(0, 100))}...</p>
-                                    <small class="text-muted">Diterbitkan: ${formatDate(announcement.createdAt)}</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function getAnnouncementIcon(category) {
-            const icons = {
-                'penting': { icon: 'fa-exclamation-triangle', color: 'danger' },
-                'umum': { icon: 'fa-info-circle', color: 'info' },
-                'maintenance': { icon: 'fa-tools', color: 'warning' },
-                'hasil': { icon: 'fa-graduation-cap', color: 'success' }
-            };
-            return icons[category] || icons['umum'];
-        }
-
-        function getAnnouncementBadge(category) {
-            const badges = {
-                'penting': 'danger',
-                'umum': 'info',
-                'maintenance': 'warning',
-                'hasil': 'success'
-            };
-            return badges[category] || 'secondary';
-        }
-
-        async function saveAnnouncement() {
-            const title = document.getElementById('announcementTitle').value;
-            const category = document.getElementById('announcementCategory').value;
-            const content = document.getElementById('announcementContent').value;
-
-            if (!title || !category || !content) {
-                Swal.fire('Error', 'Semua field harus diisi', 'error');
-                return;
-            }
-
-            try {
-                await apiCall('', 'POST', {
-                    action: 'addAnnouncement',
-                    title: title,
-                    category: category,
-                    content: content,
-                    createdBy: currentUser.username
-                });
-
-                Swal.fire('Berhasil!', 'Pengumuman telah ditambahkan.', 'success');
-                bootstrap.Modal.getInstance(document.getElementById('addAnnouncementModal')).hide();
-                document.getElementById('announcementForm').reset();
-                initializePengumuman();
-            } catch (error) {
-                Swal.fire('Error', 'Failed to add announcement', 'error');
-            }
-        }
-
-        function showAnnouncementDetail(id) {
-            // Implementation for showing full announcement detail
-            Swal.fire('Detail Pengumuman', 'Fitur detail pengumuman akan diimplementasikan.', 'info');
-        }
-
-        // Initialize AOS on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof AOS !== 'undefined') {
-                AOS.init({
-                    duration: 1000,
-                    once: true
-                });
-            }
-
-            // Initialize stats animation on scroll
-            const statsSection = document.getElementById('stats');
-            if (statsSection) {
-                window.addEventListener('scroll', () => {
-                    const rect = statsSection.getBoundingClientRect();
-                    if (rect.top <= window.innerHeight && !statsSection.dataset.animated) {
-                        animateCounters();
-                        statsSection.dataset.animated = true;
-                    }
-                });
+        // Handle mobile sidebar toggle
+        document.addEventListener('click', function(e) {
+            if (e.target.matches('#sidebarToggleMobile')) {
+                const sidebar = document.getElementById('sidebar');
+                const sidebarOverlay = document.querySelector('.sidebar-overlay');
+                
+                sidebar.classList.toggle('show');
+                if (sidebarOverlay) {
+                    sidebarOverlay.style.display = sidebar.classList.contains('show') ? 'block' : 'none';
+                }
             }
         });
     </script>
