@@ -886,16 +886,16 @@
 
             <div class="row g-2 mt-2">
               <div class="col-12 col-md-3">
+                <label class="small" style="color:var(--muted)">Instansi</label>
+                <select class="form-select" id="fltInstansi"></select>
+              </div>
+              <div class="col-12 col-md-3">
                 <label class="small" style="color:var(--muted)">Jabfung</label>
                 <select class="form-select" id="fltJabfung"></select>
               </div>
               <div class="col-12 col-md-3">
                 <label class="small" style="color:var(--muted)">Jenjang</label>
                 <select class="form-select" id="fltJenjang"></select>
-              </div>
-              <div class="col-12 col-md-3">
-                <label class="small" style="color:var(--muted)">Unit Kerja</label>
-                <select class="form-select" id="fltUnit"></select>
               </div>
               <div class="col-12 col-md-3 d-flex align-items-end">
                 <button class="btn btn-primary-gradient w-100" id="btnApplyBezetting" type="button"><i class="fa-solid fa-filter me-2"></i>Filter</button>
@@ -911,25 +911,27 @@
                 </div>
               </div>
 
-              <div class="skeleton" id="skBezettingTable" style="height: 340px; display:block;"></div>
-              <div id="bzWrap" style="display:none">
-                <div class="table-responsive" style="max-height: 70vh;">
-                  <table class="table table-hover align-middle" id="tblBezetting" style="width:100%">
-                    <thead>
-                      <tr>
-                        <th>Periode</th>
-                        <th>Jabfung</th>
-                        <th>Jenjang</th>
-                        <th>Unit Kerja</th>
-                        <th>Kuota</th>
-                        <th>Terisi</th>
-                        <th>Updated</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
-                </div>
-              </div>
+<div class="skeleton" id="skBezettingTable" style="height: 340px; display:block;"></div>
+               <div id="bzWrap" style="display:none">
+                 <div class="table-responsive" style="max-height: 70vh;">
+                   <table class="table table-hover align-middle" id="tblBezetting" style="width:100%">
+                     <thead>
+                       <tr>
+                         <th>Instansi/Institusi Pelayanan Kesehatan</th>
+                         <th>Jenis Jabatan Fungsional</th>
+                         <th>Jenjang Jabatan</th>
+                         <th>Kebutuhan</th>
+                         <th>Pemangku</th>
+                         <th>Lowongan Formasi</th>
+                         <th>Nama-Nama Pemangku Saat Ini</th>
+                         <th>Nama-Nama Pemangku Yang Telah Disetujui</th>
+                         <th>Sisa</th>
+                       </tr>
+                     </thead>
+                     <tbody></tbody>
+                   </table>
+                 </div>
+               </div>
             </div>
           </div>
         </div>
@@ -1380,7 +1382,7 @@
   <script>
     // ============ CONFIG ============
     // Ganti URL berikut dengan URL Apps Script Web App Anda
-    const API_BASE = 'https://script.google.com/macros/s/AKfycbzPzBHniPOKvai53bdPx_-xIvoSD6AEkL_TM5G77-sr06dzcBv1J9LHX3LnKd5AH5lb/exec';
+    const API_BASE = 'https://script.google.com/macros/s/AKfycbwHkCdJZi637lo39h4B6vD7-wo8VtIZ1-wn_7640bHfVGyybgAFUetFt3vrvZD1pMgX/exec';
 
     const STATE = {
       theme: localStorage.getItem('taktis_theme') || 'dark',
@@ -1761,25 +1763,32 @@
         $('#skBezettingTable').style.display = 'block';
         $('#bzWrap').style.display = 'none';
 
-        const [ref, rows] = await Promise.all([
-          api('master_options', { category: 'jabfung' }),
-          api('bezetting_list', {})
+        const [rows, instansiOpts] = await Promise.all([
+          api('bezetting_list', {}),
+          api('master_options', { category: 'instansi' })
         ]);
 
-        // Fill dropdown options from master referensi via backend (recommended)
+        // Fill dropdown options from master referensi
         const options = await Promise.all([
+          api('master_options', { category: 'instansi' }),
           api('master_options', { category: 'jabfung' }),
-          api('master_options', { category: 'jenjang' }),
-          api('master_options', { category: 'unit kerja' })
+          api('master_options', { category: 'jenjang' })
         ]);
 
-        fillSelect($('#fltJabfung'), options[0].data.values);
-        fillSelect($('#fltJenjang'), options[1].data.values);
-        fillSelect($('#fltUnit'), options[2].data.values);
+        fillSelect($('#fltInstansi'), options[0].data.values);
+        fillSelect($('#fltJabfung'), options[1].data.values);
+        fillSelect($('#fltJenjang'), options[2].data.values);
 
         renderBezettingTable(rows.data || []);
-        $('#bzTotal').textContent = 'Kuota: ' + new Intl.NumberFormat('id-ID').format(sum(rows.data||[],'kuota'));
-        $('#bzTerisi').textContent = 'Terisi: ' + new Intl.NumberFormat('id-ID').format(sum(rows.data||[],'terisi'));
+        
+        // Calculate totals: kebutuhan, pemangku, lowongan
+        const totalKebutuhan = (rows.data||[]).reduce((a,b)=>a+Number(b.kebutuhan||0),0);
+        const totalPemangku = (rows.data||[]).reduce((a,b)=>a+Number(b.pemangku||0),0);
+        const totalLowongan = (rows.data||[]).reduce((a,b)=>a+Number(b.lowongan_formasi||0),0);
+        const totalSisa = (rows.data||[]).reduce((a,b)=>a+Number(b.sisa||0),0);
+        
+        $('#bzTotal').textContent = 'Kebutuhan: ' + new Intl.NumberFormat('id-ID').format(totalKebutuhan);
+        $('#bzTerisi').textContent = 'Pemangku: ' + new Intl.NumberFormat('id-ID').format(totalPemangku);
 
         $('#skBezettingTable').style.display = 'none';
         $('#bzWrap').style.display = 'block';
@@ -1803,13 +1812,15 @@
       const tbody = $('#tblBezetting tbody');
       tbody.innerHTML = (rows||[]).map(r => `
         <tr>
-          <td>${escapeHtml(r.periode||'')}</td>
+          <td>${escapeHtml(r.instansi||'')}</td>
           <td>${escapeHtml(r.jabfung||'')}</td>
           <td>${escapeHtml(r.jenjang||'')}</td>
-          <td>${escapeHtml(r.unit_kerja||'')}</td>
-          <td>${escapeHtml(r.kuota||'')}</td>
-          <td>${escapeHtml(r.terisi||'')}</td>
-          <td>${escapeHtml(r.updated_at||'')}</td>
+          <td>${escapeHtml(r.kebutuhan||0)}</td>
+          <td>${escapeHtml(r.pemangku||0)}</td>
+          <td>${escapeHtml(r.lowongan_formasi||0)}</td>
+          <td>${escapeHtml(r.nama_pemangku||'')}</td>
+          <td>${escapeHtml(r.nama_disetujui||'')}</td>
+          <td>${escapeHtml(r.sisa||0)}</td>
         </tr>
       `).join('');
 
@@ -2309,17 +2320,16 @@ setVal('#f_keterangan_hukuman', d.upload_keterangan_tidak_sedang_menjalani_hukum
       $('#btnRefreshPengumuman').addEventListener('click', () => loadPengumuman());
 
       $('#btnApplyBezetting').addEventListener('click', async () => {
-        // Filter client-side by current DataTables content
+        const inst = $('#fltInstansi').value;
         const jab = $('#fltJabfung').value;
         const jen = $('#fltJenjang').value;
-        const unit = $('#fltUnit').value;
         const dt = STATE.datatables.bezetting;
         if(!dt) return;
-        dt.search( [jab, jen, unit].filter(Boolean).join(' ') ).draw();
-
-        // Better: filter using column search
-        // Column indices: 1 jabfung,2 jenjang,3 unit_kerja
-        dt.column(1).search(jab ? '^'+jab+'$' : '', true, false).column(2).search(jen ? '^'+jen+'$' : '', true, false).column(3).search(unit ? '^'+unit+'$' : '', true, false).draw();
+        // Column indices: 0 instansi, 1 jabfung, 2 jenjang
+        dt.column(0).search(inst ? '^'+inst+'$' : '', true, false)
+          .column(1).search(jab ? '^'+jab+'$' : '', true, false)
+          .column(2).search(jen ? '^'+jen+'$' : '', true, false)
+          .draw();
       });
 
       $('#btnCariStatus').addEventListener('click', cekStatus);
