@@ -634,94 +634,9 @@
       animation: spin 1s linear infinite;
       margin: 0 auto 12px;
     }
-    @keyframes spin{ to{ transform: rotate(360deg); } }
+@keyframes spin{ to{ transform: rotate(360deg); } }
 
-    /* Floating Action Button */
-    .fab{
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      z-index: 1000;
-      width: 56px;
-      height: 56px;
-      border-radius: 18px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      border: 1px solid rgba(255,255,255,.18);
-      background: linear-gradient(135deg, rgba(109,92,255,.95), rgba(45,226,230,.75));
-      color:#081026;
-      box-shadow: 0 18px 45px rgba(109,92,255,.28);
-      cursor:pointer;
-      transition: .18s ease;
-    }
-    .fab:hover{ transform: translateY(-2px); filter: brightness(1.05); }
-
-    /* Landing */
-    .landing{
-      position:relative;
-      min-height:100vh;
-      padding: 18px;
-    }
-    .particles{
-      position:absolute;
-      inset:0;
-      z-index:0;
-      pointer-events:none;
-    }
-
-    .landing .wrap{
-      position:relative;
-      z-index:1;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .hero{
-      padding: 26px;
-      border-radius: 26px;
-      overflow:hidden;
-    }
-    .hero h1{ font-weight: 900; letter-spacing:-0.4px; }
-    .gradient-text{
-      background: linear-gradient(135deg, rgba(109,92,255,1), rgba(45,226,230,1));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-
-    .feature-grid{ gap: 14px; }
-    .feature-card{ padding: 16px; border-radius: 18px; border: 1px solid var(--border); background: rgba(255,255,255,.05); transition:.18s ease; }
-    .feature-card:hover{ transform: translateY(-2px); border-color: rgba(109,92,255,.5); }
-
-    .step{ padding: 16px; border-radius: 18px; border: 1px solid var(--border); background: rgba(255,255,255,.05); position:relative; overflow:hidden; }
-    .step::after{ content:""; position:absolute; inset:auto -60px -80px auto; width: 160px; height: 160px; background: radial-gradient(circle at 30% 30%, rgba(109,92,255,.25), transparent 60%); transform: rotate(18deg); }
-    .step .num{ font-weight: 900; font-size: 14px; color: var(--muted); }
-
-    .footer{
-      margin-top: 18px;
-      padding: 18px;
-      border-top: 1px solid rgba(255,255,255,.10);
-      color: var(--muted);
-    }
-
-    /* Toast */
-    .toast-container{ z-index: 2000; }
-
-    /* Reduce motion */
-    @media (prefers-reduced-motion: reduce){
-      *{ animation: none !important; transition: none !important; }
-    }
-
-    /* Responsive */
-    @media (max-width: 992px){
-      .sidebar{ position:fixed; z-index: 1040; left: 12px; top: 12px; height: calc(100vh - 24px); transform: translateX(-120%); }
-      .sidebar.open{ transform: translateX(0); }
-      .content{ padding-top: calc(var(--topbar-h) + 14px); }
-      .sidebar-bottom{ position:static; }
-      .app-shell{ display:block; }
-    }
-  </style>
+    /* Landing Page */
 </head>
 <body data-theme="dark">
   <!-- Loading Animation -->
@@ -1911,10 +1826,10 @@
           }
         });
 
-        // Latest table
-        const rows = latest.data || [];
-        const tbody = $('#tblLatest tbody');
-        tbody.innerHTML = rows.map(r => `
+// Latest table
+         const rows = Array.isArray(latest.data) ? latest.data : [];
+         const tbody = $('#tblLatest tbody');
+         tbody.innerHTML = rows.map(r => `
           <tr>
             <td>${escapeHtml(r.nomor_registrasi)}</td>
             <td>${escapeHtml(r.nik)}</td>
@@ -2036,38 +1951,39 @@
     }
 
     // ============ BEZETTING ============
-    async function loadBezetting(){
-      try{
-        showLoader();
-        $('#skBezettingTable').style.display = 'block';
-        $('#bzWrap').style.display = 'none';
+async function loadBezetting(){
+       try{
+         showLoader();
+         $('#skBezettingTable').style.display = 'block';
+         $('#bzWrap').style.display = 'none';
 
-        const [rows, instansiOpts] = await Promise.all([
-          api('bezetting_list', {}),
-          api('master_options', { category: 'instansi' })
-        ]);
+         const [rowsRes, instansiOpts] = await Promise.all([
+           api('bezetting_list', {}),
+           api('master_options', { category: 'instansi' })
+         ]);
 
-        // Fill dropdown options from master referensi
-        const options = await Promise.all([
-          api('master_options', { category: 'instansi' }),
-          api('master_options', { category: 'jabfung' }),
-          api('master_options', { category: 'jenjang' })
-        ]);
+         // Fill dropdown options from master referensi
+         const options = await Promise.all([
+           api('master_options', { category: 'instansi' }),
+           api('master_options', { category: 'jabfung' }),
+           api('master_options', { category: 'jenjang' })
+         ]);
 
-        fillSelect($('#fltInstansi'), options[0].data.values);
-        fillSelect($('#fltJabfung'), options[1].data.values);
-        fillSelect($('#fltJenjang'), options[2].data.values);
+         fillSelect($('#fltInstansi'), options[0].data?.values || []);
+         fillSelect($('#fltJabfung'), options[1].data?.values || []);
+         fillSelect($('#fltJenjang'), options[2].data?.values || []);
 
-        renderBezettingTable(rows.data || []);
-        
-        // Calculate totals: kebutuhan, pemangku, lowongan
-        const totalKebutuhan = (rows.data||[]).reduce((a,b)=>a+Number(b.kebutuhan||0),0);
-        const totalPemangku = (rows.data||[]).reduce((a,b)=>a+Number(b.pemangku||0),0);
-        const totalLowongan = (rows.data||[]).reduce((a,b)=>a+Number(b.lowongan_formasi||0),0);
-        const totalSisa = (rows.data||[]).reduce((a,b)=>a+Number(b.sisa||0),0);
-        
-        $('#bzTotal').textContent = 'Kebutuhan: ' + new Intl.NumberFormat('id-ID').format(totalKebutuhan);
-        $('#bzTerisi').textContent = 'Pemangku: ' + new Intl.NumberFormat('id-ID').format(totalPemangku);
+         const rows = Array.isArray(rowsRes.data) ? rowsRes.data : [];
+         renderBezettingTable(rows);
+
+         // Calculate totals: kebutuhan, pemangku, lowongan
+         const totalKebutuhan = rows.reduce((a,b)=>a+Number(b.kebutuhan||0),0);
+         const totalPemangku = rows.reduce((a,b)=>a+Number(b.pemangku||0),0);
+         const totalLowongan = rows.reduce((a,b)=>a+Number(b.lowongan_formasi||0),0);
+         const totalSisa = rows.reduce((a,b)=>a+Number(b.sisa||0),0);
+
+         $('#bzTotal').textContent = 'Kebutuhan: ' + new Intl.NumberFormat('id-ID').format(totalKebutuhan);
+         $('#bzTerisi').textContent = 'Pemangku: ' + new Intl.NumberFormat('id-ID').format(totalPemangku);
 
         $('#skBezettingTable').style.display = 'none';
         $('#bzWrap').style.display = 'block';
@@ -2079,37 +1995,38 @@
       }
     }
 
-    function fillSelect(sel, values){
-      sel.innerHTML = '<option value="">Semua</option>' + (values||[]).map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
-    }
+function fillSelect(sel, values){
+       const arr = Array.isArray(values) ? values : [];
+       sel.innerHTML = '<option value="">Semua</option>' + arr.map(v => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+     }
 
     function sum(arr, key){
       return (arr||[]).reduce((a,b)=> a + Number(b[key]||0), 0);
     }
 
-    function renderBezettingTable(rows){
-      const tbody = $('#tblBezetting tbody');
-      tbody.innerHTML = (rows||[]).map(r => `
-        <tr>
-          <td>${escapeHtml(r.instansi||'')}</td>
-          <td>${escapeHtml(r.jabfung||'')}</td>
-          <td>${escapeHtml(r.jenjang||'')}</td>
-          <td>${escapeHtml(r.kebutuhan||0)}</td>
-          <td>${escapeHtml(r.pemangku||0)}</td>
-          <td>${escapeHtml(r.lowongan_formasi||0)}</td>
-          <td>${escapeHtml(r.nama_pemangku||'')}</td>
-          <td>${escapeHtml(r.nama_disetujui||'')}</td>
-          <td>${escapeHtml(r.sisa||0)}</td>
-        </tr>
-      `).join('');
+function renderBezettingTable(rows){
+       const tbody = $('#tblBezetting tbody');
+       tbody.innerHTML = (rows||[]).map(r => `
+         <tr>
+           <td>${escapeHtml(r.instansi||'')}</td>
+           <td>${escapeHtml(r.jabfung||'')}</td>
+           <td>${escapeHtml(r.jenjang||'')}</td>
+           <td>${escapeHtml(r.kebutuhan||0)}</td>
+           <td>${escapeHtml(r.pemangku||0)}</td>
+           <td>${escapeHtml(r.lowongan_formasi||0)}</td>
+           <td>${escapeHtml(r.nama_pemangku||'')}</td>
+           <td>${escapeHtml(r.nama_disetujui||'')}</td>
+           <td>${escapeHtml(r.sisa||0)}</td>
+         </tr>
+       `).join('');
 
-      if(STATE.datatables.bezetting) STATE.datatables.bezetting.destroy();
-      STATE.datatables.bezetting = $('#tblBezetting').DataTable({
-        pageLength: 10,
-        ordering: true,
-        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/id.json' }
-      });
-    }
+       if(STATE.datatables.bezetting) STATE.datatables.bezetting.destroy();
+       STATE.datatables.bezetting = $('#tblBezetting').DataTable({
+         pageLength: 10,
+         ordering: true,
+         language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/id.json' }
+       });
+     }
 
     // ============ WIZARD DAFTAR UKOM ============
     const DRAFT_KEY = 'taktis_ukom_draft';
@@ -2193,13 +2110,13 @@ setVal('#f_keterangan_hukuman', d.upload_keterangan_tidak_sedang_menjalani_hukum
         api('master_options', { category: 'unit kerja' }),
       ]);
 
-      fillSelect($('#f_periode'), period.data.values);
-      fillSelect($('#f_tipe'), tipe.data.values);
-      fillSelect($('#f_jenis_ukom'), jenisUkom.data.values);
-      fillSelect($('#f_jabfung'), jabfung.data.values);
-      fillSelect($('#f_jenjang'), jenjang.data.values);
-      fillSelect($('#f_jabfung_tujuan'), jabfung.data.values);
-      fillSelect($('#f_jenjang_tujuan'), jenjang.data.values);
+fillSelect($('#f_periode'), period.data?.values || []);
+       fillSelect($('#f_tipe'), tipe.data?.values || []);
+       fillSelect($('#f_jenis_ukom'), jenisUkom.data?.values || []);
+       fillSelect($('#f_jabfung'), jabfung.data?.values || []);
+       fillSelect($('#f_jenjang'), jenjang.data?.values || []);
+       fillSelect($('#f_jabfung_tujuan'), jabfung.data?.values || []);
+       fillSelect($('#f_jenjang_tujuan'), jenjang.data?.values || []);
 
       // Draft restore
       const draft = getDraft();
