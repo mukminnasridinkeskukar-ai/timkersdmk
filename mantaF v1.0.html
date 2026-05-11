@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MANTAP – Manajemen Tata Kelola Jabatan Fungsional Kesehatan Terintegrasi</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text y='20' font-size='20'>🏥</text></svg>">
+
+<!-- ==================== CDN LIBRARIES ==================== -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css"/>
+<link rel="stylesheet" href="https://cdn.datatables.net/2.0.5/css/dataTables.dataTables.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css"/>
+
+<style>
+/* ============================================================
+   1. CSS VARIABLES & DARK/LIGHT THEMES
+   ============================================================ */
+:root {
+  --primary: #1e88e5;
+  --primary-dark: #1565c0;
+  --accent: #00bfa5;
+  --bg: #f0f2f5;
+  --card-bg: #ffffff;
+  --text: #212121;
+  --text-secondary: #616161;
+  --border: #e0e0e0;
+  --shadow: 0 8px 32px rgba(0,0,0,.08);
+  --glass: rgba(255,255,255,.75);
+  --glass-border: rgba(255,255,255,.2);
+  --radius: 16px;
+  --sidebar-width: 280px;
+  --topbar-height: 64px;
+  --transition: .3s cubic-bezier(.4,0,.2,1);
+}
+[data-theme="dark"] {
+  --primary: #42a5f5;
+  --primary-dark: #1e88e5;
+  --accent: #69f0ae;
+  --bg: #121212;
+  --card-bg: #1e1e2e;
+  --text: #e0e0e0;
+  --text-secondary: #aaa;
+  --border: #333;
+  --shadow: 0 8px 32px rgba(0,0,0,.4);
+  --glass: rgba(30,30,46,.85);
+  --glass-border: rgba(255,255,255,.08);
+}
+
+/* ============================================================
+   2. RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+html { scroll-behavior: smooth; font-size: 14px; }
+body {
+  font-family: 'Segoe UI',system-ui,-apple-system,sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  transition: background var(--transition), color var(--transition);
+}
+a { text-decoration: none; color: var(--primary); }
+a:hover { color: var(--primary-dark); }
+img { max-width: 100%; }
+
+/* ============================================================
+   3. SPLASH SCREEN
+   ============================================================ */
+#splash {
+  position: fixed; inset:0; z-index:99999;
+  display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(135deg,#0d47a1,#00897b);
+  color:#fff; font-size:1.4rem; flex-direction:column; gap:1rem;
+  transition:opacity .6s,visibility .6s;
+}
+#splash.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+#splash .logo { font-size:3rem; animation:bounceIn 1s ease;}
+#splash p { opacity:.8; font-size:.95rem;}
+@keyframes bounceIn { 0%{transform:scale(0)} 60%{transform:scale(1.1)} 100%{transform:scale(1)} }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ============================================================
+   4. LOADING OVERLAY
+   ============================================================ */
+#loadingOverlay {
+  position:fixed; inset:0; z-index:99998;
+  background:rgba(0,0,0,.4); display:none;
+  align-items:center; justify-content:center; flex-direction:column; gap:1rem;
+}
+#loadingOverlay.show { display:flex; }
+#loadingOverlay .spinner { width:48px; height:48px; border:4px solid var(--primary); border-top-color:transparent; border-radius:50%; animation:spin .8s linear infinite; }
+#loadingOverlay .loading-text { color:#fff; font-size:.95rem; }
+
+/* ============================================================
+   5. TOAST NOTIFICATIONS
+   ============================================================ */
+#toastContainer {
+  position:fixed; top:80px; right:20px; z-index:99999;
+  display:flex; flex-direction:column; gap:.5rem; pointer-events:none;
+}
+.toast {
+  padding:12px 24px; border-radius:12px; color:#fff;
+  font-size:.9rem; min-width:280px; max-width:420px;
+  display:flex; align-items:center; gap:.75rem;
+  animation:slideIn .3s ease, fadeOut .4s ease 3.6s forwards;
+  box-shadow:0 4px 20px rgba(0,0,0,.2);
+}
+.toast.success { background:#2e7d32; }
+.toast.error   { background:#c62828; }
+.toast.info    { background:#1565c0; }
+@keyframes slideIn { from{transform:translateX(120%);opacity:0} to{transform:none;opacity:1} }
+@keyframes fadeOut { to{opacity:0;transform:translateY(-10px)} }
+
+/* ============================================================
+   6. LAYOUT
+   ============================================================ */
+#app { display:flex; min-height:100vh; }
+
+/* Sidebar */
+#sidebar {
+  width: var(--sidebar-width); min-height:100vh;
+  background: var(--card-bg);
+  border-right:1px solid var(--border);
+  position:fixed; top:0; left:0; bottom:0;
+  display:flex; flex-direction:column;
+  transition: transform var(--transition), box-shadow var(--transition);
+  z-index:1000;
+}
+#sidebar.collapsed { transform: translateX(calc(-1 * var(--sidebar-width))); }
+#sidebar .brand {
+  height: var(--topbar-height); display:flex; align-items:center;
+  padding:0 20px; gap:12px; border-bottom:1px solid var(--border);
+  font-size:1.25rem; font-weight:700; color:var(--primary);
+}
+#sidebar .brand i { font-size:1.5rem; }
+#sidebar nav { flex:1; overflow-y:auto; padding:.5rem 0; }
+#sidebar nav .section-title {
+  font-size:.7rem; text-transform:uppercase; letter-spacing:.1em;
+  color:var(--text-secondary); padding:12px 20px 4px; font-weight:600;
+}
+#sidebar nav a {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 20px; color:var(--text); font-weight:500;
+  transition:background .2s, color .2s; border-left:3px solid transparent;
+}
+#sidebar nav a:hover { background:rgba(30,136,229,.08); }
+#sidebar nav a.active { background:rgba(30,136,229,.12); color:var(--primary); border-left-color:var(--primary); }
+#sidebar nav a i { width:20px; text-align:center; font-size:1rem; }
+#sidebar .sidebar-footer {
+  padding:12px 20px; border-top:1px solid var(--border);
+  font-size:.75rem; color:var(--text-secondary); text-align:center;
+}
+
+/* Main area */
+#main { flex:1; margin-left:var(--sidebar-width); transition:margin-left var(--transition); }
+#main.expanded { margin-left:0; }
+
+/* Topbar */
+#topbar {
+  height: var(--topbar-height); position:sticky; top:0; z-index:999;
+  background:var(--glass); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--glass-border);
+  display:flex; align-items:center; padding:0 24px; gap:1rem;
+}
+#topbar .menu-toggle { font-size:1.3rem; cursor:pointer; }
+#topbar .breadcrumb { font-size:.85rem; color:var(--text-secondary); flex:1; }
+#topbar .topbar-actions { display:flex; align-items:center; gap:1rem; }
+#topbar .topbar-actions .icon-btn {
+  width:40px; height:40px; border-radius:50%; border:none;
+  background:rgba(0,0,0,.04); color:var(--text); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:1rem;
+  position:relative; transition:background .2s;
+}
+#topbar .topbar-actions .icon-btn:hover { background:rgba(0,0,0,.08); }
+#topbar .topbar-actions .badge-dot {
+  position:absolute; top:6px; right:6px; width:8px; height:8px;
+  background:red; border-radius:50%;
+}
+#topbar .user-info {
+  display:flex; align-items:center; gap:.5rem; cursor:pointer;
+  padding:6px 12px; border-radius:10px; transition:background .2s;
+}
+#topbar .user-info:hover { background:rgba(0,0,0,.06); }
+#topbar .user-info .avatar {
+  width:34px; height:34px; border-radius:50%;
+  background:var(--primary); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:700;
+}
+#topbar .user-info .user-name { font-size:.85rem; font-weight:600; }
+#topbar .user-info .user-role { font-size:.7rem; color:var(--text-secondary); }
+
+/* Page container */
+.page { padding:24px; max-width:1400px; margin:0 auto; display:none; }
+.page.active { display:block; }
+
+/* ============================================================
+   7. CARDS & STATS
+   ============================================================ */
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1.25rem; margin-bottom:1.5rem; }
+.stat-card {
+  background:var(--card-bg); border-radius:var(--radius); padding:20px;
+  border:1px solid var(--border); box-shadow:var(--shadow);
+  display:flex; align-items:center; gap:1rem;
+  transition:transform .2s, box-shadow .2s;
+}
+.stat-card:hover { transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,.12); }
+.stat-card .icon-box {
+  width:56px; height:56px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.5rem; color:#fff; flex-shrink:0;
+}
+.stat-card .icon-box.blue  { background:linear-gradient(135deg,#1e88e5,#1565c0); }
+.stat-card .icon-box.green { background:linear-gradient(135deg,#43a047,#2e7d32); }
+.stat-card .icon-box.orange{ background:linear-gradient(135deg,#fb8c00,#e65100); }
+.stat-card .icon-box.red   { background:linear-gradient(135deg,#e53935,#c62828); }
+.stat-card .icon-box.teal  { background:linear-gradient(135deg,#00897b,#00695c); }
+.stat-card .info h3 { font-size:1.6rem; line-height:1; }
+.stat-card .info p  { font-size:.8rem; color:var(--text-secondary); }
+
+/* Chart containers */
+.chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:1.25rem; margin-bottom:1.5rem; }
+.chart-card {
+  background:var(--card-bg); border-radius:var(--radius); padding:20px;
+  border:1px solid var(--border); box-shadow:var(--shadow);
+}
+.chart-card h3 { margin-bottom:1rem; font-size:1.05rem; }
+
+/* Map */
+#map { width:100%; height:400px; border-radius:var(--radius); border:1px solid var(--border); }
+
+/* Timeline */
+.timeline { position:relative; padding-left:2rem; }
+.timeline::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:2px; background:var(--border); }
+.timeline-item { position:relative; margin-bottom:1.5rem; }
+.timeline-item::before {
+  content:''; position:absolute; left:-1.5rem; top:6px;
+  width:12px; height:12px; border-radius:50%; background:var(--primary);
+  border:2px solid var(--bg); box-shadow:0 0 0 3px var(--primary);
+}
+.timeline-item .time { font-size:.75rem; color:var(--text-secondary); }
+.timeline-item .desc { font-weight:500; }
+
+/* ============================================================
+   8. TABLE STYLES (elegant)
+   ============================================================ */
+.table-wrapper {
+  background:var(--card-bg); border-radius:var(--radius);
+  border:1px solid var(--border); box-shadow:var(--shadow);
+  overflow:hidden;
+}
+.table-wrapper .toolbar {
+  display:flex; gap:.5rem; padding:12px 16px;
+  flex-wrap:wrap; align-items:center; border-bottom:1px solid var(--border);
+}
+.table-wrapper .toolbar input,
+.table-wrapper .toolbar select {
+  padding:8px 12px; border:1px solid var(--border); border-radius:8px;
+  background:var(--bg); color:var(--text); font-size:.85rem;
+}
+.table-wrapper .toolbar .btn {
+  padding:8px 16px; border:none; border-radius:8px;
+  font-size:.85rem; font-weight:600; cursor:pointer;
+  transition:background .2s;
+}
+.toolbar .btn-primary { background:var(--primary); color:#fff; }
+.toolbar .btn-primary:hover { background:var(--primary-dark); }
+.toolbar .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text); }
+.toolbar .btn-outline:hover { background:rgba(0,0,0,.04); }
+
+table.data-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+table.data-table th {
+  background:var(--bg); padding:12px 14px; text-align:left;
+  font-weight:600; color:var(--text-secondary); border-bottom:2px solid var(--border);
+  white-space:nowrap;
+}
+table.data-table td { padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+table.data-table tbody tr:hover { background:rgba(30,136,229,.04); }
+.badge {
+  display:inline-block; padding:3px 10px; border-radius:20px;
+  font-size:.75rem; font-weight:600;
+}
+.badge-success { background:#e8f5e9; color:#2e7d32; }
+.badge-warning { background:#fff3e0; color:#e65100; }
+.badge-danger  { background:#fce4ec; color:#c62828; }
+.badge-info    { background:#e3f2fd; color:#1565c0; }
+.badge-secondary{background:#f5f5f5; color:#616161; }
+
+/* ============================================================
+   9. MODAL / LIGHTBOX
+   ============================================================ */
+.modal-overlay {
+  position:fixed; inset:0; z-index:10000;
+  background:rgba(0,0,0,.5); display:none;
+  align-items:center; justify-content:center; padding:20px;
+}
+.modal-overlay.show { display:flex; }
+.modal {
+  background:var(--card-bg); border-radius:var(--radius);
+  width:100%; max-width:640px; max-height:90vh; overflow-y:auto;
+  padding:28px; position:relative;
+  box-shadow:0 24px 80px rgba(0,0,0,.3);
+  animation:modalIn .25s ease;
+}
+@keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:none} }
+.modal .close-btn {
+  position:absolute; top:14px; right:14px; background:none; border:none;
+  font-size:1.3rem; cursor:pointer; color:var(--text-secondary);
+}
+.modal h2 { margin-bottom:1rem; }
+
+/* ============================================================
+   10. FORM ELEMENTS
+   ============================================================ */
+.form-group { margin-bottom:1.15rem; }
+.form-group label { display:block; font-weight:600; margin-bottom:.35rem; font-size:.88rem; }
+.form-group input, .form-group select, .form-group textarea {
+  width:100%; padding:10px 14px; border:1px solid var(--border);
+  border-radius:10px; background:var(--bg); color:var(--text);
+  font-size:.92rem; transition:border .2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(30,136,229,.15);
+}
+textarea { resize:vertical; min-height:80px; }
+
+/* Multi-step wizard */
+.stepper { display:flex; gap:.5rem; margin-bottom:1.5rem; }
+.stepper .step {
+  flex:1; padding:10px; text-align:center; border-radius:10px;
+  background:var(--bg); color:var(--text-secondary); font-size:.82rem; font-weight:600;
+  position:relative; transition:background .2s,color .2s;
+}
+.stepper .step.done { background:var(--primary); color:#fff; }
+.stepper .step.active { background:var(--accent); color:#fff; }
+.stepper .step::after { content:''; position:absolute; top:50%; right:-10px; width:20px; height:2px; background:var(--border); transform:translateY(-50%); }
+.stepper .step:last-child::after { display:none; }
+
+/* Signature canvas */
+#signatureCanvas { border:1px solid var(--border); border-radius:8px; cursor:crosshair; background:#fff; }
+
+/* Upload area */
+.upload-zone {
+  border:2px dashed var(--border); border-radius:12px;
+  padding:30px; text-align:center; cursor:pointer;
+  transition:border-color .2s,background .2s;
+}
+.upload-zone:hover, .upload-zone.dragover { border-color:var(--primary); background:rgba(30,136,229,.04); }
+.upload-zone i { font-size:2rem; color:var(--primary); margin-bottom:.5rem; display:block; }
+.upload-zone p { color:var(--text-secondary); font-size:.88rem; }
+.file-preview { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.75rem; }
+.file-preview .chip {
+  display:inline-flex; align-items:center; gap:.4rem;
+  background:var(--bg); padding:4px 10px; border-radius:20px;
+  font-size:.78rem; cursor:pointer;
+}
+.file-preview .chip .remove { color:red; font-weight:700; }
+
+/* ============================================================
+   11. EMPTY STATE
+   ============================================================ */
+.empty-state { text-align:center; padding:3rem 1rem; }
+.empty-state i { font-size:4rem; color:var(--border); margin-bottom:1rem; }
+.empty-state h3 { margin-bottom:.5rem; }
+.empty-state p { color:var(--text-secondary); max-width:400px; margin:0 auto 1.5rem; }
+
+/* ============================================================
+   12. SKELETON LOADING
+   ============================================================ */
+.skeleton { background:linear-gradient(90deg,var(--bg) 25%,#e8e8e8 50%,var(--bg) 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px; }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.skeleton-card { height:140px; border-radius:var(--radius); margin-bottom:1rem; }
+
+/* ============================================================
+   13. TIMELINE DETAIL
+   ============================================================ */
+.detail-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); font-size:.88rem; }
+.detail-row:last-child { border-bottom:none; }
+
+/* ============================================================
+   14. FLOATING HELP & SCROLL-TO-TOP
+   ============================================================ */
+.floating-help {
+  position:fixed; bottom:30px; right:30px; width:56px; height:56px;
+  border-radius:50%; background:var(--primary); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,.2);
+  transition:background .2s; z-index:900;
+}
+.floating-help:hover { background:var(--primary-dark); }
+.scroll-top {
+  position:fixed; bottom:90px; right:30px; width:44px; height:44px;
+  border-radius:50%; background:var(--card-bg); color:var(--text);
+  display:none; align-items:center; justify-content:center;
+  border:1px solid var(--border); cursor:pointer;
+  box-shadow:var(--shadow); z-index:900;
+}
+.scroll-top.visible { display:flex; }
+
+/* ============================================================
+   15. FOOTER & WATERMARK
+   ============================================================ */
+#footer {
+  text-align:center; padding:20px; font-size:.78rem; color:var(--text-secondary);
+  border-top:1px solid var(--border); margin-top:2rem;
+}
+#footer .watermark { position:fixed; inset:0; pointer-events:none; z-index:-1; opacity:.03; font-size:12rem; text-align:center; line-height:100vh; color:var(--text); }
+
+/* ============================================================
+   16. LOGIN MODAL
+   ============================================================ */
+#loginModal .modal { max-width:420px; }
+
+/* ============================================================
+   17. RESPONSIVE
+   ============================================================ */
+@media(max-width:768px){
+  #sidebar { transform:translateX(calc(-1 * var(--sidebar-width))); }
+  #sidebar.open { transform:translateX(0); box-shadow:8px 0 30px rgba(0,0,0,.2); }
+  #main { margin-left:0; }
+  .chart-grid { grid-template-columns:1fr; }
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  #topbar .breadcrumb { display:none; }
+}
+@media(max-width:480px){
+  .stats-grid { grid-template-columns:1fr; }
+  #topbar { padding:0 12px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ============================================================
+     SPLASH SCREEN
+     ============================================================ -->
+<div id="splash">
+  <div class="logo">🏥 MANTAP</div>
+  <p>Manajemen Tata Kelola Jabatan Fungsional Kesehatan Terintegrasi</p>
+  <div class="spinner" style="width:36px;height:36px;border:3px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;"></div>
+</div>
+
+<!-- ============================================================
+     LOADING OVERLAY
+     ============================================================ -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Memuat data…</div>
+</div>
+<!-- ===================== MAIN APP ===================== -->
+<div id="app" style="display:none;">
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="brand"><i class="fa-solid fa-hospital"></i> MANTAP</div>
+    <nav>
+      <div class="section-title">Utama</div>
+      <a href="#" data-page="dashboard" class="active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+      <a href="#" data-page="pengumuman"><i class="fa-solid fa-bullhorn"></i> Pengumuman</a>
+      <a href="#" data-page="bezetting"><i class="fa-solid fa-table-cells"></i> Bezetting</a>
+      <a href="#" data-page="ukom"><i class="fa-solid fa-clipboard-list"></i> Daftar UKOM</a>
+      <a href="#" data-page="cek-status"><i class="fa-solid fa-magnifying-glass"></i> Cek Status</a>
+
+      <div class="section-title" id="adminSection" style="display:none;">Admin</div>
+      <a href="#" data-page="admin-panel" id="adminNav" style="display:none;"><i class="fa-solid fa-shield-halved"></i> Admin Panel</a>
+    </nav>
+    <div class="sidebar-footer">MANTAP v1.0 &copy; 2026</div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <div id="main">
+    <!-- TOPBAR -->
+    <div id="topbar">
+      <i class="fa-solid fa-bars menu-toggle" id="menuToggle"></i>
+      <div class="breadcrumb" id="breadcrumb">Dashboard</div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btnRefresh" title="Refresh Data"><i class="fa-solid fa-arrows-rotate"></i></button>
+        <button class="icon-btn" id="btnDark" title="Tema Gelap/Terang"><i class="fa-regular fa-moon"></i></button>
+        <button class="icon-btn" id="btnNotif" title="Notifikasi"><i class="fa-regular fa-bell"></i><span class="badge-dot" id="notifDot" style="display:none;"></span></button>
+        <div class="user-info" id="userInfo">
+          <div class="avatar" id="userAvatar">A</div>
+          <div>
+            <div class="user-name" id="userName">Pengunjung</div>
+            <div class="user-role" id="userRole">Umum</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== PAGES ====== -->
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard" data-aos="fade-up">
+      <h2 style="margin-bottom:.5rem;">Dashboard</h2>
+      <p style="color:var(--text-secondary);margin-bottom:1.25rem;">Ringkasan data Manajemen Tata Kelola Jabatan Fungsional Kesehatan</p>
+
+      <!-- Statistik -->
+      <div class="stats-grid" id="statsGrid">
+        <!-- Cards diisi JS -->
+      </div>
+
+      <!-- Grafik -->
+      <div class="chart-grid">
+        <div class="chart-card"><h3>Pendaftaran per Bulan</h3><canvas id="chartRegistrasi"></canvas></div>
+        <div class="chart-card"><h3>Status Verifikasi</h3><canvas id="chartStatus"></canvas></div>
+        <div class="chart-card"><h3>Distribusi Jabatan</h3><canvas id="chartJabatan"></canvas></div>
+        <div class="chart-card"><h3>Distribusi Jenjang</h3><canvas id="chartJenjang"></canvas></div>
+      </div>
+
+      <!-- Peta -->
+      <div class="chart-card" style="margin-top:1.25rem;">
+        <h3>Peta Sebaran Peserta</h3>
+        <div id="map"></div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="chart-card" style="margin-top:1.25rem;">
+        <h3>Timeline Aktivitas Terbaru</h3>
+        <div class="timeline" id="timeline"></div>
+      </div>
+
+      <!-- Pengumuman terbaru -->
+      <div class="chart-card" style="margin-top:1.25rem;">
+        <h3>Pengumuman Terbaru</h3>
+        <div id="pengumumanLatest"></div>
+      </div>
+    </div>
+
+    <!-- PENGUMUMAN -->
+    <div class="page" id="page-pengumuman" data-aos="fade-up">
+      <h2 style="margin-bottom:.5rem;">Pengumuman</h2>
+      <p style="color:var(--text-secondary);margin-bottom:1.25rem;">Informasi terkait pelaksanaan UKOM.</p>
+      <div class="table-wrapper">
+        <div class="toolbar">
+          <input type="text" id="searchPengumuman" placeholder="Cari pengumuman…">
+          <select id="filterPengumuman"><option value="">Semua Status</option><option value="publish">Publish</option><option value="draft">Draft</option></select>
+          <button class="btn btn-primary" id="btnAddPengumuman"><i class="fa-solid fa-plus"></i> Tambah</button>
+          <button class="btn btn-outline" id="btnExportPengumuman"><i class="fa-solid fa-file-excel"></i> Excel</button>
+          <button class="btn btn-outline" id="btnPrintPengumuman"><i class="fa-solid fa-print"></i> Print</button>
+        </div>
+        <table class="data-table" id="tablePengumuman"><thead><tr><th>ID</th><th>Judul</th><th>Ringkas</th><th>Tanggal</th><th>Status</th><th style="width:80px">Aksi</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- BEZETTING -->
+    <div class="page" id="page-bezetting" data-aos="fade-up">
+      <h2 style="margin-bottom:.5rem;">Bezetting</h2>
+      <p style="color:var(--text-secondary);margin-bottom:1.25rem;">Kebutuhan dan pemangku jabatan fungsional.</p>
+      <div class="table-wrapper">
+        <div class="toolbar">
+          <input type="text" id="searchBezetting" placeholder="Cari instansi atau jabatan…">
+          <select id="filterInstansi"><option value="">Semua Instansi</option></select>
+          <select id="filterJabatan"><option value="">Semua Jabatan</option></select>
+          <button class="btn btn-primary" id="btnAddBezetting"><i class="fa-solid fa-plus"></i> Tambah</button>
+          <button class="btn btn-outline" id="btnExportBezetting"><i class="fa-solid fa-file-excel"></i> Excel</button>
+          <button class="btn btn-outline" id="btnPrintBezetting"><i class="fa-solid fa-print"></i> Print</button>
+        </div>
+        <table class="data-table" id="tableBezetting"><thead><tr><th>Instansi</th><th>Jenis Jabatan</th><th>Jenjang</th><th>Kebutuhan</th><th>Pemangku</th><th>Lowongan</th><th>Pemangku Disetujui</th><th>Sisa</th><th>Indikator</th><th>Aksi</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="chart-card" style="margin-top:1.25rem;">
+        <h3>Grafik Kebutuhan vs Pemangku</h3>
+        <canvas id="chartBezetting"></canvas>
+      </div>
+    </div>
+
+    <!-- DAFTAR UKOM -->
+    <div class="page" id="page-ukom" data-aos="fade-up">
+      <h2 style="margin-bottom:.5rem;">Daftar UKOM</h2>
+      <p style="color:var(--text-secondary);margin-bottom:1.25rem;">Isi formulir pendaftaran uji kompetensi.</p>
+
+      <!-- Wizard -->
+      <div class="card" style="background:var(--card-bg);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:24px;">
+        <div class="stepper" id="stepper">
+          <div class="step active" data-step="1">1. Data Pribadi</div>
+          <div class="step" data-step="2">2. Pekerjaan</div>
+          <div class="step" data-step="3">3. Dokumen</div>
+          <div class="step" data-step="4">4. Tanda Tangan</div>
+          <div class="step" data-step="5">5. Konfirmasi</div>
+        </div>
+
+        <form id="ukomForm">
+          <!-- STEP 1 -->
+          <div class="form-step active" id="step1">
+            <div class="form-group"><label>Periode UKOM</label><select name="periode" required><option>2026</option><option>2025</option></select></div>
+            <div class="form-group"><label>NIK (16 digit)</label><input type="text" name="nik" maxlength="16" placeholder="0000000000000000" required></div>
+            <div class="form-group"><label>NIP</label><input type="text" name="nip" placeholder="0000000000000000" required></div>
+            <div class="form-group"><label>Nama Tanpa Gelar</label><input type="text" name="nama_tanpa_gelar" required></div>
+            <div class="form-group"><label>Jenis Kelamin</label><select name="jenis_kelamin"><option>Pria</option><option>Wanita</option></select></div>
+            <div class="form-group"><label>No. WhatsApp</label><input type="tel" name="nomor_whatsapp" placeholder="6281234567890"></div>
+            <div class="form-group"><label>Email Aktif</label><input type="email" name="email_aktif" placeholder="contoh@email.com"></div>
+          </div>
+          <!-- STEP 2 -->
+          <div class="form-step" id="step2" style="display:none;">
+            <div class="form-group"><label>Unit Kerja</label><input type="text" name="nama_unit_kerja" required></div>
+            <div class="form-group"><label>Pangkat / Golongan</label><input type="text" name="pangkat_dan_golongan" placeholder="Contoh: Pembina / IV/a"></div>
+            <div class="form-group"><label>No. SK Jabatan Fungsional Terakhir</label><input type="text" name="nomor_sk_jabfungs_terakhir"></div>
+            <div class="form-group"><label>Nilai PAK Terakhir</label><input type="number" name="nilai_pak_terakhir" step="0.01" placeholder="0.00"></div>
+            <div class="form-group"><label>Jabatan Fungsional Sekarang</label><input type="text" name="jabfung_saat_ini"></div>
+            <div class="form-group"><label>Jenjang Sekarang</label><input type="text" name="jenjang_saat_ini"></div>
+            <div class="form-group"><label>Tipe</label><select name="tipe"><option>Naik</option><option>Pindah</option></select></div>
+            <div class="form-group"><label>Jenis Uji Kompetensi</label><select name="jenis_uokom"><option>Promosi</option><option>Mutasi</option></select></div>
+          </div>
+          <!-- STEP 3 -->
+          <div class="form-step" id="step3" style="display:none;">
+            <div class="form-group"><label>Jabatan Fungsional Tujuan</label><input type="text" name="jabfung_tujuan"></div>
+            <div class="form-group"><label>Jenjang Tujuan</label><input type="text" name="jenjang_tujuan"></div>
+            <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0;">
+            <p style="font-weight:600;margin-bottom:.5rem;">Upload Dokumen (PDF / JPG / PNG, maks 5 MB setiap file)</p>
+            <div class="form-group">
+              <label>Foto 4x6 Latar Merah</label>
+              <div class="upload-zone" data-field="upload_foto_4x6_latar_merah"><i class="fa-solid fa-cloud-arrow-up"></i><p>Seret atau klik untuk mengunggah</p></div>
+              <div class="file-preview" id="preview_foto_4x6_latar_merah"></div>
+            </div>
+            <div class="form-group">
+              <label>Daftar Riwayat Hidup</label>
+              <div class="upload-zone" data-field="upload_daftar_riwayat_hidup"><i class="fa-solid fa-file-arrow-up"></i><p>Seret atau klik untuk mengunggah</p></div>
+              <div class="file-preview" id="preview_upload_daftar_riwayat_hidup"></div>
+            </div>
+            <div class="form-group">
+              <label>Ijazah Terakhir</label>
+              <div class="upload-zone" data-field="upload_ijazah_terakhir"><i class="fa-solid fa-file-arrow-up"></i><p>Seret atau klik untuk mengunggah</p></div>
+              <div class="file-preview" id="preview_upload_ijazah_terakhir"></div>
+            </div>
+            <div class="form-group">
+              <label>STR</label>
+              <div class="upload-zone" data-field="upload_str"><i class="fa-solid fa-file-arrow-up"></i><p>Seret atau klik untuk mengunggah</p></div>
+              <div class="file-preview" id="preview_upload_str"></div>
+            </div>
+            <div class="form-group">
+              <label>SK Pangkat Terakhir</label>
+              <div class="upload-zone" data-field="upload_sk_pangkat_terakhir"><i class="fa-solid fa-file-arrow-up"></i><p>Seret atau klik untuk mengunggah</p></div>
+              <div class="file-preview" id="preview_upload_sk_pangkat_terakhir"></div>
+            </div>
+            <div class="form-group">
+              <label>SK Terakhir</label>
+              <div class="upload-zone" data-field="upload_sk_terakhir"><i class="fa-solid fa-file-arrow-up"></i><p>Seret atau klik untuk mengunggah</p></div>
+              <div class="file-preview" id="preview_upload_sk_terakhir"></div>
+            </div>
+            <div class="form-group">
+              <label>SKP 2 Tahun Terakhir</label>
+              <div class="upload-zone" data-field="upload_skp_2_tahun_terakhir"><i class="fa-solid fa-file-arrow-up"></i><p>Seret atau klik untuk mengunggah</p></div>
+              <div class="file-preview" id="preview_upload_skp_2_tahun_terakhir"></div>
+            </div>
+            <div class="form-group">
+              <label>Surat Keterangan Tidak Sedang Menjalani Hukuman Disiplin</label>
+              <div class="upload-zone" data-field="upload_surat_keterangan_tidak_sedang_menjalani_hukuman_disiplin"><i class="fa-solid fa-file-arrow-up"></i><p>Seret atau klik untuk mengunggah</p></div>
+              <div class="file-preview" id="preview_upload_surat_keterangan_tidak_sedang_menjalani_hukuman_disiplin"></div>
+            </div>
+          </div>
+          <!-- STEP 4 -->
+          <div class="form-step" id="step4" style="display:none;">
+            <p style="margin-bottom:1rem;">Buat tanda tangan digital Anda pada canvas di bawah ini:</p>
+            <canvas id="signatureCanvas" width="600" height="200"></canvas>
+            <div style="margin-top:.5rem;"><button type="button" class="btn btn-outline" id="clearSignature"><i class="fa-solid fa-eraser"></i> Bersihkan</button></div>
+          </div>
+          <!-- STEP 5 – KONFIRMASI -->
+          <div class="form-step" id="step5" style="display:none;">
+            <div id="summaryContainer"></div>
+          </div>
+
+          <!-- Navigation Buttons -->
+          <div style="display:flex;justify-content:space-between;margin-top:1.5rem;">
+            <button type="button" class="btn btn-outline" id="prevBtn" style="display:none;"><i class="fa-solid fa-arrow-left"></i> Sebelumnya</button>
+            <div style="margin-left:auto;display:flex;gap:.5rem;">
+              <button type="button" class="btn btn-outline" id="nextBtn">Berikutnya <i class="fa-solid fa-arrow-right"></i></button>
+              <button type="submit" class="btn btn-primary" id="submitBtn" style="display:none;"><i class="fa-solid fa-paper-plane"></i> Kirim Pendaftaran</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Riwayat Pendaftaran -->
+      <div class="table-wrapper" style="margin-top:1.5rem;">
+        <div class="toolbar">
+          <input type="text" id="searchUKOM" placeholder="Cari registrasi…">
+          <button class="btn btn-outline" id="btnExportUKOM"><i class="fa-solid fa-file-excel"></i> Excel</button>
+        </div>
+        <table class="data-table" id="tableUKOM"><thead><tr><th>No. Registrasi</th><th>Nama</th><th>Jabatan</th><th>Status</th><th style="width:90px">Aksi</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <!-- CEK STATUS -->
+    <div class="page" id="page-cek-status" data-aos="fade-up">
+      <h2 style="margin-bottom:.5rem;">Cek Status</h2>
+      <p style="color:var(--text-secondary);margin-bottom:1.25rem;">Cari status pendaftaran Anda berdasarkan nomor registrasi, NIK atau NIP.</p>
+      <div class="card" style="background:var(--card-bg);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:24px;max-width:600px;">
+        <div class="form-group"><label>Cari Berdasarkan</label><select id="cekCriteria"><option value="no_registrasi">Nomor Registrasi</option><option value="nik">NIK</option><option value="nip">NIP</option></select></div>
+        <div class="form-group" style="display:flex;gap:.5rem;"><input type="text" id="cekKeyword" placeholder="Masukkan kata kunci…" style="flex:1;"><button class="btn btn-primary" id="btnCek"><i class="fa-solid fa-magnifying-glass"></i> Cari</button></div>
+      </div>
+      <div id="cekResult" style="margin-top:1.5rem;display:none;"></div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div class="page" id="page-admin-panel" data-aos="fade-up" style="display:none;">
+      <h2 style="margin-bottom:.5rem;"><i class="fa-solid fa-shield-halved"></i> Admin Panel</h2>
+      <p style="color:var(--text-secondary);margin-bottom:1.25rem;">Kelola seluruh data sistem.</p>
+
+      <!-- Sub‑nav (tabs) -->
+      <div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <button class="btn btn-primary admin-tab active" data-admin="dash">Dashboard</button>
+        <button class="btn btn-outline admin-tab" data-admin="users">Manajemen Admin</button>
+        <button class="btn btn-outline admin-tab" data-admin="pengumuman">Pengumuman</button>
+        <button class="btn btn-outline admin-tab" data-admin="bezetting">Bezetting</button>
+        <button class="btn btn-outline admin-tab" data-admin="ukom">Data UKOM</button>
+        <button class="btn btn-outline admin-tab" data-admin="activity">Activity Log</button>
+        <button class="btn btn-outline admin-tab" data-admin="backup">Backup</button>
+      </div>
+
+      <!-- Admin sub‑pages -->
+      <div id="adminDash" class="admin-page">
+        <div class="stats-grid" id="adminStats"></div>
+        <div class="chart-grid"><div class="chart-card"><h3>Pendaftaran per Hari</h3><canvas id="adminChartReg"></canvas></div><div class="chart-card"><h3>Verifikasi</h3><canvas id="adminChartVer"></canvas></div></div>
+      </div>
+
+      <div id="adminUsers" class="admin-page" style="display:none;">
+        <div class="table-wrapper"><div class="toolbar"><input type="text" id="searchAdminUsers" placeholder="Cari admin…"><button class="btn btn-primary" id="btnAddAdmin"><i class="fa-solid fa-plus"></i> Tambah Admin</button></div><table class="data-table" id="tableAdminUsers"><thead><tr><th>ID</th><th>Nama</th><th>Username</th><th>Role</th><th>Status</th><th style="width:100px">Aksi</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
+      <div id="adminPengumuman" class="admin-page" style="display:none;">
+        <div class="table-wrapper"><div class="toolbar"><input type="text" id="searchAdmPeng"><button class="btn btn-primary" id="btnAddAdmPeng"><i class="fa-solid fa-plus"></i> Tambah</button></div><table class="data-table" id="tableAdmPeng"><thead><tr><th>ID</th><th>Judul</th><th>Status</th><th>Tanggal</th><th>Aksi</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
+      <div id="adminBezetting" class="admin-page" style="display:none;">
+        <div class="table-wrapper"><div class="toolbar"><input type="text" id="searchAdmBez"><button class="btn btn-primary" id="btnAddAdmBez"><i class="fa-solid fa-plus"></i> Tambah</button></div><table class="data-table" id="tableAdmBez"><thead><tr><th>Instansi</th><th>Jabatan</th><th>Jenjang</th><th>Kebutuhan</th><th>Pemangku</th><th>Lowongan</th><th>Aksi</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
+      <div id="adminUKOM" class="admin-page" style="display:none;">
+        <div class="table-wrapper"><div class="toolbar"><input type="text" id="searchAdmUKOM" placeholder="Cari…"><select id="filterAdmUKOM"><option value="">Semua Status</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select><button class="btn btn-outline" id="btnExpAdmUKOM"><i class="fa-solid fa-file-excel"></i> Excel</button></div><table class="data-table" id="tableAdmUKOM"><thead><tr><th>No. Registrasi</th><th>Nama</th><th>NIK</th><th>Jabatan</th><th>Status</th><th>Aksi</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
+      <div id="adminActivity" class="admin-page" style="display:none;">
+        <div class="table-wrapper"><table class="data-table" id="tableActivity"><thead><tr><th>Waktu</th><th>User</th><th>Aksi</th><th>Detail</th></tr></thead><tbody></tbody></table></div>
+      </div>
+
+      <div id="adminBackup" class="admin-page" style="display:none;">
+        <div class="card" style="padding:1rem;"><p>Klik tombol di bawah untuk mengunduh seluruh data Spreadsheet dalam format JSON (backup manual).</p><button class="btn btn-primary" id="btnBackupData"><i class="fa-solid fa-download"></i> Unduh Backup</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== LOGIN MODAL ===================== -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal">
+    <button class="close-btn" id="closeLogin"><i class="fa-solid fa-xmark"></i></button>
+    <div style="text-align:center;margin-bottom:1rem;"><i class="fa-solid fa-user-shield" style="font-size:3rem;color:var(--primary);"></i><h2>Admin Login</h2><p style="color:var(--text-secondary);font-size:.85rem;">Masuk untuk mengakses panel admin</p></div>
+    <div class="form-group"><label>Username</label><input type="text" id="loginUser" placeholder="Username"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="loginPass" placeholder="Password"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:.5rem;" id="loginBtn"><i class="fa-solid fa-right-to-bracket"></i> Masuk</button>
+  </div>
+</div>
+
+<!-- ===================== ADD/EDIT MODALS ===================== -->
+<!-- Pengumuman -->
+<div class="modal-overlay" id="modalPengumuman">
+  <div class="modal" style="max-width:700px;">
+    <button class="close-btn" onclick="closeModal('modalPengumuman')"><i class="fa-solid fa-xmark"></i></button>
+    <h2 id="pengFormTitle">Tambah Pengumuman</h2>
+    <input type="hidden" id="pengId">
+    <div class="form-group"><label>Judul</label><input type="text" id="pengJudul" style="width:100%"></div>
+    <div class="form-group"><label>Isi Ringkas</label><textarea id="pengRingkas" style="width:100%"></textarea></div>
+    <div class="form-group"><label>Isi Detail</label><textarea id="pengDetail" style="width:100%;min-height:150px;"></textarea></div>
+    <div class="form-group"><label>Tanggal Publish</label><input type="date" id="pengTgl"></div>
+    <div class="form-group"><label>Status</label><select id="pengStatus"><option value="publish">Publish</option><option value="draft">Draft</option></select></div>
+    <div class="form-group"><label>PDF File (jika ada)</label><div class="upload-zone" id="pengUploadZone" style="margin-top:.5rem;"><i class="fa-solid fa-cloud-arrow-up"></i><p>Upload PDF</p></div></div>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem;">
+      <button class="btn btn-outline" onclick="closeModal('modalPengumuman')">Batal</button>
+      <button class="btn btn-primary" id="savePengumuman"><i class="fa-solid fa-save"></i> Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bezetting -->
+<div class="modal-overlay" id="modalBezetting">
+  <div class="modal" style="max-width:800px;">
+    <button class="close-btn" onclick="closeModal('modalBezetting')"><i class="fa-solid fa-xmark"></i></button>
+    <h2 id="bezFormTitle">Tambah Bezetting</h2>
+    <input type="hidden" id="bezId">
+    <div class="form-group"><label>Instansi</label><input type="text" id="bezInstansi" style="width:100%"></div>
+    <div class="form-group"><label>Jenis Jabatan</label><input type="text" id="bezJabatan" style="width:100%"></div>
+    <div class="form-group"><label>Jenjang</label><input type="text" id="bezJenjang" style="width:100%"></div>
+    <div class="form-group"><label>Kebutuhan</label><input type="number" id="bezKebutuhan" style="width:100%"></div>
+    <div class="form-group"><label>Pemangku Saat Ini</label><input type="text" id="bezPemangku" style="width:100%"></div>
+    <div class="form-group"><label>Pemangku Disetujui</label><input type="text" id="bezPemangkuOk" style="width:100%"></div>
+    <div style="display:flex;gap:1rem;">
+      <div class="form-group" style="flex:1;"><label>Lowongan (auto)</label><input type="number" id="bezLowongan" readonly style="width:100%;opacity:.7;"></div>
+      <div class="form-group" style="flex:1;"><label>Sisa (auto)</label><input type="number" id="bezSisa" readonly style="width:100%;opacity:.7;"></div>
+    </div>
+    <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem;">
+      <button class="btn btn-outline" onclick="closeModal('modalBezetting')">Batal</button>
+      <button class="btn btn-primary" id="saveBezetting"><i class="fa-solid fa-save"></i> Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail / Lightbox untuk pengumuman -->
+<div class="modal-overlay" id="modalPengDetail">
+  <div class="modal" style="max-width:750px;">
+    <button class="close-btn" onclick="closeModal('modalPengDetail')"><i class="fa-solid fa-xmark"></i></button>
+    <div id="pengDetailContent"></div>
+  </div>
+</div>
+
+<!-- Detail UKOM -->
+<div class="modal-overlay" id="modalUKOMDetail">
+  <div class="modal" style="max-width:800px;">
+    <button class="close-btn" onclick="closeModal('modalUKOMDetail')"><i class="fa-solid fa-xmark"></i></button>
+    <div id="ukomDetailContent"></div>
+  </div>
+</div>
+
+<!-- Detail Bezetting -->
+<div class="modal-overlay" id="modalBezDetail">
+  <div class="modal" style="max-width:800px;">
+    <button class="close-btn" onclick="closeModal('modalBezDetail')"><i class="fa-solid fa-xmark"></i></button>
+    <div id="bezDetailContent"></div>
+  </div>
+</div>
+
+<!-- ===================== FLOATING HELP ===================== -->
+<div class="floating-help" id="floatingHelp" title="Bantuan"><i class="fa-solid fa-circle-question"></i></div>
+<div class="scroll-top" id="scrollTop"><i class="fa-solid fa-chevron-up"></i></div>
+
+<!-- ===================== WATERMARK ===================== -->
+<div class="watermark" id="watermark">MANTAP</div>
+
+<!-- ===================== FOOTER ===================== -->
+<div id="footer">
+  <p>🏥 <strong>MANTAP</strong> – Manajemen Tata Kelola Jabatan Fungsional Kesehatan Terintegrasi &copy; 2026 | v1.0.0</p>
+  <p>Kementerian Kesehatan RI – Unit Kerja Sistem Informasi</p>
+</div>
+
+<!-- ===================== CDN SCRIPTS ===================== -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.datatables.net/2.0.5/js/dataTables.min.js"></script>
+<script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+<script>
+/* ============================================================
+   GLOBAL CONFIG
+   ============================================================ */
+const GAS_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'; // <-- Ganti dengan URL deploy Anda
+const APP_VERSION = '1.0.0';
+const APP_NAME = 'MANTAP';
+
+/* ============================================================
+   UTILITY FUNCTIONS
+   ============================================================ */
+function $(id){ return document.getElementById(id); }
+function randId(){ return 'id_'+Date.now()+'_'+Math.random().toString(36).substr(2,5); }
+function fmtDate(d){
+  if(!d) return '-';
+  const dd = new Date(d);
+  return dd.toLocaleDateString('id-ID',{year:'numeric',month:'short',day:'numeric'});
+}
+function showToast(msg,type='success'){
+  const c=$('toastContainer');
+  const t=document.createElement('div');
+  t.className='toast '+type;
+  const icons={success:'fa-check-circle',error:'fa-times-circle',info:'fa-info-circle'};
+  t.innerHTML=`<i class="fa-solid ${icons[type]||icons.info}"></i><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(()=>t.remove(),4000);
+}
+function showLoading(on=true){
+  $('loadingOverlay').classList.toggle('show',on);
+}
+function openModal(id){ $(id).classList.add('show'); }
+function closeModal(id){ $(id).classList.remove('show'); }
+
+/* ============================================================
+   SPLASH SCREEN
+   ============================================================ */
+setTimeout(()=>{
+  $('splash').classList.add('hidden');
+  $('app').style.display='block';
+  setTimeout(()=> initApp(), 300);
+}, 2000);
+
+/* ============================================================
+   DARK / LIGHT TOGGLE
+   ============================================================ */
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  $('btnDark').innerHTML = theme==='dark'
+    ? '<i class="fa-regular fa-sun"></i>'
+    : '<i class="fa-regular fa-moon"></i>';
+  localStorage.setItem('mantap_theme', theme);
+}
+const savedTheme = localStorage.getItem('mantap_theme') || 'light';
+applyTheme(savedTheme);
+$('btnDark').addEventListener('click', ()=>{
+  const next = document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  applyTheme(next);
+});
+
+/* ============================================================
+   SIDEBAR TOGGLE
+   ============================================================ */
+$('menuToggle').addEventListener('click',()=>{
+  $('sidebar').classList.toggle('collapsed');
+  $('sidebar').classList.toggle('open');
+});
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+document.querySelectorAll('#sidebar nav a[data-page]').forEach(a=>{
+  a.addEventListener('click', e=>{
+    e.preventDefault();
+    const page = a.dataset.page;
+    // hide admin pages if not logged in
+    if(page==='admin-panel' && !isAdmin()){
+      openModal('loginModal');
+      return;
+    }
+    navigateTo(page, a.textContent.trim());
+  });
+});
+function navigateTo(page, title){
+  // hide all pages
+  document.querySelectorAll('.page').forEach(p=> p.classList.remove('active'));
+  const el = $('page-'+page);
+  if(el) el.classList.add('active');
+  $('breadcrumb').textContent = title;
+  // sidebar active
+  document.querySelectorAll('#sidebar nav a').forEach(a=> a.classList.remove('active'));
+  document.querySelector(`#sidebar nav a[data-page="${page}"]`)?.classList.add('active');
+  // init charts if needed
+  if(page==='dashboard') initDashboardCharts();
+  if(page==='cek-status') {}
+}
+
+/* ============================================================
+   ADMIN SESSION (simple localStorage)
+   ============================================================ */
+function isAdmin(){ return localStorage.getItem('mantap_admin')==='true'; }
+function setAdminSession(flag){ localStorage.setItem('mantap_admin', flag); }
+
+$('loginBtn').addEventListener('click', doLogin);
+$('closeLogin').addEventListener('click',()=>closeModal('loginModal'));
+$('userInfo').addEventListener('click',()=>{
+  if(isAdmin()){
+    if(confirm('Keluar dari sesi admin?')){ setAdminSession(false); location.reload(); }
+  } else {
+    openModal('loginModal');
+  }
+});
+function doLogin(){
+  const u=$('loginUser').value.trim(), p=$('loginPass').value.trim();
+  // Hard‑coded demo admin – replace with GAS call in production
+  if(u==='admin' && p==='mantap123'){
+    setAdminSession(true);
+    $('userName').textContent='Administrator';
+    $('userRole').textContent='Admin';
+    $('userAvatar').textContent='A';
+    $('adminSection').style.display='';
+    $('adminNav').style.display='';
+    closeModal('loginModal');
+    showToast('Login admin berhasil','success');
+  } else {
+    showToast('Username atau password salah','error');
+  }
+}
+
+/* ============================================================
+   DATA – DUMMY (ganti dengan fetch GAS saat online)
+   ============================================================ */
+function genDummyData(){
+  // pengumuman
+  const peng = [];
+  for(let i=1;i<=8;i++){
+    peng.push({
+      id: randId(),
+      judul: 'Pengumuman UKOM '+i,
+      isi_ringkas: 'Ringkas informasi pengumuman nomor '+i,
+      isi_detail: 'Isi lengkap pengumuman nomor '+i+' ...',
+      filename_pdf: 'pengumuman_'+i+'.pdf',
+      link_pdf: 'https://example.com/pengumuman_'+i+'.pdf',
+      tanggal_publish: new Date(Date.now()-i*864e5).toISOString().split('T')[0],
+      status: i%3===0?'draft':'publish'
+    });
+  }
+  // bezetting
+  const bez = [];
+  const instansi = ['RSUD Kota A','RSUD Kota B','Puskesmas X','Puskesmas Y','RS Pratama Z','Klinik ABC','RSJ Provinsi','Puskesmas M'];
+  const jabatan = ['Dokter Umum','Dokter Spesialis','Perawat','Apoteker','Bidan','Radiografer','Lab. Analyst','Farmasi'];
+  const jenjang = ['Ahli Muda','Ahli Madya','Ahli Utama','Pratama','Madya','Utama'];
+  instansi.forEach((ins,idx)=>{
+    const need = Math.floor(Math.random()*8)+1;
+    const pemangku = Math.floor(Math.random()*need);
+    bez.push({
+      id: randId(),
+      instansi: ins,
+      jenis_jabatan: jabatan[idx%jabatan.length],
+      jenjang: jenjang[idx%jenjang.length],
+      kebutuhan: need,
+      pemangku_saat_ini: pemangku,
+      pemangku_disetujui: Math.floor(Math.random()*pemangku+1),
+      lowongan: need - pemangku,
+      sisa: need - pemangku - Math.floor(Math.random()*pemangku)
+    });
+  });
+  // UKOM
+  const ukom = [];
+  const names = ['Andi Wijaya','Budi Santoso','Citra Dewi','Dewi Lestari','Eko Prasetyo','Fani Rahmawati','Gilang Pratama','Hana Sari'];
+  names.forEach((n,i)=>{
+    ukom.push({
+      id: randId(),
+      no_registrasi: 'UKOM-2026-'+String(i+1).padStart(4,'0'),
+      nama_tanpa_gelar: n,
+      nik: '327501000000000'+String(i),
+      nip: '19850100000000'+String(i),
+      jabfung_saat_ini: jabatan[i%jabatan.length],
+      jenjang_saat_ini: jenjang[i%jenjang.length],
+      status_verifikasi: ['pending','approved','rejected'][i%3]
+    });
+  });
+  // admin users
+  const admins = [
+    {id:randId(),nama:'Super Admin',username:'admin',role:'super',status:'active'},
+    {id:randId(),nama:'Kasi Verifikasi',username:'verifikator',role:'verifikator',status:'active'}
+  ];
+  // activity log
+  const logs = [];
+  for(let i=0;i<10;i++){
+    logs.push({
+      id: randId(),
+      waktu: new Date(Date.now()-i*36e5).toISOString(),
+      user: ['admin','verifikator'][i%2],
+      aksi: ['Approve UKOM','Update Bezetting','Upload Pengumuman','Login','Logout','Export Data'][i%6],
+      detail: 'Detail aksi ke-'+ (i+1)
+    });
+  }
+  return {peng, bez, ukom, admins, logs};
+}
+const dummy = genDummyData();
+let DATA = {peng: [], bez: [], ukom: [], admins: [], logs: []};
+
+/* ============================================================
+   FETCH / GAS INTEGRATION (async/await)
+   ============================================================ */
+async function server(action, payload={}){
+  showLoading(true);
+  try{
+    const res = await fetch(GAS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action, ...payload})
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    showLoading(false);
+    return json;
+  } catch(e){
+    showLoading(false);
+    console.error(e);
+    // fallback to dummy data when offline
+    if(action==='getAll'){
+      return {peng:dummy.peng, bez:dummy.bez, ukom:dummy.ukom, admins:dummy.admins, logs:dummy.logs};
+    }
+    showToast('Gagal terhubung ke server. Data demo ditampilkan.','error');
+    return {error:true};
+  }
+}
+
+/* ============================================================
+   INIT APP ONCE
+   ============================================================ */
+async function initApp(){
+  const d = await server('getAll');
+  if(!d.error){ DATA = d; } else { DATA = dummy; }
+  renderDashboard();
+  renderPengumuman();
+  renderBezetting();
+  renderUKOM();
+  renderAdminPanel();
+  initAOS();
+  initNotifications();
+}
+
+/* ============================================================
+   AOS INIT
+   ============================================================ */
+function initAOS(){ if(typeof AOS !== 'undefined') AOS.init({duration:600,once:true}); }
+
+/* ============================================================
+   NOTIFICATIONS
+   ============================================================ */
+function initNotifications(){
+  const pendingCount = DATA.ukom.filter(u=>u.status_verifikasi==='pending').length;
+  if(pendingCount>0){ $('notifDot').style.display=''; }
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+function renderDashboard(){
+  const total = DATA.ukom.length;
+  const pending = DATA.ukom.filter(u=>u.status_verifikasi==='pending').length;
+  const approved = DATA.ukom.filter(u=>u.status_verifikasi==='approved').length;
+  const rejected = DATA.ukom.filter(u=>u.status_verifikasi==='rejected').length;
+
+  $('statsGrid').innerHTML = `
+    <div class="stat-card" data-aos="fade-up"><div class="icon-box blue"><i class="fa-solid fa-users"></i></div><div class="info"><h3>${total}</h3><p>Total Peserta UKOM</p></div></div>
+    <div class="stat-card" data-aos="fade-up" data-aos-delay="100"><div class="icon-box orange"><i class="fa-solid fa-hourglass-half"></i></div><div class="info"><h3>${pending}</h3><p>Menunggu Verifikasi</p></div></div>
+    <div class="stat-card" data-aos="fade-up" data-aos-delay="200"><div class="icon-box green"><i class="fa-solid fa-circle-check"></i></div><div class="info"><h3>${approved}</h3><p>Disetujui</p></div></div>
+    <div class="stat-card" data-aos="fade-up" data-aos-delay="300"><div class="icon-box red"><i class="fa-solid fa-circle-xmark"></i></div><div class="info"><h3>${rejected}</h3><p>Ditolak</p></div></div>
+    <div class="stat-card" data-aos="fade-up" data-aos-delay="400"><div class="icon-box teal"><i class="fa-solid fa-file-lines"></i></div><div class="info"><h3>${DATA.peng.filter(p=>p.status==='publish').length}</h3><p>Pengumuman Aktif</p></div></div>`;
+
+  // latest pengumuman
+  const latest = DATA.peng.filter(p=>p.status==='publish').slice(0,3);
+  $('pengumumanLatest').innerHTML = latest.length
+    ? latest.map(p=>`<div class="detail-row"><span>${p.judul}</span><span style="font-size:.78rem;color:var(--text-secondary)">${fmtDate(p.tanggal_publish)}</span></div>`).join('')
+    : '<div class="empty-state"><p>Belum ada pengumuman.</p></div>';
+
+  // timeline
+  const recentLogs = DATA.logs.slice(0,5);
+  $('timeline').innerHTML = recentLogs.map(l=>`
+    <div class="timeline-item">
+      <div class="time">${fmtDate(l.waktu)}</div>
+      <div class="desc"><strong>${l.user}</strong> – ${l.aksi}</div>
+    </div>`).join('');
+
+  renderMap();
+}
+
+/* ============================================================
+   LEAFLET MAP (dummy markers)
+   ============================================================ */
+let map;
+function renderMap(){
+  if(map) map.remove();
+  map = L.map('map').setView([-2.5489,118.0149],5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  const markers = [
+    {city:'Jakarta',lat:-6.2088,lng:106.8456,count:5},
+    {city:'Surabaya',lat:-7.2575,lng:112.7521,count:3},
+    {city:'Bandung',lat:-6.9175,lng:107.6191,count:4},
+    {city:'Medan',lat:3.5952,lng:98.6722,count:2},
+    {city:'Makassar',lat:-5.1477,lng:119.4327,count:1},
+    {city:'Yogyakarta',lat:-7.7956,lng:110.3695,count:3},
+  ];
+  markers.forEach(m=>{
+    const col = m.count>=4?'green':m.count>=2?'orange':'red';
+    L.circleMarker([m.lat,m.lng],{radius:Math.max(6,m.count*3),color:col,fillOpacity:.3})
+      .bindPopup(`<b>${m.city}</b><br>Peserta: ${m.count}`).addTo(map);
+  });
+}
+
+/* ============================================================
+   CHARTS (Dashboard)
+   ============================================================ */
+let chartReg, chartStatus, chartJab, chartJen;
+function initDashboardCharts(){
+  if(chartReg) return; // already created
+  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+  const regData = months.map(()=>Math.floor(Math.random()*20+5));
+  chartReg = new Chart($('chartRegistrasi'),{type:'bar',data:{labels:months,datasets:[{label:'Pendaftaran',data:regData,backgroundColor:'#1e88e5',borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}}}});
+  chartStatus = new Chart($('chartStatus'),{type:'doughnut',data:{labels:['Pending','Approved','Rejected'],datasets:[{data:[
+    DATA.ukom.filter(u=>u.status_verifikasi==='pending').length,
+    DATA.ukom.filter(u=>u.status_verifikasi==='approved').length,
+    DATA.ukom.filter(u=>u.status_verifikasi==='rejected').length
+  ],backgroundColor:['#fb8c00','#43a047','#e53935']}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}});
+  chartJab = new Chart($('chartJabatan'),{type:'pie',data:{labels:['Dokter Umum','Perawat','Apoteker','Bidan','Spesialis','Lainnya'],datasets:[{data:[30,25,15,10,12,8],backgroundColor:['#1e88e5','#43a047','#fb8c00','#e53935','#8e24aa','#00acc1']}]},options:{responsive:true,plugins:{legend:{position:'right'}}});
+  chartJen = new Chart($('chartJenjang'),{type:'bar',data:{labels:['Ahli Muda','Ahli Madya','Ahli Utama','Pratama','Madya','Utama'],datasets:[{label:'Jumlah',data:[12,8,5,15,10,7],backgroundColor:'#00897b',borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}}});
+}
+
+/* ============================================================
+   PENGUMUMAN TABLE
+   ============================================================ */
+function renderPengumuman(filter=''){
+  const rows = DATA.peng.filter(p=>{
+    if(!filter) return true;
+    return p.status===filter;
+  });
+  const keyword = $('searchPengumuman')?.value?.toLowerCase()||'';
+  const filtered = rows.filter(p=> p.judul.toLowerCase().includes(keyword) || p.isi_ringkas.toLowerCase().includes(keyword));
+  const tbody = $('tablePengumuman').querySelector('tbody');
+  tbody.innerHTML = filtered.map(p=>`<tr>
+    <td>${p.id.substr(-6)}</td>
+    <td>${p.judul}</td>
+    <td>${p.isi_ringkas.substring(0,40)}…</td>
+    <td>${fmtDate(p.tanggal_publish)}</td>
+    <td><span class="badge ${p.status==='publish'?'badge-success':'badge-warning'}">${p.status.toUpperCase()}</span></td>
+    <td>
+      <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;" onclick="viewPengumuman('${p.id}')"><i class="fa-solid fa-eye"></i></button>
+      ${isAdmin()?`<button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;" onclick="editPengumuman('${p.id}')"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;color:red;" onclick="deletePengumuman('${p.id}')"><i class="fa-solid fa-trash"></i></button>` : ''}
+    </td>
+  </tr>`).join('');
+}
+$('searchPengumuman')?.addEventListener('input', ()=> renderPengumuman($('filterPengumuman').value));
+$('filterPengumuman')?.addEventListener('change', ()=> renderPengumuman($('filterPengumuman').value));
+function viewPengumuman(id){
+  const p = DATA.peng.find(x=>x.id===id);
+  if(!p) return;
+  $('pengDetailContent').innerHTML = `
+    <div class="detail-row"><span>Judul</span><strong>${p.judul}</strong></div>
+    <div class="detail-row"><span>Ringkas</span><span>${p.isi_ringkas}</span></div>
+    <div class="detail-row"><span>Tanggal</span><span>${fmtDate(p.tanggal_publish)}</span></div>
+    <div class="detail-row"><span>Status</span><span class="badge ${p.status==='publish'?'badge-success':'badge-warning'}">${p.status.toUpperCase()}</span></div>
+    <div class="detail-row"><span>PDF</span>${p.link_pdf?`<a href="${p.link_pdf}" target="_blank">${p.filename_pdf}</a>`:'-'}</div>
+    <div class="detail-row"><span>Detail</span><div style="margin-top:.5rem;">${p.isi_detail}</div></div>`;
+  openModal('modalPengDetail');
+}
+function editPengumuman(id){
+  const p = DATA.peng.find(x=>x.id===id);
+  if(!p) return;
+  $('pengFormTitle').textContent='Edit Pengumuman';
+  $('pengId').value=id;
+  $('pengJudul').value=p.judul;
+  $('pengRingkas').value=p.isi_ringkas;
+  $('pengDetail').value=p.isi_detail;
+  $('pengTgl').value=p.tanggal_publish;
+  $('pengStatus').value=p.status;
+  openModal('modalPengumuman');
+}
+function deletePengumuman(id){
+  Swal.fire({title:'Hapus?',text:'Data akan dihapus permanen.',icon:'warning',showCancelButton:true,confirmText:'Hapus'}).then(r=>{
+    if(r.isConfirmed){ DATA.peng=DATA.peng.filter(p=>p.id!==id); renderPengumuman(); showToast('Dihapus','success'); }
+  });
+}
+$('savePengumuman').addEventListener('click',()=>{
+  const id=$('pengId').value;
+  const obj={
+    judul:$('pengJudul').value.trim(),
+    isi_ringkas:$('pengRingkas').value.trim(),
+    isi_detail:$('pengDetail').value.trim(),
+    tanggal_publish:$('pengTgl').value,
+    status:$('pengStatus').value
+  };
+  if(!obj.judul) return showToast('Judul wajib diisi','error');
+  if(id){
+    const idx=DATA.peng.findIndex(p=>p.id===id);
+    if(idx>-1) Object.assign(DATA.peng[idx],obj);
+    showToast('Pengumuman diperbarui','success');
+  } else {
+    DATA.peng.push({id:randId(),...obj,filename_pdf:'',link_pdf:''});
+    showToast('Pengumuman ditambahkan','success');
+  }
+  closeModal('modalPengumuman');
+  renderPengumuman();
+});
+$('btnAddPengumuman').addEventListener('click',()=>{
+  $('pengFormTitle').textContent='Tambah Pengumuman';
+  $('pengId').value='';
+  $('pengJudul').value='';$('pengRingkas').value='';$('pengDetail').value='';$('pengTgl').value='';$('pengStatus').value='publish';
+  openModal('modalPengumuman');
+});
+
+/* ============================================================
+   BEZETTING TABLE
+   ============================================================ */
+function renderBezetting(){
+  const keyword = $('searchBezetting')?.value?.toLowerCase()||'';
+  const instFilter = $('filterInstansi')?.value||'';
+  const jabFilter = $('filterJabatan')?.value||'';
+  let rows = DATA.bez;
+  if(instFilter) rows = rows.filter(r=>r.instansi.toLowerCase().includes(instFilter));
+  if(jabFilter) rows = rows.filter(r=>r.jenis_jabatan.toLowerCase().includes(jabFilter));
+  rows = rows.filter(r=>{
+    if(!keyword) return true;
+    return r.instansi.toLowerCase().includes(keyword)||r.jenis_jabatan.toLowerCase().includes(keyword);
+  });
+  // Populate filter dropdowns
+  const insSet = new Set(DATA.bez.map(r=>r.instansi));
+  const jabSet = new Set(DATA.bez.map(r=>r.jenis_jabatan));
+  const insSel=$('filterInstansi'); if(insSel.options.length<=1){ insSet.forEach(v=>{ const o=document.createElement('option');o.value=v;o.textContent=v;insSel.add(o); }); }
+  const jabSel=$('filterJabatan'); if(jabSel.options.length<=1){ jabSet.forEach(v=>{ const o=document.createElement('option');o.value=v;o.textContent=v;jabSel.add(o); }); }
+
+  const tbody = $('tableBezetting').querySelector('tbody');
+  tbody.innerHTML = rows.map(r=>{
+    let color,label;
+    if(r.lowongan<=0) {color='green';label='Aman';}
+    else if(r.lowongan<=2) {color='orange';label='Kurang';}
+    else {color='red';label='Kosong';}
+    return `<tr>
+      <td>${r.instansi}</td><td>${r.jenis_jabatan}</td><td>${r.jenjang}</td>
+      <td>${r.kebutuhan}</td><td>${r.pemangku_saat_ini}</td><td>${r.lowongan}</td>
+      <td>${r.pemangku_disetujui}</td><td>${r.sisa}</td>
+      <td><span class="badge badge-${color==='green'?'success':color==='orange'?'warning':'danger'}" style="background:${color==='green'?'#e8f5e9':color==='orange'?'#fff3e0':'#fce4ec'};color:${color==='green'?'#2e7d32':color==='orange'?'#e65100':'#c62828'};">${label}</span></td>
+      <td>${isAdmin()?`<button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;" onclick="editBez('${r.id}')"><i class="fa-solid fa-pen"></i></button>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+$('searchBezetting')?.addEventListener('input',renderBezetting);
+$('filterInstansi')?.addEventListener('change',renderBezetting);
+$('filterJabatan')?.addEventListener('change',renderBezetting);
+function editBez(id){
+  const r = DATA.bez.find(x=>x.id===id);
+  if(!r) return;
+  $('bezFormTitle').textContent='Edit Bezetting';
+  $('bezId').value=id;
+  $('bezInstansi').value=r.instansi;
+  $('bezJabatan').value=r.jenis_jabatan;
+  $('bezJenjang').value=r.jenjang;
+  $('bezKebutuhan').value=r.kebutuhan;
+  $('bezPemangku').value=r.pemangku_saat_ini;
+  $('bezPemangkuOk').value=r.pemangku_disetujui;
+  $('bezLowongan').value=r.lowongan;
+  $('bezSisa').value=r.sisa;
+  openModal('modalBezetting');
+}
+$('bezKebutuhan')?.addEventListener('input',calcBez);
+$('bezPemangku')?.addEventListener('input',calcBez);
+function calcBez(){
+  const need=parseInt($('bezKebutuhan').value)||0;
+  const pem=parseInt($('bezPemangku').value)||0;
+  $('bezLowongan').value=Math.max(0,need-pem);
+  $('bezSisa').value=Math.max(0,need-pem-parseInt($('bezPemangkuOk').value)||0);
+}
+$('saveBezetting').addEventListener('click',()=>{
+  const id=$('bezId').value;
+  const obj={
+    instansi:$('bezInstansi').value.trim(),
+    jenis_jabatan:$('bezJabatan').value.trim(),
+    jenjang:$('bezJenjang').value.trim(),
+    kebutuhan:+$('bezKebutuhan').value,
+    pemangku_saat_ini:+$('bezPemangku').value,
+    pemangku_disetujui:+$('bezPemangkuOk').value,
+    lowongan:+$('bezLowongan').value,
+    sisa:+$('bezSisa').value
+  };
+  if(!obj.instansi) return showToast('Instansi wajib diisi','error');
+  if(id){
+    const idx=DATA.bez.findIndex(b=>b.id===id);
+    if(idx>-1) Object.assign(DATA.bez[idx],obj);
+    showToast('Bezetting diperbarui','success');
+  } else {
+    obj.id=randId();
+    DATA.bez.push(obj);
+    showToast('Bezetting ditambahkan','success');
+  }
+  closeModal('modalBezetting');
+  renderBezetting();
+});
+$('btnAddBezetting').addEventListener('click',()=>{
+  $('bezFormTitle').textContent='Tambah Bezetting';
+  $('bezId').value='';
+  ['bezInstansi','bezJabatan','bezJenjang','bezKebutuhan','bezPemangku','bezPemangkuOk','bezLowongan','bezSisa'].forEach(id=>$(id).value='');
+  openModal('modalBezetting');
+});
+
+/* ============================================================
+   UKOM TABLE & FORM WIZARD
+   ============================================================ */
+function renderUKOM(filter=''){
+  const keyword = $('searchUKOM')?.value?.toLowerCase()||'';
+  let rows = DATA.ukom;
+  if(filter) rows = rows.filter(u=>u.status_verifikasi===filter);
+  rows = rows.filter(u=>{
+    if(!keyword) return true;
+    return u.no_registrasi.toLowerCase().includes(keyword)||u.nama_tanpa_gelar.toLowerCase().includes(keyword);
+  });
+  const tbody = $('tableUKOM').querySelector('tbody');
+  tbody.innerHTML = rows.map(u=>`<tr>
+    <td>${u.no_registrasi}</td><td>${u.nama_tanpa_gelar}</td><td>${u.jabfung_saat_ini||'-'}</td>
+    <td><span class="badge ${u.status_verifikasi==='approved'?'badge-success':u.status_verifikasi==='rejected'?'badge-danger':'badge-warning'}">${u.status_verifikasi.toUpperCase()}</span></td>
+    <td>
+      <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;" onclick="viewUKOM('${u.id}')"><i class="fa-solid fa-eye"></i></button>
+      ${isAdmin()?`<button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;${u.status_verifikasi==='approved'?'color:green':u.status_verifikasi==='rejected'?'color:red':''}" onclick="approveUKOM('${u.id}','approved')"><i class="fa-solid fa-circle-check"></i></button>
+      <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;color:red;" onclick="approveUKOM('${u.id}','rejected')"><i class="fa-solid fa-circle-xmark"></i></button>`:''}
+    </td>
+  </tr>`).join('');
+}
+$('searchUKOM')?.addEventListener('input',()=>renderUKOM());
+function viewUKOM(id){
+  const u = DATA.ukom.find(x=>x.id===id);
+  if(!u) return;
+  $('ukomDetailContent').innerHTML = `
+    <div class="detail-row"><span>No. Registrasi</span><strong>${u.no_registrasi}</strong></div>
+    <div class="detail-row"><span>Nama</span><span>${u.nama_tanpa_gelar}</span></div>
+    <div class="detail-row"><span>NIK</span><span>${u.nik||'-'}</span></div>
+    <div class="detail-row"><span>NIP</span><span>${u.nip||'-'}</span></div>
+    <div class="detail-row"><span>Jabatan Sekarang</span><span>${u.jabfung_saat_ini||'-'}</span></div>
+    <div class="detail-row"><span>Jenjang Sekarang</span><span>${u.jenjang_saat_ini||'-'}</span></div>
+    <div class="detail-row"><span>Status Verifikasi</span><span class="badge ${u.status_verifikasi==='approved'?'badge-success':u.status_verifikasi==='rejected'?'badge-danger':'badge-warning'}">${u.status_verifikasi.toUpperCase()}</span></div>
+    <div class="detail-row"><span>Catatan Admin</span><span>${u.catatan_admin||'-'}</span></div>`;
+  openModal('modalUKOMDetail');
+}
+function approveUKOM(id,status){
+  Swal.fire({title:'Konfirmasi',text:`Ubah status menjadi ${status}?`,icon:'question',showCancelButton:true,confirmText:'Ya'}).then(r=>{
+    if(r.isConfirmed){
+      const idx=DATA.ukom.findIndex(u=>u.id===id);
+      if(idx>-1) DATA.ukom[idx].status_verifikasi=status;
+      renderUKOM(); renderDashboard();
+      showToast(`Status diubah menjadi ${status}`,'success');
+    }
+  });
+}
+
+/* ============================================================
+   UKOM WIZARD
+   ============================================================ */
+let currentStep=1;
+function showStep(n){
+  document.querySelectorAll('.form-step').forEach(s=> s.style.display = s.id==='step'+n?'block':'none');
+  document.querySelectorAll('.stepper .step').forEach(s=>{
+    const sn = +s.dataset.step;
+    s.className='step'+(sn===n?' active':'')+ (sn<n?' done':'');
+  });
+  $('prevBtn').style.display = n>1?'inline-block':'none';
+  $('nextBtn').style.display = n<5?'inline-block':'none';
+  $('submitBtn').style.display = n===5?'inline-block':'none';
+}
+$('nextBtn').addEventListener('click',()=>{ if(currentStep<5) showStep(++currentStep); });
+$('prevBtn').addEventListener('click',()=>{ if(currentStep>1) showStep(--currentStep); });
+$('clearSignature').addEventListener('click',()=>{
+  const c=$('signatureCanvas');c.getContext('2d').clearRect(0,0,c.width,c.height);
+});
+$('ukomForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  Swal.fire({title:'Kirim?',text:'Data akan dikirim.',icon:'question',showCancelButton:true,confirmText:'Kirim'}).then(r=>{
+    if(r.isConfirmed){
+      showLoading(true);
+      // simulate submit
+      setTimeout(()=>{
+        const reg='UKOM-2026-'+String(DATA.ukom.length+1).padStart(4,'0');
+        DATA.ukom.push({
+          id:randId(), no_registrasi:reg,
+          nik:$('[name=nik]').value, nip:$('[name=nip]').value,
+          nama_tanpa_gelar:$('[name=nama_tanpa_gelar]').value,
+          jabfung_saat_ini:$('[name=jabfung_saat_ini]').value||'-',
+          jenjang_saat_ini:$('[name=jenjang_saat_ini]').value||'-',
+          status_verifikasi:'pending',
+          catatan_admin:''
+        });
+        DATA.logs.unshift({id:randId(),waktu:new Date().toISOString(),user:$('userName').textContent,aksi:'Submit UKOM',detail:reg});
+        showLoading(false);
+        Swal.fire('Berhasil','Pendaftaran berhasil dikirim','success');
+        $('ukomForm').reset();
+        showStep(1); currentStep=1;
+        renderUKOM(); renderDashboard();
+      },1500);
+    }
+  });
+});
+
+/* ============================================================
+   EXPORT FUNCTIONS
+   ============================================================ */
+function exportExcel(tableId, filename){
+  const table = document.getElementById(tableId);
+  const wb = XLSX.utils.table_to_book(table, {sheet:'Sheet1'});
+  XLSX.writeFile(wb, filename+'.xlsx');
+}
+function exportPDF(tableId, filename){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const rows = [];
+  document.querySelectorAll('#'+tableId+' tbody tr').forEach(tr=>{
+    const cols = [];
+    tr.querySelectorAll('td').forEach(td=> cols.push(td.innerText));
+    rows.push(cols);
+  });
+  const headers = [];
+  document.querySelectorAll('#'+tableId+' thead th').forEach(th=> headers.push(th.innerText));
+  doc.autoTable({head:[headers],body:rows,theme:'grid'});
+  doc.save(filename+'.pdf');
+}
+$('btnExportPengumuman')?.addEventListener('click',()=>exportExcel('tablePengumuman','Pengumuman'));
+$('btnExportBezetting')?.addEventListener('click',()=>exportExcel('tableBezetting','Bezetting'));
+$('btnExportUKOM')?.addEventListener('click',()=>exportExcel('tableUKOM','UKOM'));
+$('btnPrintPengumuman')?.addEventListener('click',()=>window.print());
+$('btnPrintBezetting')?.addEventListener('click',()=>window.print());
+
+/* ============================================================
+   ADMIN PANEL UI
+   ============================================================ */
+document.querySelectorAll('.admin-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.admin-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.admin-page').forEach(p=>p.style.display='none');
+    $('admin'+btn.dataset.admin.charAt(0).toUpperCase()+btn.dataset.admin.slice(1)).style.display='';
+  });
+});
+function renderAdminPanel(){
+  // stats
+  $('adminStats').innerHTML = `
+    <div class="stat-card"><div class="icon-box blue"><i class="fa-solid fa-users"></i></div><div class="info"><h3>${DATA.ukom.length}</h3><p>Total Pendaftar</p></div></div>
+    <div class="stat-card"><div class="icon-box orange"><i class="fa-solid fa-hourglass-half"></i></div><div class="info"><h3>${DATA.ukom.filter(u=>u.status_verifikasi==='pending').length}</h3><p>Pending</p></div></div>
+    <div class="stat-card"><div class="icon-box green"><i class="fa-solid fa-circle-check"></i></div><div class="info"><h3>${DATA.ukom.filter(u=>u.status_verifikasi==='approved').length}</h3><p>Approved</p></div></div>
+    <div class="stat-card"><div class="icon-box red"><i class="fa-solid fa-circle-xmark"></i></div><div class="info"><h3>${DATA.ukom.filter(u=>u.status_verifikasi==='rejected').length}</h3><p>Rejected</p></div></div>
+    <div class="stat-card"><div class="icon-box teal"><i class="fa-solid fa-file-lines"></i></div><div class="info"><h3>${DATA.peng.length}</h3><p>Pengumuman</p></div></div>
+    <div class="stat-card"><div class="icon-box blue"><i class="fa-solid fa-building"></i></div><div class="info"><h3>${DATA.bez.length}</h3><p>Bezetting</p></div></div>`;
+  // tables
+  renderAdminUsers();
+  renderAdminPeng();
+  renderAdminBez();
+  renderAdminUKOM();
+  renderActivity();
+  // charts
+  if(typeof Chart !== 'undefined'){
+    new Chart($('adminChartReg'),{type:'line',data:{labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],datasets:[{label:'Registrasi',data:[5,8,3,12,7,9,4],borderColor:'#1e88e5',fill:false}]},options:{responsive:true}});
+    new Chart($('adminChartVer'),{type:'bar',data:{labels:['Pending','Approved','Rejected'],datasets:[{data:[
+      DATA.ukom.filter(u=>u.status_verifikasi==='pending').length,
+      DATA.ukom.filter(u=>u.status_verifikasi==='approved').length,
+      DATA.ukom.filter(u=>u.status_verifikasi==='rejected').length
+    ],backgroundColor:['#fb8c00','#43a047','#e53935']}]},options:{responsive:true}});
+  }
+}
+function renderAdminUsers(){
+  const tb=$('tableAdminUsers').querySelector('tbody');
+  tb.innerHTML = DATA.admins.map(a=>`<tr>
+    <td>${a.id.substr(-6)}</td><td>${a.nama}</td><td>${a.username}</td>
+    <td>${a.role}</td><td><span class="badge badge-success">${a.status}</span></td>
+    <td><button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;"><i class="fa-solid fa-pen"></i></button>
+    <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;color:red;"><i class="fa-solid fa-trash"></i></button></td>
+  </tr>`).join('');
+}
+function renderAdminPeng(){
+  const tb=$('tableAdmPeng').querySelector('tbody');
+  tb.innerHTML = DATA.peng.map(p=>`<tr>
+    <td>${p.id.substr(-6)}</td><td>${p.judul}</td>
+    <td><span class="badge ${p.status==='publish'?'badge-success':'badge-warning'}">${p.status.toUpperCase()}</span></td>
+    <td>${fmtDate(p.tanggal_publish)}</td>
+    <td><button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;"><i class="fa-solid fa-pen"></i></button>
+    <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;color:red;"><i class="fa-solid fa-trash"></i></button></td>
+  </tr>`).join('');
+}
+function renderAdminBez(){
+  const tb=$('tableAdmBez').querySelector('tbody');
+  tb.innerHTML = DATA.bez.map(b=>`<tr>
+    <td>${b.instansi}</td><td>${b.jenis_jabatan}</td><td>${b.jenjang}</td>
+    <td>${b.kebutuhan}</td><td>${b.pemangku_saat_ini}</td><td>${b.lowongan}</td>
+    <td><button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;"><i class="fa-solid fa-pen"></i></button>
+    <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;color:red;"><i class="fa-solid fa-trash"></i></button></td>
+  </tr>`).join('');
+}
+function renderAdminUKOM(){
+  const tb=$('tableAdmUKOM').querySelector('tbody');
+  tb.innerHTML = DATA.ukom.map(u=>`<tr>
+    <td>${u.no_registrasi}</td><td>${u.nama_tanpa_gelar}</td><td>${u.nik||'-'}</td>
+    <td>${u.jabfung_saat_ini||'-'}</td>
+    <td><span class="badge ${u.status_verifikasi==='approved'?'badge-success':u.status_verifikasi==='rejected'?'badge-danger':'badge-warning'}">${u.status_verifikasi.toUpperCase()}</span></td>
+    <td><button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;"><i class="fa-solid fa-eye"></i></button>
+    <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;"><i class="fa-solid fa-check" style="color:green"></i></button>
+    <button class="btn btn-outline" style="padding:4px 8px;font-size:.75rem;color:red;"><i class="fa-solid fa-times"></i></button></td>
+  </tr>`).join('');
+}
+function renderActivity(){
+  const tb=$('tableActivity').querySelector('tbody');
+  tb.innerHTML = DATA.logs.map(l=>`<tr>
+    <td>${fmtDate(l.waktu)}</td><td>${l.user}</td><td>${l.aksi}</td><td>${l.detail}</td>
+  </tr>`).join('');
+}
+$('btnAddAdmin').addEventListener('click',()=>{Swal.fire('Fitur','Tambah admin akan terhubung ke GAS.','info');});
+$('btnAddAdmPeng').addEventListener('click',()=>{Swal.fire('Fitur','Tambah pengumuman akan terhubung ke GAS.','info');});
+$('btnAddAdmBez').addEventListener('click',()=>{Swal.fire('Fitur','Tambah bezetting akan terhubung ke GAS.','info');});
+$('btnBackupData').addEventListener('click',()=>{
+  const blob = new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mantap_backup.json';a.click();
+});
+
+/* ============================================================
+   CEK STATUS
+   ============================================================ */
+$('btnCek').addEventListener('click',()=>{
+  const criteria=$('cekCriteria').value, kw=$('cekKeyword').value.trim().toLowerCase();
+  const resultDiv=$('cekResult');
+  resultDiv.style.display='block';
+  // search in dummy ukom
+  const match = DATA.ukom.find(u=>{
+    if(criteria==='no_registrasi') return u.no_registrasi.toLowerCase().includes(kw);
+    if(criteria==='nik') return u.nik.toLowerCase().includes(kw);
+    if(criteria==='nip') return u.nip.toLowerCase().includes(kw);
+    return false;
+  });
+  if(match){
+    resultDiv.innerHTML = `
+      <div class="card" style="padding:2rem;">
+        <h3 style="margin-bottom:1rem;">Hasil Pencarian</h3>
+        <div class="detail-row"><span>No. Registrasi</span><strong>${match.no_registrasi}</strong></div>
+        <div class="detail-row"><span>Nama</span><span>${match.nama_tanpa_gelar}</span></div>
+        <div class="detail-row"><span>NIK</span><span>${match.nik||'-'}</span></div>
+        <div class="detail-row"><span>NIP</span><span>${match.nip||'-'}</span></div>
+        <div class="detail-row"><span>Jabatan</span><span>${match.jabfung_saat_ini||'-'}</span></div>
+        <div class="detail-row"><span>Jenjang</span><span>${match.jenjang_saat_ini||'-'}</span></div>
+        <div class="detail-row"><span>Status</span><span class="badge ${match.status_verifikasi==='approved'?'badge-success':match.status_verifikasi==='rejected'?'badge-danger':'badge-warning'}">${match.status_verifikasi.toUpperCase()}</span></div>
+        <div class="detail-row"><span>Catatan</span><span>${match.catatan_admin||'-'}</span></div>
+        <div style="margin-top:1.5rem;"><button class="btn btn-primary" onclick="Swal.fire('QR Code','Kode QR registrasi: ${match.no_registrasi}','info')"><i class="fa-solid fa-qrcode"></i> Lihat QR Code</button></div>
+      </div>`;
+  } else {
+    resultDiv.innerHTML = `<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><h3>Tidak ditemukan</h3><p>Data tidak ditemukan untuk kata kunci "<strong>${kw}</strong>" pada kriteria <strong>${criteria}</strong>.</p></div>`;
+  }
+});
+
+/* ============================================================
+   NOTIFICATION CENTER
+   ============================================================ */
+function initAOS(){ if(typeof AOS !== 'undefined') AOS.init({duration:600,once:true}); }
+initAOS();
+
+/* ============================================================
+   SCROLL TO TOP
+   ============================================================ */
+window.addEventListener('scroll',()=>{
+  $('scrollTop').classList.toggle('visible', window.scrollY > 300);
+});
+$('scrollTop').addEventListener('click',()=> window.scrollTo({top:0,behavior:'smooth'}));
+
+/* ============================================================
+   FLOATING HELP
+   ============================================================ */
+$('floatingHelp').addEventListener('click',()=>{
+  Swal.fire({
+    title: '<i class="fa-solid fa-circle-question" style="color:#1e88e5;"></i> Bantuan',
+    html: `
+      <p><strong>MANTAP</strong> adalah sistem manajemen tata kelola jabatan fungsional kesehatan terintegrasi.</p>
+      <ul style="margin:.5rem 0;list-style:none;padding:0;">
+        <li>✅ Dashboard – Ringkasan data</li>
+        <li>📢 Pengumuman – Info terbaru UKOM</li>
+        <li>📊 Bezetting – Kebutuhan & pemangku</li>
+        <li>📝 Daftar UKOM – Pendaftaran online</li>
+        <li>🔍 Cek Status – Lacak pendaftaran</li>
+        <li>🛡️ Admin Panel – Kelola data (login)</li>
+      </ul>
+      <p>Hubungi <strong>admin@mantap.kemkes.go.id</strong> untuk bantuan teknis.</p>`,
+    icon: 'info',
+    confirmButtonText: 'Mengerti'
+  });
+});
+
+/* ============================================================
+   AUTO REFRESH DASHBOARD (every 5 minutes)
+   ============================================================ */
+setInterval(async ()=>{
+  const d = await server('getAll');
+  if(!d.error){ DATA = d; renderDashboard(); renderPengumuman(); renderBezetting(); renderUKOM(); }
+}, 300000);
+
+/* ============================================================
+   INITIALIZE
+   ============================================================ */
+document.querySelectorAll('.data-table').forEach(t=> new DataTable(t,{paging:true,pageLength:10,info:true,searching:true,order:[[0,'desc']],language:{url:'//cdn.datatables.net/plug-ins/2.0.5/i18n/id.json'}}));
+</script>
+</body>
+</html>
