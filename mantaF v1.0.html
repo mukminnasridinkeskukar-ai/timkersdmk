@@ -700,7 +700,7 @@ Platform enterprise modern untuk tata kelola Jabatan Fungsional Kesehatan terint
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxuPtH9mQYm1Qc1Rn-NCn-X56Pv3odfXs6fdjst0pZQHM8nntyUqdDSkIFufyBXjvkq/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2t_kkQyIA9XDZrwB9JGI6T3E6f0A4LajohcMyyrcTWtKnTMhjanvTbazyHaWGSwrN/exec";
 
 let bezettingCache = null;
 let ukomCache = null;
@@ -841,6 +841,9 @@ document.getElementById('ukomForm')
 e.preventDefault();
 
 const nik = document.querySelector('[name="nik"]').value;
+const nama = document.querySelector('[name="nama_tanpa_gelar"]').value;
+const unitKerja = document.querySelector('[name="nama_unit_kerja"]').value;
+
 if(!nik){
 alert('NIK wajib diisi');
 return;
@@ -852,9 +855,27 @@ submitBtn.textContent = 'Memproses...';
 submitBtn.disabled = true;
 
 try{
+const formData = new FormData(this);
+const fileInputs = this.querySelectorAll('input[type="file"]');
+const files = [];
+
+for (const input of fileInputs) {
+if (input.files && input.files[0]) {
+const file = input.files[0];
+const base64 = await fileToBase64(file);
+files.push({
+name: file.name,
+type: file.type,
+data: base64
+});
+}
+}
+
+formData.append('fileData', JSON.stringify(files));
+
 const response = await fetch(WEB_APP_URL,{
 method:'POST',
-body:new FormData(this)
+body:formData
 });
 
 const result = await response.json();
@@ -889,12 +910,21 @@ submitBtn.disabled = false;
 }
 
 } catch (err) {
-  alert('Error: ' + err.message);
-  submitBtn.textContent = originalText;
-  submitBtn.disabled = false;
+alert('Error: ' + err.message);
+submitBtn.textContent = originalText;
+submitBtn.disabled = false;
 }
 
 });
+
+function fileToBase64(file){
+return new Promise((resolve,reject)=>{
+const reader = new FileReader();
+reader.onload = () => resolve(reader.result.split(',')[1]);
+reader.onerror = reject;
+reader.readAsDataURL(file);
+});
+}
 
 /* ==========================
 CEK STATUS (Optimized)
