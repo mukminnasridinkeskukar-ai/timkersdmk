@@ -412,37 +412,63 @@ Platform modern tata kelola Jabatan Fungsional Kesehatan terintegrasi Google She
 </div>
 
 <!-- BEZETTING -->
-
+ 
 <div id="bezetting" class="section">
-
+ 
 <div class="panel">
-
+ 
 <h2>Data Bezetting Jabatan Fungsional Kesehatan</h2>
-<br>
-
+ <br>
+ 
+<div class="form-grid" style="margin-bottom:20px">
+ <div class="form-group">
+ <label>Filter Instansi</label>
+ <select id="filterInstansi" onchange="applyBezettingFilter()">
+ <option value="">Semua Instansi</option>
+ </select>
+ </div>
+ <div class="form-group">
+ <label>Filter Jenis Jabatan</label>
+ <select id="filterJabatan" onchange="applyBezettingFilter()">
+ <option value="">Semua Jenis Jabatan</option>
+ </select>
+ </div>
+ <div class="form-group">
+ <label>Filter Jenjang</label>
+ <select id="filterJenjang" onchange="applyBezettingFilter()">
+ <option value="">Semua Jenjang</option>
+ </select>
+ </div>
+ <div class="form-group">
+ <label>&nbsp;</label>
+ <button type="button" class="btn" onclick="resetBezettingFilter()">Reset</button>
+ </div>
+ </div>
+ 
 <table>
-
-<thead>
-<tr>
-<th>Instansi / Institusi Pelayanan Kesehatan</th>
-<th>Jenis Jabatan Fungsional</th>
-<th>Jenjang Jabatan</th>
-<th>Kebutuhan</th>
-<th>Pemangku</th>
-<th>Lowongan Formasi</th>
-<th>Nama-Nama Pemangku Saat Ini</th>
-<th>Nama-Nama Pemangku Yang Telah Disetujui Untuk Mengisi Lowongan</th>
-<th>Sisa</th>
-</tr>
-</thead>
-
+ <thead>
+ <tr>
+ <th>Instansi / Institusi Pelayanan Kesehatan</th>
+ <th>Jenis Jabatan Fungsional</th>
+ <th>Jenjang Jabatan</th>
+ <th>Kebutuhan</th>
+ <th>Pemangku</th>
+ <th>Lowongan Formasi</th>
+ <th>Nama-Nama Pemangku Saat Ini</th>
+ <th>Nama-Nama Pemangku Yang Telah Disetujui Untuk Mengisi Lowongan</th>
+ <th>Sisa</th>
+ </tr>
+ </thead>
+ 
 <tbody id="bezettingBody">
-</tbody>
-
+ </tbody>
+ 
 </table>
-
+ 
+<div id="pagination" style="margin-top:20px;text-align:center"></div>
+ 
 </div>
-
+ 
 </div>
 
 <!-- UKOM -->
@@ -876,47 +902,114 @@ document.getElementById('lightbox').style.display='none';
 }
 
 /* ==========================
-LOAD BEZETTING (Optimized)
-========================== */
-
+ LOAD BEZETTING (Optimized)
+ ========================== */
+ 
+let bezettingFilter = { instansi: '', jenis_jabatan: '', jenjang: '' };
+let bezettingPage = 1;
+const ROWS_PER_PAGE = 50;
+ 
 async function loadBezetting(){
-
+ 
 try{
-
-const response = await fetch(
-WEB_APP_URL + '?action=getBezetting',
-{ cache: 'no-store' }
-);
-
+ const response = await fetch(
+ WEB_APP_URL + '?action=getBezetting',
+ { cache: 'no-store' }
+ );
+ 
 const result = await response.json();
-bezettingCache = result.data;
-
+ bezettingCache = result.data;
+ populateBezettingFilters(result.data);
+ renderBezettingTable();
+ } catch (err) {
+   document.getElementById('bezettingBody').innerHTML = '<tr><td colspan="9" style="color:red">Gagal: ' + err.message + '</td></tr>';
+ }
+ 
+}
+ 
+function populateBezettingFilters(data){
+ const instansiSet = new Set();
+ const jabatanSet = new Set();
+ const jenjangSet = new Set();
+ 
+data.forEach(item=>{
+ if(item.instansi) instansiSet.add(item.instansi);
+ if(item.jenis_jabatan) jabatanSet.add(item.jenis_jabatan);
+ if(item.jenjang) jenjangSet.add(item.jenjang);
+ });
+ 
+const instansiSelect = document.getElementById('filterInstansi');
+ const jabatanSelect = document.getElementById('filterJabatan');
+ const jenjangSelect = document.getElementById('filterJenjang');
+ 
+[...instansiSet].sort().forEach(v=>instansiSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
+ [...jabatanSet].sort().forEach(v=>jabatanSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
+ [...jenjangSet].sort().forEach(v=>jenjangSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
+ }
+ 
+function applyBezettingFilter(){
+ bezettingFilter = {
+ instansi: document.getElementById('filterInstansi').value,
+ jenis_jabatan: document.getElementById('filterJabatan').value,
+ jenjang: document.getElementById('filterJenjang').value
+ };
+ bezettingPage = 1;
+ renderBezettingTable();
+ }
+ 
+function resetBezettingFilter(){
+ document.getElementById('filterInstansi').value = '';
+ document.getElementById('filterJabatan').value = '';
+ document.getElementById('filterJenjang').value = '';
+ bezettingFilter = { instansi: '', jenis_jabatan: '', jenjang: '' };
+ bezettingPage = 1;
+ renderBezettingTable();
+ }
+ 
+function renderBezettingTable(){
+ if(!bezettingCache) return;
+ 
+const filtered = bezettingCache.filter(item=>{
+ const matchInstansi = !bezettingFilter.instansi || item.instansi === bezettingFilter.instansi;
+ const matchJabatan = !bezettingFilter.jenis_jabatan || item.jenis_jabatan === bezettingFilter.jenis_jabatan;
+ const matchJenjang = !bezettingFilter.jenjang || item.jenjang === bezettingFilter.jenjang;
+ return matchInstansi && matchJabatan && matchJenjang;
+ });
+ 
+const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
+ const start = (bezettingPage - 1) * ROWS_PER_PAGE;
+ const pageData = filtered.slice(start, start + ROWS_PER_PAGE);
+ 
 const tbody = document.getElementById('bezettingBody');
-let html = '';
-
-result.data.forEach(item=>{
-
-html += `<tr>
-<td>${item.instansi || ''}</td>
-<td>${item.jenis_jabatan || ''}</td>
-<td>${item.jenjang || ''}</td>
-<td>${item.kebutuhan || 0}</td>
-<td>${item.pemangku || 0}</td>
-<td>${item.lowongan || 0}</td>
-<td>${item.pemangku_saat_ini || ''}</td>
-<td>${item.pemangku_disetujui || ''}</td>
-<td>${item.sisa || 0}</td>
-</tr>`;
-
-});
-
-tbody.innerHTML = html;
-
-} catch (err) {
-  document.getElementById('bezettingBody').innerHTML = '<tr><td colspan="9" style="color:red">Gagal: ' + err.message + '</td></tr>';
-}
-
-}
+ let html = '';
+ 
+pageData.forEach(item=>{
+ html += `<tr>
+ <td>${item.instansi || ''}</td>
+ <td>${item.jenis_jabatan || ''}</td>
+ <td>${item.jenjang || ''}</td>
+ <td>${item.kebutuhan || 0}</td>
+ <td>${item.pemangku || 0}</td>
+ <td>${item.lowongan || 0}</td>
+ <td>${item.pemangku_saat_ini || ''}</td>
+ <td>${item.pemangku_disetujui || ''}</td>
+ <td>${item.sisa || 0}</td>
+ </tr>`;
+ });
+ 
+tbody.innerHTML = html || '<tr><td colspan="9">Tidak ada data</td></tr>';
+ 
+let paginationHtml = '';
+ if(totalPages > 1){
+ paginationHtml = '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap">';
+ for(let i = 1; i <= totalPages; i++){
+ paginationHtml += `<button class="btn" style="padding:5px 10px;font-size:12px;${i === bezettingPage ? 'background:#0d9488' : ''}" onclick="bezettingPage=${i};renderBezettingTable()">${i}</button>`;
+ }
+ paginationHtml += '</div>';
+ }
+ paginationHtml += `<div style="margin-top:10px;font-size:12px;color:#64748b">Menampilkan ${pageData.length} dari ${filtered.length} data</div>`;
+ document.getElementById('pagination').innerHTML = paginationHtml;
+ }
 
 /* ==========================
 LOAD PENGUMUMAN
