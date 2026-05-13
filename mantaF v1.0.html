@@ -310,6 +310,90 @@ min-width:2200px;
 }
 
 </style>
+
+<script>
+
+const SECURITY_CONFIG = {
+  lastSubmitTime: 0,
+  minSubmitInterval: 10000,
+  csrfToken: null,
+  sessionData: null
+};
+
+function escapeHtml(text){
+  if (!text) return '';
+  return String(text).replace(/[&<"']/g, tag => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[tag]));
+}
+
+function sanitizeInput(input, maxLength){
+  if (!input) return '';
+  let val = String(input).trim();
+  val = val.replace(/[<>]/g, '');
+  if (val.length > maxLength) val = val.substring(0, maxLength);
+  return val;
+}
+
+function validateEmail(email){
+  if (!email) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 100;
+}
+
+function validatePhone(phone){
+  if (!phone) return false;
+  return /^[0-9+\-\s]{8,15}$/.test(phone);
+}
+
+function rateLimitCheck(){
+  const now = Date.now();
+  if (now - SECURITY_CONFIG.lastSubmitTime < SECURITY_CONFIG.minSubmitInterval) {
+    const remaining = Math.ceil((SECURITY_CONFIG.minSubmitInterval - (now - SECURITY_CONFIG.lastSubmitTime)) / 1000);
+    alert('Harap tunggu ' + remaining + ' detik sebelum submit lagi');
+    return false;
+  }
+  SECURITY_CONFIG.lastSubmitTime = now;
+  return true;
+}
+
+async function getCSRFToken(){
+  try {
+    const response = await fetch(WEB_APP_URL + '?action=getCSRFToken');
+    const result = await response.json();
+    SECURITY_CONFIG.csrfToken = result.token;
+    return result.token;
+  } catch (err) {
+    return null;
+  }
+}
+
+function disableInspect(){
+  document.addEventListener('keydown', function(e){
+    if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 85))) {
+      e.preventDefault();
+      return false;
+    }
+  });
+  document.addEventListener('contextmenu', function(e){
+    if (window.location.hash === '#admin') {
+      e.preventDefault();
+      return false;
+    }
+  });
+}
+
+function showToast(message){
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0f766e;color:#fff;padding:15px 25px;border-radius:8px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+</script>
 </head>
 
 <body>
@@ -1484,7 +1568,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6HNXKtxRmTzRvLprcrhSl_p4Y1Cf0iZiBRKsPcnbKCyZB_XvkJY0kuy9QQjlbcKdY/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwPagCTDBWdl89SLnsYJYHEUxH4Sv5E19bD49wrzBOAZhci7fGyMNY4xp1wC7sujDgw/exec";
 
 let bezettingCache = null;
 
@@ -1733,7 +1817,27 @@ await Promise.all([
  
 }
 
-loadAllData();
+disableInspect();
+ 
+ /* Session restore */
+ window.addEventListener('load', function(){
+ const savedSession = sessionStorage.getItem('mantafSession');
+ if (savedSession) {
+ SECURITY_CONFIG.sessionData = JSON.parse(savedSession);
+ const elapsed = Date.now() - SECURITY_CONFIG.sessionData.loginTime;
+ if (elapsed < 30 * 60000) {
+ document.getElementById('adminLoginSection').style.display = 'none';
+ document.getElementById('adminDataSection').style.display = 'block';
+ loadAdminData();
+ setupSessionTimeout();
+ showSection('admin', document.querySelector('.menu button:nth-child(5)'));
+ } else {
+ sessionStorage.removeItem('mantafSession');
+ }
+ }
+ });
+ 
+ loadAllData();
 
 /* ==========================
 SUBMIT FORM
@@ -1749,11 +1853,29 @@ const nama = document.querySelector('[name="nama_tanpa_gelar"]').value;
 const unitKerja = document.querySelector('[name="nama_unit_kerja"]').value;
 
 if(!nik){
-alert('NIK wajib diisi');
-return;
-}
-
-const submitBtn = this.querySelector('button[type="submit"]');
+ alert('NIK wajib diisi');
+ return;
+ }
+ 
+ if(!rateLimitCheck()){
+ submitBtn.disabled = false;
+ return;
+ }
+ 
+ const email = document.querySelector('[name="email_aktif"]').value;
+ const phone = document.querySelector('[name="nomor_whatsapp"]').value;
+ if(!validateEmail(email)){
+ alert('Email tidak valid');
+ submitBtn.disabled = false;
+ return;
+ }
+ if(!validatePhone(phone)){
+ alert('Nomor WhatsApp tidak valid (hanya angka, 8-15 digit)');
+ submitBtn.disabled = false;
+ return;
+ }
+ 
+ const submitBtn = this.querySelector('button[type="submit"]');
 const originalText = submitBtn.textContent;
 submitBtn.textContent = 'Memproses...';
 submitBtn.disabled = true;
@@ -1777,7 +1899,10 @@ data: base64
 
 formData.append('fileData', JSON.stringify(files));
 
-const response = await fetch(WEB_APP_URL,{
+const csrfToken = SECURITY_CONFIG.csrfToken || await getCSRFToken();
+ formData.append('csrfToken', csrfToken);
+ 
+ const response = await fetch(WEB_APP_URL,{
 method:'POST',
 body:formData
 });
@@ -1976,32 +2101,44 @@ LOGIN ADMIN
 ========================== */
 
 async function loginAdmin(){
-
-const user = document.getElementById('adminUser').value;
-const pass = document.getElementById('adminPass').value;
-
-if(!user || !pass){
-document.getElementById('adminResult').innerHTML = '<div style="color:red;font-weight:bold;">Isi username dan password</div>';
-return;
-}
-
-try{
-const response = await fetch(
-WEB_APP_URL + '?action=adminLogin&username=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass)
-);
-
-const result = await response.json();
-
-if(result.status === 'success'){
+ if(!rateLimitCheck()){
+ return;
+ }
+ 
+ const user = sanitizeInput(document.getElementById('adminUser').value, 50);
+ const pass = document.getElementById('adminPass').value;
+ 
+ if(!user || !pass || pass.length < 8){
+ document.getElementById('adminResult').innerHTML = '<div style="color:red;font-weight:bold;">Password minimal 8 karakter</div>';
+ return;
+ }
+ 
+ try{
+ const response = await fetch(
+ WEB_APP_URL + '?action=adminLogin&username=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass)
+ );
+ 
+ const result = await response.json();
+ 
+ if(result.status === 'success'){
+ SECURITY_CONFIG.sessionData = {
+ session: result.session,
+ role: result.role,
+ username: user,
+ loginTime: Date.now()
+ };
+ sessionStorage.setItem('mantafSession', JSON.stringify(SECURITY_CONFIG.sessionData));
+ 
  document.getElementById('adminResult').innerHTML = `
  <div style="color:green;font-weight:bold;">
- Login berhasil - Selamat datang, ${result.nama_lengkap || user}
+ Login berhasil - Selamat datang, ${escapeHtml(result.nama_lengkap) || user}
  </div>
  `;
  document.getElementById('adminLoginSection').style.display = 'none';
  document.getElementById('adminDataSection').style.display = 'block';
  loadAdminData();
-}else{
+ setupSessionTimeout();
+ }else{
  document.getElementById('adminResult').innerHTML = `
  <div style="color:red;font-weight:bold;">
  ${result.message || 'Login gagal'}
@@ -2020,15 +2157,26 @@ if(result.status === 'success'){
    ========================== */
   
  function logoutAdmin(){
-  document.getElementById('adminLoginSection').style.display = 'block';
-  document.getElementById('adminDataSection').style.display = 'none';
-  document.getElementById('adminUser').value = '';
-  document.getElementById('adminPass').value = '';
-  document.getElementById('adminResult').innerHTML = '';
-  // Reset filter
-  document.getElementById('filterUnitKerja').value = '';
-  document.getElementById('filterStatus').value = '';
-  adminFilter = { unit_kerja: '', status: '' };
+ SECURITY_CONFIG.sessionData = null;
+ sessionStorage.removeItem('mantafSession');
+ document.getElementById('adminLoginSection').style.display = 'block';
+ document.getElementById('adminDataSection').style.display = 'none';
+ document.getElementById('adminUser').value = '';
+ document.getElementById('adminPass').value = '';
+ document.getElementById('adminResult').innerHTML = '';
+ document.getElementById('filterUnitKerja').value = '';
+ document.getElementById('filterStatus').value = '';
+ adminFilter = { unit_kerja: '', status: '' };
+ }
+ 
+ function setupSessionTimeout(){
+ if (SECURITY_CONFIG.sessionTimeout) {
+ clearTimeout(SECURITY_CONFIG.sessionTimeout);
+ }
+ SECURITY_CONFIG.sessionTimeout = setTimeout(() => {
+ showToast('Session expired - auto logout');
+ logoutAdmin();
+ }, 30 * 60000);
  }
  
  /* ==========================
@@ -2105,30 +2253,30 @@ const tbody = document.getElementById('adminDataBody');
   let html = '';
   
 pageData.forEach(item=>{
-  const statusBadge = item.status_verifikasi === 'Disetujui' ? 
-  '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
-  item.status_verifikasi === 'Ditolak' ? 
-  '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
-  '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
-  
-const fotoUrl = item.foto_4x6_latar_merah || '';
-  const fotoThumb = fotoUrl ? `<img src="${fotoUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="showAdminDetail(${JSON.stringify(item).replace(/"/g, '&quot;')})" title="Klik untuk lihat detail">` : '-';
-  
-html += `<tr>
-  <td>${fotoThumb}</td>
-  <td>${item.nik || ''}</td>
-  <td>${item.nip || ''}</td>
-  <td>${item.nama || ''}</td>
-  <td>${item.unit_kerja || ''}</td>
-  <td>${statusBadge}</td>
-  <td>${item.catatan_admin || ''}</td>
-  <td>
-  <button class="btn" style="padding:5px 10px;font-size:12px" onclick="updateStatus(${item.no}, 'Disetujui')">Setuju</button>
-  <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
-  </td>
-  </tr>`;
-  
-});
+ const statusBadge = item.status_verifikasi === 'Disetujui' ? 
+ '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
+ item.status_verifikasi === 'Ditolak' ? 
+ '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
+ '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
+ 
+ const fotoUrl = item.foto_4x6_latar_merah || '';
+ const fotoThumb = fotoUrl ? `<img src="${escapeHtml(fotoUrl)}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="showAdminDetail(${JSON.stringify(item).replace(/"/g, '&quot;')})" title="Klik untuk lihat detail">` : '-';
+ 
+ html += `<tr>
+ <td>${fotoThumb}</td>
+ <td>${escapeHtml(item.nik || '')}</td>
+ <td>${escapeHtml(item.nip || '')}</td>
+ <td>${escapeHtml(item.nama || '')}</td>
+ <td>${escapeHtml(item.unit_kerja || '')}</td>
+ <td>${statusBadge}</td>
+ <td>${escapeHtml(item.catatan_admin || '')}</td>
+ <td>
+ <button class="btn" style="padding:5px 10px;font-size:12px" onclick="updateStatus(${item.no}, 'Disetujui')">Setuju</button>
+ <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
+ </td>
+ </tr>`;
+ 
+ });
   
 tbody.innerHTML = html || '<tr><td colspan="8">Tidak ada data</td></tr>';
   
