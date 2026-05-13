@@ -468,8 +468,9 @@ function formatDriveUrl(url){
   if (!url) return '';
   url = String(url).trim();
   
-  // Already correct format
+  // Already correct format - return as is
   if (url.includes('uc?export=view&id=')) return url;
+  if (url.includes('thumbnail?id=')) return url;
   
   // Extract file ID from various Google Drive URL formats
   let fileId = null;
@@ -499,13 +500,48 @@ function formatDriveUrl(url){
   }
   
   if (fileId) {
-    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+    // Use thumbnail endpoint for better reliability
+    return `https://drive.google.com/thumbnail?id=${fileId}`;
   }
   
   return url;
 }
 
 function getImageUrl(url){
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return 'https://via.placeholder.com/100x100?text=No+Image';
+  }
+  const formatted = formatDriveUrl(url);
+  if (!formatted) return 'https://via.placeholder.com/100x100?text=No+Image';
+  
+  if (formatted.includes('drive.google.com')) {
+    return formatted + (formatted.includes('?') ? '&' : '?') + 't=' + Date.now();
+  }
+  return formatted;
+}
+
+function getBackupImageUrl(url){
+  if (!url) return 'https://via.placeholder.com/100x100?text=No+Image';
+  url = String(url).trim();
+  
+  let fileId = null;
+  let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) fileId = match[1];
+  if (!fileId) {
+    match = url.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+    if (match) fileId = match[1];
+  }
+  
+  if (fileId) {
+    return 'https://drive.google.com/uc?export=view&id=' + fileId;
+  }
+  return 'https://via.placeholder.com/100x100?text=No+Image';
+}
+
+function getPhotoUrl(url){
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return 'https://via.placeholder.com/100x100?text=No+Image';
+  }
   const formatted = formatDriveUrl(url);
   if (!formatted) return 'https://via.placeholder.com/100x100?text=No+Image';
   return formatted;
@@ -582,7 +618,7 @@ function showToast(message){
 <div class="sidebar" id="sidebar">
 <div class="profile-section" id="profileSection">
   <div class="profile-avatar">
-    <img src="https://drive.google.com/uc?export=view&id=1D1DKEiNAXmrx8zt9a630Loi-UHr07ZeJ" onerror="this.src='https://ui-avatars.com/api/?name=Admin+MantaF&background=0f766e&color=fff'" id="profileImg">
+    <img src="https://drive.google.com/uc?export=view&id=1D1DKEiNAXmrx8zt9a630Loi-UHr07ZeJ" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=Admin+MantaF&background=0f766e&color=fff'" id="profileImg">
     <span class="profile-status"></span>
   </div>
   <div class="profile-name" id="profileName">Admin MantaF</div>
@@ -1758,7 +1794,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx-tOgmCKOwahxVVrYNqRLPrfN0ozb9xcpg6FoWL_texFveJNhCLnKPeC6flT90cXv3/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxMbh_YX-mzhuFsCXUY6CTUStO7iEJd5OqYr79gsM3ACUPGgoxrq5NQZYaCm30RaZe7/exec";
 
 let bezettingCache = null;
 
@@ -2477,8 +2513,9 @@ pageData.forEach(item=>{
   '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
   '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
   
-  const fotoUrl = getImageUrl(item.foto_4x6_latar_merah);
-  const fotoThumb = fotoUrl ? `<img src="${fotoUrl}" onload="this.style.opacity=1" onerror="this.onerror=null;this.src='https://via.placeholder.com/50x50/cccccc/666666?text=Photo'" data-src="${fotoUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer;opacity:0.8;transition:opacity:0.3s" onclick="showAdminDetail(${item.no})" title="Klik untuk lihat detail">` : '-';
+const fotoUrl = getImageUrl(item.foto_4x6_latar_merah);
+    const backupUrl = getBackupImageUrl(item.foto_4x6_latar_merah);
+    const fotoThumb = fotoUrl ? `<img src="${fotoUrl}" onload="this.style.opacity=1" onerror="this.onerror=null;this.src='${backupUrl}'" data-src="${fotoUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer;opacity:0.8;transition:opacity:0.3s" onclick="showAdminDetail(${item.no})" title="Klik untuk lihat detail">` : `<img src="https://via.placeholder.com/50x50/cccccc/666666?text=Photo" style="width:50px;height:50px;object-fit:cover;border-radius:4px">`;
   
   html += `<tr>
   <td>${fotoThumb}</td>
@@ -2525,8 +2562,9 @@ let paginationHtml = '';
      '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
      '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
    
-   const fotoUrl = getImageUrl(rowData.foto_4x6_latar_merah);
-   const fotoHtml = fotoUrl ? `<img src="${fotoUrl}" onload="this.style.opacity=1" onerror="this.onerror=null;this.src='https://via.placeholder.com/200x200/cccccc/666666?text=Photo'" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px;opacity:0.8;transition:opacity:0.3s">` : '-';
+const fotoUrl = getImageUrl(rowData.foto_4x6_latar_merah);
+    const backupFotoUrl = getBackupImageUrl(rowData.foto_4x6_latar_merah);
+    const fotoHtml = fotoUrl ? `<img src="${fotoUrl}" onload="this.style.opacity=1" onerror="this.onerror=null;this.src='${backupFotoUrl}'" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px;opacity:0.8;transition:opacity:0.3s">` : '<img src="https://via.placeholder.com/200x200/cccccc/666666?text=Photo" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px">';
    
    content.innerHTML = `
    <span class="close" onclick="document.getElementById('adminLightbox').style.display='none'">&times;</span>
