@@ -336,15 +336,52 @@ function escapeHtml(text){
    }[tag]));
  }
  
- function formatDriveUrl(url){
-   if (!url) return '';
-   if (url.includes('uc?export=view&id=')) return url;
-   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-   if (match) {
-     return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-   }
-   return url;
- }
+function formatDriveUrl(url){
+  if (!url) return '';
+  url = String(url).trim();
+  
+  // Already correct format
+  if (url.includes('uc?export=view&id=')) return url;
+  
+  // Extract file ID from various Google Drive URL formats
+  let fileId = null;
+  
+  // Format: /d/FILE_ID/
+  let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) {
+    fileId = match[1];
+  }
+  
+  // Format: /file/d/FILE_ID/
+  if (!fileId) {
+    match = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
+    if (match) fileId = match[1];
+  }
+  
+  // Format: id=FILE_ID
+  if (!fileId) {
+    match = url.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+    if (match) fileId = match[1];
+  }
+  
+  // Format: /open?id=FILE_ID
+  if (!fileId) {
+    match = url.match(/\/open\?id=([a-zA-Z0-9-_]+)/);
+    if (match) fileId = match[1];
+  }
+  
+  if (fileId) {
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  }
+  
+  return url;
+}
+
+function getImageUrl(url){
+  const formatted = formatDriveUrl(url);
+  if (!formatted) return 'https://via.placeholder.com/100x100?text=No+Image';
+  return formatted;
+}
  
  function sanitizeInput(input, maxLength){
   if (!input) return '';
@@ -1584,7 +1621,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxj1GsmCOpk-NeeFxkugLAR-Yvm9rJulH6JskqxdWdMPa_fz_hPD9JituqPTtbRAbng/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby4kh4bMnjLIoQeal5BHprB04kiqKZFrQEImahgFD4qYDNcP9g_p_Xg_UjnWtQcqi3j/exec";
 
 let bezettingCache = null;
 
@@ -2271,30 +2308,30 @@ const tbody = document.getElementById('adminDataBody');
   let html = '';
   
 pageData.forEach(item=>{
- const statusBadge = item.status_verifikasi === 'Disetujui' ? 
- '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
- item.status_verifikasi === 'Ditolak' ? 
- '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
- '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
- 
-const fotoUrl = formatDriveUrl(item.foto_4x6_latar_merah) || '';
-  const fotoThumb = fotoUrl ? `<img src="${escapeHtml(fotoUrl)}" onerror="this.src='https://via.placeholder.com/50x50?text=No+Image'" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="showAdminDetail(${JSON.stringify(item).replace(/"/g, '&quot;')})" title="Klik untuk lihat detail">` : '-';
- 
- html += `<tr>
- <td>${fotoThumb}</td>
- <td>${escapeHtml(item.nik || '')}</td>
- <td>${escapeHtml(item.nip || '')}</td>
- <td>${escapeHtml(item.nama || '')}</td>
- <td>${escapeHtml(item.unit_kerja || '')}</td>
- <td>${statusBadge}</td>
- <td>${escapeHtml(item.catatan_admin || '')}</td>
- <td>
- <button class="btn" style="padding:5px 10px;font-size:12px" onclick="updateStatus(${item.no}, 'Disetujui')">Setuju</button>
- <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
- </td>
- </tr>`;
- 
- });
+  const statusBadge = item.status_verifikasi === 'Disetujui' ? 
+  '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
+  item.status_verifikasi === 'Ditolak' ? 
+  '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
+  '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
+  
+  const fotoUrl = getImageUrl(item.foto_4x6_latar_merah);
+  const fotoThumb = fotoUrl ? `<img src="${fotoUrl}" onload="this.style.opacity=1" onerror="this.onerror=null;this.src='https://via.placeholder.com/50x50/cccccc/666666?text=Photo'" data-src="${fotoUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer;opacity:0.8;transition:opacity:0.3s" onclick="showAdminDetail(${item.no})" title="Klik untuk lihat detail">` : '-';
+  
+  html += `<tr>
+  <td>${fotoThumb}</td>
+  <td>${escapeHtml(item.nik || '')}</td>
+  <td>${escapeHtml(item.nip || '')}</td>
+  <td>${escapeHtml(item.nama || '')}</td>
+  <td>${escapeHtml(item.unit_kerja || '')}</td>
+  <td>${statusBadge}</td>
+  <td>${escapeHtml(item.catatan_admin || '')}</td>
+  <td>
+  <button class="btn" style="padding:5px 10px;font-size:12px" onclick="updateStatus(${item.no}, 'Disetujui')">Setuju</button>
+  <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
+  </td>
+  </tr>`;
+  
+  });
   
 tbody.innerHTML = html || '<tr><td colspan="8">Tidak ada data</td></tr>';
   
@@ -2311,83 +2348,89 @@ let paginationHtml = '';
   }
  
 /* ==========================
-  SHOW ADMIN DETAIL (Lightbox)
-  ========================== */
-  
-function showAdminDetail(item){
-  const content = document.getElementById('adminLightboxContent');
-  const statusBadge = item.status_verifikasi === 'Disetujui' ? 
-    '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
-    item.status_verifikasi === 'Ditolak' ? 
-    '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
-    '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
-  
-  content.innerHTML = `
-  <span class="close" onclick="document.getElementById('adminLightbox').style.display='none'">&times;</span>
-  <h2 style="margin-bottom:15px">Detail Peserta UKOM</h2>
-  
-  <div style="display:flex;gap:20px;flex-wrap:wrap">
-  <div style="flex:1;min-width:250px">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-  <div><b>NIK</b><br>${item.nik || '-'}</div>
-  <div><b>NIP</b><br>${item.nip || '-'}</div>
-  <div><b>Nama</b><br>${item.nama || '-'}</div>
-  <div><b>Unit Kerja</b><br>${item.unit_kerja || '-'}</div>
-  <div><b>Pangkat</b><br>${item.pangkat_dan_golongan || '-'}</div>
-  <div><b>SK Jabfung</b><br>${item.nomor_sk_jabfungs_terakhir || '-'}</div>
-  <div><b>Jenis Kelamin</b><br>${item.jenis_kelamin || '-'}</div>
-  <div><b>WhatsApp</b><br>${item.nomor_whatsapp || '-'}</div>
-  <div><b>Email</b><br>${item.email_aktif || '-'}</div>
-  <div><b>Nilai PAK</b><br>${item.nilai_pak_terakhir || '-'}</div>
-  <div><b>Jabfung</b><br>${item.jabfung_saat_ini || '-'}</div>
-  <div><b>Jenjang</b><br>${item.jenjang_saat_ini || '-'}</div>
-  <div><b>Tipe</b><br>${item.tipe || '-'}</div>
-  <div><b>Jenis UKOM</b><br>${item.jenis_ukom || '-'}</div>
-  <div><b>Jabfung Tujuan</b><br>${item.jabfung_tujuan || '-'}</div>
-  <div><b>Jenjang Tujuan</b><br>${item.jenjang_tujuan || '-'}</div>
-  <div><b>Status</b><br>${statusBadge}</div>
-  <div><b>Catatan</b><br>${item.catatan_admin || '-'}</div>
-  </div>
-  </div>
-  
+   SHOW ADMIN DETAIL (Lightbox)
+   ========================== */
+   
+  function showAdminDetail(no){
+   const rowData = ukomCache.find(item => item.no === no);
+   if (!rowData) return;
+   
+   const content = document.getElementById('adminLightboxContent');
+   const statusBadge = rowData.status_verifikasi === 'Disetujui' ? 
+     '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
+     rowData.status_verifikasi === 'Ditolak' ? 
+     '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
+     '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
+   
+   const fotoUrl = getImageUrl(rowData.foto_4x6_latar_merah);
+   const fotoHtml = fotoUrl ? `<img src="${fotoUrl}" onload="this.style.opacity=1" onerror="this.onerror=null;this.src='https://via.placeholder.com/200x200/cccccc/666666?text=Photo'" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px;opacity:0.8;transition:opacity:0.3s">` : '-';
+   
+   content.innerHTML = `
+   <span class="close" onclick="document.getElementById('adminLightbox').style.display='none'">&times;</span>
+   <h2 style="margin-bottom:15px">Detail Peserta UKOM</h2>
+   
+   <div style="display:flex;gap:20px;flex-wrap:wrap">
+   <div style="flex:1;min-width:250px">
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+   <div><b>NIK</b><br>${rowData.nik || '-'}</div>
+   <div><b>NIP</b><br>${rowData.nip || '-'}</div>
+   <div><b>Nama</b><br>${rowData.nama || '-'}</div>
+   <div><b>Unit Kerja</b><br>${rowData.unit_kerja || '-'}</div>
+   <div><b>Pangkat</b><br>${rowData.pangkat_dan_golongan || '-'}</div>
+   <div><b>SK Jabfung</b><br>${rowData.nomor_sk_jabfungs_terakhir || '-'}</div>
+   <div><b>Jenis Kelamin</b><br>${rowData.jenis_kelamin || '-'}</div>
+   <div><b>WhatsApp</b><br>${rowData.nomor_whatsapp || '-'}</div>
+   <div><b>Email</b><br>${rowData.email_aktif || '-'}</div>
+   <div><b>Nilai PAK</b><br>${rowData.nilai_pak_terakhir || '-'}</div>
+   <div><b>Jabfung</b><br>${rowData.jabfung_saat_ini || '-'}</div>
+   <div><b>Jenjang</b><br>${rowData.jenjang_saat_ini || '-'}</div>
+   <div><b>Tipe</b><br>${rowData.tipe || '-'}</div>
+   <div><b>Jenis UKOM</b><br>${rowData.jenis_ukom || '-'}</div>
+   <div><b>Jabfung Tujuan</b><br>${rowData.jabfung_tujuan || '-'}</div>
+   <div><b>Jenjang Tujuan</b><br>${rowData.jenjang_tujuan || '-'}</div>
+   <div><b>Status</b><br>${statusBadge}</div>
+   <div><b>Catatan</b><br>${rowData.catatan_admin || '-'}</div>
+   </div>
+   </div>
+   
 <div style="flex:0 0 200px;text-align:center">
    <div style="margin-bottom:15px"><b>Foto 4x6</b><br>
-   ${item.foto_4x6_latar_merah ? `<img src="${formatDriveUrl(item.foto_4x6_latar_merah)}" onerror="this.src='https://via.placeholder.com/200x200?text=No+Image'" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px">` : '-'}
+   ${fotoHtml}
    </div>
    <div style="margin-bottom:15px"><b>PAK</b><br>
-   ${item.upload_pak_konvensional_integrasi_konversi_terakhir ? `<a href="${formatDriveUrl(item.upload_pak_konvensional_integrasi_konversi_terakhir)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   ${rowData.upload_pak_konvensional_integrasi_konversi_terakhir ? `<a href="${getImageUrl(rowData.upload_pak_konvensional_integrasi_konversi_terakhir)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
    </div>
    <div style="margin-bottom:15px"><b>Daftar Riwayat</b><br>
-   ${item.daftar_riwayat_hidup ? `<a href="${formatDriveUrl(item.daftar_riwayat_hidup)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   ${rowData.daftar_riwayat_hidup ? `<a href="${getImageUrl(rowData.daftar_riwayat_hidup)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
    </div>
    <div style="margin-bottom:15px"><b>Ijazah</b><br>
-   ${item.ijazah ? `<a href="${formatDriveUrl(item.ijazah)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   ${rowData.ijazah ? `<a href="${getImageUrl(rowData.ijazah)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
    </div>
    <div style="margin-bottom:15px"><b>STR</b><br>
-   ${item.str ? `<a href="${formatDriveUrl(item.str)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   ${rowData.str ? `<a href="${getImageUrl(rowData.str)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
    </div>
    <div style="margin-bottom:15px"><b>SK Pangkat</b><br>
-   ${item.sk_pangkat ? `<a href="${formatDriveUrl(item.sk_pangkat)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   ${rowData.sk_pangkat ? `<a href="${getImageUrl(rowData.sk_pangkat)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
    </div>
    <div style="margin-bottom:15px"><b>SK Jabfung</b><br>
-   ${item.sk_jabfung ? `<a href="${formatDriveUrl(item.sk_jabfung)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   ${rowData.sk_jabfung ? `<a href="${getImageUrl(rowData.sk_jabfung)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
    </div>
 <div style="margin-bottom:15px"><b>SKP 2 Tahun</b><br>
-   ${item.skp_2_tahun ? `<a href="${formatDriveUrl(item.skp_2_tahun)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   ${rowData.skp_2_tahun ? `<a href="${getImageUrl(rowData.skp_2_tahun)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
    </div>
    <div style="margin-bottom:15px"><b>Surat Bebas</b><br>
-   ${item.surat_bebas ? `<a href="${formatDriveUrl(item.surat_bebas)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   ${rowData.surat_bebas ? `<a href="${getImageUrl(rowData.surat_bebas)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
    </div>
-  </div>
-  </div>
-  
-  <div style="margin-top:20px;text-align:center">
-  <button class="btn" style="padding:8px 15px;margin:5px" onclick="updateStatus(${item.no}, 'Disetujui')">Setujui</button>
-  <button class="btn" style="padding:8px 15px;margin:5px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
-  </div>
-  `;
-  document.getElementById('adminLightbox').style.display = 'flex';
-  }
+   </div>
+   </div>
+   
+   <div style="margin-top:20px;text-align:center">
+   <button class="btn" style="padding:8px 15px;margin:5px" onclick="updateStatus(${rowData.no}, 'Disetujui')">Setujui</button>
+   <button class="btn" style="padding:8px 15px;margin:5px;background:#dc2626" onclick="updateStatus(${rowData.no}, 'Ditolak')">Tolak</button>
+   </div>
+   `;
+   document.getElementById('adminLightbox').style.display = 'flex';
+   }
  
 /* ==========================
  UPDATE STATUS
