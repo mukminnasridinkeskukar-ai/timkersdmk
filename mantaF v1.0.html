@@ -700,7 +700,7 @@ Platform enterprise modern untuk tata kelola Jabatan Fungsional Kesehatan terint
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzAednLFgEPSpgoPm4RUTpNn2hH1giGj3AZG3Gw8v8i3I9Ri_AbRDF0saOc6f8821v6/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyeMdWPlnlu9MIhQfhcJoQ9SBDjdfzSjturlpw1BeyYCUVEyfNhZgDvrWKAfMGRvPl-/exec";
 
 let bezettingCache = null;
 let ukomCache = null;
@@ -907,18 +907,6 @@ async function cekStatus(){
 const keyword = document.getElementById('cekData').value;
 if(!keyword) return;
 
-if(ukomCache) {
-const found = ukomCache.find(item => item.nik === keyword || item.nip === keyword);
-if(found){
-document.getElementById('hasilStatus').innerHTML = `
-<b>Nama :</b> ${found.nama || '-'}<br>
-<b>Status :</b> ${found.status || '-'}<br>
-<b>Jenis UKOM :</b> ${found.jenis_ukom || '-'}
-`;
-return;
-}
-}
-
 const controller = new AbortController();
 const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -931,11 +919,20 @@ clearTimeout(timeoutId);
 
 const result = await response.json();
 
+if(result.found){
 document.getElementById('hasilStatus').innerHTML = `
-<b>Nama :</b> ${result.nama || '-'}<br>
-<b>Status :</b> ${result.status || 'Tidak ditemukan'}<br>
-<b>Jenis UKOM :</b> ${result.jenis_ukom || '-'}
+<div class="card" style="background:#ecfeff;border-left:4px solid #0f766e">
+<h4 style="margin-bottom:10px;color:#0f766e">Hasil Pengecekan</h4>
+<table style="width:100%;font-size:14px">
+<tr><td style="padding:5px 0;width:150px"><b>Nama Tanpa Gelar</b></td><td style="padding:5px 0">${result.nama || '-'}</td></tr>
+<tr><td style="padding:5px 0"><b>Status Verifikasi</b></td><td style="padding:5px 0"><span style="background:${result.status_verifikasi === 'Disetujui' ? '#dcfce7' : result.status_verifikasi === 'Ditolak' ? '#fee2e2' : '#fef3c7'};padding:3px 10px;border-radius:4px">${result.status_verifikasi || 'Belum Diverifikasi'}</span></td></tr>
+<tr><td style="padding:5px 0"><b>Catatan Admin</b></td><td style="padding:5px 0">${result.catatan_admin || '-'}</td></tr>
+</table>
+</div>
 `;
+}else{
+document.getElementById('hasilStatus').innerHTML = `<div style="padding:20px;background:#fee2e2;border-radius:8px">Data tidak ditemukan untuk NIK/NIP: <b>${keyword}</b></div>`;
+}
 
 }catch(err){
 document.getElementById('hasilStatus').innerHTML = `<span style="color:red">Gagal cek status</span>`;
