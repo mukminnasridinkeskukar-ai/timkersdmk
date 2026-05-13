@@ -1516,7 +1516,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwh_ssX9fgTlTL8VDn9nQOf-VfI2hLu2ab2Kx9bsGhiOIC-jZS26X_DR2k4u-p20JyU/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyIj8_KSMcOiWasrw8_S9xPy7joNyejfKnHaf-tOnToTvb0fbbIwith1ZGAWQ8URPJi/exec";
 
 let bezettingCache = null;
 
@@ -1732,16 +1732,36 @@ if(result.totalLowongan !== undefined){
 }
  
 /* ==========================
- LOAD ALL DATA (Parallel)
- ========================== */
- 
+  LOAD ALL DATA (Parallel)
+  ========================== */
+  
 async function loadAllData(){
- 
+  
+try{
+  const response = await fetch(WEB_APP_URL + '?action=checkStatus', { cache: 'no-store' });
+  const result = await response.json();
+  
+  if(result.status === 'maintenance'){
+  document.getElementById('pesertaCount').textContent = '-';
+  document.getElementById('instansiCount').textContent = '-';
+  document.getElementById('lowonganCount').textContent = '-';
+  document.getElementById('pengumumanList').innerHTML = '<div class="announcement" style="background:#fee2e2;border-left-color:#dc2626"><b>Sistem Dalam Perawatan</b><br>' + result.message + '</div>';
+  return;
+  }
+  
 await Promise.all([
  loadDashboardStats(),
  loadBezetting(),
  loadPengumuman()
  ]);
+}catch(err){
+  console.error('Failed to check system status:', err);
+  await Promise.all([
+  loadDashboardStats(),
+  loadBezetting(),
+  loadPengumuman()
+  ]);
+  }
  
 }
 
