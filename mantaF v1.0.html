@@ -314,11 +314,17 @@ min-width:2200px;
 <script>
 
 const SECURITY_CONFIG = {
-  lastSubmitTime: 0,
-  minSubmitInterval: 10000,
-  csrfToken: null,
-  sessionData: null
-};
+   lastSubmitTime: 0,
+   minSubmitInterval: 10000,
+   csrfToken: null,
+   sessionData: null,
+   clientId: null
+ };
+ 
+ window.addEventListener('load', function(){
+   SECURITY_CONFIG.clientId = localStorage.getItem('mantafClientId') || 'client_' + Date.now();
+   localStorage.setItem('mantafClientId', SECURITY_CONFIG.clientId);
+ });
 
 function escapeHtml(text){
    if (!text) return '';
@@ -370,15 +376,15 @@ function rateLimitCheck(){
 }
 
 async function getCSRFToken(){
-  try {
-    const response = await fetch(WEB_APP_URL + '?action=getCSRFToken');
-    const result = await response.json();
-    SECURITY_CONFIG.csrfToken = result.token;
-    return result.token;
-  } catch (err) {
-    return null;
-  }
-}
+   try {
+     const response = await fetch(WEB_APP_URL + '?action=getCSRFToken&clientId=' + SECURITY_CONFIG.clientId);
+     const result = await response.json();
+     SECURITY_CONFIG.csrfToken = result.token;
+     return result.token;
+   } catch (err) {
+     return null;
+   }
+ }
 
 function disableInspect(){
   document.addEventListener('keydown', function(e){
@@ -1578,7 +1584,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx4pmSDAfCahwIhJe51-SEneICjWF1W4redu5FWisvf-QRTAuK-Gif-26N1ug2M7ZoE/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyi7oQ6yEZF6Su9wNAxhesmb054gndvZclzIzITo5lLyNkzXmCvk2jt5u6XDjzmV8o6/exec";
 
 let bezettingCache = null;
 
@@ -1908,8 +1914,9 @@ data: base64
 }
 
 formData.append('fileData', JSON.stringify(files));
-
-const csrfToken = SECURITY_CONFIG.csrfToken || await getCSRFToken();
+ formData.append('clientId', SECURITY_CONFIG.clientId);
+ 
+ const csrfToken = SECURITY_CONFIG.csrfToken || await getCSRFToken();
  formData.append('csrfToken', csrfToken);
  
  const response = await fetch(WEB_APP_URL,{
@@ -2077,8 +2084,9 @@ for (const input of fileInputs) {
   }
   
 formData.append('fileData', JSON.stringify(files));
-  
-const response = await fetch(WEB_APP_URL + '?action=updatePeserta&nik=' + encodeURIComponent(nik) + '&nama=' + encodeURIComponent(nama) + '&unit=' + encodeURIComponent(unitKerja), {
+ formData.append('clientId', SECURITY_CONFIG.clientId);
+ 
+ const response = await fetch(WEB_APP_URL + '?action=updatePeserta&nik=' + encodeURIComponent(nik) + '&nama=' + encodeURIComponent(nama) + '&unit=' + encodeURIComponent(unitKerja) + '&clientId=' + SECURITY_CONFIG.clientId, {
   method: 'POST',
   body: formData
   });
@@ -2123,10 +2131,10 @@ async function loginAdmin(){
  return;
  }
  
- try{
- const response = await fetch(
- WEB_APP_URL + '?action=adminLogin&username=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass)
- );
+try{
+  const response = await fetch(
+  WEB_APP_URL + '?action=adminLogin&username=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass) + '&clientId=' + SECURITY_CONFIG.clientId
+  );
  
  const result = await response.json();
  
