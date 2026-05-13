@@ -321,16 +321,26 @@ const SECURITY_CONFIG = {
 };
 
 function escapeHtml(text){
-  if (!text) return '';
-  return String(text).replace(/[&<"']/g, tag => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[tag]));
-}
-
-function sanitizeInput(input, maxLength){
+   if (!text) return '';
+   return String(text).replace(/[&<"']/g, tag => ({
+     '&': '&amp;',
+     '<': '&lt;',
+     '"': '&quot;',
+     "'": '&#39;'
+   }[tag]));
+ }
+ 
+ function formatDriveUrl(url){
+   if (!url) return '';
+   if (url.includes('uc?export=view&id=')) return url;
+   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+   if (match) {
+     return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+   }
+   return url;
+ }
+ 
+ function sanitizeInput(input, maxLength){
   if (!input) return '';
   let val = String(input).trim();
   val = val.replace(/[<>]/g, '');
@@ -2259,8 +2269,8 @@ pageData.forEach(item=>{
  '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
  '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
  
- const fotoUrl = item.foto_4x6_latar_merah || '';
- const fotoThumb = fotoUrl ? `<img src="${escapeHtml(fotoUrl)}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="showAdminDetail(${JSON.stringify(item).replace(/"/g, '&quot;')})" title="Klik untuk lihat detail">` : '-';
+const fotoUrl = formatDriveUrl(item.foto_4x6_latar_merah) || '';
+  const fotoThumb = fotoUrl ? `<img src="${escapeHtml(fotoUrl)}" onerror="this.src='https://via.placeholder.com/50x50?text=No+Image'" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="showAdminDetail(${JSON.stringify(item).replace(/"/g, '&quot;')})" title="Klik untuk lihat detail">` : '-';
  
  html += `<tr>
  <td>${fotoThumb}</td>
@@ -2332,34 +2342,34 @@ function showAdminDetail(item){
   </div>
   </div>
   
-  <div style="flex:0 0 200px;text-align:center">
-  <div style="margin-bottom:15px"><b>Foto 4x6</b><br>
-  ${item.foto_4x6_latar_merah ? `<img src="${item.foto_4x6_latar_merah}" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px">` : '-'}
-  </div>
-  <div style="margin-bottom:15px"><b>PAK</b><br>
-  ${item.upload_pak_konvensional_integrasi_konversi_terakhir ? `<a href="${item.upload_pak_konvensional_integrasi_konversi_terakhir}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-  </div>
-  <div style="margin-bottom:15px"><b>Daftar Riwayat</b><br>
-  ${item.daftar_riwayat_hidup ? `<a href="${item.daftar_riwayat_hidup}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-  </div>
-  <div style="margin-bottom:15px"><b>Ijazah</b><br>
-  ${item.ijazah ? `<a href="${item.ijazah}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-  </div>
-  <div style="margin-bottom:15px"><b>STR</b><br>
-  ${item.str ? `<a href="${item.str}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-  </div>
-  <div style="margin-bottom:15px"><b>SK Pangkat</b><br>
-  ${item.sk_pangkat ? `<a href="${item.sk_pangkat}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-  </div>
-  <div style="margin-bottom:15px"><b>SK Jabfung</b><br>
-  ${item.sk_jabfung ? `<a href="${item.sk_jabfung}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-  </div>
-  <div style="margin-bottom:15px"><b>SKP 2 Tahun</b><br>
-  ${item.skp_2_tahun ? `<a href="${item.skp_2_tahun}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-  </div>
-  <div style="margin-bottom:15px"><b>Surat Bebas</b><br>
-  ${item.surat_bebas ? `<a href="${item.surat_bebas}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-  </div>
+<div style="flex:0 0 200px;text-align:center">
+   <div style="margin-bottom:15px"><b>Foto 4x6</b><br>
+   ${item.foto_4x6_latar_merah ? `<img src="${formatDriveUrl(item.foto_4x6_latar_merah)}" onerror="this.src='https://via.placeholder.com/200x200?text=No+Image'" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px">` : '-'}
+   </div>
+   <div style="margin-bottom:15px"><b>PAK</b><br>
+   ${item.upload_pak_konvensional_integrasi_konversi_terakhir ? `<a href="${formatDriveUrl(item.upload_pak_konvensional_integrasi_konversi_terakhir)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   </div>
+   <div style="margin-bottom:15px"><b>Daftar Riwayat</b><br>
+   ${item.daftar_riwayat_hidup ? `<a href="${formatDriveUrl(item.daftar_riwayat_hidup)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   </div>
+   <div style="margin-bottom:15px"><b>Ijazah</b><br>
+   ${item.ijazah ? `<a href="${formatDriveUrl(item.ijazah)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   </div>
+   <div style="margin-bottom:15px"><b>STR</b><br>
+   ${item.str ? `<a href="${formatDriveUrl(item.str)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   </div>
+   <div style="margin-bottom:15px"><b>SK Pangkat</b><br>
+   ${item.sk_pangkat ? `<a href="${formatDriveUrl(item.sk_pangkat)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   </div>
+   <div style="margin-bottom:15px"><b>SK Jabfung</b><br>
+   ${item.sk_jabfung ? `<a href="${formatDriveUrl(item.sk_jabfung)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   </div>
+<div style="margin-bottom:15px"><b>SKP 2 Tahun</b><br>
+   ${item.skp_2_tahun ? `<a href="${formatDriveUrl(item.skp_2_tahun)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   </div>
+   <div style="margin-bottom:15px"><b>Surat Bebas</b><br>
+   ${item.surat_bebas ? `<a href="${formatDriveUrl(item.surat_bebas)}" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
+   </div>
   </div>
   </div>
   
