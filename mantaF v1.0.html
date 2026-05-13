@@ -700,7 +700,7 @@ Platform enterprise modern untuk tata kelola Jabatan Fungsional Kesehatan terint
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbymG55ECGDLuDzp5TW6DfTDLPTm077HF9j6fa_cSyV0bM55L_7t-NTYnX3t5B2EeBNy/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzAednLFgEPSpgoPm4RUTpNn2hH1giGj3AZG3Gw8v8i3I9Ri_AbRDF0saOc6f8821v6/exec";
 
 let bezettingCache = null;
 let ukomCache = null;
@@ -842,33 +842,58 @@ document.getElementById('ukomForm')
 
 e.preventDefault();
 
-const formData = new FormData(this);
+const nik = document.querySelector('[name="nik"]').value;
+if(!nik){
+alert('NIK wajib diisi');
+return;
+}
+
+const submitBtn = this.querySelector('button[type="submit"]');
+const originalText = submitBtn.textContent;
+submitBtn.textContent = 'Memproses...';
+submitBtn.disabled = true;
 
 try{
-
-const response = await fetch(WEB_APP_URL,{
+const response = await fetch(WEB_APP_URL + '?action=daftarUkom&nik=' + encodeURIComponent(nik),{
 method:'POST',
-body:formData
+body:new FormData(this)
 });
 
 const result = await response.json();
 
 if(result.status === 'success'){
 
-alert('Pendaftaran berhasil dikirim');
+submitBtn.style.background = '#16a34a';
+submitBtn.textContent = '✓ Terkirim!';
 
-document.getElementById('ukomForm').reset();
+setTimeout(()=>{
+submitBtn.style.background = '';
+submitBtn.textContent = originalText;
+submitBtn.disabled = false;
+}, 2000);
+
+document.getElementById('lightbox').style.display='flex';
+document.getElementById('lightbox-content').innerHTML = `
+<div style="text-align:center;padding:20px">
+<h3 style="color:#16a34a;margin-bottom:15px">Pendaftaran Berhasil!</h3>
+<p>Data Anda telah tersimpan di sistem.</p>
+<p style="margin-top:15px"><b>Silakan cek status</b> untuk melihat progres pengajuan.</p>
+<button class="btn" onclick="document.getElementById('lightbox').style.display='none'" style="margin-top:20px">Tutup</button>
+</div>
+`;
+
+this.reset();
 
 }else{
-
 alert(result.message);
-
+submitBtn.textContent = originalText;
+submitBtn.disabled = false;
 }
 
 }catch(err){
-
 alert('Terjadi kesalahan sistem');
-
+submitBtn.textContent = originalText;
+submitBtn.disabled = false;
 }
 
 });
@@ -960,6 +985,13 @@ document.getElementById('adminResult').innerHTML = '<div style="color:red;font-w
 }
 
 </script>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" onclick="if(event.target===this) this.style.display='none'">
+<div class="lightbox-content" id="lightbox-content">
+<span class="close" onclick="document.getElementById('lightbox').style.display='none'">&times;</span>
+</div>
+</div>
 
 </body>
 </html>
