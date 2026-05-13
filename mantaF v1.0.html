@@ -987,22 +987,52 @@ Kirim Pendaftaran
  </div>
  
 <div id="adminDataSection" style="display:none">
- <div class="panel">
- 
-<h2>Data Peserta UKOM</h2>
- <br>
- 
-<table>
- <thead>
- <tr>
- <th>NIK</th><th>NIP</th><th>Nama</th><th>Unit Kerja</th><th>Pangkat</th><th>SK Jabfung</th><th>Jenis Kelamin</th><th>WhatsApp</th><th>Email</th><th>Nilai PAK</th><th>PAK</th><th>Jabfung</th><th>Jenjang</th><th>Tipe</th><th>Jenis UKOM</th><th>Jabfung Tujuan</th><th>Jenjang Tujuan</th><th>Foto</th><th>Status</th><th>Catatan</th><th>Aksi</th>
- </tr>
- </thead>
- <tbody id="adminDataBody"></tbody>
- </table>
- 
-</div>
+  <div class="panel">
+  
+ <h2>Data Peserta UKOM</h2>
+  <br>
+  
+ <div class="form-grid" style="margin-bottom:20px">
+  <div class="form-group">
+  <label>Filter Unit Kerja</label>
+  <select id="filterUnitKerja" onchange="applyAdminFilter()">
+  <option value="">Semua Unit Kerja</option>
+  </select>
+  </div>
+  <div class="form-group">
+  <label>Filter Status</label>
+  <select id="filterStatus" onchange="applyAdminFilter()">
+  <option value="">Semua Status</option>
+  <option value="Menunggu">Menunggu</option>
+  <option value="Disetujui">Disetujui</option>
+  <option value="Ditolak">Ditolak</option>
+  </select>
+  </div>
+  <div class="form-group">
+  <label>Filter Jabfung</label>
+  <select id="filterJabfung" onchange="applyAdminFilter()">
+  <option value="">Semua Jabfung</option>
+  </select>
+  </div>
+  <div class="form-group">
+  <label>&nbsp;</label>
+  <button type="button" class="btn" onclick="resetAdminFilter()">Reset</button>
+  </div>
+  </div>
+  
+ <table>
+  <thead>
+  <tr>
+  <th>NIK</th><th>NIP</th><th>Nama</th><th>Unit Kerja</th><th>Pangkat</th><th>SK Jabfung</th><th>Jenis Kelamin</th><th>WhatsApp</th><th>Email</th><th>Nilai PAK</th><th>PAK</th><th>Jabfung</th><th>Jenjang</th><th>Tipe</th><th>Jenis UKOM</th><th>Jabfung Tujuan</th><th>Jenjang Tujuan</th><th>Foto</th><th>Status</th><th>Catatan</th><th>Aksi</th>
+  </tr>
+  </thead>
+  <tbody id="adminDataBody"></tbody>
+  </table>
+  
+ <div id="adminPagination" style="margin-top:20px;text-align:center"></div>
+  
  </div>
+  </div>
  
 </div>
  
@@ -1040,10 +1070,9 @@ Platform enterprise modern untuk tata kelola Jabatan Fungsional Kesehatan terint
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwSrqhf_oN23VRL8XeDIO9jwR8vhXc5ADSePpNZTO0ppatdnI2hVIZQdxGeXU6WgEVU/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwh_ssX9fgTlTL8VDn9nQOf-VfI2hLu2ab2Kx9bsGhiOIC-jZS26X_DR2k4u-p20JyU/exec";
 
 let bezettingCache = null;
-let ukomCache = null;
 
 /* ==========================
 NAVIGATION
@@ -1553,65 +1582,134 @@ if(result.status === 'success'){
 }
  
 /* ==========================
- LOAD ADMIN DATA
- ========================== */
- 
+  LOAD ADMIN DATA
+  ========================== */
+  
+let ukomCache = null;
+let adminFilter = { unit_kerja: '', status: '', jabfung: '' };
+let adminPage = 1;
+const ADMIN_ROWS_PER_PAGE = 100;
+  
 async function loadAdminData(){
- 
+  
 try{
- 
+  
 const response = await fetch(
- WEB_APP_URL + '?action=getUkomData',
- { cache: 'no-store' }
- );
- 
+  WEB_APP_URL + '?action=getUkomData',
+  { cache: 'no-store' }
+  );
+  
 const result = await response.json();
- const tbody = document.getElementById('adminDataBody');
- let html = '';
- 
-(result.data || []).forEach(item=>{
- const statusBadge = item.status_verifikasi === 'Disetujui' ? 
- '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
- item.status_verifikasi === 'Ditolak' ? 
- '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
- '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
- 
-html += `<tr>
- <td>${item.nik || ''}</td>
- <td>${item.nip || ''}</td>
- <td>${item.nama || ''}</td>
- <td>${item.unit_kerja || ''}</td>
- <td>${item.pangkat_dan_golongan || ''}</td>
- <td>${item.nomor_sk_jabfungs_terakhir || ''}</td>
- <td>${item.jenis_kelamin || ''}</td>
- <td>${item.nomor_whatsapp || ''}</td>
- <td>${item.email_aktif || ''}</td>
- <td>${item.nilai_pak_terakhir || ''}</td>
- <td><a href="${item.upload_pak_konvensional_integrasi_konversi_terakhir || '#'}" target="_blank">Lihat</a></td>
- <td>${item.jabfung_saat_ini || ''}</td>
- <td>${item.jenjang_saat_ini || ''}</td>
- <td>${item.tipe || ''}</td>
- <td>${item.jenis_ukom || ''}</td>
- <td>${item.jabfung_tujuan || ''}</td>
- <td>${item.jenjang_tujuan || ''}</td>
- <td><a href="${item.foto_4x6_latar_merah || '#'}" onclick="showAdminDetail(${JSON.stringify(item).replace(/"/g, '&quot;')});return false">Foto</a></td>
- <td>${statusBadge}</td>
- <td>${item.catatan_admin || ''}</td>
- <td>
- <button class="btn" style="padding:5px 10px;font-size:12px" onclick="updateStatus(${item.no}, 'Disetujui')">Setuju</button>
- <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
- </td>
- </tr>`;
- 
-});
- 
-tbody.innerHTML = html || '<tr><td colspan="21">Tidak ada data</td></tr>';
- 
-} catch (err) {
- document.getElementById('adminDataBody').innerHTML = '<tr><td colspan="21" style="color:red">Gagal: ' + err.message + '</td></tr>';
+  ukomCache = result.data;
+  populateAdminFilters(result.data);
+  renderAdminTable();
+  } catch (err) {
+   document.getElementById('adminDataBody').innerHTML = '<tr><td colspan="21" style="color:red">Gagal: ' + err.message + '</td></tr>';
+  }
+  
  }
- 
-}
+  
+function populateAdminFilters(data){
+  const unitSet = new Set();
+  const jabfungSet = new Set();
+  
+ data.forEach(item=>{
+  if(item.unit_kerja) unitSet.add(item.unit_kerja);
+  if(item.jabfung_saat_ini) jabfungSet.add(item.jabfung_saat_ini);
+  });
+  
+const unitSelect = document.getElementById('filterUnitKerja');
+  const jabfungSelect = document.getElementById('filterJabfung');
+  
+ [...unitSet].sort().forEach(v=>unitSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
+  [...jabfungSet].sort().forEach(v=>jabfungSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
+  }
+  
+function applyAdminFilter(){
+  adminFilter = {
+  unit_kerja: document.getElementById('filterUnitKerja').value,
+  status: document.getElementById('filterStatus').value,
+  jabfung: document.getElementById('filterJabfung').value
+  };
+  adminPage = 1;
+  renderAdminTable();
+  }
+  
+function resetAdminFilter(){
+  document.getElementById('filterUnitKerja').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterJabfung').value = '';
+  adminFilter = { unit_kerja: '', status: '', jabfung: '' };
+  adminPage = 1;
+  renderAdminTable();
+  }
+  
+function renderAdminTable(){
+  if(!ukomCache) return;
+  
+const filtered = ukomCache.filter(item=>{
+  const matchUnit = !adminFilter.unit_kerja || item.unit_kerja === adminFilter.unit_kerja;
+  const matchStatus = !adminFilter.status || (item.status_verifikasi || 'Menunggu') === adminFilter.status;
+  const matchJabfung = !adminFilter.jabfung || item.jabfung_saat_ini === adminFilter.jabfung;
+  return matchUnit && matchStatus && matchJabfung;
+  });
+  
+const totalPages = Math.ceil(filtered.length / ADMIN_ROWS_PER_PAGE);
+  const start = (adminPage - 1) * ADMIN_ROWS_PER_PAGE;
+  const pageData = filtered.slice(start, start + ADMIN_ROWS_PER_PAGE);
+  
+const tbody = document.getElementById('adminDataBody');
+  let html = '';
+  
+pageData.forEach(item=>{
+  const statusBadge = item.status_verifikasi === 'Disetujui' ? 
+  '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
+  item.status_verifikasi === 'Ditolak' ? 
+  '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
+  '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
+  
+html += `<tr>
+  <td>${item.nik || ''}</td>
+  <td>${item.nip || ''}</td>
+  <td>${item.nama || ''}</td>
+  <td>${item.unit_kerja || ''}</td>
+  <td>${item.pangkat_dan_golongan || ''}</td>
+  <td>${item.nomor_sk_jabfungs_terakhir || ''}</td>
+  <td>${item.jenis_kelamin || ''}</td>
+  <td>${item.nomor_whatsapp || ''}</td>
+  <td>${item.email_aktif || ''}</td>
+  <td>${item.nilai_pak_terakhir || ''}</td>
+  <td><a href="${item.upload_pak_konvensional_integrasi_konversi_terakhir || '#'}" target="_blank">Lihat</a></td>
+  <td>${item.jabfung_saat_ini || ''}</td>
+  <td>${item.jenjang_saat_ini || ''}</td>
+  <td>${item.tipe || ''}</td>
+  <td>${item.jenis_ukom || ''}</td>
+  <td>${item.jabfung_tujuan || ''}</td>
+  <td>${item.jenjang_tujuan || ''}</td>
+  <td><a href="${item.foto_4x6_latar_merah || '#'}" onclick="showAdminDetail(${JSON.stringify(item).replace(/"/g, '&quot;')});return false">Foto</a></td>
+  <td>${statusBadge}</td>
+  <td>${item.catatan_admin || ''}</td>
+  <td>
+  <button class="btn" style="padding:5px 10px;font-size:12px" onclick="updateStatus(${item.no}, 'Disetujui')">Setuju</button>
+  <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
+  </td>
+  </tr>`;
+  
+});
+  
+tbody.innerHTML = html || '<tr><td colspan="21">Tidak ada data</td></tr>';
+  
+let paginationHtml = '';
+  if(totalPages > 1){
+  paginationHtml = '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap">';
+  for(let i = 1; i <= totalPages; i++){
+  paginationHtml += `<button class="btn" style="padding:5px 10px;font-size:12px;${i === adminPage ? 'background:#0d9488' : ''}" onclick="adminPage=${i};renderAdminTable()">${i}</button>`;
+  }
+  paginationHtml += '</div>';
+  }
+  paginationHtml += `<div style="margin-top:10px;font-size:12px;color:#64748b">Menampilkan ${pageData.length} dari ${filtered.length} data</div>`;
+  document.getElementById('adminPagination').innerHTML = paginationHtml;
+  }
  
 /* ==========================
  SHOW ADMIN DETAIL (Lightbox)
