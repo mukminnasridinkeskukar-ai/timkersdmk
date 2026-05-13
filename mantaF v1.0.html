@@ -704,7 +704,10 @@ Platform enterprise modern untuk tata kelola Jabatan Fungsional Kesehatan terint
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzXTEXSWYCUmAt9ls6ZaCmuzmLcY0cVDBGpzhFMR0peid0AL6iEKj2X2YF5jR9RXcT0/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbytRhE7DWYrYRIxAGqnoPNWwdWoDyuO89Zc8SJsmTGIhrt9o4kxJInnxui1zFf-z2to/exec";
+
+let bezettingCache = null;
+let ukomCache = null;
 
 /* ==========================
 NAVIGATION
@@ -739,7 +742,7 @@ document.getElementById('lightbox').style.display='none';
 }
 
 /* ==========================
-LOAD BEZETTING
+LOAD BEZETTING (Optimized)
 ========================== */
 
 async function loadBezetting(){
@@ -747,32 +750,33 @@ async function loadBezetting(){
 try{
 
 const response = await fetch(
-WEB_APP_URL + '?action=getBezetting'
+WEB_APP_URL + '?action=getBezetting',
+{ cache: 'no-store' }
 );
 
 const result = await response.json();
+bezettingCache = result.data;
 
 const tbody = document.getElementById('bezettingBody');
-
-tbody.innerHTML = '';
+let html = '';
 
 result.data.forEach(item=>{
 
-tbody.innerHTML += `
-<tr>
-<td>${item.instansi}</td>
-<td>${item.jenis_jabatan}</td>
-<td>${item.jenjang}</td>
-<td>${item.kebutuhan}</td>
-<td>${item.pemangku}</td>
-<td>${item.lowongan}</td>
-<td>${item.pemangku_saat_ini}</td>
-<td>${item.pemangku_disetujui}</td>
-<td>${item.sisa}</td>
-</tr>
-`;
+html += `<tr>
+<td>${item.instansi || ''}</td>
+<td>${item.jenis_jabatan || ''}</td>
+<td>${item.jenjang || ''}</td>
+<td>${item.kebutuhan || 0}</td>
+<td>${item.pemangku || 0}</td>
+<td>${item.lowongan || 0}</td>
+<td>${item.pemangku_saat_ini || ''}</td>
+<td>${item.pemangku_disetujui || ''}</td>
+<td>${item.sisa || 0}</td>
+</tr>`;
 
 });
+
+tbody.innerHTML = html;
 
 }catch(err){
 
@@ -782,7 +786,19 @@ console.log(err);
 
 }
 
-loadBezetting();
+/* ==========================
+LOAD ALL DATA (Parallel)
+========================== */
+
+async function loadAllData(){
+
+await Promise.all([
+loadBezetting()
+]);
+
+}
+
+loadAllData();
 
 /* ==========================
 SUBMIT FORM
@@ -825,16 +841,35 @@ alert('Terjadi kesalahan sistem');
 });
 
 /* ==========================
-CEK STATUS
+CEK STATUS (Optimized)
 ========================== */
 
 async function cekStatus(){
 
 const keyword = document.getElementById('cekData').value;
+if(!keyword) return;
 
+if(ukomCache) {
+const found = ukomCache.find(item => item.nik === keyword || item.nip === keyword);
+if(found){
+document.getElementById('hasilStatus').innerHTML = `
+<b>Nama :</b> ${found.nama || '-'}<br>
+<b>Status :</b> ${found.status || '-'}<br>
+<b>Jenis UKOM :</b> ${found.jenis_ukom || '-'}
+`;
+return;
+}
+}
+
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+try{
 const response = await fetch(
-WEB_APP_URL + '?action=cekStatus&keyword=' + keyword
+WEB_APP_URL + '?action=cekStatus&keyword=' + encodeURIComponent(keyword),
+{ signal: controller.signal }
 );
+clearTimeout(timeoutId);
 
 const result = await response.json();
 
@@ -843,6 +878,10 @@ document.getElementById('hasilStatus').innerHTML = `
 <b>Status :</b> ${result.status || 'Tidak ditemukan'}<br>
 <b>Jenis UKOM :</b> ${result.jenis_ukom || '-'}
 `;
+
+}catch(err){
+document.getElementById('hasilStatus').innerHTML = `<span style="color:red">Gagal cek status</span>`;
+}
 
 }
 
