@@ -645,33 +645,60 @@ Belum ada pencarian.
 </div>
 
 <!-- ADMIN -->
-
+ 
 <div id="admin" class="section">
-
-<div class="login-box">
-
+ 
+<div id="adminLoginSection">
+ <div class="login-box">
+ 
 <h2>Login Admin</h2>
-<br>
-
+ <br>
+ 
 <div class="form-group">
-<label>Username</label>
-<input type="text" id="adminUser">
-</div>
-
+ <label>Username</label>
+ <input type="text" id="adminUser">
+ </div>
+ 
 <div class="form-group">
-<label>Password</label>
-<input type="password" id="adminPass">
-</div>
-
+ <label>Password</label>
+ <input type="password" id="adminPass">
+ </div>
+ 
 <button class="btn" onclick="loginAdmin()">
-Login
-</button>
-
+ Login
+ </button>
+ 
 <div id="adminResult" style="margin-top:20px;"></div>
-
+ 
 </div>
-
+ </div>
+ 
+<div id="adminDataSection" style="display:none">
+ <div class="panel">
+ 
+<h2>Data Peserta UKOM</h2>
+ <br>
+ 
+<table>
+ <thead>
+ <tr>
+ <th>NIK</th><th>NIP</th><th>Nama</th><th>Unit Kerja</th><th>Pangkat</th><th>SK Jabfung</th><th>Jenis Kelamin</th><th>WhatsApp</th><th>Email</th><th>Nilai PAK</th><th>PAK</th><th>Jabfung</th><th>Jenjang</th><th>Tipe</th><th>Jenis UKOM</th><th>Jabfung Tujuan</th><th>Jenjang Tujuan</th><th>Foto</th><th>Status</th><th>Catatan</th><th>Aksi</th>
+ </tr>
+ </thead>
+ <tbody id="adminDataBody"></tbody>
+ </table>
+ 
 </div>
+ </div>
+ 
+</div>
+ 
+<div class="lightbox" id="adminLightbox" onclick="if(event.target===this) this.style.display='none'" style="display:none">
+ <div class="lightbox-content" id="adminLightboxContent" style="max-width:800px">
+ <span class="close" onclick="document.getElementById('adminLightbox').style.display='none'">&times;</span>
+ <div id="adminLightboxBody"></div>
+ </div>
+ </div>
 
 </div>
 
@@ -700,7 +727,7 @@ Platform enterprise modern untuk tata kelola Jabatan Fungsional Kesehatan terint
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwN1-VxzB0BAd7INJ-cYOtJgBvx1p6WEymkeSnH_32k-m65RC81bUN-ZCdMshiEcREb/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyMvx0I-2zbTfgvU-qgX0XcQTaxmvLFsSRcWeBoL_A1J7hOPEUpzpXTLinruo_dVRoT/exec";
 
 let bezettingCache = null;
 let ukomCache = null;
@@ -1024,23 +1051,144 @@ WEB_APP_URL + '?action=adminLogin&username=' + encodeURIComponent(user) + '&pass
 const result = await response.json();
 
 if(result.status === 'success'){
-document.getElementById('adminResult').innerHTML = `
-<div style="color:green;font-weight:bold;">
-Login berhasil - Selamat datang, ${result.nama_lengkap || user}
-</div>
-`;
+ document.getElementById('adminResult').innerHTML = `
+ <div style="color:green;font-weight:bold;">
+ Login berhasil - Selamat datang, ${result.nama_lengkap || user}
+ </div>
+ `;
+ document.getElementById('adminLoginSection').style.display = 'none';
+ document.getElementById('adminDataSection').style.display = 'block';
+ loadAdminData();
 }else{
-document.getElementById('adminResult').innerHTML = `
-<div style="color:red;font-weight:bold;">
-${result.message || 'Login gagal'}
-</div>
-`;
-}
+ document.getElementById('adminResult').innerHTML = `
+ <div style="color:red;font-weight:bold;">
+ ${result.message || 'Login gagal'}
+ </div>
+ `;
+ }
 
 } catch (err) {
-  document.getElementById('adminResult').innerHTML = '<div style="color:red;font-weight:bold;">Error: ' + err.message + '</div>';
+   document.getElementById('adminResult').innerHTML = '<div style="color:red;font-weight:bold;">Error: ' + err.message + '</div>';
+ }
+ 
 }
-
+ 
+/* ==========================
+ LOAD ADMIN DATA
+ ========================== */
+ 
+async function loadAdminData(){
+ 
+try{
+ 
+const response = await fetch(
+ WEB_APP_URL + '?action=getUkomData',
+ { cache: 'no-store' }
+ );
+ 
+const result = await response.json();
+ const tbody = document.getElementById('adminDataBody');
+ let html = '';
+ 
+(result.data || []).forEach(item=>{
+ const statusBadge = item.status_verifikasi === 'Disetujui' ? 
+ '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
+ item.status_verifikasi === 'Ditolak' ? 
+ '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
+ '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
+ 
+html += `<tr>
+ <td>${item.nik || ''}</td>
+ <td>${item.nip || ''}</td>
+ <td>${item.nama || ''}</td>
+ <td>${item.unit_kerja || ''}</td>
+ <td>${item.pangkat_dan_golongan || ''}</td>
+ <td>${item.nomor_sk_jabfungs_terakhir || ''}</td>
+ <td>${item.jenis_kelamin || ''}</td>
+ <td>${item.nomor_whatsapp || ''}</td>
+ <td>${item.email_aktif || ''}</td>
+ <td>${item.nilai_pak_terakhir || ''}</td>
+ <td><a href="${item.upload_pak_konvensional_integrasi_konversi_terakhir || '#'}" target="_blank">Lihat</a></td>
+ <td>${item.jabfung_saat_ini || ''}</td>
+ <td>${item.jenjang_saat_ini || ''}</td>
+ <td>${item.tipe || ''}</td>
+ <td>${item.jenis_ukom || ''}</td>
+ <td>${item.jabfung_tujuan || ''}</td>
+ <td>${item.jenjang_tujuan || ''}</td>
+ <td><a href="${item.foto_4x6_latar_merah || '#'}" onclick="showAdminDetail(${JSON.stringify(item).replace(/"/g, '&quot;')});return false">Foto</a></td>
+ <td>${statusBadge}</td>
+ <td>${item.catatan_admin || ''}</td>
+ <td>
+ <button class="btn" style="padding:5px 10px;font-size:12px" onclick="updateStatus(${item.no}, 'Disetujui')">Setuju</button>
+ <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
+ </td>
+ </tr>`;
+ 
+});
+ 
+tbody.innerHTML = html || '<tr><td colspan="21">Tidak ada data</td></tr>';
+ 
+} catch (err) {
+ document.getElementById('adminDataBody').innerHTML = '<tr><td colspan="21" style="color:red">Gagal: ' + err.message + '</td></tr>';
+ }
+ 
+}
+ 
+/* ==========================
+ SHOW ADMIN DETAIL (Lightbox)
+ ========================== */
+ 
+function showAdminDetail(item){
+ const content = document.getElementById('adminLightboxContent');
+ content.innerHTML = `
+ <span class="close" onclick="document.getElementById('adminLightbox').style.display='none'">&times;</span>
+ <h2>Detail Peserta</h2>
+ <br>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px">
+ <div><b>NIK</b><br>${item.nik || '-'}</div>
+ <div><b>NIP</b><br>${item.nip || '-'}</div>
+ <div><b>Nama</b><br>${item.nama || '-'}</div>
+ <div><b>Unit Kerja</b><br>${item.unit_kerja || '-'}</div>
+ <div><b>Pangkat</b><br>${item.pangkat_dan_golongan || '-'}</div>
+ <div><b>SK Jabfung</b><br>${item.nomor_sk_jabfungs_terakhir || '-'}</div>
+ <div><b>Jenis Kelamin</b><br>${item.jenis_kelamin || '-'}</div>
+ <div><b>WhatsApp</b><br>${item.nomor_whatsapp || '-'}</div>
+ <div><b>Email</b><br>${item.email_aktif || '-'}</div>
+ <div><b>Nilai PAK</b><br>${item.nilai_pak_terakhir || '-'}</div>
+ <div><b>Jabfung Saat Ini</b><br>${item.jabfung_saat_ini || '-'}</div>
+ <div><b>Jenjang Saat Ini</b><br>${item.jenjang_saat_ini || '-'}</div>
+ <div><b>Tipe</b><br>${item.tipe || '-'}</div>
+ <div><b>Jenis UKOM</b><br>${item.jenis_ukom || '-'}</div>
+ <div><b>Jabfung Tujuan</b><br>${item.jabfung_tujuan || '-'}</div>
+ <div><b>Jenjang Tujuan</b><br>${item.jenjang_tujuan || '-'}</div>
+ </div>
+ <br>
+ <div><b>Foto 4x6</b><br><a href="${item.foto_4x6_latar_merah || '#'}" target="_blank"><img src="${item.foto_4x6_latar_merah || ''}" style="max-width:200px;max-height:200px;object-fit:cover;border-radius:8px" onerror="this.style.display='none'"></a></div>
+ `;
+ document.getElementById('adminLightbox').style.display = 'flex';
+ }
+ 
+/* ==========================
+ UPDATE STATUS
+ ========================== */
+ 
+async function updateStatus(row, status){
+ const catatan = prompt('Catatan (opsional):') || '';
+ 
+try{
+ const response = await fetch(
+ WEB_APP_URL + '?action=updateVerifikasi&row=' + row + '&status=' + encodeURIComponent(status) + '&catatan=' + encodeURIComponent(catatan)
+ );
+ 
+const result = await response.json();
+ if(result.status === 'success'){
+ alert('Status berhasil diupdate');
+ loadAdminData();
+ }
+ }catch(err){
+ alert('Gagal update: ' + err.message);
+ }
+ 
 }
 
 </script>
