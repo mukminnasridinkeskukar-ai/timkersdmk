@@ -196,15 +196,17 @@
       .lightbox-close-modern { position: absolute; top: -50px; right: 0; background: white; border: none; width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
       .lightbox-close-modern:hover { transform: rotate(90deg); }
       /* Profile Popup Modern */
-      .profile-popup-modern { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-radius: var(--radius-lg); width: 95vw; max-width: 1200px; max-height: 90vh; overflow-y: auto; }
-      .profile-section { padding: 1.5rem; }
-      .profile-header { display: flex; align-items: center; gap: 2rem; margin-bottom: 1.5rem; }
-      .profile-foto-large { width: 200px; height: 250px; object-fit: cover; border-radius: var(--radius); border: 4px solid var(--primary); cursor: pointer; transition: var(--transition); }
-      .profile-foto-large:hover { transform: scale(1.03); }
+      .profile-popup-modern { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-radius: var(--radius-lg); width: 95vw; max-width: 1200px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+      .profile-section { padding: 1.5rem; border-bottom: 1px solid var(--gray-100); }
+      .profile-section:last-child { border-bottom: none; }
+      .profile-header { display: flex; align-items: center; gap: 2rem; margin-bottom: 1rem; }
+      .profile-foto-large { width: 180px; height: 240px; object-fit: cover; border-radius: var(--radius); border: 4px solid var(--primary); cursor: pointer; transition: var(--transition); box-shadow: var(--shadow-md); }
+      .profile-foto-large:hover { transform: scale(1.05) rotate(2deg); box-shadow: 0 0 30px rgba(37, 99, 235, 0.3); }
       .profile-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-      .profile-field { background: var(--gray-50); padding: 1rem; border-radius: var(--radius); border-left: 3px solid var(--primary); }
-      .profile-field-label { font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.25rem; }
-      .profile-field-value { font-weight: 500; word-break: break-word; }
+      .profile-field { background: rgba(248,250,252,0.8); padding: 1rem; border-radius: var(--radius); border-left: 3px solid var(--primary); transition: var(--transition); }
+      .profile-field:hover { background: rgba(241,245,249,0.9); transform: translateY(-2px); }
+      .profile-field-label { font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.25rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+      .profile-field-value { font-weight: 500; word-break: break-word; color: var(--gray-800); }
       .sticky-header { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
       </style>
 </head>
@@ -279,7 +281,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxHjj9EikvPS1k-Q-UPvsdaa_EdcZkSgcx8ma_GxRrj0b2XDbAW-2P5D6lZ-DNc0KA/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbxgL3QZvrWVhLVZtsMW7v-AT8DVsJreYBgsfcp1nU7K9MREDuxYF754ftrzgmkqLs0/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -718,6 +720,7 @@ function renderAdmin() {
         '<div class="admin-header">' +
           '<h3 class="admin-title"><i class="fas fa-users"></i> Panel Admin Beasiswa Tematik</h3>' +
           '<div class="flex gap-2">' +
+            '<button class="btn btn-success btn-sm" onclick="exportApplications()"><i class="fas fa-file-excel"></i> Export Excel</button>' +
             '<button class="btn btn-outline btn-sm" onclick="resetAdminFilters()"><i class="fas fa-undo"></i> Reset</button>' +
             '<button class="btn btn-danger btn-sm" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>' +
           '</div>' +
@@ -760,9 +763,9 @@ function renderAdmin() {
           '<th class="foto-cell">Foto</th>' +
           '<th>NIK</th><th>Nama Lengkap</th><th class="hide-sm">Alamat KTP</th>' +
           '<th class="hide-md">Jurusan Tujuan</th><th class="hide-md">Jenis Pendidikan</th>' +
-          '<th>Unit Tujuan</th><th>Status</th><th>Catatan Admin</th><th>Aksi</th>' +
+          '<th>Unit Tujuan</th><th>Status</th><th>Ubah Status</th><th>Catatan Admin</th><th>Aksi</th>' +
         '</tr></thead>' +
-        '<tbody id="applicationsTable"><tr><td colspan="10" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div>' +
+        '<tbody id="applicationsTable"><tr><td colspan="11" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div>' +
         '<div id="noDataMsg" class="text-center p-4 text-muted hidden">' +
         '<i class="fas fa-inbox fa-3x mb-3" style="opacity:0.5;"></i>' +
         '<h4>Belum ada data pengajuan</h4>' +
@@ -1349,7 +1352,7 @@ var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejec
       if (noDataMsg) noDataMsg.classList.add('hidden');
       
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="17" class="text-center p-4"><div class="spinner"></div> Memuat data...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4"><div class="spinner"></div> Memuat data...</td></tr>';
       }
       
       apiCall('getApplications', function(res) {
@@ -1364,7 +1367,7 @@ var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejec
             updateFilterCount(apps.length, apps.length);
           } else {
             var msg = res.message || 'Unknown error';
-            tbody.innerHTML = '<tr><td colspan="17" class="text-center text-danger p-4"><i class="fas fa-exclamation-triangle"></i> Gagal load: ' + msg + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger p-4"><i class="fas fa-exclamation-triangle"></i> Gagal load: ' + msg + '</td></tr>';
             console.error('Load apps error:', res);
             showToast('Gagal memuat data: ' + msg, 'error');
           }
@@ -1383,19 +1386,19 @@ var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejec
       });
     }
 
-    function exportApplications() {
-      if (!confirm('Export data aplikasi ke CSV?')) return;
-      apiCall('exportApplications', function(res) {
-        if (res && res.success && res.data && res.data.url) {
-          showToast('Export berhasil! Membuka Google Sheet...');
-          window.open(res.data.url, '_blank');
-        } else {
-          showToast(res ? res.message : 'Gagal export', 'error');
-        }
-      }, function() {
-        showToast('Gagal koneksi ke server', 'error');
-      });
-    }
+function exportApplications() {
+       showToast('Mengekspor data ke Google Sheet...');
+       apiCall('exportApplications', function(res) {
+         if (res && res.success && res.data && res.data.url) {
+           showToast('Export berhasil! ' + (res.data.count || 0) + ' data diekspor. Membuka sheet...');
+           window.open(res.data.url, '_blank');
+         } else {
+           showToast(res ? res.message : 'Gagal export', 'error');
+         }
+       }, function() {
+         showToast('Gagal koneksi ke server', 'error');
+       });
+     }
 
     function approveApplication(id) {
       if (!confirm('Setujui pengajuan ini?')) return;
@@ -1898,10 +1901,10 @@ _________________________
       }
     }
 
+// ========================================
+    // SHOW PROFILE WITH FULL DATA (ADMIN) - GLASSMORPHISM
     // ========================================
-    // SHOW PROFILE WITH FULL DATA (ADMIN)
-    // ========================================
-function showProfileAdmin(id) {
+    function showProfileAdmin(id) {
       apiCallWithData('getApplicationDetail', {id: id}, function(res) {
         if (res && res.success && res.data) {
           var app = res.data;
@@ -1912,53 +1915,91 @@ function showProfileAdmin(id) {
           var fotoFallback = getDriveImageUrl(app.foto_url_fallback, 0) || '';
           var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
           
-          var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user"></i> Profil Pengaju (ID: ' + app.id + ')</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
-            '<div class="p-4">' +
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:2rem;">' +
-            '<div>' +
-            (fotoSrc ? '<div style="text-align:center;margin-bottom:1rem;"><img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)"></div>' : '<div style="text-align:center;padding:2rem;background:var(--gray-100);border-radius:12px;"><i class="fas fa-image" style="font-size:4rem;color:var(--gray-500);"></i><p>Foto tidak tersedia</p></div>') +
-            '<div style="background:var(--gray-100);padding:1rem;border-radius:8px;">' +
-            '<p style="margin:0.5rem 0;font-weight:600;"><strong>No. Pengajuan:</strong> <code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number || '-') + '</code></p>' +
-            '<p style="margin:0.5rem 0;"><strong>Status:</strong> <span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span></p>' +
-            (app.folder_id ? '<p style="margin:0.5rem 0;"><strong>Folder:</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka</a></p>' : '') +
-            '</div></div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
-            '<div><p><strong>Nama Lengkap:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--primary);">' + escapeHtml(app.full_name || '-') + '</div></div>' +
-            '<div><p><strong>NIK:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--success);">' + escapeHtml(app.nik || '-') + '</div></div>' +
-            '<div><p><strong>Tempat/Tgl Lahir:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--warning);">' + escapeHtml(app.tempat_lahir || '-') + ', ' + escapeHtml(app.tanggal_lahir || '-') + '</div></div>' +
-            '<div><p><strong>No. HP:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--success);">' + escapeHtml(app.phone || app.no_hp || '-') + '</div></div>' +
+          var downloadBtn = app.status === 'approved' ? '<div class="mt-4"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
+          
+          var actionBtns = '<div class="flex gap-2 mt-4">' +
+            '<button class="btn btn-warning" onclick="viewApplication(' + quoteForOnclick(id) + ')"><i class="fas fa-edit"></i> Edit</button>' +
+            downloadBtn +
+            '<button class="btn btn-outline" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
+            '</div>';
+          
+          var html = '<div class="profile-popup-modern">' +
+            '<div class="profile-section">' +
+            '<div class="profile-header">' +
+            '<div class="text-center">' +
+            (fotoSrc ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" class="profile-foto-large" onclick="showFullScreenImage(this.src)">' : 
+            '<div style="width:200px;height:250px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i></div>') +
             '</div>' +
-            '<div><p><strong>Email:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--primary);">' + escapeHtml(app.email || '-') + '</div></div>' +
-            '<div><p><strong>No. WhatsApp:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--info);">' + escapeHtml(app.whatsapp || '-') + '</div></div>' +
-            '<div style="display:grid;gap:1rem;">' +
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;">' +
-            '<div><p><strong>Alamat KTP:</strong></p><div style="padding:1rem;background:var(--gray-50);border-radius:8px;border-left:3px solid var(--primary);min-height:80px;">' + escapeHtml(app.alamat_ktp || '-') + '</div></div>' +
-            '<div><p><strong>Alamat Domisili:</strong></p><div style="padding:1rem;background:var(--gray-50);border-radius:8px;border-left:3px solid var(--warning);min-height:80px;">' + escapeHtml(app.alamat_domisili || '-') + '</div></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
-            '<div><p><strong>Lama Domisili:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--success);">' + escapeHtml(app.lama_domisili || '-') + '</div></div>' +
-            '<div><p><strong>Status Pekerjaan:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--warning);">' + escapeHtml(app.status_pekerjaan || '-') + '</div></div>' +
-            '<div><p><strong>Kondisi Pemohon:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--danger);">' + escapeHtml(app.kondisi_pemohon || '-') + '</div></div>' +
-            '<div><p><strong>Unit Kerja:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--success);">' + escapeHtml(app.unit_kerja || '-') + '</div></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1rem;">' +
-            '<div><p><strong>Jurusan Tujuan:</strong></p><div style="padding:1rem;background:var(--gray-50);border-radius:8px;border-left:3px solid var(--primary);">' + escapeHtml(app.jurusan_tujuan || '-') + '</div></div>' +
-            '<div><p><strong>Jenis Pendidikan:</strong></p><div style="padding:1rem;background:var(--gray-50);border-radius:8px;border-left:3px solid var(--success);">' + escapeHtml(app.jenis_pendidikan || '-') + '</div></div>' +
-            '<div><p><strong>Unit Tujuan:</strong></p><div style="padding:1rem;background:var(--gray-50);border-radius:8px;border-left:3px solid var(--warning);">' + escapeHtml(app.unit_tujuan || '-') + '</div></div>' +
-            '<div><p><strong>Rencana Tahun:</strong></p><div style="padding:1rem;background:var(--gray-50);border-radius:8px;border-left:3px solid var(--primary);">' + escapeHtml(app.rencana_tahun || '-') + '</div></div>' +
-            '</div>' +
-            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
-            '<div><p><strong>Keterangan:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--info);min-height:60px;">' + escapeHtml(app.keterangan || '-') + '</div></div>' +
-            '<div><p><strong>Peninjau:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--primary);">' + escapeHtml(app.peninjau || '-') + '</div></div>' +
-            '<div><p><strong>Ditinjau Pada:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--success);">' + escapeHtml(app.ditinjau_pada || '-') + '</div></div>' +
-            '<div><p><strong>Dibuat Pada:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--warning);">' + escapeHtml(app.dibuat_pada || '-') + '</div></div>' +
-            '<div><p><strong>Diperbarui:</strong></p><div style="padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--danger);">' + escapeHtml(app.diperbarui || '-') + '</div></div>' +
+            '<div style="flex:1;">' +
+            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0.75rem;">' +
+            '<div class="profile-field"><span class="profile-field-label">ID Pengajuan</span><span class="profile-field-value">' + escapeHtml(app.id || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">No. Pengajuan</span><span class="profile-field-value"><code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number || '-') + '</code></span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Status</span><span class="profile-field-value"><span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span></span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Tanggal Pengajuan</span><span class="profile-field-value">' + escapeHtml(app.timestamp ? new Date(app.timestamp).toLocaleDateString('id-ID') : '-') + '</span></div>' +
             '</div>' +
             '</div>' +
-            (app.admin_notes ? '<div style="margin-top:2rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
-            (app.document_links ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Link Dokumen</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDocumentLinks(app.document_links) + '</div></div>' : '') +
-            '</div></div>';
-          showModal('Profil Pengaju', html);
+            '</div>' +
+            '</div>' +
+            
+            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
+            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-user"></i> Data Pribadi</h4>' +
+            '<div class="profile-info-grid">' +
+            '<div class="profile-field"><span class="profile-field-label">Nama Lengkap</span><span class="profile-field-value">' + escapeHtml(app.full_name || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">NIK</span><span class="profile-field-value">' + escapeHtml(app.nik || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Tempat Lahir</span><span class="profile-field-value">' + escapeHtml(app.tempat_lahir || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Tanggal Lahir</span><span class="profile-field-value">' + escapeHtml(app.tanggal_lahir || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">No. HP</span><span class="profile-field-value">' + escapeHtml(app.phone || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">No. WhatsApp</span><span class="profile-field-value">' + escapeHtml(app.whatsapp || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Email</span><span class="profile-field-value" style="word-break:break-all;">' + escapeHtml(app.email || '-') + '</span></div>' +
+            '</div>' +
+            '</div>' +
+            
+            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
+            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-map-marker-alt"></i> Alamat</h4>' +
+            '<div class="profile-info-grid">' +
+            '<div class="profile-field" style="grid-column:1/-1;"><span class="profile-field-label">Alamat KTP</span><span class="profile-field-value">' + escapeHtml(app.alamat_ktp || '-') + '</span></div>' +
+            '<div class="profile-field" style="grid-column:1/-1;"><span class="profile-field-label">Alamat Domisili</span><span class="profile-field-value">' + escapeHtml(app.alamat_domisili || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Lama Domisili</span><span class="profile-field-value">' + escapeHtml(app.lama_domisili || '-') + '</span></div>' +
+            '</div>' +
+            '</div>' +
+            
+            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
+            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-briefcase"></i> Pekerjaan</h4>' +
+            '<div class="profile-info-grid">' +
+            '<div class="profile-field"><span class="profile-field-label">Status Pekerjaan</span><span class="profile-field-value">' + escapeHtml(app.status_pekerjaan || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Kondisi Pemohon</span><span class="profile-field-value">' + escapeHtml(app.kondisi_pemohon || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Unit Kerja</span><span class="profile-field-value">' + escapeHtml(app.unit_kerja || '-') + '</span></div>' +
+            '</div>' +
+            '</div>' +
+            
+            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
+            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-graduation-cap"></i> Pendidikan</h4>' +
+            '<div class="profile-info-grid">' +
+            '<div class="profile-field" style="grid-column:1/-1;"><span class="profile-field-label">Jurusan Tujuan</span><span class="profile-field-value">' + escapeHtml(app.jurusan_tujuan || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Jenis Pendidikan</span><span class="profile-field-value">' + escapeHtml(app.jenis_pendidikan || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Unit Tujuan</span><span class="profile-field-value">' + escapeHtml(app.unit_tujuan || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Rencana Tahun</span><span class="profile-field-value">' + escapeHtml(app.rencana_tahun || '-') + '</span></div>' +
+            '<div class="profile-field" style="grid-column:1/-1;"><span class="profile-field-label">Keterangan</span><span class="profile-field-value">' + escapeHtml(app.keterangan || '-') + '</span></div>' +
+            '</div>' +
+            '</div>' +
+            
+            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
+            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-history"></i> Informasi Tambahan</h4>' +
+            '<div class="profile-info-grid">' +
+            '<div class="profile-field"><span class="profile-field-label">Peninjau</span><span class="profile-field-value">' + escapeHtml(app.peninjau || '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Ditinjau Pada</span><span class="profile-field-value">' + escapeHtml(app.ditinjau_pada ? new Date(app.ditinjau_pada).toLocaleDateString('id-ID') : '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Dibuat Pada</span><span class="profile-field-value">' + escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-') + '</span></div>' +
+            '<div class="profile-field"><span class="profile-field-label">Diperbarui</span><span class="profile-field-value">' + escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-') + '</span></div>' +
+            '</div>' +
+            '</div>' +
+            
+            (app.admin_notes ? '<div class="profile-section" style="margin-top:1rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
+            (app.document_links ? '<div class="profile-section" style="margin-top:1rem;"><h4 style="margin-bottom:1rem;color:var(--primary);"><i class="fas fa-paperclip"></i> Link Dokumen</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDocumentLinks(app.document_links) + '</div></div>' : '') +
+            (app.folder_id ? '<div class="profile-section" style="margin-top:1rem;"><strong>Applicant Folder:</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
+            
+            '<div class="profile-section">' + actionBtns + '</div>' +
+            '</div>';
+          showModal('Profil Pengaju (ID: ' + app.id + ')', html);
         }
       });
     }
