@@ -275,20 +275,45 @@
 
     function getFotoUrlForRender(app) {
       // Back-end sudah kirim: app.foto_url + app.foto_url_fallback (url siap render)
-      if (!app) return {primary: '', fallback: ''};
+      if (!app) return {primary: '', fallback: '', sources: []};
       var p = (app.foto_url || '').toString().trim();
       var f = (app.foto_url_fallback || '').toString().trim();
-      // Jika backend cuma kirim fileId mentah (kemungkinan), coba konversi dengan pola drive
-      function maybeConvertToDriveUrl(x) {
-        if (!x) return '';
-        if (x.indexOf('drive.google.com') !== -1) return x;
-        if (x.indexOf('http') !== -1) return x;
-        // treat as FILE_ID
-        return 'https://drive.google.com/uc?export=view&id=' + x;
+      
+      // Build multiple URL sources for robust photo loading
+      function buildUrlSources(url) {
+        if (!url) return [];
+        var sources = [];
+        var cleanUrl = url.trim();
+        
+        // Pattern 1: Already a google drive URL
+        if (cleanUrl.indexOf('drive.google.com') !== -1) {
+          sources.push(cleanUrl);
+          // Add thumbnail version
+          var fileId = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          if (fileId && fileId[1]) {
+            sources.push('https://drive.google.com/uc?export=view&id=' + fileId[1]);
+            sources.push('https://drive.google.com/thumbnail?id=' + fileId[1] + '&sz=w800');
+          }
+        } else if (cleanUrl.indexOf('lh3.googleusercontent.com') !== -1) {
+          sources.push(cleanUrl);
+        } else if (cleanUrl.indexOf('http') === 0) {
+          sources.push(cleanUrl);
+        } else {
+          // Treat as raw file ID
+          sources.push('https://drive.google.com/uc?export=view&id=' + cleanUrl);
+          sources.push('https://drive.google.com/thumbnail?id=' + cleanUrl + '&sz=w800');
+        }
+        return [...new Set(sources)]; // Remove duplicates
       }
+      
+      var primarySources = buildUrlSources(p);
+      var fallbackSources = f ? buildUrlSources(f) : [];
+      var allSources = [...primarySources, ...fallbackSources];
+      
       return {
-        primary: p ? maybeConvertToDriveUrl(p) : '',
-        fallback: f ? maybeConvertToDriveUrl(f) : ''
+        primary: primarySources[0] || '',
+        fallback: fallbackSources[0] || '',
+        sources: allSources
       };
     }
     </script>
@@ -296,7 +321,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycby_XeP-J2y30BepZWJkiYjfKcgZdQcYlXItdiS9-VU9H_SOEPgjcv3gf4JZlnhp-gt1/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbw4mD5s_fxOvUrxYoKas6XeWr2yQonJcMJYxmJqsgC5DeJ-duFihuAMKslSbHFyBK0/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -868,23 +893,27 @@ function renderAdminTable(apps) {
           '<option value="rejected" ' + (app.status === 'rejected' ? 'selected' : '') + '>Ditolak</option>' +
           '</select>';
 
-        var crudBtns = '<div class="flex gap-2">' +
-          '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-eye"></i></button>' +
-          '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(' + quoteForOnclick(app.id) + ')"><i class="fas fa-user"></i></button>' +
-          '</div>';
+var crudBtns = '<div class="flex gap-2">' +
+           '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-eye"></i></button>' +
+           '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(' + quoteForOnclick(app.id) + ')"><i class="fas fa-user"></i></button>' +
+           (app.status === 'approved' ? '<button class="btn btn-success btn-sm" onclick="downloadRekomendasi(' + app.id + ')"><i class="fas fa-download"></i></button>' : '') +
+           '<button class="btn btn-warning btn-sm" onclick="editApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-edit"></i></button>' +
+           '<button class="btn btn-danger btn-sm" onclick="deleteApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-trash"></i></button>' +
+           '</div>';
 
         var fotoU = getFotoUrlForRender(app);
         var fotoSrc = fotoU.primary;
-        var fotoFallback = fotoU.fallback;
-        var fotoHtml = fotoSrc ?
-          '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
-          'onclick="showLightboxAdmin(\'' + escapeHtml(fotoSrc) + '\'); showProfileAdmin(' + quoteForOnclick(app.id) + ')" ' +
-          'onerror="this.style.display=\'none\'">' :
-          (fotoFallback ? '<img src="' + escapeHtml(fotoFallback) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
-            'onclick="showLightboxAdmin(\'' + escapeHtml(fotoFallback) + '\'); showProfileAdmin(' + quoteForOnclick(app.id) + ')" ' +
-            'onerror="this.style.display=\'none\'">' +
-            '</img>' :
-            '<span class="text-muted"><i class="fas fa-image"></i></span>');
+        var fotoSources = fotoU.sources || [];
+        
+        // Build multi-source img tag with multiple fallbacks
+        var fotoHtml = '';
+        if (fotoSources.length > 0) {
+          fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
+            'onclick="showLightboxAdmin(\'' + escapeHtml(fotoSrc) + '\'); showProfileAdmin(' + quoteForOnclick(app.id) + ')" ' +
+            'onerror="var s=document.getElementById(\'foto-' + app.id + '\'); if(s && s.next) { s.src=s.next; } else { var sources=' + JSON.stringify(fotoSources) + '; for(var i=0;i<sources.length;i++) { if(sources[i]!=\'' + escapeHtml(fotoSrc) + '\' && s.src.indexOf(sources[i])===-1) { s.src=sources[i]; break; } } }">';
+        } else {
+          fotoHtml = '<span class="text-muted"><i class="fas fa-image"></i></span>';
+        }
 
         return '<tr>' +
           '<td>' + fotoHtml + '</td>' +
@@ -1108,14 +1137,22 @@ function showProfile(id) {
 var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
           
           // Download button for approved applications
-          var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
-          // Repair button for rejected applications
+var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
           var repairBtn = app.status === 'rejected' ? '<div class="mt-3"><button class="btn btn-warning btn-block" onclick="showRepairForm(' + id + ')"><i class="fas fa-edit"></i> Perbaiki Pengajuan</button></div>' : '';
-           
-           var fotoSrc = getDriveImageUrl(app.foto_url, 0);
-           var fotoFallback = getDriveImageUrl(app.foto_url_fallback, 0) || '';
-           var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
-          var fotoImg = fotoSrc ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;cursor:pointer;" onerror="this.onerror=null;this.src=\'' + escapeHtml(fotoFallback || placeholderImg) + '\';" onclick="showFullScreenImage(this.src)">' : '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;" onclick="showFullScreenImage(this.src)">';
+            
+            var fotoU = getFotoUrlForRender(app);
+            var fotoSrc = fotoU.primary;
+            var fotoSources = fotoU.sources || [];
+            var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
+            
+            // Build foto HTML with multiple fallback sources
+            var onErrorHandler = "var s=this; var sources=" + JSON.stringify(fotoSources) + "; var idx=sources.indexOf(s.src); if(idx<sources.length-1) { s.onerror=null; s.src=sources[idx+1]; } else { s.onerror=null; s.src='" + placeholderImg + "'; }";
+            var fotoImg;
+            if (fotoSources.length > 0) {
+              fotoImg = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;cursor:pointer;" onerror="' + onErrorHandler + '" onclick="showFullScreenImage(this.src)">';
+            } else {
+              fotoImg = '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;">';
+            }
           
           var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user"></i> Profil Pengaju Beasiswa ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
             '<div class="p-4">' +
@@ -1466,15 +1503,48 @@ function exportApplications() {
 
 
     function editApplication(id) {
-      if (!confirm('Edit status pengajuan? (View/Edit di modal)')) return;
-      viewApplication(id);  // Open detail modal for edit
+      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+        if (res && res.success && res.data) {
+          var app = res.data;
+          var html = '<form id="editApplicationForm" onsubmit="updateApplicationAdmin(event, ' + app.id + ')">' +
+            '<div class="alert alert-info mb-3">Edit data aplikasi ID: ' + app.id + '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">NIK</label><input type="text" name="nik" class="form-control" value="' + escapeHtml(app.nik || '') + '" readonly></div>' +
+            '<div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" name="nama_lengkap" class="form-control" value="' + escapeHtml(app.full_name || '') + '" required></div>' +
+            '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">No. HP</label><input type="tel" name="no_hp" class="form-control" value="' + escapeHtml(app.phone || '') + '"></div>' +
+            '<div class="form-group"><label class="form-label">No. WhatsApp</label><input type="tel" name="no_wa" class="form-control" value="' + escapeHtml(app.whatsapp || '') + '"></div>' +
+            '</div>' +
+            '<div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="' + escapeHtml(app.email || '') + '"></div>' +
+            '<div class="form-group"><label class="form-label">Catatan Admin</label><textarea name="admin_notes" class="form-control">' + escapeHtml(app.admin_notes || '') + '</textarea></div>' +
+            '<div class="flex gap-2 mt-3">' +
+            '<button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>' +
+            '<button type="submit" class="btn btn-warning"><i class="fas fa-save"></i> Simpan Perubahan</button>' +
+            '</div></form>';
+          showModal('Edit Aplikasi (ID: ' + app.id + ')', html);
+        } else {
+          showToast('Gagal memuat data', 'error');
+        }
+      });
     }
 
-    function deleteApplication(id) {
-      if (!confirm('Hapus pengajuan ini?')) return;
-      apiCallWithData('deleteApplication', {id: id}, function(res) {
+    function updateApplicationAdmin(e, id) {
+      e.preventDefault();
+      var form = document.getElementById('editApplicationForm');
+      var params = {
+        id: id,
+        nik: form.querySelector('[name="nik"]').value,
+        nama_lengkap: form.querySelector('[name="nama_lengkap"]').value,
+        no_hp: form.querySelector('[name="no_hp"]').value,
+        no_wa: form.querySelector('[name="no_wa"]').value,
+        email: form.querySelector('[name="email"]').value,
+        admin_notes: form.querySelector('[name="admin_notes"]').value
+      };
+      apiCallWithData('updateApplication', params, function(res) {
         if (res && res.success) {
-          showToast('Dihapus');
+          showToast('Data berhasil diperbarui');
+          closeModal();
           loadApplications();
         } else {
           showToast(res ? res.message : 'Gagal', 'error');
@@ -1482,23 +1552,44 @@ function exportApplications() {
       });
     }
 
-    function viewApplication(id) {
-      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
-        if (res && res.success && res.data) {
-          var app = res.data;
-          var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
-          var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
-          // Download button for approved applications
-           var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
-           var fotoSrc = getDriveImageUrl(app.foto_url, 0);
-           var fotoFallback = getDriveImageUrl(app.foto_url_fallback, 0) || '';
-           var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
-          var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user-cog"></i> Detail Pengajuan ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
-            '<div class="p-4">' +
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:2rem;">' +
-            '<div>' +
-            (fotoSrc ? '<div style="text-align:center;mb-4;"><img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;cursor:pointer;" onerror="this.onerror=null;this.src=\'' + escapeHtml(fotoFallback || placeholderImg) + '\';" onclick="showFullScreenImage(this.src)"><p style="mt-2;text-muted;"><i class="fas fa-check-circle" style="color:var(--success);"></i> Foto tersedia</p></div>' : '<div style="text-align:center;mb-4;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);"><i class="fas fa-image" style="font-size:4rem;color:var(--gray-500);"></i><p style="text-muted;">Foto tidak tersedia</p></div>') +
-            '<div style="background:var(--gray-100);padding:1rem;border-radius:8px;">' +
+    function deleteApplication(id) {
+      if (!confirm('Hapus pengajuan ini? Tindakan ini tidak dapat dibatalkan.')) return;
+      apiCallWithData('deleteApplication', {id: id, role: 'admin'}, function(res) {
+        if (res && res.success) {
+          showToast('Data berhasil dihapus');
+          loadApplications();
+        } else {
+          showToast(res ? res.message : 'Gagal', 'error');
+        }
+      });
+    }
+
+function viewApplication(id) {
+       apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+         if (res && res.success && res.data) {
+           var app = res.data;
+           var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
+           var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
+           // Download button for approved applications
+            var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
+            var fotoU = getFotoUrlForRender(app);
+            var fotoSrc = fotoU.primary;
+            var fotoSources = fotoU.sources || [];
+            var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
+            
+            // Build foto HTML with multiple fallback sources
+            var onErrorHandler = "var s=this; var sources=" + JSON.stringify(fotoSources) + "; var idx=sources.indexOf(s.src); if(idx<sources.length-1) { s.onerror=null; s.src=sources[idx+1]; } else { s.onerror=null; s.src='" + placeholderImg + "'; }";
+var fotoImg;
+            if (fotoSources.length > 0) {
+              fotoImg = '<div style="text-align:center;margin-bottom:1rem;"><img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:0.5rem;cursor:pointer;" onerror="' + onErrorHandler + '" onclick="showFullScreenImage(this.src)"><p style="color:var(--success);font-size:0.875rem;"><i class="fas fa-check-circle"></i> Foto tersedia</p></div>';
+            } else {
+              fotoImg = '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);"><i class="fas fa-image" style="font-size:4rem;color:var(--gray-500);"></i><p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
+            }
+            var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user-cog"></i> Detail Pengajuan ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
+             '<div class="p-4">' +
+             '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:2rem;">' +
+             '<div>' + fotoImg +
+             '<div style="background:var(--gray-100);padding:1rem;border-radius:8px;">' +
             '<p style="margin:0.5rem 0;font-weight:600;"><strong>No. Pengajuan:</strong> <code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number) + '</code></p>' +
             '<p style="margin:0.5rem 0;"><strong>Status:</strong> <span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span></p>' +
             (app.folder_id ? '<p style="margin:0.5rem 0;"><strong>Drive Folder:</strong> <a href="https://drive.google.com/drive/folders/' + app.folder_id + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></p>' : '') +
@@ -1790,8 +1881,66 @@ function exportApplications() {
       showToast('Fitur buat pengajuan baru belum tersedia. Gunakan formulir di halaman Ajukan Rekomendasi.', 'info');
     }
 
-    function editApplication(id) {
-      showToast('Fitur edit pengajuan belum tersedia.', 'info');
+function editApplication(id) {
+      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+        if (res && res.success && res.data) {
+          var app = res.data;
+          var html = '<form id="editApplicationForm" onsubmit="updateApplicationAdmin(event, ' + app.id + ')">' +
+            '<div class="alert alert-info mb-3">Edit data aplikasi ID: ' + app.id + '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">NIK</label><input type="text" name="nik" class="form-control" value="' + escapeHtml(app.nik || '') + '" readonly></div>' +
+            '<div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" name="nama_lengkap" class="form-control" value="' + escapeHtml(app.full_name || '') + '" required></div>' +
+            '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">No. HP</label><input type="tel" name="no_hp" class="form-control" value="' + escapeHtml(app.phone || '') + '"></div>' +
+            '<div class="form-group"><label class="form-label">No. WhatsApp</label><input type="tel" name="no_wa" class="form-control" value="' + escapeHtml(app.whatsapp || '') + '"></div>' +
+            '</div>' +
+            '<div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="' + escapeHtml(app.email || '') + '"></div>' +
+            '<div class="form-group"><label class="form-label">Catatan Admin</label><textarea name="admin_notes" class="form-control">' + escapeHtml(app.admin_notes || '') + '</textarea></div>' +
+            '<div class="flex gap-2 mt-3">' +
+            '<button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>' +
+            '<button type="submit" class="btn btn-warning"><i class="fas fa-save"></i> Simpan Perubahan</button>' +
+            '</div></form>';
+          showModal('Edit Aplikasi (ID: ' + app.id + ')', html);
+        } else {
+          showToast('Gagal memuat data', 'error');
+        }
+      });
+    }
+
+    function updateApplicationAdmin(e, id) {
+      e.preventDefault();
+      var form = document.getElementById('editApplicationForm');
+      var params = {
+        id: id,
+        nik: form.querySelector('[name="nik"]').value,
+        nama_lengkap: form.querySelector('[name="nama_lengkap"]').value,
+        no_hp: form.querySelector('[name="no_hp"]').value,
+        no_wa: form.querySelector('[name="no_wa"]').value,
+        email: form.querySelector('[name="email"]').value,
+        admin_notes: form.querySelector('[name="admin_notes"]').value
+      };
+      apiCallWithData('updateApplication', params, function(res) {
+        if (res && res.success) {
+          showToast('Data berhasil diperbarui');
+          closeModal();
+          loadApplications();
+        } else {
+          showToast(res ? res.message : 'Gagal', 'error');
+        }
+      });
+    }
+
+    function deleteApplication(id) {
+      if (!confirm('Hapus pengajuan ini? Tindakan ini tidak dapat dibatalkan.')) return;
+      apiCallWithData('deleteApplication', {id: id, role: 'admin'}, function(res) {
+        if (res && res.success) {
+          showToast('Data berhasil dihapus');
+          loadApplications();
+        } else {
+          showToast(res ? res.message : 'Gagal', 'error');
+        }
+      });
     }
 
     // ========================================
@@ -1934,19 +2083,29 @@ _________________________
 // ========================================
     // SHOW PROFILE WITH FULL DATA (ADMIN) - GLASSMORPHISM
     // ========================================
-function showProfileAdmin(id) {
+    function showProfileAdmin(id) {
       apiCallWithData('getApplicationDetail', {id: id}, function(res) {
         if (res && res.success && res.data) {
           var app = res.data;
           var statusText = {pending: 'Menunggu', processed: 'Diperiksa', approved: 'Disetujui', rejected: 'Ditolak', revision: 'Diperbaiki'};
           var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : app.status === 'revision' ? 'badge-revision' : 'badge-pending';
 
-          var fotoSrc = getDriveImageUrl(app.foto_url, 0);
-          var fotoFallback = getDriveImageUrl(app.foto_url_fallback, 0) || '';
+          var fotoU = getFotoUrlForRender(app);
+          var fotoSrc = fotoU.primary;
+          var fotoSources = fotoU.sources || [];
           var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
+          
+          // Build foto HTML with multiple sources for robust loading
+          var fotoHtml;
+          if (fotoSources.length > 0) {
+            var onErrorHandler = "var s=this; var sources=" + JSON.stringify(fotoSources) + "; var idx=sources.indexOf(s.src); if(idx<sources.length-1) { s.src=sources[idx+1]; } else { s.onerror=null; s.src='" + placeholderImg + "'; }";
+            fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="' + onErrorHandler + '" />';
+          } else {
+            fotoHtml = '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
+          }
 
           var fields = [
-            {label: 'Foto', valueHtml: fotoSrc ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="this.onerror=null;this.src=\'' + escapeHtml(fotoFallback || placeholderImg) + '\';" />' : '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i></div>'},
+            {label: 'Foto', valueHtml: fotoHtml},
             {label: 'NIK', value: app.nik || '-'},
             {label: 'Nama Lengkap', value: app.full_name || '-'},
             {label: 'Alamat KTP', value: app.alamat_ktp || '-'},
@@ -1958,16 +2117,11 @@ function showProfileAdmin(id) {
           ];
 
           var crudHtml = [
-            '<div class="flex gap-2 mt-2" style="flex-wrap:wrap;">' +
-              '<select class="status-dropdown" onchange="changeStatusQuick(' + app.id + ', this.value)">' +
-                '<option value="">Ubah Status</option>' +
-                '<option value="pending" ' + (app.status === 'pending' ? 'selected' : '') + '>Menunggu</option>' +
-                '<option value="processed" ' + (app.status === 'processed' ? 'selected' : '') + '>Diperiksa</option>' +
-                '<option value="approved" ' + (app.status === 'approved' ? 'selected' : '') + '>Disetujui</option>' +
-                '<option value="revision" ' + (app.status === 'revision' ? 'selected' : '') + '>Diperbaiki</option>' +
-                '<option value="rejected" ' + (app.status === 'rejected' ? 'selected' : '') + '>Ditolak</option>' +
-              '</select>' +
-              '<button class="btn btn-outline btn-sm" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
+            '<div class="flex gap-2 mt-2" style="flex-wrap:wrap;">',
+            '<button class="btn btn-primary btn-sm" onclick="approveApplication(' + app.id + ')"><i class="fas fa-check"></i> Setujui</button>',
+            '<button class="btn btn-warning btn-sm" onclick="editApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-edit"></i> Edit</button>',
+            '<button class="btn btn-danger btn-sm" onclick="rejectApplication(' + app.id + ')"><i class="fas fa-times"></i> Tolak</button>',
+            '<button class="btn btn-outline btn-sm" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>',
             '</div>'
           ].join('');
 
@@ -1978,6 +2132,66 @@ function showProfileAdmin(id) {
               if (idx === 0) {
                 return '<div class="profile-field" style="grid-column:1/-1;display:flex;justify-content:center;">' + (f.valueHtml || '-') + '</div>';
               }
+              return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(f.label) + '</span><span class="profile-field-value">' + (f.valueHtml ? f.valueHtml : escapeHtml(f.value || '-')) + '</span></div>';
+            }).join('') +
+            '<div class="profile-field" style="grid-column:1/-1;">' +
+              '<span class="profile-field-label">CRUD</span>' +
+              '<span class="profile-field-value" style="display:block;">' + crudHtml + '</span>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+
+          var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
+
+          var moreHtml = '<div class="profile-section">' +
+            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-clipboard-list"></i> Data Lengkap</h4>' +
+            '<div class="profile-info-grid">' +
+            [
+              ['No. Pengajuan', '<code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number || '-') + '</code>'],
+              ['Tanggal Pengajuan', escapeHtml(app.timestamp ? new Date(app.timestamp).toLocaleDateString('id-ID') : '-')],
+              ['Tempat Lahir', escapeHtml(app.tempat_lahir || '-')],
+              ['Tanggal Lahir', escapeHtml(app.tanggal_lahir || '-')],
+              ['No. HP', escapeHtml(app.phone || '-')],
+              ['No. WhatsApp', escapeHtml(app.whatsapp || '-')],
+              ['Email', escapeHtml(app.email || '-')],
+              ['Alamat Domisili', escapeHtml(app.alamat_domisili || '-')],
+              ['Lama Domisili', escapeHtml(app.lama_domisili || '-')],
+              ['Status Pekerjaan', escapeHtml(app.status_pekerjaan || '-')],
+              ['Kondisi Pemohon', escapeHtml(app.kondisi_pemohon || '-')],
+              ['Keterangan', escapeHtml(app.keterangan || '-')],
+              ['Unit Kerja', escapeHtml(app.unit_kerja || '-')],
+              ['Rencana Tahun', escapeHtml(app.rencana_tahun || '-')],
+              ['Link Dokumen', app.document_links ? ('<div style="background:var(--gray-50);padding:1rem;border-radius:10px;border-left:4px solid var(--primary);">' + formatDocumentLinks(app.document_links) + '</div>') : '-'],
+              ['Applicant Folder ID', app.folder_id ? '<a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a>' : '-'],
+              ['Dibuat Pada', escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-')],
+              ['Diperbarui', escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-')]
+            ].map(function(x) {
+              return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(x[0]) + '</span><span class="profile-field-value">' + (x[1] || '-') + '</span></div>';
+            }).join('') +
+            '</div>' +
+            '</div>';
+
+          var html = '<div class="profile-popup-modern" style="width:100vw;max-width:none;height:100vh;max-height:none;">' +
+            '<div class="sticky-header profile-section" style="position:sticky;top:0;background:rgba(255,255,255,0.9);">' +
+              '<div class="profile-header" style="margin-bottom:0;">' +
+                '<div>' +
+                  '<h3 style="margin:0;color:var(--primary);"><i class="fas fa-user-cog"></i> Profil Pengaju (Full)</h3>' +
+                  '<div class="text-muted" style="font-size:0.875rem;margin-top:0.25rem;">ID: ' + escapeHtml(app.id || '-') + '</div>' +
+                '</div>' +
+                '<div class="flex gap-2" style="align-items:center;">' +
+                  downloadBtn +
+                  '<button class="btn btn-outline" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            dataOrderHtml +
+            moreHtml +
+            '</div>';
+
+          showModal('Profil Pengaju (ID: ' + app.id + ')', html);
+        }
+      });
+    }
               return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(f.label) + '</span><span class="profile-field-value">' + (f.valueHtml ? f.valueHtml : escapeHtml(f.value || '-')) + '</span></div>';
             }).join('') +
             '<div class="profile-field" style="grid-column:1/-1;">' +
