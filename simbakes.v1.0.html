@@ -210,7 +210,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxnbU8Um3iPCdsk7TJRFTzBTy0bYof8VXjQR3erKndQdm8eAn2XL0x6-lBu7rJVbodN/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbxqsmFuLRFt0PUsOuqZdjbMndrCg41DN2f7v4feMatikshjSayLMCrO_K4-IBl-bfXm/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -219,18 +219,32 @@ document.addEventListener('DOMContentLoaded', function() {
       var urlParams = new URLSearchParams(window.location.search);
       currentPage = urlParams.get('page') || 'dashboard';
       updateCurrentDate();
-      navigate(currentPage);
+      try {
+        navigate(currentPage);
+      } catch (err) {
+        console.error('Navigation failed:', err);
+        document.getElementById('content').innerHTML = '<div class="alert alert-error">Terjadi kesalahan saat memuat halaman utama. Silakan muat ulang.</div>';
+      }
       
-      // Fix onclick handlers - replace with addEventListener
       // Setup menu navigation (prevent # jumping)
       document.querySelectorAll('.sidebar-menu a').forEach(function(link) {
         link.addEventListener('click', function(e) {
           e.preventDefault();
           var page = this.dataset.page;
-          if (page) navigate(page);
+          if (page) {
+            try {
+              navigate(page);
+            } catch (err) {
+              console.error('Navigation failed:', err);
+              document.getElementById('content').innerHTML = '<div class="alert alert-error">Terjadi kesalahan saat membuka menu. Silakan coba lagi.</div>';
+            }
+          }
         });
       });
-      document.querySelector('.menu-toggle').addEventListener('click', toggleSidebar);
+      var menuToggle = document.querySelector('.menu-toggle');
+      if (menuToggle) {
+        menuToggle.addEventListener('click', toggleSidebar);
+      }
     });
 
     function updateCurrentDate() {
@@ -269,17 +283,35 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('pageTitle').textContent = getPageTitle(page);
       updateActiveMenu();
       var html = '';
-      switch(page) {
-        case 'dashboard': html = renderDashboard(); break;
-        case 'form': html = renderForm(); break;
-        case 'roadmap': html = renderRoadmap(); break;
-        case 'status': html = renderStatus(); break;
-        case 'admin': html = renderAdmin(); break;
-        default: html = renderDashboard();
+      try {
+        switch(page) {
+          case 'dashboard': html = renderDashboard(); break;
+          case 'form': html = renderForm(); break;
+          case 'roadmap': html = renderRoadmap(); break;
+          case 'status': html = renderStatus(); break;
+          case 'admin': html = renderAdmin(); break;
+          default: html = renderDashboard();
+        }
+      } catch (err) {
+        console.error('Render error for page', page, err);
+        html = '<div class="alert alert-error">Terjadi kesalahan saat memuat halaman. Silakan coba lagi.</div>';
       }
-      document.getElementById('content').innerHTML = html;
-      initPage(page);
-      document.getElementById('sidebar').classList.remove('active');
+      var contentEl = document.getElementById('content');
+      if (contentEl) {
+        contentEl.innerHTML = html;
+      }
+      try {
+        initPage(page);
+      } catch (err) {
+        console.error('initPage error for page', page, err);
+        if (contentEl) {
+          contentEl.insertAdjacentHTML('beforeend', '<div class="alert alert-error">Gagal menginisialisasi halaman.</div>');
+        }
+      }
+      var sidebarEl = document.getElementById('sidebar');
+      if (sidebarEl) {
+        sidebarEl.classList.remove('active');
+      }
     }
 
     function getPageTitle(page) {
@@ -407,10 +439,10 @@ document.addEventListener('DOMContentLoaded', function() {
         '<div class="form-group"><label class="form-label">Lama Domisili di Wilayah Kutai Kartanegara <span class="required">*</span></label>' +
         '<select name="lama_domisili" class="form-control" required>' +
         '<option value="">Pilih...</option>' +
-        '<option value="< 1 tahun">< 1 tahun</option>' +
+        '<option value="< 1 tahun">&lt; 1 tahun</option>' +
         '<option value="1-2 tahun">1-2 tahun</option>' +
         '<option value="3-5 tahun">3-5 tahun</option>' +
-        '<option value="> 5 tahun">> 5 tahun</option>' +
+        '<option value="> 5 tahun">&gt; 5 tahun</option>' +
         
         '</select></div>' +
         '</div>' +
@@ -1075,10 +1107,10 @@ function showProfile(id) {
             '<div class="form-group"><label class="form-label">Lama Domisili di Wilayah Kutai Kartanegara</label>' +
             '<select name="lama_domisili" class="form-control">' +
             '<option value="">Pilih...</option>' +
-            '<option value="< 1 tahun"' + (lamaDomisili === '< 1 tahun' ? ' selected' : '') + '>< 1 tahun</option>' +
+            '<option value="< 1 tahun"' + (lamaDomisili === '< 1 tahun' ? ' selected' : '') + '>&lt; 1 tahun</option>' +
             '<option value="1-2 tahun"' + (lamaDomisili === '1-2 tahun' ? ' selected' : '') + '>1-2 tahun</option>' +
             '<option value="3-5 tahun"' + (lamaDomisili === '3-5 tahun' ? ' selected' : '') + '>3-5 tahun</option>' +
-            '<option value="> 5 tahun"' + (lamaDomisili === '> 5 tahun' ? ' selected' : '') + '>> 5 tahun</option>' +
+            '<option value="> 5 tahun"' + (lamaDomisili === '> 5 tahun' ? ' selected' : '') + '>&gt; 5 tahun</option>' +
             '</select></div>' +
             '</div>' +
             
