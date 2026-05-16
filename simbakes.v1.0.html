@@ -208,10 +208,11 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbzUpNmXiE5Q8ec3orSB-GeR5wKBwPOHPfqdpRkUPWhg0_i8Z36V5Z9MKkig-Llw95oR/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbz5pGNQ8QQ_U4zxIaucJgrW4MJ2DxzdbFO-M8eCy9E8WlGXq2UXrzvBuMF7EmjBbsYQ/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
+    var currentRepairId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
       var urlParams = new URLSearchParams(window.location.search);
@@ -849,7 +850,8 @@ document.addEventListener('DOMContentLoaded', function() {
           el.innerHTML = res.data.map(function(d) {
             var badge = d.status === 'approved' ? 'badge-approved' : d.status === 'rejected' ? 'badge-rejected' : d.status === 'processed' ? 'badge-processed' : 'badge-pending';
             var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
-            return '<div class="card text-left mt-2"><div class="flex justify-between items-center mb-2"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + badge + '">' + (statusText[d.status] || d.status) + '</span></div><p class="text-sm">No. Pengajuan: <code>' + escapeHtml(d.application_number) + '</code></p><button class="btn btn-primary btn-sm mt-2" onclick="showProfile(' + d.id + ')"><i class="fas fa-user"></i> Lihat Profil Lengkap</button></div>';
+            var repairBtn = d.status === 'rejected' ? '<button class="btn btn-warning btn-sm mt-2" onclick="showRepairForm(' + d.id + ')"><i class="fas fa-edit"></i> Perbaiki Pengajuan</button>' : '';
+            return '<div class="card text-left mt-2"><div class="flex justify-between items-center mb-2"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + badge + '">' + (statusText[d.status] || d.status) + '</span></div><p class="text-sm">No. Pengajuan: <code>' + escapeHtml(d.application_number) + '</code></p><div class="flex gap-2 mt-2"><button class="btn btn-primary btn-sm" onclick="showProfile(' + d.id + ')"><i class="fas fa-user"></i> Lihat Profil Lengkap</button>' + repairBtn + '</div></div>';
           }).join('');
         } else {
           el.innerHTML = '<div class="alert alert-error mt-2">Data tidak ditemukan</div>';
@@ -864,10 +866,12 @@ function showProfile(id) {
         if (res && res.success && res.data) {
           var app = res.data;
           var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
-          var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
+var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
           
           // Download button for approved applications
-           var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
+          var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
+          // Repair button for rejected applications
+          var repairBtn = app.status === 'rejected' ? '<div class="mt-3"><button class="btn btn-warning btn-block" onclick="showRepairForm(' + id + ')"><i class="fas fa-edit"></i> Perbaiki Pengajuan</button></div>' : '';
            
            var fotoSrc = getDriveImageUrl(app.foto_url, 0);
            var fotoFallback = getDriveImageUrl(app.foto_url_fallback, 0) || '';
@@ -911,16 +915,163 @@ function showProfile(id) {
             '<div><p><strong>Rencana Tahun:</strong></p><div style="padding:1rem;background:var(--gray-50);border-radius:8px;border-left:3px solid var(--primary);">' + escapeHtml(app.rencana_tahun) + '</div></div>' +
             '</div>' +
             '</div>' +
-            (app.admin_notes ? '<div style="margin-top:2rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin (Kolom U)</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
-            (app.documents ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Dokumen (Kolom AD)</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);"><a href="' + escapeHtml(app.documents) + '" target="_blank" style="color:var(--primary);text-decoration:underline;font-weight:500;">📎 ' + escapeHtml(app.documents) + '</a></div></div>' : '') +
-            (app.folder_id ? '<div style="margin-top:1rem;"><strong>Applicant Folder ID (Kolom W):</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
-            downloadBtn +
-            '</div>' +
-            '</div></div>'; 
-          showModal('Profil Pengaju', html);
+(app.admin_notes ? '<div style="margin-top:2rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin (Kolom U)</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
+             (app.documents ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Dokumen (Kolom AD)</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);"><a href="' + escapeHtml(app.documents) + '" target="_blank" style="color:var(--primary);text-decoration:underline;font-weight:500;">📎 ' + escapeHtml(app.documents) + '</a></div></div>' : '') +
+             (app.folder_id ? '<div style="margin-top:1rem;"><strong>Applicant Folder ID (Kolom W):</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
+             downloadBtn +
+             repairBtn +
+             '</div>' +
+             '</div></div>'; 
+           showModal('Profil Pengaju', html);
         }
       }, function() {
         showToast('Gagal memuat profil', 'error');
+      });
+    }
+
+    function showRepairForm(id) {
+      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+        if (res && res.success && res.data) {
+          var app = res.data;
+          var lamaDomisili = app.lama_domisili || '';
+          var statusPekerjaan = app.status_pekerjaan || '';
+          var kondisiPemohon = app.kondisi_pemohon || '';
+          var jurusanTujuan = app.jurusan_tujuan || '';
+          var jenisPendidikan = app.jenis_pendidikan || '';
+          var unitTujuan = app.unit_tujuan || '';
+          var rencanaTahun = app.rencana_tahun || '';
+          var noWa = app.whatsapp || '';
+          
+          var html = '<form id="repairForm" onsubmit="submitRepair(event)"><div class="alert alert-warning mb-3"><strong>Mode Perbaikan:</strong> Data aplikasi ditolak dapat diperbaiki dan dokumen dapat diunggah ulang.</div>' +
+            '<div class="alert alert-info mb-3"><strong>Catatan Admin (kenapa ditolak):</strong><br>' + escapeHtml(app.admin_notes || 'Tidak ada catatan') + '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">NIK (Nomor Induk Kependudukan)</label><input type="text" name="nik" class="form-control" value="' + escapeHtml(app.nik || '') + '" readonly></div>' +
+            '<div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" name="nama_lengkap" class="form-control" value="' + escapeHtml(app.full_name || '') + '" required></div>' +
+            '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">Tempat Lahir</label><input type="text" name="tempat_lahir" class="form-control" value="' + escapeHtml(app.tempat_lahir || '') + '"></div>' +
+            '<div class="form-group"><label class="form-label">Tanggal Lahir</label><input type="date" name="tanggal_lahir" class="form-control" value="' + escapeHtml(app.tanggal_lahir || '') + '"></div>' +
+            '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">No. HP</label><input type="tel" name="no_hp" class="form-control" value="' + escapeHtml(app.phone || '') + '"></div>' +
+            '<div class="form-group"><label class="form-label">No. WhatsApp</label><input type="tel" name="no_wa" class="form-control" value="' + escapeHtml(noWa) + '"></div>' +
+            '</div>' +
+            '<div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="' + escapeHtml(app.email || '') + '"></div>' +
+            '<div class="form-group"><label class="form-label">Alamat KTP</label><textarea name="alamat_ktp" class="form-control">' + escapeHtml(app.alamat_ktp || '') + '</textarea></div>' +
+            '<div class="form-group"><label class="form-label">Alamat Domisili</label><textarea name="alamat_domisili" class="form-control">' + escapeHtml(app.alamat_domisili || '') + '</textarea></div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">Lama Domisili</label><select name="lama_domisili" class="form-control">' +
+            '<option value="">Pilih...</option>' +
+            '<option value="< 1 tahun"' + (lamaDomisili === '< 1 tahun' ? ' selected' : '') + '>&lt; 1 tahun</option>' +
+            '<option value="1-2 tahun"' + (lamaDomisili === '1-2 tahun' ? ' selected' : '') + '>1-2 tahun</option>' +
+            '<option value="3-5 tahun"' + (lamaDomisili === '3-5 tahun' ? ' selected' : '') + '>3-5 tahun</option>' +
+            '<option value="> 5 tahun"' + (lamaDomisili === '> 5 tahun' ? ' selected' : '') + '>&gt; 5 tahun</option>' +
+            '</select></div>' +
+            '<div class="form-group"><label class="form-label">Status Pekerjaan</label><select name="status_pekerjaan" class="form-control">' +
+            '<option value="">Pilih...</option>' +
+            '<option value="Bekerja"' + (statusPekerjaan === 'Bekerja' ? ' selected' : '') + '>Bekerja</option>' +
+            '<option value="Belum Bekerja"' + (statusPekerjaan === 'Belum Bekerja' ? ' selected' : '') + '>Belum Bekerja</option>' +
+            '<option value="Mahasiswa"' + (statusPekerjaan === 'Mahasiswa' ? ' selected' : '') + '>Mahasiswa</option>' +
+            '</select></div>' +
+            '</div>' +
+            '<div class="form-group"><label class="form-label">Unit Kerja (jika bekerja)</label><input type="text" name="unit_kerja" class="form-control" value="' + escapeHtml(app.unit_kerja || '') + '"></div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group"><label class="form-label">Jurusan yang dituju</label><select name="jurusan_tujuan" class="form-control">' +
+            '<option value="">Pilih Jurusan...</option>' +
+            '<option value="spesialis_jantung_dan_pembulut_darah"' + (jurusanTujuan === 'spesialis_jantung_dan_pembulut_darah' ? ' selected' : '') + '>Spesialis Jantung dan Pembulut Darah</option>' +
+            '<option value="spesialis_jantung_intervensi"' + (jurusanTujuan === 'spesialis_jantung_intervensi' ? ' selected' : '') + '>Spesialis Jantung - Intervensi</option>' +
+            '<option value="ners"' + (jurusanTujuan === 'ners' ? ' selected' : '') + '>NERS</option>' +
+            '<option value="profesi_bidan"' + (jurusanTujuan === 'profesi_bidan' ? ' selected' : '') + '>Profesi Bidan</option>' +
+            '<option value="gizi"' + (jurusanTujuan === 'gizi' ? ' selected' : '') + '>Gizi</option>' +
+            '<option value="terapi_okupasi"' + (jurusanTujuan === 'terapi_okupasi' ? ' selected' : '') + '>Terapi Okupasi</option>' +
+            '</select></div>' +
+            '<div class="form-group"><label class="form-label">Jenis Pendidikan</label><select name="jenis_pendidikan" class="form-control">' +
+            '<option value="">Pilih Jenjang...</option>' +
+            '<option value="sp1_unair"' + (jenisPendidikan === 'sp1_unair' ? ' selected' : '') + '>Sp1 Universitas Airlangga</option>' +
+            '<option value="sp2_unair"' + (jenisPendidikan === 'sp2_unair' ? ' selected' : '') + '>Sp2 Universitas Airlangga</option>' +
+            '<option value="s1_profesi_poltekkes_kaltim"' + (jenisPendidikan === 's1_profesi_poltekkes_kaltim' ? ' selected' : '') + '>S1 + Profesi POLTEKKES KEMENKES KALTIM</option>' +
+            '</select></div>' +
+            '</div>' +
+            '<div class="form-group"><label class="form-label">Unit Tujuan Pendayagunaan</label><select name="unit_tujuan" class="form-control">' +
+            '<option value="">Pilih Unit Pendayaguna/Penempatan...</option>' +
+            '<option value="rsud_aji_muhammad_parikesit"' + (unitTujuan === 'rsud_aji_muhammad_parikesit' ? ' selected' : '') + '>RSUD Aji Muhammad Parikesit</option>' +
+            '<option value="rsud_aji_muhammad_idris"' + (unitTujuan === 'rsud_aji_muhammad_idris' ? ' selected' : '') + '>RSUD Aji Muhammad Idris</option>' +
+            '</select></div>' +
+            '<div class="form-group"><label class="form-label">Rencana Tahun Pendidikan/Masuk</label><select name="rencana_tahun" class="form-control">' +
+            '<option value="2026"' + (rencanaTahun === '2026' ? ' selected' : '') + '>2026</option>' +
+            '<option value="2027"' + (rencanaTahun === '2027' ? ' selected' : '') + '>2027</option>' +
+            '</select></div>' +
+            '<div class="form-group"><label class="form-label">Keterangan Tambahan</label><textarea name="keterangan" class="form-control">' + escapeHtml(app.keterangan || '') + '</textarea></div>' +
+            '<hr class="mb-3 mt-4"><h4 class="mb-3">Dokumen Pendukung (Max 200KB per file)</h4>' +
+            '<div class="grid-2">' +
+            '<div class="form-group">' +
+            '<label class="form-label">Foto Terbaru Latar Merah 4x6 cm</label>' +
+            '<input type="file" name="foto" class="form-control" accept=".jpg,.jpeg,.png">' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<label class="form-label">KTP dan Kartu Keluarga</label>' +
+            '<input type="file" name="ktp" class="form-control" accept=".pdf,.jpg,.jpeg,.png">' +
+            '</div>' +
+            '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group">' +
+            '<label class="form-label">Ijazah/SKL dan Transkrip Nilai</label>' +
+            '<input type="file" name="ijazah" class="form-control" accept=".pdf,.jpg,.jpeg,.png">' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<label class="form-label">STR (Opsional)</label>' +
+            '<input type="file" name="str" class="form-control" accept=".pdf,.jpg,.jpeg,.png">' +
+            '</div>' +
+            '</div>' +
+            '<div class="grid-2">' +
+            '<div class="form-group">' +
+            '<label class="form-label">Surat Permohonan Beasiswa</label>' +
+            '<input type="file" name="surat_permohonan" class="form-control" accept=".pdf,.doc,.docx">' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<label class="form-label">Surat Pernyataan Kesediaan Pendayagunaan</label>' +
+            '<input type="file" name="surat_pernyataan" class="form-control" accept=".pdf,.doc,.docx">' +
+            '</div>' +
+            '</div>' +
+            '<div class="flex gap-2 mt-3"><button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button><button type="submit" class="btn btn-warning"><i class="fas fa-save"></i> Update Perbaikan</button></div>' +
+            '</form>';
+          currentRepairId = id;
+          showModal('Perbaiki Aplikasi (ID: ' + id + ')', html);
+        } else {
+          showToast('Gagal memuat data', 'error');
+        }
+      });
+    }
+
+    function submitRepair(e) {
+      e.preventDefault();
+      var form = document.getElementById('repairForm');
+      var formData = new FormData(form);
+      if (!confirm('Simpan perbaikan ini? Status akan diubah menjadi "pending" untuk direview ulang.')) return;
+      var params = {};
+      for (var [key, value] of formData.entries()) {
+        if (!(value instanceof File)) params[key] = value;
+      }
+      params.id = currentRepairId;
+      params.status = 'pending';
+      apiCallWithData('updateApplication', params, function(res) {
+        if (res && res.success) {
+          showToast('Perbaikan tersimpan. Mengunggah dokumen...');
+          var files = form.querySelectorAll('input[type="file"]');
+          var allFiles = [];
+          for (var i = 0; i < files.length; i++) {
+            if (files[i].files[0]) {
+              allFiles.push({fieldName: files[i].getAttribute('name'), file: files[i].files[0]});
+            }
+          }
+          if (allFiles.length > 0) {
+            uploadAllFiles(currentRepairId, allFiles, 0);
+          } else {
+            closeModal();
+          }
+        } else {
+          showToast(res ? res.message : 'Gagal', 'error');
+        }
       });
     }
 
