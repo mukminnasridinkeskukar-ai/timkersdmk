@@ -208,11 +208,13 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbz5pGNQ8QQ_U4zxIaucJgrW4MJ2DxzdbFO-M8eCy9E8WlGXq2UXrzvBuMF7EmjBbsYQ/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbxR54-cROHJJ7jGnKoMNdMy7TSPqsAVAgMEioIHO6VzFL5NSMPH_hjKRfF4tNfh1GQ2/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
     var currentRepairId = null;
+    window.allApplications = [];
+    window.filteredApplications = [];
 
 document.addEventListener('DOMContentLoaded', function() {
       var urlParams = new URLSearchParams(window.location.search);
@@ -688,6 +690,96 @@ document.addEventListener('DOMContentLoaded', function() {
         '<h4>Belum ada data pengajuan</h4>' +
         '<p>Gunakan filter untuk menampilkan data.</p>' +
         '</div></div></div>';
+    }
+
+    // ========================================
+    // ADMIN FILTER FUNCTIONS
+    // ========================================
+    function resetAdminFilters() {
+      document.getElementById('adminSearch').value = '';
+      document.getElementById('adminStatusFilter').value = '';
+      document.getElementById('adminInstansiFilter').value = '';
+      document.getElementById('adminJurusanFilter').value = '';
+      applyAdminFilters();
+    }
+
+    function populateAdminDropdowns() {
+      var instansiSelect = document.getElementById('adminInstansiFilter');
+      var jurusanSelect = document.getElementById('adminJurusanFilter');
+      if (!instansiSelect || !jurusanSelect) return;
+      var instansi = [...new Set(window.allApplications.map(function(app) { return app.unit_tujuan; }).filter(Boolean))].sort();
+      var jurusan = [...new Set(window.allApplications.map(function(app) { return app.jurusan_tujuan; }).filter(Boolean))].sort();
+      var instansiOptions = '<option value="">Semua Unit</option>';
+      instansi.forEach(function(val) {
+        instansiOptions += '<option value="' + escapeHtml(val) + '">' + escapeHtml(val) + '</option>';
+      });
+      instansiSelect.innerHTML = instansiOptions;
+      var jurusanOptions = '<option value="">Semua Jurusan</option>';
+      jurusan.forEach(function(val) {
+        jurusanOptions += '<option value="' + escapeHtml(val) + '">' + escapeHtml(val) + '</option>';
+      });
+      jurusanSelect.innerHTML = jurusanOptions;
+    }
+
+    function applyAdminFilters() {
+      var search = (document.getElementById('adminSearch')?.value || '').toLowerCase();
+      var status = document.getElementById('adminStatusFilter')?.value || '';
+      var instansi = document.getElementById('adminInstansiFilter')?.value || '';
+      var jurusan = document.getElementById('adminJurusanFilter')?.value || '';
+      var filtered = window.allApplications.filter(function(app) {
+        var matchesSearch = !search || 
+          (app.full_name && app.full_name.toLowerCase().includes(search)) ||
+          (app.nik && app.nik.toLowerCase().includes(search));
+        var matchesStatus = !status || app.status === status;
+        var matchesInstansi = !instansi || app.unit_tujuan === instansi;
+        var matchesJurusan = !jurusan || app.jurusan_tujuan === jurusan;
+        return matchesSearch && matchesStatus && matchesInstansi && matchesJurusan;
+      });
+      window.filteredApplications = filtered;
+      renderAdminTable(filtered);
+      updateFilterCount(filtered.length, window.allApplications.length);
+    }
+
+    function updateFilterCount(filtered, total) {
+      var el = document.getElementById('filterCount');
+      if (el) el.textContent = filtered + ' dari ' + total + ' data';
+    }
+
+    function renderAdminTable(apps) {
+      var tbody = document.getElementById('applicationsTable');
+      if (!tbody) return;
+      if (apps.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="17" class="text-center p-4 text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
+        return;
+      }
+      var rows = apps.map(function(app, i) {
+        var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
+        var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
+        var actionBtns = '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-eye"></i></button> ';
+        if (app.status === 'rejected') {
+          actionBtns += '<button class="btn btn-warning btn-sm" onclick="showRepairForm(' + quoteForOnclick(app.id) + ')"><i class="fas fa-edit"></i></button> ';
+        }
+        return '<tr>' +
+          '<td>' + (i+1) + '</td>' +
+          '<td>' + app.id + '</td>' +
+          '<td><code>' + escapeHtml(app.application_number || '-') + '</code></td>' +
+          '<td>' + (app.timestamp ? new Date(app.timestamp).toLocaleString('id-ID') : '-') + '</td>' +
+          '<td>' + escapeHtml(app.nik || '-') + '</td>' +
+          '<td>' + escapeHtml(app.full_name || '-') + '</td>' +
+          '<td>' + escapeHtml(app.jurusan_tujuan || '-') + '</td>' +
+          '<td>' + escapeHtml(app.jenis_pendidikan || '-') + '</td>' +
+          '<td>' + escapeHtml(app.unit_tujuan || '-') + '</td>' +
+          '<td>' + escapeHtml(app.phone || '-') + '</td>' +
+          '<td>' + escapeHtml(app.email || '-') + '</td>' +
+          '<td><span class="badge ' + badge + '">' + (statusText[app.status] || app.status) + '</span></td>' +
+          '<td>' + escapeHtml(app.admin_notes || '-') + '</td>' +
+          '<td>' + (app.created_at ? new Date(app.created_at).toLocaleDateString('id-ID') : '-') + '</td>' +
+          '<td>-</td>' +
+          '<td>-</td>' +
+          '<td>' + actionBtns + '</td>' +
+          '</tr>';
+      });
+      tbody.innerHTML = rows.join('');
     }
 
     // ========================================
@@ -1179,51 +1271,10 @@ var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejec
           if (res && res.success && res.data && res.data.applications) {
             var apps = res.data.applications;
             console.log('Loaded', apps.length, 'apps');
-            if (apps.length === 0) {
-              tbody.innerHTML = '<tr><td colspan="17" class="text-center p-4 text-muted">Belum ada data pengajuan</td></tr>';
-              if (noDataMsg) noDataMsg.classList.remove('hidden');
-              return;
-            }
-            var rows = apps.map(function(app, i) {
-              var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
-              var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
-               var created = app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : (app.created_at ? new Date(app.created_at).toLocaleDateString('id-ID') : '-');
-
-                var fotoSrc = getDriveImageUrl(app.foto_url, 0);
-                var fotoFallback = getDriveImageUrl(app.foto_url_fallback, 0) || '';
-                var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI0U1RTdFQSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTUlIiBmb250LWZhbWlsePSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG88L3RleHQ+PC9zdmc+';
-              var fotoThumb = fotoSrc ? (
-                '<div style="display:flex;align-items:center;justify-content:center;">' +
-                  '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:60px;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--primary);cursor:pointer;" onerror="this.onerror=null;this.src=\'' + escapeHtml(fotoFallback || placeholderImg) + '\';" onclick="showFullScreenImage(this.src)" />' +
-                '</div>'
-              ) : (
-                '<div style="width:60px;height:80px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px dashed var(--gray-500);color:var(--gray-500);font-size:12px;">-</div>'
-              );
-
-              var docLinks = app.documents ? '<a href="' + escapeHtml(app.documents) + '" target="_blank" title="' + escapeHtml(app.documents) + '"><i class="fas fa-paperclip text-primary" style="cursor:pointer;"></i></a>' : '-';
-              var downloadBtn = app.status === 'approved' ? getDownloadBtnHTML(app.id) : '';
-
-              return '<tr>' +
-                '<td>' + (i+1) + '</td>' +
-                '<td>' + app.id + '</td>' +
-                '<td><code>' + escapeHtml(app.application_number || '-') + '</code></td>' +
-                '<td>' + (app.timestamp ? new Date(app.timestamp).toLocaleString('id-ID') : '-') + '</td>' +
-                '<td>' + escapeHtml(app.nik || '-') + '</td>' +
-                '<td>' + escapeHtml(app.full_name || '-') + '</td>' +
-                '<td>' + escapeHtml(app.jurusan_tujuan || '-') + '</td>' +
-                '<td>' + escapeHtml(app.jenis_pendidikan || '-') + '</td>' +
-                '<td>' + escapeHtml(app.unit_tujuan || '-') + '</td>' +
-                '<td>' + escapeHtml(app.phone || '-') + '</td>' +
-                '<td>' + escapeHtml(app.email || '-') + '</td>' +
-                '<td><span class="badge ' + badge + '">' + (statusText[app.status] || app.status) + '</span></td>' +
-                '<td>' + escapeHtml(app.admin_notes || '-') + '</td>' +
-                '<td>' + (app.created_at ? new Date(app.created_at).toLocaleDateString('id-ID') : '-') + '</td>' +
-                '<td>' + fotoThumb + '</td>' +
-                '<td>' + docLinks + '</td>' +
-                '<td>' + downloadBtn + '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + app.id + ')"><i class="fas fa-eye"></i></button> <button class="btn btn-warning btn-sm" onclick="rejectApplication(' + app.id + ')"><i class="fas fa-times"></i></button> <button class="btn btn-success btn-sm" onclick="approveApplication(' + app.id + ')"><i class="fas fa-check"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteApplication(' + app.id + ')"><i class="fas fa-trash"></i></button></td>' +
-                '</tr>';
-            });
-            tbody.innerHTML = rows.join('');
+            window.allApplications = apps;
+            renderAdminTable(apps);
+            populateAdminDropdowns();
+            updateFilterCount(apps.length, apps.length);
           } else {
             var msg = res.message || 'Unknown error';
             tbody.innerHTML = '<tr><td colspan="17" class="text-center text-danger p-4"><i class="fas fa-exclamation-triangle"></i> Gagal load: ' + msg + '</td></tr>';
