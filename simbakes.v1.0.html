@@ -208,7 +208,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbx4DD3gHTrVxqRPIvXNjOoJT91jvJoXH9UfOTSJP3mPeFXchbjUeV4I-di6yPPG_F6q/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbxf_xyM3-gxPHUYnXvLhXP-JtF8VbqUsbhqkokQ5o4PegPHc-kbpkdLQ6XDQ9a_Qx3C/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1421,86 +1421,106 @@ function showProfile(id) {
       });
     }
 
-    // ========================================
-    // FORM SUBMISSION
-    // ========================================
-    function submitApplication(e) {
-      e.preventDefault();
-      var form = document.getElementById('applicationForm');
-      var formData = new FormData(form);
-      var btn = document.getElementById('submitBtn');
-      var originalText = btn.innerHTML;
-      btn.innerHTML = '<span class="spinner"></span> Mengirim...';
-      btn.disabled = true;
-
-      // Validate file sizes
-      var files = form.querySelectorAll('input[type="file"]');
-      for (var i = 0; i < files.length; i++) {
-        var file = files[i].files[0];
-        if (file && file.size > 2 * 1024 * 1024) {
-          showToast('File ' + file.name + ' melebihi 2MB', 'error');
-          btn.innerHTML = originalText;
-          btn.disabled = false;
-          return;
-        }
-      }
-
-      // Collect text fields only (exclude files)
-      var textParams = new FormData();
-      textParams.append('action', 'submitApplication');
-      for (var [key, value] of formData.entries()) {
-        if (!(value instanceof File)) {
-          textParams.append(key, value);
-        }
-      }
-
-      // Collect file info for later upload
-      var allFiles = [];
-      for (var i = 0; i < files.length; i++) {
-        if (files[i].files[0]) {
-          allFiles.push({
-            fieldName: files[i].getAttribute('name'),
-            file: files[i].files[0]
-          });
-        }
-      }
-
-      // Submit application via POST
-      fetch(API_URL, {
-        method: 'POST',
-        body: textParams
-      })
-      .then(function(response) {
-        if (!response.ok) {
-          var err = new Error('Network response was not ok: ' + response.status + ' ' + response.statusText);
-          err.status = response.status;
-          err.statusText = response.statusText;
-          throw err;
-        }
-        var contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          return response.json();
-        } else {
-          return response.text().then(function(text) {
-            try {
-              return JSON.parse(text);
-            } catch(e) {
-              throw new Error('Invalid JSON response: ' + text.substring(0, 200));
-            }
-          });
-        }
-      })
-      .then(function(res) {
+// ========================================
+// FORM SUBMISSION
+// ========================================
+function submitApplication(e) {
+  e.preventDefault();
+  var form = document.getElementById('applicationForm');
+  var formData = new FormData(form);
+  var nik = String(formData.get('nik') || '').trim().replace(/\s+/g, '');
+  var btn = document.getElementById('submitBtn');
+  var originalText = btn.innerHTML;
+  
+  // Frontend NIK validation (normalize: trim + remove spaces)
+  if (!nik || nik.length !== 16 || !/^\d+$/.test(nik)) {
+    showToast('NIK harus 16 digit angka', 'error');
+    return;
+  }
+  
+  btn.innerHTML = '<span class="spinner"></span> Memeriksa NIK...';
+  btn.disabled = true;
+  
+  // Check NIK uniqueness via API
+  apiCallWithData('checkNikExists', {nik: nik}, function(res) {
+    if (res && res.success && res.data && res.data.exists) {
+      showToast('NIK sudah terdaftar dan tidak dapat digunakan kembali', 'error');
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      return;
+    }
+    
+    // NIK is unique, proceed with submission
+    btn.innerHTML = '<span class="spinner"></span> Mengirim...';
+    
+    // Validate file sizes
+    var files = form.querySelectorAll('input[type="file"]');
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i].files[0];
+      if (file && file.size > 2 * 1024 * 1024) {
+        showToast('File ' + file.name + ' melebihi 2MB', 'error');
         btn.innerHTML = originalText;
         btn.disabled = false;
-if (res && res.success) {
-           showToast('Pengajuan berhasil! No: ' + res.data.application_number);
-           form.reset();
-           if (allFiles.length > 0) {
-             showToast('Mengunggah ' + allFiles.length + ' file...');
-             uploadAllFiles(res.data.id, allFiles, 0);
-           }
-           setTimeout(function() { loadApplications(); }, 2000);
+        return;
+      }
+    }
+
+    // Collect text fields only (exclude files)
+    var textParams = new FormData();
+    textParams.append('action', 'submitApplication');
+    for (var [key, value] of formData.entries()) {
+      if (!(value instanceof File)) {
+        textParams.append(key, value);
+      }
+    }
+
+    // Collect file info for later upload
+    var allFiles = [];
+    for (var i = 0; i < files.length; i++) {
+      if (files[i].files[0]) {
+        allFiles.push({
+          fieldName: files[i].getAttribute('name'),
+          file: files[i].files[0]
+        });
+      }
+    }
+
+    // Submit application via POST
+    fetch(API_URL, {
+      method: 'POST',
+      body: textParams
+    })
+    .then(function(response) {
+      if (!response.ok) {
+        var err = new Error('Network response was not ok: ' + response.status + ' ' + response.statusText);
+        err.status = response.status;
+        err.statusText = response.statusText;
+        throw err;
+      }
+      var contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        return response.json();
+      } else {
+        return response.text().then(function(text) {
+          try {
+            return JSON.parse(text);
+          } catch(e) {
+            throw new Error('Invalid JSON response: ' + text.substring(0, 200));
+          }
+        });
+      }
+    })
+    .then(function(res) {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      if (res && res.success) {
+        showToast('Pengajuan berhasil! No: ' + res.data.application_number);
+        form.reset();
+        if (allFiles.length > 0) {
+          showToast('Mengunggah ' + allFiles.length + ' file...');
+          uploadAllFiles(res.data.id, allFiles, 0);
+        }
+        setTimeout(function() { loadApplications(); }, 2000);
          } else {
           var msg = (res && res.message) || 'Gagal mengirim';
           showToast(msg, 'error');
