@@ -1,553 +1,50 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+const SHEET_ID = '153t5YhhfFQNk7ar8C1iJn539ez8a_125zPK-pYH8CV8';
+const FOLDER_ID = '1wthHcrRcfSxSSIF31s_Qb0Bfj9PZcu-5';
 
-<title>MantaF - Manajemen Tata Kelola Jabatan Fungsional Kesehatan</title>
+const CSRF_TOKENS = {};
+const RATE_LIMIT = {};
+const SESSION_STORE = {};
+const AUDIT_LOGS = [];
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-<style>
-
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:'Poppins',sans-serif;
+function logAudit(action, details, clientId){
+  const log = {
+    timestamp: new Date().toISOString(),
+    action: action,
+    clientId: clientId || 'unknown',
+    details: details
+  };
+  AUDIT_LOGS.push(log);
+  if (AUDIT_LOGS.length > 1000) AUDIT_LOGS.shift();
 }
 
-body{
-background:#f1f5f9;
-overflow-x:hidden;
+function generateCSRFToken(){
+  return Utilities.getUuid().replace(/-/g, '');
 }
 
-:root{
---primary:#0f766e;
---secondary:#14b8a6;
---dark:#0f172a;
---light:#ffffff;
---gray:#64748b;
---danger:#dc2626;
---success:#16a34a;
+function hashPassword(password){
+  const salt = Utilities.getUuid();
+  const hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + password);
+  return salt + ':' + hash.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
 }
 
-.sidebar{
-position:fixed;
-left:0;
-top:0;
-width:270px;
-height:100vh;
-background:linear-gradient(180deg,#0f172a,#0f766e);
-padding:20px;
-color:#fff;
-overflow-y:auto;
-z-index:999;
-transition:all 0.3s ease;
-}
-
-.sidebar.collapsed{
-width:80px;
-}
-
-.profile-section{
-text-align:center;
-padding:15px 10px;
-margin-bottom:20px;
-position:relative;
-transition:all 0.3s ease;
-}
-
-.profile-section.collapsed{
-padding:10px 5px;
-}
-
-.profile-avatar{
-width:80px;
-height:80px;
-border-radius:50%;
-margin:0 auto 12px;
-background:linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.1));
-backdrop-filter:blur(10px);
-border:2px solid rgba(255,255,255,0.3);
-display:flex;
-align-items:center;
-justify-content:center;
-overflow:hidden;
-transition:all 0.3s ease;
-box-shadow:0 8px 32px rgba(0,0,0,0.2);
-position:relative;
-}
-
-.profile-section.collapsed .profile-avatar{
-width:50px;
-height:50px;
-margin-bottom:8px;
-}
-
-.profile-avatar:hover{
-transform:scale(1.05);
-box-shadow:0 12px 40px rgba(0,0,0,0.3);
-border-color:rgba(255,255,255,0.5);
-}
-
-.profile-avatar img{
-width:100%;
-height:100%;
-object-fit:cover;
-border-radius:50%;
-transition:opacity 0.3s ease;
-}
-
-.profile-status{
-position:absolute;
-bottom:5px;
-right:calc(50% - 30px);
-width:16px;
-height:16px;
-background:#16a34a;
-border-radius:50%;
-border:2px solid #0f172a;
-box-shadow:0 0 10px rgba(22,163,74,0.5);
-animation:pulse 2s infinite;
-}
-
-@keyframes pulse{
-0%{box-shadow:0 0 0 0 rgba(22,163,74,0.7);}
-70%{box-shadow:0 0 0 10px rgba(22,163,74,0);}
-100%{box-shadow:0 0 0 0 rgba(22,163,74,0);}
-}
-
-.profile-name{
-font-size:16px;
-font-weight:600;
-margin-bottom:4px;
-color:#fff;
-white-space:nowrap;
-overflow:hidden;
-text-overflow:ellipsis;
-transition:all 0.3s ease;
-}
-
-.profile-section.collapsed .profile-name,
-.profile-section.collapsed .profile-role,
-.profile-section.collapsed .profile-status-text{
-opacity:0;
-visibility:hidden;
-}
-
-.profile-role{
-font-size:12px;
-color:#a7f3d0;
-margin-bottom:8px;
-transition:all 0.3s ease;
-}
-
-.profile-status-text{
-font-size:11px;
-color:#94a3b8;
-display:flex;
-align-items:center;
-justify-content:center;
-gap:4px;
-transition:all 0.3s ease;
-}
-
-.profile-status-text::before{
-content:'';
-width:8px;
-height:8px;
-background:#16a34a;
-border-radius:50%;
-display:inline-block;
-}
-
-.logo{
-font-size:32px;
-font-weight:700;
-margin-bottom:5px;
-}
-
-.logo span{
-color:#5eead4;
-}
-
-.logo-desc{
-font-size:12px;
-opacity:.8;
-margin-bottom:30px;
-line-height:1.6;
-}
-
-.menu{
-display:flex;
-flex-direction:column;
-gap:10px;
-}
-
-.menu button{
-border:none;
-background:rgba(255,255,255,.08);
-color:#fff;
-padding:14px;
-border-radius:14px;
-cursor:pointer;
-font-size:14px;
-text-align:left;
-font-weight:500;
-transition:.3s;
-}
-
-.menu button:hover,
-.menu button.active{
-background:#14b8a6;
-transform:translateX(5px);
-}
-
-.main{
-margin-left:270px;
-padding:25px;
-}
-
-.topbar{
-background:#fff;
-padding:20px;
-border-radius:20px;
-box-shadow:0 5px 20px rgba(0,0,0,.06);
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:25px;
-}
-
-.title{
-font-size:28px;
-font-weight:700;
-color:#0f172a;
-}
-
-.subtitle{
-font-size:13px;
-color:#64748b;
-margin-top:5px;
-}
-
-.section{
-display:none;
-animation:fade .4s ease;
-}
-
-.section.active{
-display:block;
-}
-
-@keyframes fade{
-from{
-opacity:0;
-transform:translateY(10px);
-}
-to{
-opacity:1;
-transform:translateY(0);
-}
-}
-
-.panel{
-background:#fff;
-padding:25px;
-border-radius:20px;
-box-shadow:0 5px 20px rgba(0,0,0,.06);
-overflow:auto;
-}
-
-.card-grid{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-gap:20px;
-margin-bottom:25px;
-}
-
-.card{
-background:#fff;
-padding:25px;
-border-radius:20px;
-box-shadow:0 5px 20px rgba(0,0,0,.06);
-}
-
-.card h3{
-font-size:14px;
-color:#64748b;
-margin-bottom:10px;
-}
-
-.card h1{
-font-size:35px;
-color:#0f172a;
-}
-
-.btn{
-background:#0f766e;
-color:#fff;
-border:none;
-padding:13px 20px;
-border-radius:12px;
-cursor:pointer;
-font-weight:600;
-transition:.3s;
-}
-
-.btn:hover{
-background:#14b8a6;
-}
-
-table{
-width:100%;
-border-collapse:collapse;
-min-width:1800px;
-}
-
-table th{
-background:#0f766e;
-color:#fff;
-padding:14px;
-font-size:13px;
-text-align:left;
-}
-
-table td{
-padding:12px;
-border-bottom:1px solid #e2e8f0;
-font-size:13px;
-vertical-align:top;
-}
-
-.form-grid{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
-gap:20px;
-}
-
-.form-group{
-display:flex;
-flex-direction:column;
-}
-
-.form-group label{
-font-size:13px;
-font-weight:600;
-margin-bottom:8px;
-color:#334155;
-line-height:1.5;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea{
-padding:12px;
-border:1px solid #dbe2ea;
-border-radius:12px;
-outline:none;
-font-size:14px;
-background:#fff;
-}
-
-input[type="file"]{
-background:#f8fafc;
-}
-
-.announcement{
-padding:18px;
-border-radius:16px;
-background:#ecfeff;
-border-left:5px solid #14b8a6;
-margin-bottom:15px;
-}
-
-.login-box{
-max-width:420px;
-margin:auto;
-background:#fff;
-padding:30px;
-border-radius:20px;
-box-shadow:0 5px 20px rgba(0,0,0,.06);
-}
-
-.status-box{
-background:#f8fafc;
-padding:20px;
-border-radius:16px;
-margin-top:20px;
-line-height:1.8;
-}
-
-.lightbox{
-position:fixed;
-left:0;
-top:0;
-width:100%;
-height:100vh;
-background:rgba(15,23,42,.7);
-display:none;
-justify-content:center;
-align-items:center;
-z-index:9999;
-}
-
-.lightbox-content{
-background:#fff;
-padding:30px;
-border-radius:20px;
-width:90%;
-max-width:500px;
-}
-
-.close{
-float:right;
-font-size:25px;
-cursor:pointer;
-font-weight:bold;
-}
-
-@media(max-width:900px){
-
-.sidebar{
-position:relative;
-width:100%;
-height:auto;
-}
-
-.sidebar.collapsed{
-width:100%;
-}
-
-.profile-section.collapsed .profile-name,
-.profile-section.collapsed .profile-role,
-.profile-section.collapsed .profile-status-text{
-opacity:1;
-visibility:visible;
-}
-
-.main{
-margin-left:0;
-}
-
-table{
-min-width:2200px;
-}
-
-}
-
-</style>
-
-<script>
-
-const SECURITY_CONFIG = {
-   lastSubmitTime: 0,
-   minSubmitInterval: 10000,
-   csrfToken: null,
-   sessionData: null,
-   clientId: null
- };
- 
- window.addEventListener('load', function(){
-   SECURITY_CONFIG.clientId = localStorage.getItem('mantafClientId') || 'client_' + Date.now();
-   localStorage.setItem('mantafClientId', SECURITY_CONFIG.clientId);
- });
-
-function escapeHtml(text){
-   if (!text) return '';
-   return String(text).replace(/[&<"']/g, tag => ({
-     '&': '&amp;',
-     '<': '&lt;',
-     '"': '&quot;',
-     "'": '&#39;'
-   }[tag]));
- }
- 
-function formatDriveUrl(url){
-  if (!url) return '';
-  url = String(url).trim();
-  
-  // Already correct format - return as is
-  if (url.includes('uc?export=view&id=')) return url;
-  if (url.includes('thumbnail?id=')) return url;
-  
-  // Extract file ID from various Google Drive URL formats
-  let fileId = null;
-  
-  // Format: /d/FILE_ID/
-  let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  if (match) {
-    fileId = match[1];
+function verifyPassword(password, stored){
+  if (!stored) return false;
+  // Check if password is hashed (salt:hash format)
+  if (stored.includes(':')) {
+    const parts = stored.split(':');
+    if (parts.length === 2) {
+      const salt = parts[0];
+      const hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, salt + password);
+      const computed = hash.map(b => ('0' + (b & 0xFF).toString(16)).slice(-2)).join('');
+      return computed === parts[1];
+    }
+    return false;
   }
-  
-  // Format: /file/d/FILE_ID/
-  if (!fileId) {
-    match = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
-    if (match) fileId = match[1];
-  }
-  
-  // Format: id=FILE_ID
-  if (!fileId) {
-    match = url.match(/[?&]id=([a-zA-Z0-9-_]+)/);
-    if (match) fileId = match[1];
-  }
-  
-  // Format: /open?id=FILE_ID
-  if (!fileId) {
-    match = url.match(/\/open\?id=([a-zA-Z0-9-_]+)/);
-    if (match) fileId = match[1];
-  }
-  
-  if (fileId) {
-    // Use thumbnail endpoint for better reliability
-    return `https://drive.google.com/thumbnail?id=${fileId}`;
-  }
-  
-  return url;
+  // Fallback for plain text passwords (backward compatibility)
+  return stored === password;
 }
 
-function getImageUrl(url){
-  if (!url || typeof url !== 'string' || url.trim() === '') {
-    return 'https://via.placeholder.com/100x100?text=No+Image';
-  }
-  const formatted = formatDriveUrl(url);
-  if (!formatted) return 'https://via.placeholder.com/100x100?text=No+Image';
-  
-  if (formatted.includes('drive.google.com')) {
-    return formatted + (formatted.includes('?') ? '&' : '?') + 't=' + Date.now();
-  }
-  return formatted;
-}
-
-function getBackupImageUrl(url){
-  if (!url) return 'https://via.placeholder.com/100x100?text=No+Image';
-  url = String(url).trim();
-  
-  let fileId = null;
-  let match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  if (match) fileId = match[1];
-  if (!fileId) {
-    match = url.match(/[?&]id=([a-zA-Z0-9-_]+)/);
-    if (match) fileId = match[1];
-  }
-  
-  if (fileId) {
-    return 'https://drive.google.com/uc?export=view&id=' + fileId;
-  }
-  return 'https://via.placeholder.com/100x100?text=No+Image';
-}
-
-function getPhotoUrl(url){
-  if (!url || typeof url !== 'string' || url.trim() === '') {
-    return 'https://via.placeholder.com/100x100?text=No+Image';
-  }
-  const formatted = formatDriveUrl(url);
-  if (!formatted) return 'https://via.placeholder.com/100x100?text=No+Image';
-  return formatted;
-}
- 
- function sanitizeInput(input, maxLength){
+function sanitizeInput(input, maxLength){
   if (!input) return '';
   let val = String(input).trim();
   val = val.replace(/[<>]/g, '');
@@ -565,2199 +62,403 @@ function validatePhone(phone){
   return /^[0-9+\-\s]{8,15}$/.test(phone);
 }
 
-function rateLimitCheck(){
+function checkRateLimit(key, intervalMs){
   const now = Date.now();
-  if (now - SECURITY_CONFIG.lastSubmitTime < SECURITY_CONFIG.minSubmitInterval) {
-    const remaining = Math.ceil((SECURITY_CONFIG.minSubmitInterval - (now - SECURITY_CONFIG.lastSubmitTime)) / 1000);
-    alert('Harap tunggu ' + remaining + ' detik sebelum submit lagi');
+  if (RATE_LIMIT[key] && now - RATE_LIMIT[key] < intervalMs) {
     return false;
   }
-  SECURITY_CONFIG.lastSubmitTime = now;
+  RATE_LIMIT[key] = now;
   return true;
 }
 
-async function getCSRFToken(){
-   try {
-     const response = await fetch(WEB_APP_URL + '?action=getCSRFToken&clientId=' + SECURITY_CONFIG.clientId);
-     const result = await response.json();
-     SECURITY_CONFIG.csrfToken = result.token;
-     return result.token;
-   } catch (err) {
-     return null;
-   }
- }
-
-function disableInspect(){
-   document.addEventListener('keydown', function(e){
-     if (e.keyCode === 123 || (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 85))) {
-       e.preventDefault();
-       return false;
-     }
-   });
-   document.addEventListener('contextmenu', function(e){
-     if (window.location.hash === '#admin' || document.getElementById('adminLoginSection').style.display !== 'none') {
-       e.preventDefault();
-       return false;
-     }
-   });
- }
-
-function showToast(message){
-  const toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0f766e;color:#fff;padding:15px 25px;border-radius:8px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);';
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
+function isMaintenanceDay(){
+  const today = new Date();
+  return today.getDay() === 0; // 0 = Sunday
 }
 
-</script>
-</head>
-
-<body>
-
-<div class="sidebar" id="sidebar">
-<div class="profile-section" id="profileSection">
-  <div class="profile-avatar">
-    <img src="https://drive.google.com/uc?export=view&id=1Xn9S9MtOAuFTxWsrKYpHGuKuRSKW3jFe" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=Admin&background=0f766e&color=fff'" id="profileImg">
-  </div>
-
-<div class="logo">
-Manta<span>F</span>
-</div>
-
-<div class="logo-desc">
-Manajemen Tata Kelola Jabatan Fungsional Kesehatan
-</div>
-
-<div class="menu">
-<button class="active" onclick="showSection('dashboard',this)">Dashboard</button>
-<button onclick="showSection('pengumuman',this)">Pengumuman</button>
-<button onclick="showSection('bezetting',this)">Bezetting</button>
-<button onclick="showSection('ukom',this)">Daftar UKOM</button>
-<button onclick="showSection('status',this)">Cek Status</button>
-<button onclick="showSection('admin',this)">Admin</button>
-</div>
-
-</div>
-
-<div class="main">
-
-<div class="topbar">
-
-<div>
-<div class="title">MantaF - Dinas Kesehatan Kutai Kartanegara</div>
-<div class="subtitle">
-Terintegrasi • Cepat • Akurat
-</div>
-</div>
-
-<button class="btn" onclick="openLightbox()">
-Tentang Sistem
-</button>
-
-</div>
-
-<!-- DASHBOARD -->
- 
-<div id="dashboard" class="section active">
- 
-<div class="card-grid">
- 
-<div class="card">
- <h3>Total Peserta UKOM</h3>
- <h1 id="pesertaCount">0</h1>
- </div>
- 
-<div class="card">
- <h3>Total Instansi</h3>
- <h1 id="instansiCount">0</h1>
- </div>
- 
-<div class="card">
- <h3>Total Lowongan</h3>
- <h1 id="lowonganCount">0</h1>
- </div>
- 
-<div class="card">
- <h3>Status Sistem</h3>
- <h1>Pengembangan Versi 1.0</h1>
- </div>
- 
-</div>
- 
-<div class="card-grid" style="margin-top:25px">
- <div class="card" style="text-align:center">
- <h3 style="margin-bottom:15px">Status Verifikasi</h3>
- <div style="position:relative;width:150px;height:150px;margin:0 auto">
- <svg id="statusChart" viewBox="0 0 100 100" style="width:100%;height:100%;transform:rotate(-90deg)">
- <circle cx="50" cy="50" r="45" fill="none" stroke:#e2e8f0;stroke-width:10"/>
- <circle id="statusApproved" cx="50" cy="50" r="45" fill="none" stroke:#16a34a;stroke-width:10;stroke-dasharray="0 283" stroke-linecap="round"/>
- <circle id="statusRejected" cx="50" cy="50" r="45" fill="none" stroke:#dc2626;stroke-width:10;stroke-dasharray="0 283" stroke-dashoffset="0" stroke-linecap="round"/>
- <circle id="statusPending" cx="50" cy="50" r="45" fill="none" stroke:#f59e0b;stroke-width:10;stroke-dasharray="0 283" stroke-dashoffset="0" stroke-linecap="round"/>
- </svg>
- <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
- <div style="font-size:12px;color:#64748b">Total</div>
- <div id="statusTotal" style="font-size:24px;font-weight:700;color:#0f172a">0</div>
- </div>
- </div>
- <div style="display:flex;justify-content:center;gap:20px;margin-top:15px;font-size:12px">
- <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#16a34a;border-radius:2px"></span>Disetujui: <span id="statusApprovedCount">0</span></div>
- <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#dc2626;border-radius:2px"></span>Ditolak: <span id="statusRejectedCount">0</span></div>
- <div style="display:flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#f59e0b;border-radius:2px"></span>Menunggu: <span id="statusPendingCount">0</span></div>
- </div>
- </div>
- 
-<div class="card" style="text-align:center">
- <h3 style="margin-bottom:15px">Jenis Jabatan Fungsional</h3>
- <div style="position:relative;width:150px;height:150px;margin:0 auto">
- <svg id="jabfungChart" viewBox="0 0 100 100" style="width:100%;height:100%;transform:rotate(-90deg)">
- <circle cx="50" cy="50" r="45" fill="none" stroke:#e2e8f0;stroke-width:10"/>
- <g id="jabfungSegments"></g>
- </svg>
- <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center">
- <div style="font-size:12px;color:#64748b">Jabfung</div>
- <div id="jabfungTotal" style="font-size:24px;font-weight:700;color:#0f172a">0</div>
- </div>
- </div>
- <div id="jabfungLegend" style="margin-top:15px;font-size:11px;max-height:100px;overflow-y:auto;text-align:left"></div>
- </div>
- 
-</div>
- 
-<div class="panel">
- <h2>Dashboard MantaF</h2>
- <br>
- 
-<p>
- MantaF merupakan platform digital Manajemen Tata Kelola Jabatan Fungsional Kesehatan yang dirancang untuk mendukung pengelolaan data, layanan, monitoring, dan pengembangan SDM kesehatan secara terintegrasi, cepat, dan akurat di lingkungan Dinas Kesehatan. @copyright Mukmin Nasri_2026
-</p>
- 
-</div>
- 
-</div>
-
-<!-- PENGUMUMAN -->
-
-<div id="pengumuman" class="section">
-
-<div class="panel">
-
-<h2>Pengumuman</h2>
-<br>
-
-<div id="pengumumanList">
-<div class="announcement">
-<i>Memuat pengumuman...</i>
-</div>
-</div>
-
-</div>
-
-</div>
-
-<!-- BEZETTING -->
- 
-<div id="bezetting" class="section">
- 
-<div class="panel">
- 
-<h2>Data Bezetting Jabatan Fungsional Kesehatan</h2>
- <br>
- 
-<div class="form-grid" style="margin-bottom:20px">
- <div class="form-group">
- <label>Filter Instansi</label>
- <select id="filterInstansi" onchange="applyBezettingFilter()">
- <option value="">Semua Instansi</option>
- </select>
- </div>
- <div class="form-group">
- <label>Filter Jenis Jabatan</label>
- <select id="filterJabatan" onchange="applyBezettingFilter()">
- <option value="">Semua Jenis Jabatan</option>
- </select>
- </div>
- <div class="form-group">
- <label>Filter Jenjang</label>
- <select id="filterJenjang" onchange="applyBezettingFilter()">
- <option value="">Semua Jenjang</option>
- </select>
- </div>
- <div class="form-group">
- <label>&nbsp;</label>
- <button type="button" class="btn" onclick="resetBezettingFilter()">Reset</button>
- </div>
- </div>
- 
-<table>
- <thead>
- <tr>
- <th>Instansi / Institusi Pelayanan Kesehatan</th>
- <th>Jenis Jabatan Fungsional</th>
- <th>Jenjang Jabatan</th>
- <th>Kebutuhan</th>
- <th>Pemangku</th>
- <th>Lowongan Formasi</th>
- <th>Nama-Nama Pemangku Saat Ini</th>
- <th>Nama-Nama Pemangku Yang Telah Disetujui Untuk Mengisi Lowongan</th>
- <th>Sisa</th>
- </tr>
- </thead>
- 
-<tbody id="bezettingBody">
- </tbody>
- 
-</table>
- 
-<div id="pagination" style="margin-top:20px;text-align:center"></div>
- 
-</div>
- 
-</div>
-
-<!-- UKOM -->
-
-<div id="ukom" class="section">
-
-<div class="panel">
-
-<h2>Formulir Pendaftaran UKOM</h2>
-<br>
-
-<div class="announcement">
-<b>Template Dokumen:</b><br>
-<a href="https://docs.google.com/document/d/1Ts3Reus9QifFwmBL444snBA3LE5Q1eMB/edit?usp=sharing&ouid=113049310293805241737&rtpof=true&sd=true" target="_blank">Download Template Daftar Riwayat Hidup</a> | 
-<a href="https://docs.google.com/document/d/1TXurwjNMDh9HZuUZuCTEfawa7G0ftijq/edit?usp=sharing&ouid=113049310293805241737&rtpof=true&sd=true" target="_blank">Download Template Surat Keterangan Tidak Sedang Menjalani Hukuman Disiplin</a>
-</div>
-<br>
-
-<form id="ukomForm">
-
-<div class="form-grid">
-
-<div class="form-group">
-<label>NIK</label>
-<input type="text" name="nik" required>
-</div>
-
-<div class="form-group">
-<label>NIP</label>
-<input type="text" name="nip" required>
-</div>
-
-<div class="form-group">
-<label>Nama Tanpa Gelar</label>
-<input type="text" name="nama_tanpa_gelar" required>
-</div>
-
-<div class="form-group">
-<label>Nama Unit Kerja</label>
-<select name="nama_unit_kerja" required>
-<option value="">Pilih Instansi</option>
-<option value="Dinas Kesehatan">Dinas Kesehatan</option>
-<option value="RSUD Aji Muhammad Parikesit">RSUD Aji Muhammad Parikesit</option>
-<option value="RSUD Aji Batara Agung Dewa Sakti">RSUD Aji Batara Agung Dewa Sakti</option>
-<option value="RSUD Dayaku Raja">RSUD Dayaku Raja</option>
-<option value="UPTD Puskesmas Samboja">UPTD Puskesmas Samboja</option>
-<option value="UPTD Puskesmas Sungai Merdeka">UPTD Puskesmas Sungai Merdeka</option>
-<option value="UPTD Puskesmas Handil Baru">UPTD Puskesmas Handil Baru</option>
-<option value="UPTD Puskesmas Muara Jawa">UPTD Puskesmas Muara Jawa</option>
-<option value="UPTD Puskesmas Sangasanga">UPTD Puskesmas Sangasanga</option>
-<option value="UPTD Puskesmas Loa Janan">UPTD Puskesmas Loa Janan</option>
-<option value="UPTD Puskesmas Batuah">UPTD Puskesmas Batuah</option>
-<option value="UPTD Puskesmas Loa Duri">UPTD Puskesmas Loa Duri</option>
-<option value="UPTD Puskesmas Loa Kulu">UPTD Puskesmas Loa Kulu</option>
-<option value="UPTD Puskesmas Muara Muntai">UPTD Puskesmas Muara Muntai</option>
-<option value="UPTD Puskesmas Muara Wis">UPTD Puskesmas Muara Wis</option>
-<option value="UPTD Puskesmas Kota Bangun">UPTD Puskesmas Kota Bangun</option>
-<option value="UPTD Puskesmas Rimba Ayu">UPTD Puskesmas Rimba Ayu</option>
-<option value="UPTD Puskesmas Mangkurawang">UPTD Puskesmas Mangkurawang</option>
-<option value="UPTD Puskesmas Loa Ipuh">UPTD Puskesmas Loa Ipuh</option>
-<option value="UPTD Puskesmas Sebulu I">UPTD Puskesmas Sebulu I</option>
-<option value="UPTD Puskesmas Sebulu II">UPTD Puskesmas Sebulu II</option>
-<option value="UPTD Puskesmas Separi III">UPTD Puskesmas Separi III</option>
-<option value="UPTD Puskesmas Teluk Dalam">UPTD Puskesmas Teluk Dalam</option>
-<option value="UPTD Puskesmas Sungai Mariam">UPTD Puskesmas Sungai Mariam</option>
-<option value="UPTD Puskesmas Muara Badak">UPTD Puskesmas Muara Badak</option>
-<option value="UPTD Puskesmas Badak Baru">UPTD Puskesmas Badak Baru</option>
-<option value="UPTD Puskesmas Marang Kayu">UPTD Puskesmas Marang Kayu</option>
-<option value="UPTD Puskesmas Perangat">UPTD Puskesmas Perangat</option>
-<option value="UPTD Puskesmas Muara Kaman">UPTD Puskesmas Muara Kaman</option>
-<option value="UPTD Puskesmas Kahala">UPTD Puskesmas Kahala</option>
-<option value="UPTD Puskesmas Kembang Janggut">UPTD Puskesmas Kembang Janggut</option>
-<option value="UPTD Puskesmas Tabang">UPTD Puskesmas Tabang</option>
-<option value="UPTD Puskesmas Ritan Baru">UPTD Puskesmas Ritan Baru</option>
-<option value="UPTD Puskesmas Rapak Mahang">UPTD Puskesmas Rapak Mahang</option>
-<option value="UPTD Puskesmas Bunga Jadi">UPTD Puskesmas Bunga Jadi</option>
-<option value="UPTD Puskesmas Jonggon Jaya">UPTD Puskesmas Jonggon Jaya</option>
-<option value="Instalasi Farmasi Kabupaten">Instalasi Farmasi Kabupaten</option>
-<option value="Labkesda">Labkesda</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Pangkat dan Golongan</label>
-<select name="pangkat_dan_golongan">
-<option value="">Pilih Pangkat</option>
-<option value="Pengatur Muda - II/a">Pengatur Muda - II/a</option>
-<option value="Pengatur Muda Tk. I - II/b">Pengatur Muda Tk. I - II/b</option>
-<option value="Pengatur - II/c">Pengatur - II/c</option>
-<option value="Pengatur Tk. I - II/d">Pengatur Tk. I - II/d</option>
-<option value="Penata Muda - III/a">Penata Muda - III/a</option>
-<option value="Penata Muda Tk. I - III/b">Penata Muda Tk. I - III/b</option>
-<option value="Penata - III/c">Penata - III/c</option>
-<option value="Penata Tk. I - III/d">Penata Tk. I - III/d</option>
-<option value="Pembina - IV/a">Pembina - IV/a</option>
-<option value="Pembina Tk. I - IV/b">Pembina Tk. I - IV/b</option>
-<option value="Pembina Utama Muda - IV/c">Pembina Utama Muda - IV/c</option>
-<option value="Pembina Utama Madya - IV/d">Pembina Utama Madya - IV/d</option>
-<option value="Pembina Utama - IV/e">Pembina Utama - IV/e</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Nomor SK Jabfung Terakhir</label>
-<input type="text" name="nomor_sk_jabfungs_terakhir">
-</div>
-
-<div class="form-group">
-<label>Jenis Kelamin</label>
-<select name="jenis_kelamin">
-<option value="">Pilih</option>
-<option value="Laki-Laki">Laki-Laki</option>
-<option value="Perempuan">Perempuan</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Jabfung Saat Ini</label>
-<select name="jabfung_saat_ini">
-<option value="">Pilih Jabfung</option>
-<option value="Tenaga Sanitasi Lingkungan">Tenaga Sanitasi Lingkungan</option>
-<option value="Asisten Apoteker">Asisten Apoteker</option>
-<option value="Epidemiolog Kesehatan">Epidemiolog Kesehatan</option>
-<option value="Promosi Kesehatan dan Ilmu Perilaku">Promosi Kesehatan dan Ilmu Perilaku</option>
-<option value="Pembimbing Kesehatan Kerja">Pembimbing Kesehatan Kerja</option>
-<option value="Entomolog kesehatan">Entomolog kesehatan</option>
-<option value="Nutrisionis">Nutrisionis</option>
-<option value="Teknisi Elektromedis">Teknisi Elektromedis</option>
-<option value="Administrator Kesehatan">Administrator Kesehatan</option>
-<option value="Dokter Sub Spesialis Paru- Infeksi">Dokter Sub Spesialis Paru- Infeksi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Endokrin Metabolik Dan Diabetes">Dokter Sub Spesialis Penyakit Dalam-Endokrin Metabolik Dan Diabetes</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Ginjal Hipertensi">Dokter Sub Spesialis Penyakit Dalam-Ginjal Hipertensi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Hematologi-Onkologi Medik">Dokter Sub Spesialis Penyakit Dalam-Hematologi-Onkologi Medik</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Onkologi">Dokter Sub Spesialis Bedah- Bedah Onkologi</option>
-<option value="Dokter Gigi Spesialis Periodonsia">Dokter Gigi Spesialis Periodonsia</option>
-<option value="Dokter Gigi Spesialis Konservasi Gigi">Dokter Gigi Spesialis Konservasi Gigi</option>
-<option value="Dokter Gigi Spesialis Bedah Mulut dan Maksilofasial">Dokter Gigi Spesialis Bedah Mulut dan Maksilofasial</option>
-<option value="Dokter Spesialis Gizi Klinik">Dokter Spesialis Gizi Klinik</option>
-<option value="Dokter Spesialis Kedokteran Nuklir">Dokter Spesialis Kedokteran Nuklir</option>
-<option value="Dokter Sub Spesialis Paru- Pulmonologi Intervensi Dan Gawat Darurat Napas">Dokter Sub Spesialis Paru- Pulmonologi Intervensi Dan Gawat Darurat Napas</option>
-<option value="Dokter Sub Spesialis Paru- Paru Kerja Dan Lingkungan">Dokter Sub Spesialis Paru- Paru Kerja Dan Lingkungan</option>
-<option value="Dokter Sub Spesialis Radiologi- Radiologi Intervensional">Dokter Sub Spesialis Radiologi- Radiologi Intervensional</option>
-<option value="Dokter Sub Spesialis Radiologi- Neuroradiologi Dan Kepala Leher">Dokter Sub Spesialis Radiologi- Neuroradiologi Dan Kepala Leher</option>
-<option value="Dokter Sub Spesialis Bedah Saraf-Vaskular">Dokter Sub Spesialis Bedah Saraf-Vaskular</option>
-<option value="Dokter Sub Spesialis Neurologi- Neurovaskular, Neurointervensi, Imaging, Otologi, Oftalmologi">Dokter Sub Spesialis Neurologi- Neurovaskular, Neurointervensi, Imaging, Otologi, Oftalmologi</option>
-<option value="Dokter Sub Spesialis Jantung Dan Pembuluh Darah-Kardiologi Intervensi">Dokter Sub Spesialis Jantung Dan Pembuluh Darah-Kardiologi Intervensi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Kardiovaskular">Dokter Sub Spesialis Penyakit Dalam-Kardiovaskular</option>
-<option value="Dokter Sub Spesialis Obgyn- Onkologi Ginekologi Konk">Dokter Sub Spesialis Obgyn- Onkologi Ginekologi Konk</option>
-<option value="Dokter Spesialis Obstetri dan Ginekologi">Dokter Spesialis Obstetri dan Ginekologi</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Vaskuler Dan Endovaskuler">Dokter Sub Spesialis Bedah- Bedah Vaskuler Dan Endovaskuler</option>
-<option value="Dokter Sub Spesialis Anestesi- Intensif Care/ICU">Dokter Sub Spesialis Anestesi- Intensif Care/ICU</option>
-<option value="Dokter Spesialis Bedah Toraks Kardiovaskuler">Dokter Spesialis Bedah Toraks Kardiovaskuler</option>
-<option value="Dokter Spesialis Kedokteran Forensik dan Medikolegal">Dokter Spesialis Kedokteran Forensik dan Medikolegal</option>
-<option value="Dokter Spesialis Mikrobiologi Klinik">Dokter Spesialis Mikrobiologi Klinik</option>
-<option value="Dokter Spesialis Anestesiologi dan Terapi Intensif">Dokter Spesialis Anestesiologi dan Terapi Intensif</option>
-<option value="DOKTER">DOKTER</option>
-<option value="DOKTER GIGI">DOKTER GIGI</option>
-<option value="Dokter Spesialis Penyakit Dalam">Dokter Spesialis Penyakit Dalam</option>
-<option value="Dokter Spesialis Bedah">Dokter Spesialis Bedah</option>
-<option value="Dokter Spesialis Anak">Dokter Spesialis Anak</option>
-<option value="Dokter Spesialis Mata">Dokter Spesialis Mata</option>
-<option value="Dokter Spesialis Dermatologi dan Venereologi">Dokter Spesialis Dermatologi dan Venereologi</option>
-<option value="Dokter Kedokteran Fisik dan Rehabilitasi">Dokter Kedokteran Fisik dan Rehabilitasi</option>
-<option value="Dokter Spesialis Jantung dan Pembuluh Darah">Dokter Spesialis Jantung dan Pembuluh Darah</option>
-<option value="Dokter Spesialis Bedah Plastik Rekonstruksi dan Estetis">Dokter Spesialis Bedah Plastik Rekonstruksi dan Estetis</option>
-<option value="Dokter Spesialis Bedah Anak">Dokter Spesialis Bedah Anak</option>
-<option value="Dokter Spesialis Patologi Anatomi">Dokter Spesialis Patologi Anatomi</option>
-<option value="Dokter Spesialis Patologi Klinik">Dokter Spesialis Patologi Klinik</option>
-<option value="Dokter Spesialis Urologi">Dokter Spesialis Urologi</option>
-<option value="Dokter Spesialis Kedokteran Jiwa atau Psikiatri">Dokter Spesialis Kedokteran Jiwa atau Psikiatri</option>
-<option value="Dokter Spesialis Bedah Saraf">Dokter Spesialis Bedah Saraf</option>
-<option value="Dokter Spesialis Neurologi">Dokter Spesialis Neurologi</option>
-<option value="Dokter Spesialis Orthopaedi dan Traumatologi">Dokter Spesialis Orthopaedi dan Traumatologi</option>
-<option value="Dokter Spesialis Telinga Hidung Tenggorok - Bedah Kepala Dan Leher">Dokter Spesialis Telinga Hidung Tenggorok - Bedah Kepala Dan Leher</option>
-<option value="Dokter Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)">Dokter Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)</option>
-<option value="Dokter Spesialis Radiologi">Dokter Spesialis Radiologi</option>
-<option value="PERAWAT">PERAWAT</option>
-<option value="BIDAN">BIDAN</option>
-<option value="PENATA ANESTESI">PENATA ANESTESI</option>
-<option value="ASISTEN PENATA ANESTESI">ASISTEN PENATA ANESTESI</option>
-<option value="TERAPIS GIGI DAN MULUT">TERAPIS GIGI DAN MULUT</option>
-<option value="PRANATA LABORATORIUM KESEHATAN">PRANATA LABORATORIUM KESEHATAN</option>
-<option value="TEKNISI TRANSFUSI DARAH">TEKNISI TRANSFUSI DARAH</option>
-<option value="RADIOGRAFER">RADIOGRAFER</option>
-<option value="FISIKAWAN MEDIS">FISIKAWAN MEDIS</option>
-<option value="REFRAKSIONIS OPTISIEN/OPTOMETRIS">REFRAKSIONIS OPTISIEN/OPTOMETRIS</option>
-<option value="APOTEKER">APOTEKER</option>
-<option value="PEREKAM MEDIS">PEREKAM MEDIS</option>
-<option value="FISIOTERAPIS">FISIOTERAPIS</option>
-<option value="TERAPIS WICARA">TERAPIS WICARA</option>
-<option value="OKUPASI TERAPIS">OKUPASI TERAPIS</option>
-<option value="PSIKOLOGI KLINIS">PSIKOLOGI KLINIS</option>
-<option value="Dokter Sub Spesialis Tht- Onkologi Kepala Leher">Dokter Sub Spesialis Tht- Onkologi Kepala Leher</option>
-<option value="Dokter Sub Spesialis Tht- Bronkoesofagologi">Dokter Sub Spesialis Tht- Bronkoesofagologi</option>
-<option value="Dokter Sub Spesialis Tht- Alergi Imunologi">Dokter Sub Spesialis Tht- Alergi Imunologi</option>
-<option value="Dokter Sub Spesialis Tht- Neurotologi">Dokter Sub Spesialis Tht- Neurotologi</option>
-<option value="Dokter Sub Spesialis Tht- Otologi">Dokter Sub Spesialis Tht- Otologi</option>
-<option value="Dokter Sub Spesialis Tht- Rinologi">Dokter Sub Spesialis Tht- Rinologi</option>
-<option value="Dokter Sub Spesialis Obgyn- Fertilitas-Endokrinologi Reproduksi Kfer">Dokter Sub Spesialis Obgyn- Fertilitas-Endokrinologi Reproduksi Kfer</option>
-<option value="Dokter Sub Spesialis Anak- Kardiologi">Dokter Sub Spesialis Anak- Kardiologi</option>
-<option value="Dokter Sub Spesialis Anak- Neonatologi">Dokter Sub Spesialis Anak- Neonatologi</option>
-<option value="Dokter Sub Spesialis Anak- Respirologi">Dokter Sub Spesialis Anak- Respirologi</option>
-<option value="Dokter Sub Spesialis Anak- Hematologi Onkologi">Dokter Sub Spesialis Anak- Hematologi Onkologi</option>
-<option value="Dokter Sub Spesialis Anak- Tumbuh Kembang Ped. Sosial">Dokter Sub Spesialis Anak- Tumbuh Kembang Ped. Sosial</option>
-<option value="Dokter Sub Spesialis Bedah Anak-Digestif Anak">Dokter Sub Spesialis Bedah Anak-Digestif Anak</option>
-<option value="Dokter Spesialis Onkologi Radiasi">Dokter Spesialis Onkologi Radiasi</option>
-<option value="Dokter Sub Spesialis Kedokteran Nuklir-Onkologi">Dokter Sub Spesialis Kedokteran Nuklir-Onkologi</option>
-<option value="Dokter Gigi Spesialis Kedokteran Gigi dan Anak (Pedodontik)">Dokter Gigi Spesialis Kedokteran Gigi dan Anak (Pedodontik)</option>
-<option value="Dokter Gigi Spesialis Penyakit Mulut">Dokter Gigi Spesialis Penyakit Mulut</option>
-<option value="Dokter Spesialis Emergency Medic (Kedaruratan Medik)">Dokter Spesialis Emergency Medic (Kedaruratan Medik)</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Digestif">Dokter Sub Spesialis Bedah- Bedah Digestif</option>
-<option value="Teknisi Gigi">Teknisi Gigi</option>
-<option value="Dokter Spesialis Kedokteran Okupasi">Dokter Spesialis Kedokteran Okupasi</option>
-<option value="Dokter Gigi Spesialis Ortodonsia">Dokter Gigi Spesialis Ortodonsia</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Jenjang Saat Ini</label>
-<select name="jenjang_saat_ini">
-<option value="">Pilih Jenjang</option>
-<option value="Ahli Pertama">Ahli Pertama</option>
-<option value="Ahli Muda">Ahli Muda</option>
-<option value="Mahir">Mahir</option>
-<option value="Penyelia">Penyelia</option>
-<option value="Ahli Madya">Ahli Madya</option>
-<option value="Terampil">Terampil</option>
-<option value="Ahli Utama">Ahli Utama</option>
-</select>
-</div>
- 
- <div class="form-group">
- <label>Nomor WhatsApp</label>
-<input type="text" name="nomor_whatsapp">
-</div>
-
-<div class="form-group">
-<label>Email Aktif</label>
-<input type="email" name="email_aktif">
-</div>
-
-<div class="form-group">
-<label>Nilai PAK Terakhir</label>
-<input type="text" name="nilai_pak_terakhir">
-</div>
-
-<div class="form-group">
-<label>
-Upload PAK Konvensional, PAK Integrasi 2022 dan PAK Konversi (e-KIN) Terakhir (PDF)
-</label>
-<input 
-type="file"
-name="upload_pak_konvensional_integrasi_konversi_terakhir"
-accept=".pdf"
-required
->
-</div>
- 
- <div class="form-group">
- <label>Tipe</label>
-<select name="tipe">
-<option value="">Pilih</option>
-<option value="Perpindahan">Perpindahan</option>
-<option value="Kenaikan Jenjang">Kenaikan Jenjang</option>
-<option value="Alih Kategori">Alih Kategori</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Jenis UKOM</label>
-<select name="jenis_ukom">
-<option value="">Pilih Jenis UKOM</option>
-<option value="Naik Jabatan">Naik Jabatan</option>
-<option value="Pindah Jabatan">Pindah Jabatan</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Jabfung Tujuan</label>
-<select name="jabfung_tujuan">
-<option value="">Pilih Jabfung</option>
-<option value="Tenaga Sanitasi Lingkungan">Tenaga Sanitasi Lingkungan</option>
-<option value="Asisten Apoteker">Asisten Apoteker</option>
-<option value="Epidemiolog Kesehatan">Epidemiolog Kesehatan</option>
-<option value="Promosi Kesehatan dan Ilmu Perilaku">Promosi Kesehatan dan Ilmu Perilaku</option>
-<option value="Pembimbing Kesehatan Kerja">Pembimbing Kesehatan Kerja</option>
-<option value="Entomolog kesehatan">Entomolog kesehatan</option>
-<option value="Nutrisionis">Nutrisionis</option>
-<option value="Teknisi Elektromedis">Teknisi Elektromedis</option>
-<option value="Administrator Kesehatan">Administrator Kesehatan</option>
-<option value="Dokter Sub Spesialis Paru- Infeksi">Dokter Sub Spesialis Paru- Infeksi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Endokrin Metabolik Dan Diabetes">Dokter Sub Spesialis Penyakit Dalam-Endokrin Metabolik Dan Diabetes</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Ginjal Hipertensi">Dokter Sub Spesialis Penyakit Dalam-Ginjal Hipertensi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Hematologi-Onkologi Medik">Dokter Sub Spesialis Penyakit Dalam-Hematologi-Onkologi Medik</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Onkologi">Dokter Sub Spesialis Bedah- Bedah Onkologi</option>
-<option value="Dokter Gigi Spesialis Periodonsia">Dokter Gigi Spesialis Periodonsia</option>
-<option value="Dokter Gigi Spesialis Konservasi Gigi">Dokter Gigi Spesialis Konservasi Gigi</option>
-<option value="Dokter Gigi Spesialis Bedah Mulut dan Maksilofasial">Dokter Gigi Spesialis Bedah Mulut dan Maksilofasial</option>
-<option value="Dokter Spesialis Gizi Klinik">Dokter Spesialis Gizi Klinik</option>
-<option value="Dokter Spesialis Kedokteran Nuklir">Dokter Spesialis Kedokteran Nuklir</option>
-<option value="Dokter Sub Spesialis Paru- Pulmonologi Intervensi Dan Gawat Darurat Napas">Dokter Sub Spesialis Paru- Pulmonologi Intervensi Dan Gawat Darurat Napas</option>
-<option value="Dokter Sub Spesialis Paru- Paru Kerja Dan Lingkungan">Dokter Sub Spesialis Paru- Paru Kerja Dan Lingkungan</option>
-<option value="Dokter Sub Spesialis Radiologi- Radiologi Intervensional">Dokter Sub Spesialis Radiologi- Radiologi Intervensional</option>
-<option value="Dokter Sub Spesialis Radiologi- Neuroradiologi Dan Kepala Leher">Dokter Sub Spesialis Radiologi- Neuroradiologi Dan Kepala Leher</option>
-<option value="Dokter Sub Spesialis Bedah Saraf-Vaskular">Dokter Sub Spesialis Bedah Saraf-Vaskular</option>
-<option value="Dokter Sub Spesialis Neurologi- Neurovaskular, Neurointervensi, Imaging, Otologi, Oftalmologi">Dokter Sub Spesialis Neurologi- Neurovaskular, Neurointervensi, Imaging, Otologi, Oftalmologi</option>
-<option value="Dokter Sub Spesialis Jantung Dan Pembuluh Darah-Kardiologi Intervensi">Dokter Sub Spesialis Jantung Dan Pembuluh Darah-Kardiologi Intervensi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Kardiovaskular">Dokter Sub Spesialis Penyakit Dalam-Kardiovaskular</option>
-<option value="Dokter Sub Spesialis Obgyn- Onkologi Ginekologi Konk">Dokter Sub Spesialis Obgyn- Onkologi Ginekologi Konk</option>
-<option value="Dokter Spesialis Obstetri dan Ginekologi">Dokter Spesialis Obstetri dan Ginekologi</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Vaskuler Dan Endovaskuler">Dokter Sub Spesialis Bedah- Bedah Vaskuler Dan Endovaskuler</option>
-<option value="Dokter Sub Spesialis Anestesi- Intensif Care/ICU">Dokter Sub Spesialis Anestesi- Intensif Care/ICU</option>
-<option value="Dokter Spesialis Bedah Toraks Kardiovaskuler">Dokter Spesialis Bedah Toraks Kardiovaskuler</option>
-<option value="Dokter Spesialis Kedokteran Forensik dan Medikolegal">Dokter Spesialis Kedokteran Forensik dan Medikolegal</option>
-<option value="Dokter Spesialis Mikrobiologi Klinik">Dokter Spesialis Mikrobiologi Klinik</option>
-<option value="Dokter Spesialis Anestesiologi dan Terapi Intensif">Dokter Spesialis Anestesiologi dan Terapi Intensif</option>
-<option value="DOKTER">DOKTER</option>
-<option value="DOKTER GIGI">DOKTER GIGI</option>
-<option value="Dokter Spesialis Penyakit Dalam">Dokter Spesialis Penyakit Dalam</option>
-<option value="Dokter Spesialis Bedah">Dokter Spesialis Bedah</option>
-<option value="Dokter Spesialis Anak">Dokter Spesialis Anak</option>
-<option value="Dokter Spesialis Mata">Dokter Spesialis Mata</option>
-<option value="Dokter Spesialis Dermatologi dan Venereologi">Dokter Spesialis Dermatologi dan Venereologi</option>
-<option value="Dokter Kedokteran Fisik dan Rehabilitasi">Dokter Kedokteran Fisik dan Rehabilitasi</option>
-<option value="Dokter Spesialis Jantung dan Pembuluh Darah">Dokter Spesialis Jantung dan Pembuluh Darah</option>
-<option value="Dokter Spesialis Bedah Plastik Rekonstruksi dan Estetis">Dokter Spesialis Bedah Plastik Rekonstruksi dan Estetis</option>
-<option value="Dokter Spesialis Bedah Anak">Dokter Spesialis Bedah Anak</option>
-<option value="Dokter Spesialis Patologi Anatomi">Dokter Spesialis Patologi Anatomi</option>
-<option value="Dokter Spesialis Patologi Klinik">Dokter Spesialis Patologi Klinik</option>
-<option value="Dokter Spesialis Urologi">Dokter Spesialis Urologi</option>
-<option value="Dokter Spesialis Kedokteran Jiwa atau Psikiatri">Dokter Spesialis Kedokteran Jiwa atau Psikiatri</option>
-<option value="Dokter Spesialis Bedah Saraf">Dokter Spesialis Bedah Saraf</option>
-<option value="Dokter Spesialis Neurologi">Dokter Spesialis Neurologi</option>
-<option value="Dokter Spesialis Orthopaedi dan Traumatologi">Dokter Spesialis Orthopaedi dan Traumatologi</option>
-<option value="Dokter Spesialis Telinga Hidung Tenggorok - Bedah Kepala Dan Leher">Dokter Spesialis Telinga Hidung Tenggorok - Bedah Kepala Dan Leher</option>
-<option value="Dokter Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)">Dokter Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)</option>
-<option value="Dokter Spesialis Radiologi">Dokter Spesialis Radiologi</option>
-<option value="PERAWAT">PERAWAT</option>
-<option value="BIDAN">BIDAN</option>
-<option value="PENATA ANESTESI">PENATA ANESTESI</option>
-<option value="ASISTEN PENATA ANESTESI">ASISTEN PENATA ANESTESI</option>
-<option value="TERAPIS GIGI DAN MULUT">TERAPIS GIGI DAN MULUT</option>
-<option value="PRANATA LABORATORIUM KESEHATAN">PRANATA LABORATORIUM KESEHATAN</option>
-<option value="TEKNISI TRANSFUSI DARAH">TEKNISI TRANSFUSI DARAH</option>
-<option value="RADIOGRAFER">RADIOGRAFER</option>
-<option value="FISIKAWAN MEDIS">FISIKAWAN MEDIS</option>
-<option value="REFRAKSIONIS OPTISIEN/OPTOMETRIS">REFRAKSIONIS OPTISIEN/OPTOMETRIS</option>
-<option value="APOTEKER">APOTEKER</option>
-<option value="PEREKAM MEDIS">PEREKAM MEDIS</option>
-<option value="FISIOTERAPIS">FISIOTERAPIS</option>
-<option value="TERAPIS WICARA">TERAPIS WICARA</option>
-<option value="OKUPASI TERAPIS">OKUPASI TERAPIS</option>
-<option value="PSIKOLOGI KLINIS">PSIKOLOGI KLINIS</option>
-<option value="Dokter Sub Spesialis Tht- Onkologi Kepala Leher">Dokter Sub Spesialis Tht- Onkologi Kepala Leher</option>
-<option value="Dokter Sub Spesialis Tht- Bronkoesofagologi">Dokter Sub Spesialis Tht- Bronkoesofagologi</option>
-<option value="Dokter Sub Spesialis Tht- Alergi Imunologi">Dokter Sub Spesialis Tht- Alergi Imunologi</option>
-<option value="Dokter Sub Spesialis Tht- Neurotologi">Dokter Sub Spesialis Tht- Neurotologi</option>
-<option value="Dokter Sub Spesialis Tht- Otologi">Dokter Sub Spesialis Tht- Otologi</option>
-<option value="Dokter Sub Spesialis Tht- Rinologi">Dokter Sub Spesialis Tht- Rinologi</option>
-<option value="Dokter Sub Spesialis Obgyn- Fertilitas-Endokrinologi Reproduksi Kfer">Dokter Sub Spesialis Obgyn- Fertilitas-Endokrinologi Reproduksi Kfer</option>
-<option value="Dokter Sub Spesialis Anak- Kardiologi">Dokter Sub Spesialis Anak- Kardiologi</option>
-<option value="Dokter Sub Spesialis Anak- Neonatologi">Dokter Sub Spesialis Anak- Neonatologi</option>
-<option value="Dokter Sub Spesialis Anak- Respirologi">Dokter Sub Spesialis Anak- Respirologi</option>
-<option value="Dokter Sub Spesialis Anak- Hematologi Onkologi">Dokter Sub Spesialis Anak- Hematologi Onkologi</option>
-<option value="Dokter Sub Spesialis Anak- Tumbuh Kembang Ped. Sosial">Dokter Sub Spesialis Anak- Tumbuh Kembang Ped. Sosial</option>
-<option value="Dokter Sub Spesialis Bedah Anak-Digestif Anak">Dokter Sub Spesialis Bedah Anak-Digestif Anak</option>
-<option value="Dokter Spesialis Onkologi Radiasi">Dokter Spesialis Onkologi Radiasi</option>
-<option value="Dokter Sub Spesialis Kedokteran Nuklir-Onkologi">Dokter Sub Spesialis Kedokteran Nuklir-Onkologi</option>
-<option value="Dokter Gigi Spesialis Kedokteran Gigi dan Anak (Pedodontik)">Dokter Gigi Spesialis Kedokteran Gigi dan Anak (Pedodontik)</option>
-<option value="Dokter Gigi Spesialis Penyakit Mulut">Dokter Gigi Spesialis Penyakit Mulut</option>
-<option value="Dokter Spesialis Emergency Medic (Kedaruratan Medik)">Dokter Spesialis Emergency Medic (Kedaruratan Medik)</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Digestif">Dokter Sub Spesialis Bedah- Bedah Digestif</option>
-<option value="Teknisi Gigi">Teknisi Gigi</option>
-<option value="Dokter Spesialis Kedokteran Okupasi">Dokter Spesialis Kedokteran Okupasi</option>
-<option value="Dokter Gigi Spesialis Ortodonsia">Dokter Gigi Spesialis Ortodonsia</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Jenjang Tujuan</label>
-<select name="jenjang_tujuan">
-<option value="">Pilih Jenjang</option>
-<option value="Ahli Pertama">Ahli Pertama</option>
-<option value="Ahli Muda">Ahli Muda</option>
-<option value="Mahir">Mahir</option>
-<option value="Penyelia">Penyelia</option>
-<option value="Ahli Madya">Ahli Madya</option>
-<option value="Terampil">Terampil</option>
-<option value="Ahli Utama">Ahli Utama</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Upload Foto 4x6 Latar Merah</label>
-<input type="file" name="upload_foto_4x6_latar_merah">
-</div>
-
-<div class="form-group">
-<label>Upload Daftar Riwayat Hidup</label>
-<input type="file" name="upload_daftar_riwayat_hidup">
-</div>
-
-<div class="form-group">
-<label>Upload Ijazah Terakhir</label>
-<input type="file" name="upload_ijazah_terakhir">
-</div>
-
-<div class="form-group">
-<label>Upload STR</label>
-<input type="file" name="upload_str">
-</div>
-
-<div class="form-group">
-<label>Upload SK Pangkat Terakhir</label>
-<input type="file" name="upload_sk_pangkat_terakhir">
-</div>
-
-<div class="form-group">
-<label>Upload SK Jabfung Terakhir</label>
-<input type="file" name="upload_sk_jabfung_terakhir">
-</div>
-
-<div class="form-group">
-<label>Upload SKP 2 Tahun Terakhir</label>
-<input type="file" name="upload_skp_2_tahun_terakhir">
-</div>
-
-<div class="form-group">
-<label>
-Upload Surat Keterangan Tidak Sedang Menjalani Hukuman Disiplin
-</label>
-<input 
-type="file"
-name="upload_surat_keterangan_tidak_sedang_menjalani_hukuman_disiplin"
->
-</div>
-
-</div>
-
-<br>
-
-<button type="submit" class="btn">
-Kirim Pendaftaran
-</button>
-
-</form>
-
-</div>
-
-</div>
-
-<!-- STATUS -->
- 
-<div id="status" class="section">
- 
-<div class="panel">
- 
-<h2>Cek Status Peserta</h2>
- <br>
- 
-<div class="form-group">
- <label>Masukkan NIK atau NIP</label>
- <input type="text" id="cekData">
- </div>
- 
-<button class="btn" onclick="cekStatus()">
- Cek Status
- </button>
- 
-<div class="status-box" id="hasilStatus">
- Belum ada pencarian.
- </div>
- 
-</div>
- 
-</div>
- 
-<!-- PERBAIKAN FORM -->
- 
-<div id="perbaikan" class="section">
- 
-<div class="panel">
- 
-<h2>Form Perbaikan Data</h2>
- <br>
- 
-<form id="perbaikanForm">
- <div class="form-grid">
- 
-<div class="form-group">
- <label>NIK</label>
- <input type="text" name="nik" id="perbaikanNik" readonly>
- </div>
- 
-<div class="form-group">
- <label>NIP</label>
- <input type="text" name="nip" id="perbaikanNip">
- </div>
- 
-<div class="form-group">
- <label>Nama Tanpa Gelar</label>
- <input type="text" name="nama_tanpa_gelar" id="perbaikanNama">
- </div>
- 
-<div class="form-group">
-<label>Nama Unit Kerja</label>
-<select name="nama_unit_kerja" id="perbaikanUnit">
-<option value="">Pilih Instansi</option>
-<option value="Dinas Kesehatan">Dinas Kesehatan</option>
-<option value="RSUD Aji Muhammad Parikesit">RSUD Aji Muhammad Parikesit</option>
-<option value="RSUD Aji Batara Agung Dewa Sakti">RSUD Aji Batara Agung Dewa Sakti</option>
-<option value="RSUD Dayaku Raja">RSUD Dayaku Raja</option>
-<option value="UPTD Puskesmas Samboja">UPTD Puskesmas Samboja</option>
-<option value="UPTD Puskesmas Sungai Merdeka">UPTD Puskesmas Sungai Merdeka</option>
-<option value="UPTD Puskesmas Handil Baru">UPTD Puskesmas Handil Baru</option>
-<option value="UPTD Puskesmas Muara Jawa">UPTD Puskesmas Muara Jawa</option>
-<option value="UPTD Puskesmas Sangasanga">UPTD Puskesmas Sangasanga</option>
-<option value="UPTD Puskesmas Loa Janan">UPTD Puskesmas Loa Janan</option>
-<option value="UPTD Puskesmas Batuah">UPTD Puskesmas Batuah</option>
-<option value="UPTD Puskesmas Loa Duri">UPTD Puskesmas Loa Duri</option>
-<option value="UPTD Puskesmas Loa Kulu">UPTD Puskesmas Loa Kulu</option>
-<option value="UPTD Puskesmas Muara Muntai">UPTD Puskesmas Muara Muntai</option>
-<option value="UPTD Puskesmas Muara Wis">UPTD Puskesmas Muara Wis</option>
-<option value="UPTD Puskesmas Kota Bangun">UPTD Puskesmas Kota Bangun</option>
-<option value="UPTD Puskesmas Rimba Ayu">UPTD Puskesmas Rimba Ayu</option>
-<option value="UPTD Puskesmas Mangkurawang">UPTD Puskesmas Mangkurawang</option>
-<option value="UPTD Puskesmas Loa Ipuh">UPTD Puskesmas Loa Ipuh</option>
-<option value="UPTD Puskesmas Sebulu I">UPTD Puskesmas Sebulu I</option>
-<option value="UPTD Puskesmas Sebulu II">UPTD Puskesmas Sebulu II</option>
-<option value="UPTD Puskesmas Separi III">UPTD Puskesmas Separi III</option>
-<option value="UPTD Puskesmas Teluk Dalam">UPTD Puskesmas Teluk Dalam</option>
-<option value="UPTD Puskesmas Sungai Mariam">UPTD Puskesmas Sungai Mariam</option>
-<option value="UPTD Puskesmas Muara Badak">UPTD Puskesmas Muara Badak</option>
-<option value="UPTD Puskesmas Badak Baru">UPTD Puskesmas Badak Baru</option>
-<option value="UPTD Puskesmas Marang Kayu">UPTD Puskesmas Marang Kayu</option>
-<option value="UPTD Puskesmas Perangat">UPTD Puskesmas Perangat</option>
-<option value="UPTD Puskesmas Muara Kaman">UPTD Puskesmas Muara Kaman</option>
-<option value="UPTD Puskesmas Kahala">UPTD Puskesmas Kahala</option>
-<option value="UPTD Puskesmas Kembang Janggut">UPTD Puskesmas Kembang Janggut</option>
-<option value="UPTD Puskesmas Tabang">UPTD Puskesmas Tabang</option>
-<option value="UPTD Puskesmas Ritan Baru">UPTD Puskesmas Ritan Baru</option>
-<option value="UPTD Puskesmas Rapak Mahang">UPTD Puskesmas Rapak Mahang</option>
-<option value="UPTD Puskesmas Bunga Jadi">UPTD Puskesmas Bunga Jadi</option>
-<option value="UPTD Puskesmas Jonggon Jaya">UPTD Puskesmas Jonggon Jaya</option>
-<option value="Instalasi Farmasi Kabupaten">Instalasi Farmasi Kabupaten</option>
-<option value="Labkesda">Labkesda</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Pangkat dan Golongan</label>
-<select name="pangkat_dan_golongan" id="perbaikanPangkat">
-<option value="">Pilih Pangkat</option>
-<option value="Pengatur Muda - II/a">Pengatur Muda - II/a</option>
-<option value="Pengatur Muda Tk. I - II/b">Pengatur Muda Tk. I - II/b</option>
-<option value="Pengatur - II/c">Pengatur - II/c</option>
-<option value="Pengatur Tk. I - II/d">Pengatur Tk. I - II/d</option>
-<option value="Penata Muda - III/a">Penata Muda - III/a</option>
-<option value="Penata Muda Tk. I - III/b">Penata Muda Tk. I - III/b</option>
-<option value="Penata - III/c">Penata - III/c</option>
-<option value="Penata Tk. I - III/d">Penata Tk. I - III/d</option>
-<option value="Pembina - IV/a">Pembina - IV/a</option>
-<option value="Pembina Tk. I - IV/b">Pembina Tk. I - IV/b</option>
-<option value="Pembina Utama Muda - IV/c">Pembina Utama Muda - IV/c</option>
-<option value="Pembina Utama Madya - IV/d">Pembina Utama Madya - IV/d</option>
-<option value="Pembina Utama - IV/e">Pembina Utama - IV/e</option>
-</select>
-</div>
- 
-<div class="form-group">
- <label>Nomor SK Jabfung Terakhir</label>
- <input type="text" name="nomor_sk_jabfungs_terakhir" id="perbaikanSk">
- </div>
- 
-<div class="form-group">
- <label>Jenis Kelamin</label>
- <select name="jenis_kelamin" id="perbaikanJk">
- <option value="">Pilih</option>
- <option value="Laki-Laki">Laki-Laki</option>
- <option value="Perempuan">Perempuan</option>
- </select>
- </div>
- 
-<div class="form-group">
- <label>Nomor WhatsApp</label>
- <input type="text" name="nomor_whatsapp" id="perbaikanWa">
- </div>
- 
-<div class="form-group">
- <label>Email Aktif</label>
- <input type="email" name="email_aktif" id="perbaikanEmail">
- </div>
- 
-<div class="form-group">
- <label>Nilai PAK Terakhir</label>
- <input type="text" name="nilai_pak_terakhir" id="perbaikanPak">
- </div>
- 
-<div class="form-group">
- <label>
- Upload PAK Konvensional, PAK Integrasi 2022 dan PAK Konversi (e-KIN) Terakhir (PDF)
- </label>
- <input type="file" name="upload_pak_konvensional_integrasi_konversi_terakhir" accept=".pdf">
- </div>
- 
-<div class="form-group">
-<label>Jabfung Saat Ini</label>
-<select name="jabfung_saat_ini" id="perbaikanJabfung">
-<option value="">Pilih Jabfung</option>
-<option value="Tenaga Sanitasi Lingkungan">Tenaga Sanitasi Lingkungan</option>
-<option value="Asisten Apoteker">Asisten Apoteker</option>
-<option value="Epidemiolog Kesehatan">Epidemiolog Kesehatan</option>
-<option value="Promosi Kesehatan dan Ilmu Perilaku">Promosi Kesehatan dan Ilmu Perilaku</option>
-<option value="Pembimbing Kesehatan Kerja">Pembimbing Kesehatan Kerja</option>
-<option value="Entomolog kesehatan">Entomolog kesehatan</option>
-<option value="Nutrisionis">Nutrisionis</option>
-<option value="Teknisi Elektromedis">Teknisi Elektromedis</option>
-<option value="Administrator Kesehatan">Administrator Kesehatan</option>
-<option value="Dokter Sub Spesialis Paru- Infeksi">Dokter Sub Spesialis Paru- Infeksi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Endokrin Metabolik Dan Diabetes">Dokter Sub Spesialis Penyakit Dalam-Endokrin Metabolik Dan Diabetes</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Ginjal Hipertensi">Dokter Sub Spesialis Penyakit Dalam-Ginjal Hipertensi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Hematologi-Onkologi Medik">Dokter Sub Spesialis Penyakit Dalam-Hematologi-Onkologi Medik</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Onkologi">Dokter Sub Spesialis Bedah- Bedah Onkologi</option>
-<option value="Dokter Gigi Spesialis Periodonsia">Dokter Gigi Spesialis Periodonsia</option>
-<option value="Dokter Gigi Spesialis Konservasi Gigi">Dokter Gigi Spesialis Konservasi Gigi</option>
-<option value="Dokter Gigi Spesialis Bedah Mulut dan Maksilofasial">Dokter Gigi Spesialis Bedah Mulut dan Maksilofasial</option>
-<option value="Dokter Spesialis Gizi Klinik">Dokter Spesialis Gizi Klinik</option>
-<option value="Dokter Spesialis Kedokteran Nuklir">Dokter Spesialis Kedokteran Nuklir</option>
-<option value="Dokter Sub Spesialis Paru- Pulmonologi Intervensi Dan Gawat Darurat Napas">Dokter Sub Spesialis Paru- Pulmonologi Intervensi Dan Gawat Darurat Napas</option>
-<option value="Dokter Sub Spesialis Paru- Paru Kerja Dan Lingkungan">Dokter Sub Spesialis Paru- Paru Kerja Dan Lingkungan</option>
-<option value="Dokter Sub Spesialis Radiologi- Radiologi Intervensional">Dokter Sub Spesialis Radiologi- Radiologi Intervensional</option>
-<option value="Dokter Sub Spesialis Radiologi- Neuroradiologi Dan Kepala Leher">Dokter Sub Spesialis Radiologi- Neuroradiologi Dan Kepala Leher</option>
-<option value="Dokter Sub Spesialis Bedah Saraf-Vaskular">Dokter Sub Spesialis Bedah Saraf-Vaskular</option>
-<option value="Dokter Sub Spesialis Neurologi- Neurovaskular, Neurointervensi, Imaging, Otologi, Oftalmologi">Dokter Sub Spesialis Neurologi- Neurovaskular, Neurointervensi, Imaging, Otologi, Oftalmologi</option>
-<option value="Dokter Sub Spesialis Jantung Dan Pembuluh Darah-Kardiologi Intervensi">Dokter Sub Spesialis Jantung Dan Pembuluh Darah-Kardiologi Intervensi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Kardiovaskular">Dokter Sub Spesialis Penyakit Dalam-Kardiovaskular</option>
-<option value="Dokter Sub Spesialis Obgyn- Onkologi Ginekologi Konk">Dokter Sub Spesialis Obgyn- Onkologi Ginekologi Konk</option>
-<option value="Dokter Spesialis Obstetri dan Ginekologi">Dokter Spesialis Obstetri dan Ginekologi</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Vaskuler Dan Endovaskuler">Dokter Sub Spesialis Bedah- Bedah Vaskuler Dan Endovaskuler</option>
-<option value="Dokter Sub Spesialis Anestesi- Intensif Care/ICU">Dokter Sub Spesialis Anestesi- Intensif Care/ICU</option>
-<option value="Dokter Spesialis Bedah Toraks Kardiovaskuler">Dokter Spesialis Bedah Toraks Kardiovaskuler</option>
-<option value="Dokter Spesialis Kedokteran Forensik dan Medikolegal">Dokter Spesialis Kedokteran Forensik dan Medikolegal</option>
-<option value="Dokter Spesialis Mikrobiologi Klinik">Dokter Spesialis Mikrobiologi Klinik</option>
-<option value="Dokter Spesialis Anestesiologi dan Terapi Intensif">Dokter Spesialis Anestesiologi dan Terapi Intensif</option>
-<option value="DOKTER">DOKTER</option>
-<option value="DOKTER GIGI">DOKTER GIGI</option>
-<option value="Dokter Spesialis Penyakit Dalam">Dokter Spesialis Penyakit Dalam</option>
-<option value="Dokter Spesialis Bedah">Dokter Spesialis Bedah</option>
-<option value="Dokter Spesialis Anak">Dokter Spesialis Anak</option>
-<option value="Dokter Spesialis Mata">Dokter Spesialis Mata</option>
-<option value="Dokter Spesialis Dermatologi dan Venereologi">Dokter Spesialis Dermatologi dan Venereologi</option>
-<option value="Dokter Kedokteran Fisik dan Rehabilitasi">Dokter Kedokteran Fisik dan Rehabilitasi</option>
-<option value="Dokter Spesialis Jantung dan Pembuluh Darah">Dokter Spesialis Jantung dan Pembuluh Darah</option>
-<option value="Dokter Spesialis Bedah Plastik Rekonstruksi dan Estetis">Dokter Spesialis Bedah Plastik Rekonstruksi dan Estetis</option>
-<option value="Dokter Spesialis Bedah Anak">Dokter Spesialis Bedah Anak</option>
-<option value="Dokter Spesialis Patologi Anatomi">Dokter Spesialis Patologi Anatomi</option>
-<option value="Dokter Spesialis Patologi Klinik">Dokter Spesialis Patologi Klinik</option>
-<option value="Dokter Spesialis Urologi">Dokter Spesialis Urologi</option>
-<option value="Dokter Spesialis Kedokteran Jiwa atau Psikiatri">Dokter Spesialis Kedokteran Jiwa atau Psikiatri</option>
-<option value="Dokter Spesialis Bedah Saraf">Dokter Spesialis Bedah Saraf</option>
-<option value="Dokter Spesialis Neurologi">Dokter Spesialis Neurologi</option>
-<option value="Dokter Spesialis Orthopaedi dan Traumatologi">Dokter Spesialis Orthopaedi dan Traumatologi</option>
-<option value="Dokter Spesialis Telinga Hidung Tenggorok - Bedah Kepala Dan Leher">Dokter Spesialis Telinga Hidung Tenggorok - Bedah Kepala Dan Leher</option>
-<option value="Dokter Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)">Dokter Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)</option>
-<option value="Dokter Spesialis Radiologi">Dokter Spesialis Radiologi</option>
-<option value="PERAWAT">PERAWAT</option>
-<option value="BIDAN">BIDAN</option>
-<option value="PENATA ANESTESI">PENATA ANESTESI</option>
-<option value="ASISTEN PENATA ANESTESI">ASISTEN PENATA ANESTESI</option>
-<option value="TERAPIS GIGI DAN MULUT">TERAPIS GIGI DAN MULUT</option>
-<option value="PRANATA LABORATORIUM KESEHATAN">PRANATA LABORATORIUM KESEHATAN</option>
-<option value="TEKNISI TRANSFUSI DARAH">TEKNISI TRANSFUSI DARAH</option>
-<option value="RADIOGRAFER">RADIOGRAFER</option>
-<option value="FISIKAWAN MEDIS">FISIKAWAN MEDIS</option>
-<option value="REFRAKSIONIS OPTISIEN/OPTOMETRIS">REFRAKSIONIS OPTISIEN/OPTOMETRIS</option>
-<option value="APOTEKER">APOTEKER</option>
-<option value="PEREKAM MEDIS">PEREKAM MEDIS</option>
-<option value="FISIOTERAPIS">FISIOTERAPIS</option>
-<option value="TERAPIS WICARA">TERAPIS WICARA</option>
-<option value="OKUPASI TERAPIS">OKUPASI TERAPIS</option>
-<option value="PSIKOLOGI KLINIS">PSIKOLOGI KLINIS</option>
-<option value="Dokter Sub Spesialis Tht- Onkologi Kepala Leher">Dokter Sub Spesialis Tht- Onkologi Kepala Leher</option>
-<option value="Dokter Sub Spesialis Tht- Bronkoesofagologi">Dokter Sub Spesialis Tht- Bronkoesofagologi</option>
-<option value="Dokter Sub Spesialis Tht- Alergi Imunologi">Dokter Sub Spesialis Tht- Alergi Imunologi</option>
-<option value="Dokter Sub Spesialis Tht- Neurotologi">Dokter Sub Spesialis Tht- Neurotologi</option>
-<option value="Dokter Sub Spesialis Tht- Otologi">Dokter Sub Spesialis Tht- Otologi</option>
-<option value="Dokter Sub Spesialis Tht- Rinologi">Dokter Sub Spesialis Tht- Rinologi</option>
-<option value="Dokter Sub Spesialis Obgyn- Fertilitas-Endokrinologi Reproduksi Kfer">Dokter Sub Spesialis Obgyn- Fertilitas-Endokrinologi Reproduksi Kfer</option>
-<option value="Dokter Sub Spesialis Anak- Kardiologi">Dokter Sub Spesialis Anak- Kardiologi</option>
-<option value="Dokter Sub Spesialis Anak- Neonatologi">Dokter Sub Spesialis Anak- Neonatologi</option>
-<option value="Dokter Sub Spesialis Anak- Respirologi">Dokter Sub Spesialis Anak- Respirologi</option>
-<option value="Dokter Sub Spesialis Anak- Hematologi Onkologi">Dokter Sub Spesialis Anak- Hematologi Onkologi</option>
-<option value="Dokter Sub Spesialis Anak- Tumbuh Kembang Ped. Sosial">Dokter Sub Spesialis Anak- Tumbuh Kembang Ped. Sosial</option>
-<option value="Dokter Sub Spesialis Bedah Anak-Digestif Anak">Dokter Sub Spesialis Bedah Anak-Digestif Anak</option>
-<option value="Dokter Spesialis Onkologi Radiasi">Dokter Spesialis Onkologi Radiasi</option>
-<option value="Dokter Sub Spesialis Kedokteran Nuklir-Onkologi">Dokter Sub Spesialis Kedokteran Nuklir-Onkologi</option>
-<option value="Dokter Gigi Spesialis Kedokteran Gigi dan Anak (Pedodontik)">Dokter Gigi Spesialis Kedokteran Gigi dan Anak (Pedodontik)</option>
-<option value="Dokter Gigi Spesialis Penyakit Mulut">Dokter Gigi Spesialis Penyakit Mulut</option>
-<option value="Dokter Spesialis Emergency Medic (Kedaruratan Medik)">Dokter Spesialis Emergency Medic (Kedaruratan Medik)</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Digestif">Dokter Sub Spesialis Bedah- Bedah Digestif</option>
-<option value="Teknisi Gigi">Teknisi Gigi</option>
-<option value="Dokter Spesialis Kedokteran Okupasi">Dokter Spesialis Kedokteran Okupasi</option>
-<option value="Dokter Gigi Spesialis Ortodonsia">Dokter Gigi Spesialis Ortodonsia</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Jenjang Saat Ini</label>
-<select name="jenjang_saat_ini" id="perbaikanJenjang">
-<option value="">Pilih Jenjang</option>
-<option value="Ahli Pertama">Ahli Pertama</option>
-<option value="Ahli Muda">Ahli Muda</option>
-<option value="Mahir">Mahir</option>
-<option value="Penyelia">Penyelia</option>
-<option value="Ahli Madya">Ahli Madya</option>
-<option value="Terampil">Terampil</option>
-<option value="Ahli Utama">Ahli Utama</option>
-</select>
-</div>
- 
-<div class="form-group">
- <label>Tipe</label>
- <select name="tipe" id="perbaikanTipe">
- <option value="">Pilih</option>
- <option value="Perpindahan">Perpindahan</option>
- <option value="Kenaikan Jenjang">Kenaikan Jenjang</option>
- <option value="Alih Kategori">Alih Kategori</option>
- </select>
- </div>
- 
-<div class="form-group">
-<label>Jenis UKOM</label>
-<select name="jenis_ukom" id="perbaikanJenisUkom">
-<option value="">Pilih Jenis UKOM</option>
-<option value="Pindah Jabatan">Pindah Jabatan</option>
-<option value="Naik Jabatan">Naik Jabatan</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Jabfung Tujuan</label>
-<select name="jabfung_tujuan" id="perbaikanTujuanJabfung">
-<option value="">Pilih Jabfung</option>
-<option value="Tenaga Sanitasi Lingkungan">Tenaga Sanitasi Lingkungan</option>
-<option value="Asisten Apoteker">Asisten Apoteker</option>
-<option value="Epidemiolog Kesehatan">Epidemiolog Kesehatan</option>
-<option value="Promosi Kesehatan dan Ilmu Perilaku">Promosi Kesehatan dan Ilmu Perilaku</option>
-<option value="Pembimbing Kesehatan Kerja">Pembimbing Kesehatan Kerja</option>
-<option value="Entomolog kesehatan">Entomolog kesehatan</option>
-<option value="Nutrisionis">Nutrisionis</option>
-<option value="Teknisi Elektromedis">Teknisi Elektromedis</option>
-<option value="Administrator Kesehatan">Administrator Kesehatan</option>
-<option value="Dokter Sub Spesialis Paru- Infeksi">Dokter Sub Spesialis Paru- Infeksi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Endokrin Metabolik Dan Diabetes">Dokter Sub Spesialis Penyakit Dalam-Endokrin Metabolik Dan Diabetes</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Ginjal Hipertensi">Dokter Sub Spesialis Penyakit Dalam-Ginjal Hipertensi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Hematologi-Onkologi Medik">Dokter Sub Spesialis Penyakit Dalam-Hematologi-Onkologi Medik</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Onkologi">Dokter Sub Spesialis Bedah- Bedah Onkologi</option>
-<option value="Dokter Gigi Spesialis Periodonsia">Dokter Gigi Spesialis Periodonsia</option>
-<option value="Dokter Gigi Spesialis Konservasi Gigi">Dokter Gigi Spesialis Konservasi Gigi</option>
-<option value="Dokter Gigi Spesialis Bedah Mulut dan Maksilofasial">Dokter Gigi Spesialis Bedah Mulut dan Maksilofasial</option>
-<option value="Dokter Spesialis Gizi Klinik">Dokter Spesialis Gizi Klinik</option>
-<option value="Dokter Spesialis Kedokteran Nuklir">Dokter Spesialis Kedokteran Nuklir</option>
-<option value="Dokter Sub Spesialis Paru- Pulmonologi Intervensi Dan Gawat Darurat Napas">Dokter Sub Spesialis Paru- Pulmonologi Intervensi Dan Gawat Darurat Napas</option>
-<option value="Dokter Sub Spesialis Paru- Paru Kerja Dan Lingkungan">Dokter Sub Spesialis Paru- Paru Kerja Dan Lingkungan</option>
-<option value="Dokter Sub Spesialis Radiologi- Radiologi Intervensional">Dokter Sub Spesialis Radiologi- Radiologi Intervensional</option>
-<option value="Dokter Sub Spesialis Radiologi- Neuroradiologi Dan Kepala Leher">Dokter Sub Spesialis Radiologi- Neuroradiologi Dan Kepala Leher</option>
-<option value="Dokter Sub Spesialis Bedah Saraf-Vaskular">Dokter Sub Spesialis Bedah Saraf-Vaskular</option>
-<option value="Dokter Sub Spesialis Neurologi- Neurovaskular, Neurointervensi, Imaging, Otologi, Oftalmologi">Dokter Sub Spesialis Neurologi- Neurovaskular, Neurointervensi, Imaging, Otologi, Oftalmologi</option>
-<option value="Dokter Sub Spesialis Jantung Dan Pembuluh Darah-Kardiologi Intervensi">Dokter Sub Spesialis Jantung Dan Pembuluh Darah-Kardiologi Intervensi</option>
-<option value="Dokter Sub Spesialis Penyakit Dalam-Kardiovaskular">Dokter Sub Spesialis Penyakit Dalam-Kardiovaskular</option>
-<option value="Dokter Sub Spesialis Obgyn- Onkologi Ginekologi Konk">Dokter Sub Spesialis Obgyn- Onkologi Ginekologi Konk</option>
-<option value="Dokter Spesialis Obstetri dan Ginekologi">Dokter Spesialis Obstetri dan Ginekologi</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Vaskuler Dan Endovaskuler">Dokter Sub Spesialis Bedah- Bedah Vaskuler Dan Endovaskuler</option>
-<option value="Dokter Sub Spesialis Anestesi- Intensif Care/ICU">Dokter Sub Spesialis Anestesi- Intensif Care/ICU</option>
-<option value="Dokter Spesialis Bedah Toraks Kardiovaskuler">Dokter Spesialis Bedah Toraks Kardiovaskuler</option>
-<option value="Dokter Spesialis Kedokteran Forensik dan Medikolegal">Dokter Spesialis Kedokteran Forensik dan Medikolegal</option>
-<option value="Dokter Spesialis Mikrobiologi Klinik">Dokter Spesialis Mikrobiologi Klinik</option>
-<option value="Dokter Spesialis Anestesiologi dan Terapi Intensif">Dokter Spesialis Anestesiologi dan Terapi Intensif</option>
-<option value="DOKTER">DOKTER</option>
-<option value="DOKTER GIGI">DOKTER GIGI</option>
-<option value="Dokter Spesialis Penyakit Dalam">Dokter Spesialis Penyakit Dalam</option>
-<option value="Dokter Spesialis Bedah">Dokter Spesialis Bedah</option>
-<option value="Dokter Spesialis Anak">Dokter Spesialis Anak</option>
-<option value="Dokter Spesialis Mata">Dokter Spesialis Mata</option>
-<option value="Dokter Spesialis Dermatologi dan Venereologi">Dokter Spesialis Dermatologi dan Venereologi</option>
-<option value="Dokter Kedokteran Fisik dan Rehabilitasi">Dokter Kedokteran Fisik dan Rehabilitasi</option>
-<option value="Dokter Spesialis Jantung dan Pembuluh Darah">Dokter Spesialis Jantung dan Pembuluh Darah</option>
-<option value="Dokter Spesialis Bedah Plastik Rekonstruksi dan Estetis">Dokter Spesialis Bedah Plastik Rekonstruksi dan Estetis</option>
-<option value="Dokter Spesialis Bedah Anak">Dokter Spesialis Bedah Anak</option>
-<option value="Dokter Spesialis Patologi Anatomi">Dokter Spesialis Patologi Anatomi</option>
-<option value="Dokter Spesialis Patologi Klinik">Dokter Spesialis Patologi Klinik</option>
-<option value="Dokter Spesialis Urologi">Dokter Spesialis Urologi</option>
-<option value="Dokter Spesialis Kedokteran Jiwa atau Psikiatri">Dokter Spesialis Kedokteran Jiwa atau Psikiatri</option>
-<option value="Dokter Spesialis Bedah Saraf">Dokter Spesialis Bedah Saraf</option>
-<option value="Dokter Spesialis Neurologi">Dokter Spesialis Neurologi</option>
-<option value="Dokter Spesialis Orthopaedi dan Traumatologi">Dokter Spesialis Orthopaedi dan Traumatologi</option>
-<option value="Dokter Spesialis Telinga Hidung Tenggorok - Bedah Kepala Dan Leher">Dokter Spesialis Telinga Hidung Tenggorok - Bedah Kepala Dan Leher</option>
-<option value="Dokter Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)">Dokter Spesialis Pulmonologi dan Kedokteran Respirasi (Paru)</option>
-<option value="Dokter Spesialis Radiologi">Dokter Spesialis Radiologi</option>
-<option value="PERAWAT">PERAWAT</option>
-<option value="BIDAN">BIDAN</option>
-<option value="PENATA ANESTESI">PENATA ANESTESI</option>
-<option value="ASISTEN PENATA ANESTESI">ASISTEN PENATA ANESTESI</option>
-<option value="TERAPIS GIGI DAN MULUT">TERAPIS GIGI DAN MULUT</option>
-<option value="PRANATA LABORATORIUM KESEHATAN">PRANATA LABORATORIUM KESEHATAN</option>
-<option value="TEKNISI TRANSFUSI DARAH">TEKNISI TRANSFUSI DARAH</option>
-<option value="RADIOGRAFER">RADIOGRAFER</option>
-<option value="FISIKAWAN MEDIS">FISIKAWAN MEDIS</option>
-<option value="REFRAKSIONIS OPTISIEN/OPTOMETRIS">REFRAKSIONIS OPTISIEN/OPTOMETRIS</option>
-<option value="APOTEKER">APOTEKER</option>
-<option value="PEREKAM MEDIS">PEREKAM MEDIS</option>
-<option value="FISIOTERAPIS">FISIOTERAPIS</option>
-<option value="TERAPIS WICARA">TERAPIS WICARA</option>
-<option value="OKUPASI TERAPIS">OKUPASI TERAPIS</option>
-<option value="PSIKOLOGI KLINIS">PSIKOLOGI KLINIS</option>
-<option value="Dokter Sub Spesialis Tht- Onkologi Kepala Leher">Dokter Sub Spesialis Tht- Onkologi Kepala Leher</option>
-<option value="Dokter Sub Spesialis Tht- Bronkoesofagologi">Dokter Sub Spesialis Tht- Bronkoesofagologi</option>
-<option value="Dokter Sub Spesialis Tht- Alergi Imunologi">Dokter Sub Spesialis Tht- Alergi Imunologi</option>
-<option value="Dokter Sub Spesialis Tht- Neurotologi">Dokter Sub Spesialis Tht- Neurotologi</option>
-<option value="Dokter Sub Spesialis Tht- Otologi">Dokter Sub Spesialis Tht- Otologi</option>
-<option value="Dokter Sub Spesialis Tht- Rinologi">Dokter Sub Spesialis Tht- Rinologi</option>
-<option value="Dokter Sub Spesialis Obgyn- Fertilitas-Endokrinologi Reproduksi Kfer">Dokter Sub Spesialis Obgyn- Fertilitas-Endokrinologi Reproduksi Kfer</option>
-<option value="Dokter Sub Spesialis Anak- Kardiologi">Dokter Sub Spesialis Anak- Kardiologi</option>
-<option value="Dokter Sub Spesialis Anak- Neonatologi">Dokter Sub Spesialis Anak- Neonatologi</option>
-<option value="Dokter Sub Spesialis Anak- Respirologi">Dokter Sub Spesialis Anak- Respirologi</option>
-<option value="Dokter Sub Spesialis Anak- Hematologi Onkologi">Dokter Sub Spesialis Anak- Hematologi Onkologi</option>
-<option value="Dokter Sub Spesialis Anak- Tumbuh Kembang Ped. Sosial">Dokter Sub Spesialis Anak- Tumbuh Kembang Ped. Sosial</option>
-<option value="Dokter Sub Spesialis Bedah Anak-Digestif Anak">Dokter Sub Spesialis Bedah Anak-Digestif Anak</option>
-<option value="Dokter Spesialis Onkologi Radiasi">Dokter Spesialis Onkologi Radiasi</option>
-<option value="Dokter Sub Spesialis Kedokteran Nuklir-Onkologi">Dokter Sub Spesialis Kedokteran Nuklir-Onkologi</option>
-<option value="Dokter Gigi Spesialis Kedokteran Gigi dan Anak (Pedodontik)">Dokter Gigi Spesialis Kedokteran Gigi dan Anak (Pedodontik)</option>
-<option value="Dokter Gigi Spesialis Penyakit Mulut">Dokter Gigi Spesialis Penyakit Mulut</option>
-<option value="Dokter Spesialis Emergency Medic (Kedaruratan Medik)">Dokter Spesialis Emergency Medic (Kedaruratan Medik)</option>
-<option value="Dokter Sub Spesialis Bedah- Bedah Digestif">Dokter Sub Spesialis Bedah- Bedah Digestif</option>
-<option value="Teknisi Gigi">Teknisi Gigi</option>
-<option value="Dokter Spesialis Kedokteran Okupasi">Dokter Spesialis Kedokteran Okupasi</option>
-<option value="Dokter Gigi Spesialis Ortodonsia">Dokter Gigi Spesialis Ortodonsia</option>
-</select>
-</div>
-
-<div class="form-group">
-<label>Jenjang Tujuan</label>
-<select name="jenjang_tujuan" id="perbaikanTujuanJenjang">
-<option value="">Pilih Jenjang</option>
-<option value="Ahli Pertama">Ahli Pertama</option>
-<option value="Ahli Muda">Ahli Muda</option>
-<option value="Mahir">Mahir</option>
-<option value="Penyelia">Penyelia</option>
-<option value="Ahli Madya">Ahli Madya</option>
-<option value="Terampil">Terampil</option>
-<option value="Ahli Utama">Ahli Utama</option>
-</select>
-</div>
- 
-<div class="form-group">
- <label>Upload Foto 4x6 Latar Merah</label>
- <input type="file" name="upload_foto_4x6_latar_merah">
- </div>
- 
-<div class="form-group">
- <label>Upload Daftar Riwayat Hidup</label>
- <input type="file" name="upload_daftar_riwayat_hidup">
- </div>
- 
-<div class="form-group">
- <label>Upload Ijazah Terakhir</label>
- <input type="file" name="upload_ijazah_terakhir">
- </div>
- 
-<div class="form-group">
- <label>Upload STR</label>
- <input type="file" name="upload_str">
- </div>
- 
-<div class="form-group">
- <label>Upload SK Pangkat Terakhir</label>
- <input type="file" name="upload_sk_pangkat_terakhir">
- </div>
- 
-<div class="form-group">
- <label>Upload SK Jabfung Terakhir</label>
- <input type="file" name="upload_sk_jabfung_terakhir">
- </div>
- 
-<div class="form-group">
- <label>Upload SKP 2 Tahun Terakhir</label>
- <input type="file" name="upload_skp_2_tahun_terakhir">
- </div>
- 
-<div class="form-group">
- <label>
- Upload Surat Keterangan Tidak Sedang Menjalani Hukuman Disiplin
- </label>
- <input type="file" name="upload_surat_keterangan_tidak_sedang_menjalani_hukuman_disiplin">
- </div>
- </div>
- 
-<br>
- <button type="submit" class="btn">Update Data</button>
- </form>
- 
-</div>
- 
-</div>
-
-<!-- ADMIN -->
- 
-<div id="admin" class="section">
- 
-<div id="adminLoginSection">
- <div class="login-box">
- 
-<h2>Login Admin</h2>
- <br>
- 
-<div class="form-group">
- <label>Username</label>
- <input type="text" id="adminUser">
- </div>
- 
-<div class="form-group">
- <label>Password</label>
- <input type="password" id="adminPass">
- </div>
- 
-<button class="btn" onclick="loginAdmin()">
- Login
- </button>
- 
-<div id="adminResult" style="margin-top:20px;"></div>
- 
-</div>
- </div>
- 
-<div id="adminDataSection" style="display:none">
-   <div class="panel">
-   
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
-  <h2 style="margin:0">Data Peserta UKOM</h2>
-  <button class="btn" style="background:#dc2626" onclick="logoutAdmin()">Logout</button>
-  </div>
-   <br>
-  
- <div class="form-grid" style="margin-bottom:20px">
-  <div class="form-group">
-  <label>Filter Unit Kerja</label>
-  <select id="filterUnitKerja" onchange="applyAdminFilter()">
-  <option value="">Semua Unit Kerja</option>
-  </select>
-  </div>
-  <div class="form-group">
-  <label>Filter Status</label>
-  <select id="filterStatus" onchange="applyAdminFilter()">
-  <option value="">Semua Status</option>
-  <option value="Menunggu">Menunggu</option>
-  <option value="Disetujui">Disetujui</option>
-  <option value="Ditolak">Ditolak</option>
-  </select>
-  </div>
-  <div class="form-group">
-  <label>&nbsp;</label>
-  <button type="button" class="btn" onclick="resetAdminFilter()">Reset</button>
-  </div>
-  </div>
-  
- <table>
-  <thead>
-  <tr>
-  <th>Foto</th><th>NIK</th><th>NIP</th><th>Nama Tanpa Gelar</th><th>Nama Unit Kerja</th><th>Status Verifikasi</th><th>Catatan Admin</th><th>Aksi</th>
-  </tr>
-  </thead>
-  <tbody id="adminDataBody"></tbody>
-  </table>
-  
- <div id="adminPagination" style="margin-top:20px;text-align:center"></div>
-  
- </div>
-  </div>
- 
-</div>
- 
-<div class="lightbox" id="adminLightbox" onclick="if(event.target===this) this.style.display='none'" style="display:none">
- <div class="lightbox-content" id="adminLightboxContent" style="max-width:800px">
- <span class="close" onclick="document.getElementById('adminLightbox').style.display='none'">&times;</span>
- <div id="adminLightboxBody"></div>
- </div>
- </div>
-
-</div>
-
-<!-- LIGHTBOX -->
-
-<div class="lightbox" id="lightbox">
-
-<div class="lightbox-content">
-
-<span class="close" onclick="closeLightbox()">&times;</span>
-
-<h2>MantaF</h2>
-<br>
-
-<p>
-“MantaF hadir sebagai platform digital terintegrasi untuk mendukung tata kelola Jabatan Fungsional Kesehatan yang modern, efektif, transparan, dan akuntabel.”
-</p>
-
-</div>
-
-</div>
-
-<script>
-
-/* ==========================
-KONFIGURASI
-========================== */
-
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyfEoNakVjMlNC_SeG4O5bxI2KZ-WJoWSHyywuAMDUfOeL5mfKzQSFZvJGV7XJ2A7ni/exec";
-
-let bezettingCache = null;
-
-function updateProfile(name, fullName, role){
-   const profileImg = document.getElementById('profileImg');
-   if(name && fullName){
-     profileImg.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(fullName || name) + '&background=0f766e&color=fff&size=200';
-   } else {
-     profileImg.src = 'https://drive.google.com/uc?export=view&id=1Xn9S9MtOAuFTxWsrKYpHGuKuRSKW3jFe';
-   }
- }
-}
-
-function toggleSidebar(){
-  const sidebar = document.getElementById('sidebar');
-  const profileSection = document.getElementById('profileSection');
-  sidebar.classList.toggle('collapsed');
-  profileSection.classList.toggle('collapsed');
-}
-
-/* ==========================
-NAVIGATION
-========================== */
-
-function showSection(id,el){
-
-document.querySelectorAll('.section').forEach(section=>{
-section.classList.remove('active');
-});
-
-document.getElementById(id).classList.add('active');
-
-document.querySelectorAll('.menu button').forEach(btn=>{
-btn.classList.remove('active');
-});
-
-el.classList.add('active');
-
-}
-
-/* ==========================
-LIGHTBOX
-========================== */
-
-function openLightbox(){
-document.getElementById('lightbox').style.display='flex';
-}
-
-function closeLightbox(){
-document.getElementById('lightbox').style.display='none';
-}
-
-/* ==========================
- LOAD BEZETTING (Optimized)
- ========================== */
- 
-let bezettingFilter = { instansi: '', jenis_jabatan: '', jenjang: '' };
-let bezettingPage = 1;
-const ROWS_PER_PAGE = 50;
- 
-async function loadBezetting(){
- 
-try{
- const response = await fetch(
- WEB_APP_URL + '?action=getBezetting',
- { cache: 'no-store' }
- );
- 
-const result = await response.json();
- bezettingCache = result.data;
- populateBezettingFilters(result.data);
- renderBezettingTable();
- } catch (err) {
-   document.getElementById('bezettingBody').innerHTML = '<tr><td colspan="9" style="color:red">Gagal: ' + err.message + '</td></tr>';
- }
- 
-}
- 
-function populateBezettingFilters(data){
- const instansiSet = new Set();
- const jabatanSet = new Set();
- const jenjangSet = new Set();
- 
-data.forEach(item=>{
- if(item.instansi) instansiSet.add(item.instansi);
- if(item.jenis_jabatan) jabatanSet.add(item.jenis_jabatan);
- if(item.jenjang) jenjangSet.add(item.jenjang);
- });
- 
-const instansiSelect = document.getElementById('filterInstansi');
- const jabatanSelect = document.getElementById('filterJabatan');
- const jenjangSelect = document.getElementById('filterJenjang');
- 
-[...instansiSet].sort().forEach(v=>instansiSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
- [...jabatanSet].sort().forEach(v=>jabatanSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
- [...jenjangSet].sort().forEach(v=>jenjangSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
- }
- 
-function applyBezettingFilter(){
- bezettingFilter = {
- instansi: document.getElementById('filterInstansi').value,
- jenis_jabatan: document.getElementById('filterJabatan').value,
- jenjang: document.getElementById('filterJenjang').value
- };
- bezettingPage = 1;
- renderBezettingTable();
- }
- 
-function resetBezettingFilter(){
- document.getElementById('filterInstansi').value = '';
- document.getElementById('filterJabatan').value = '';
- document.getElementById('filterJenjang').value = '';
- bezettingFilter = { instansi: '', jenis_jabatan: '', jenjang: '' };
- bezettingPage = 1;
- renderBezettingTable();
- }
- 
-function renderBezettingTable(){
- if(!bezettingCache) return;
- 
-const filtered = bezettingCache.filter(item=>{
- const matchInstansi = !bezettingFilter.instansi || item.instansi === bezettingFilter.instansi;
- const matchJabatan = !bezettingFilter.jenis_jabatan || item.jenis_jabatan === bezettingFilter.jenis_jabatan;
- const matchJenjang = !bezettingFilter.jenjang || item.jenjang === bezettingFilter.jenjang;
- return matchInstansi && matchJabatan && matchJenjang;
- });
- 
-const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
- const start = (bezettingPage - 1) * ROWS_PER_PAGE;
- const pageData = filtered.slice(start, start + ROWS_PER_PAGE);
- 
-const tbody = document.getElementById('bezettingBody');
- let html = '';
- 
-pageData.forEach(item=>{
- html += `<tr>
- <td>${item.instansi || ''}</td>
- <td>${item.jenis_jabatan || ''}</td>
- <td>${item.jenjang || ''}</td>
- <td>${item.kebutuhan || 0}</td>
- <td>${item.pemangku || 0}</td>
- <td>${item.lowongan || 0}</td>
- <td>${item.pemangku_saat_ini || ''}</td>
- <td>${item.pemangku_disetujui || ''}</td>
- <td>${item.sisa || 0}</td>
- </tr>`;
- });
- 
-tbody.innerHTML = html || '<tr><td colspan="9">Tidak ada data</td></tr>';
- 
-let paginationHtml = '';
- if(totalPages > 1){
- paginationHtml = '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap">';
- for(let i = 1; i <= totalPages; i++){
- paginationHtml += `<button class="btn" style="padding:5px 10px;font-size:12px;${i === bezettingPage ? 'background:#0d9488' : ''}" onclick="bezettingPage=${i};renderBezettingTable()">${i}</button>`;
- }
- paginationHtml += '</div>';
- }
- paginationHtml += `<div style="margin-top:10px;font-size:12px;color:#64748b">Menampilkan ${pageData.length} dari ${filtered.length} data</div>`;
- document.getElementById('pagination').innerHTML = paginationHtml;
- }
-
-/* ==========================
-LOAD PENGUMUMAN
-========================== */
-
-async function loadPengumuman(){
-
-try{
-
-const response = await fetch(
-WEB_APP_URL + '?action=getPengumuman',
-{ cache: 'no-store' }
-);
-
-const result = await response.json();
-const container = document.getElementById('pengumumanList');
-
-if(result.data && result.data.length > 0){
-let html = '';
-result.data.forEach(item=>{
-html += `<div class="announcement">
-<b>${item.judul || 'Pengumuman'}</b><br>
-${item.isi || ''}
-<div style="font-size:11px;color:#64748b;margin-top:8px">${item.tanggal || ''}</div>
-</div>`;
-});
-container.innerHTML = html;
-}else{
-container.innerHTML = '<div class="announcement">Belum ada pengumuman</div>';
-}
-
-} catch (err) {
-  document.getElementById('pengumumanList').innerHTML = '<div class="announcement" style="color:red">Error: ' + err.message + '</div>';
-}
-
-}
-
-/* ==========================
-  LOAD DASHBOARD STATS
-  ========================== */
-  
-async function loadDashboardStats(){
-  
-try{
-  
-const response = await fetch(
-  WEB_APP_URL + '?action=getDashboardStats',
-  { cache: 'no-store' }
-  );
-  
-const result = await response.json();
-  
-if(result.totalPeserta !== undefined){
-  document.getElementById('pesertaCount').textContent = result.totalPeserta;
-  }
-  
-if(result.totalInstansi !== undefined){
-  document.getElementById('instansiCount').textContent = result.totalInstansi;
-  }
-  
-if(result.totalLowongan !== undefined){
-  document.getElementById('lowonganCount').textContent = result.totalLowongan;
-  }
-  
-} catch (err) {
-  console.error('Failed to load dashboard stats:', err);
-  }
-  
-}
- 
-/* ==========================
-  RENDER DONUT CHARTS
-  ========================== */
-  
-async function loadDashboardCharts(){
-  try{
-  const response = await fetch(
-  WEB_APP_URL + '?action=getDashboardChartData',
-  { cache: 'no-store' }
-  );
-  const result = await response.json();
-  
-  // Render Status Chart
-  const statusDist = result.statusDistribution || { disetujui: 0, ditolak: 0, menunggu: 0 };
-  const total = statusDist.disetujui + statusDist.ditolak + statusDist.menunggu;
-  const circumference = 283;
-  
-  document.getElementById('statusTotal').textContent = total;
-  document.getElementById('statusApprovedCount').textContent = statusDist.disetujui;
-  document.getElementById('statusRejectedCount').textContent = statusDist.ditolak;
-  document.getElementById('statusPendingCount').textContent = statusDist.menunggu;
-  
-  setTimeout(() => {
-  const approvedOffset = statusDist.ditolak + statusDist.menunggu;
-  const approvedDash = (statusDist.disetujui / total) * circumference;
-  const rejectedDash = (statusDist.ditolak / total) * circumference;
-  const pendingDash = (statusDist.menunggu / total) * circumference;
-  
-  document.getElementById('statusApproved').style.strokeDasharray = approvedDash + ' ' + (circumference - approvedDash);
-  document.getElementById('statusRejected').style.strokeDasharray = rejectedDash + ' ' + (circumference - rejectedDash);
-  document.getElementById('statusRejected').style.strokeDashoffset = -approvedDash;
-  document.getElementById('statusPending').style.strokeDasharray = pendingDash + ' ' + (circumference - pendingDash);
-  document.getElementById('statusPending').style.strokeDashoffset = -(approvedDash + rejectedDash);
-  }, 100);
-  
-  // Render Jabfung Chart
-  const jabfungData = result.jabfungDistribution || [];
-  const jabfungTotal = jabfungData.reduce((sum, item) => sum + item.count, 0);
-  document.getElementById('jabfungTotal').textContent = jabfungTotal;
-  
-  const colors = ['#0f766e', '#14b8a6', '#0d9488', '#0891b2', '#0284c7', '#2563eb', '#4f46e5', '#7c3aed', '#8b5cf6', '#a855f7'];
-  let html = '';
-  let offset = 0;
-  jabfungData.slice(0, 10).forEach((item, i) => {
-  const dash = (item.count / jabfungTotal) * circumference;
-  const color = colors[i % colors.length];
-  html += `<circle cx="50" cy="50" r="45" fill="none" stroke="${color}" stroke-width="10" stroke-dasharray="${dash} ${circumference - dash}" stroke-dashoffset="${-offset}" stroke-linecap="round"/>`;
-  offset += dash;
-  });
-  document.getElementById('jabfungSegments').innerHTML = html;
-  
-  // Legend
-  let legendHtml = '';
-  jabfungData.slice(0, 10).forEach((item, i) => {
-  const color = colors[i % colors.length];
-  legendHtml += `<div style="display:flex;align-items:center;gap:6px;margin:4px 0"><span style="width:12px;height:12px;background:${color};border-radius:2px"></span><span>${item.name.substring(0,25)}${item.name.length>25?'...':''}</span><span style="margin-left:auto;font-weight:600">${item.count}</span></div>`;
-  });
-  document.getElementById('jabfungLegend').innerHTML = legendHtml;
-  
+function doGet(e) {
+  try {
+    const action = e.parameter.action;
+    
+    if(action === 'checkStatus'){
+      return createResponse({ status: 'online' });
+    }
+    
+    if(action === 'getCSRFToken'){
+      const token = generateCSRFToken();
+      const clientId = e.parameter.clientId || Utilities.getUuid();
+      CSRF_TOKENS[clientId] = { token: token, time: Date.now() };
+      return createResponse({ token: token, clientId: clientId });
+    }
+    
+    if(isMaintenanceDay()){
+      return createResponse({ 
+        status: 'maintenance', 
+        message: 'Sistem sedang dalam perawatan terjadwal. Silakan coba kembali besok.' 
+      });
+    }
+    
+    let result = {};
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    
+    if (action === 'getBezetting') {
+      const sheet = ss.getSheetByName('BEZETTING');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet BEZETTING tidak ditemukan' });
+      const values = sheet.getDataRange().getValues();
+      result.data = [];
+      for (let i = 1; i < values.length; i++) {
+        result.data.push({
+          instansi: values[i][0], jenis_jabatan: values[i][1], jenjang: values[i][2],
+          kebutuhan: values[i][3], pemangku: values[i][4], lowongan: values[i][5],
+          pemangku_saat_ini: values[i][6], pemangku_disetujui: values[i][7], sisa: values[i][8]
+        });
+      }
+    } else if (action === 'getPengumuman') {
+      const sheet = ss.getSheetByName('PENGUMUMAN');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet PENGUMUMAN tidak ditemukan' });
+      const values = sheet.getDataRange().getValues();
+      result.data = [];
+      for (let i = 1; i < values.length; i++) {
+        result.data.push({ judul: values[i][0], isi: values[i][1], tanggal: values[i][2] });
+      }
+    } else if (action === 'cekStatus') {
+      const keyword = e.parameter.keyword;
+      const sheet = ss.getSheetByName('UKOM');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+      const values = sheet.getDataRange().getValues();
+      result.found = false;
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][1] == keyword || values[i][2] == keyword) {
+          result = { found: true, nama: values[i][3], status_verifikasi: values[i][26] || 'Belum Diverifikasi', catatan_admin: values[i][27] || '' };
+          break;
+        }
+      }
+    } else if (action === 'adminLogin') {
+      const username = sanitizeInput(e.parameter.username, 50);
+      const password = e.parameter.password;
+      if (!username || !password) {
+        logAudit('FAILED_LOGIN_ATTEMPT', { reason: 'Missing credentials', username: username }, e.parameter.clientId);
+        return createResponse({ status: 'error', message: 'Username dan password wajib diisi' });
+      }
+      if (!checkRateLimit('admin_login_' + (e.parameter.clientId || ''), 10000)) {
+        logAudit('RATE_LIMIT_BLOCKED', { action: 'admin_login', username: username }, e.parameter.clientId);
+        return createResponse({ status: 'error', message: 'Terlalu banyak percobaan login. Tunggu 10 detik.' });
+      }
+      const sheet = ss.getSheetByName('USER-ADMIN');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet USER-ADMIN tidak ditemukan' });
+      const values = sheet.getDataRange().getValues();
+      result.status = 'error';
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][2] === username && verifyPassword(password, values[i][3])) {
+          const sessionId = Utilities.getUuid();
+          SESSION_STORE[sessionId] = { username: username, loginTime: Date.now() };
+          logAudit('ADMIN_LOGIN_SUCCESS', { username: username }, e.parameter.clientId);
+          result = { status: 'success', nama_lengkap: values[i][1] || username, session: sessionId };
+          break;
+        }
+      }
+      if (result.status === 'error') {
+        logAudit('FAILED_LOGIN_ATTEMPT', { username: username }, e.parameter.clientId);
+      }
+    } else if (action === 'cekNik') {
+      const nik = e.parameter.nik;
+      const sheet = ss.getSheetByName('UKOM');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+      const values = sheet.getDataRange().getValues();
+      result.tersedia = true;
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][1] === nik) {
+          result = { tersedia: false, message: 'NIK sudah terdaftar' };
+          break;
+        }
+      }
+    } else if (action === 'getPesertaByNik') {
+      const nik = e.parameter.nik;
+      const sheet = ss.getSheetByName('UKOM');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+      const values = sheet.getDataRange().getValues();
+      result.found = false;
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][1] === nik) {
+          result = { found: true, nik: values[i][1], nip: values[i][2], nama: values[i][3], unit_kerja: values[i][4], pangkat_dan_golongan: values[i][5], nomor_sk_jabfungs_terakhir: values[i][6], jenis_kelamin: values[i][7], nomor_whatsapp: values[i][8], email_aktif: values[i][9], nilai_pak_terakhir: values[i][10], jabfung_saat_ini: values[i][12], jenjang_saat_ini: values[i][13], tipe: values[i][14], jenis_ukom: values[i][15], jabfung_tujuan: values[i][16], jenjang_tujuan: values[i][17] };
+          break;
+        }
+      }
+    } else if (action === 'updatePeserta') {
+      const nik = e.parameter.nik;
+      const nama = e.parameter.nama || '';
+      const unitKerja = e.parameter.unit || '';
+      const sheet = ss.getSheetByName('UKOM');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+      const values = sheet.getDataRange().getValues();
+      let rowFound = -1;
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][1] === nik) {
+          rowFound = i + 1;
+          break;
+        }
+      }
+      if (rowFound === -1) return createResponse({ status: 'error', message: 'Data tidak ditemukan' });
+      
+      sheet.getRange(rowFound, 3).setValue(e.parameter.nip || '');
+      sheet.getRange(rowFound, 4).setValue(e.parameter.nama_tanpa_gelar || '');
+      sheet.getRange(rowFound, 5).setValue(e.parameter.nama_unit_kerja || '');
+      sheet.getRange(rowFound, 6).setValue(e.parameter.pangkat_dan_golongan || '');
+      sheet.getRange(rowFound, 7).setValue(e.parameter.nomor_sk_jabfungs_terakhir || '');
+      sheet.getRange(rowFound, 8).setValue(e.parameter.jenis_kelamin || '');
+      sheet.getRange(rowFound, 9).setValue(e.parameter.nomor_whatsapp || '');
+      sheet.getRange(rowFound, 10).setValue(e.parameter.email_aktif || '');
+      sheet.getRange(rowFound, 11).setValue(e.parameter.nilai_pak_terakhir || '');
+      sheet.getRange(rowFound, 13).setValue(e.parameter.jabfung_saat_ini || '');
+      sheet.getRange(rowFound, 14).setValue(e.parameter.jenjang_saat_ini || '');
+      sheet.getRange(rowFound, 15).setValue(e.parameter.tipe || '');
+      sheet.getRange(rowFound, 16).setValue(e.parameter.jenis_ukom || '');
+      sheet.getRange(rowFound, 17).setValue(e.parameter.jabfung_tujuan || '');
+      sheet.getRange(rowFound, 18).setValue(e.parameter.jenjang_tujuan || '');
+      
+if (e.parameter.fileData) {
+         const uploadedFiles = uploadFileToDrive(nik, nama, unitKerja, JSON.parse(e.parameter.fileData));
+         // Use thumbnail URL for photos (index 1), direct URL for documents
+         const pak = (uploadedFiles[0] && uploadedFiles[0].url) ? uploadedFiles[0].url : '';
+         // For photo, use thumbnail for better compatibility
+         const foto4x6 = (uploadedFiles[1] && (uploadedFiles[1].thumbnail || uploadedFiles[1].url)) ? (uploadedFiles[1].thumbnail || uploadedFiles[1].url) : '';
+         const daftarRiwayat = (uploadedFiles[2] && uploadedFiles[2].url) ? uploadedFiles[2].url : '';
+         const ijazah = (uploadedFiles[3] && uploadedFiles[3].url) ? uploadedFiles[3].url : '';
+         const str = (uploadedFiles[4] && uploadedFiles[4].url) ? uploadedFiles[4].url : '';
+         const skPangkat = (uploadedFiles[5] && uploadedFiles[5].url) ? uploadedFiles[5].url : '';
+         const skJabfung = (uploadedFiles[6] && uploadedFiles[6].url) ? uploadedFiles[6].url : '';
+         const skp2Tahun = (uploadedFiles[7] && uploadedFiles[7].url) ? uploadedFiles[7].url : '';
+         const suratBebas = (uploadedFiles[8] && uploadedFiles[8].url) ? uploadedFiles[8].url : '';
+        
+        sheet.getRange(rowFound, 12).setValue(pak);
+        sheet.getRange(rowFound, 19).setValue(foto4x6);
+        sheet.getRange(rowFound, 20).setValue(daftarRiwayat);
+        sheet.getRange(rowFound, 21).setValue(ijazah);
+        sheet.getRange(rowFound, 22).setValue(str);
+        sheet.getRange(rowFound, 23).setValue(skPangkat);
+        sheet.getRange(rowFound, 24).setValue(skJabfung);
+        sheet.getRange(rowFound, 25).setValue(skp2Tahun);
+        sheet.getRange(rowFound, 26).setValue(suratBebas);
+      }
+      
+      result = { status: 'success', message: 'Data berhasil diupdate' };
+    } else if (action === 'getUkomData') {
+      const sheet = ss.getSheetByName('UKOM');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+      const values = sheet.getDataRange().getValues();
+      result.data = [];
+      for (let i = 1; i < values.length; i++) {
+        result.data.push({
+          no: i, tanggal: values[i][0], nik: values[i][1], nip: values[i][2], nama: values[i][3],
+          unit_kerja: values[i][4], pangkat_dan_golongan: values[i][5], nomor_sk_jabfungs_terakhir: values[i][6],
+          jenis_kelamin: values[i][7], nomor_whatsapp: values[i][8], email_aktif: values[i][9],
+          nilai_pak_terakhir: values[i][10], upload_pak_konvensional_integrasi_konversi_terakhir: values[i][11],
+          jabfung_saat_ini: values[i][12], jenjang_saat_ini: values[i][13], tipe: values[i][14],
+          jenis_ukom: values[i][15], jabfung_tujuan: values[i][16], jenjang_tujuan: values[i][17],
+          foto_4x6_latar_merah: values[i][18], daftar_riwayat_hidup: values[i][19], ijazah: values[i][20],
+          str: values[i][21], sk_pangkat: values[i][22], sk_jabfung: values[i][23],
+          skp_2_tahun: values[i][24], surat_bebas: values[i][25],
+          status_verifikasi: values[i][26] || 'Menunggu Verifikasi', catatan_admin: values[i][27] || ''
+        });
+      }
+    } else if (action === 'updateVerifikasi') {
+      const row = parseInt(e.parameter.row);
+      const sheet = ss.getSheetByName('UKOM');
+      if (!sheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+      sheet.getRange(row + 1, 27).setValue(e.parameter.status);
+      sheet.getRange(row + 1, 28).setValue(e.parameter.catatan || '');
+      result = { status: 'success', message: 'Data berhasil diperbarui' };
+    } else if (action === 'getDashboardStats') {
+      const ukomSheet = ss.getSheetByName('UKOM');
+      const bezettingSheet = ss.getSheetByName('BEZETTING');
+      
+      if (!ukomSheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+      
+      const ukomValues = ukomSheet.getDataRange().getValues();
+      let totalPeserta = Math.max(0, ukomValues.length - 1);
+      
+      const instansiSet = new Set();
+      for (let i = 1; i < ukomValues.length; i++) {
+        if (ukomValues[i] && ukomValues[i][4]) {
+          instansiSet.add(ukomValues[i][4]);
+        }
+      }
+      let totalInstansi = instansiSet.size;
+      
+      let totalLowongan = 0;
+      if (bezettingSheet) {
+        const bezettingValues = bezettingSheet.getDataRange().getValues();
+        for (let i = 1; i < bezettingValues.length; i++) {
+          const sisa = parseInt(bezettingValues[i][8]) || 0;
+          totalLowongan += sisa;
+        }
+      }
+      
+      result = { totalPeserta, totalInstansi, totalLowongan };
+    } else if (action === 'getDashboardChartData') {
+      const ukomSheet = ss.getSheetByName('UKOM');
+      if (!ukomSheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+      
+      const values = ukomSheet.getDataRange().getValues();
+      let disetujui = 0, ditolak = 0, menunggu = 0;
+      const jabfungCounts = {};
+      
+      for (let i = 1; i < values.length; i++) {
+        const status = values[i][26] || 'Menunggu';
+        const jabfung = values[i][12] || 'Lainnya';
+        
+        if (status === 'Disetujui') disetujui++;
+        else if (status === 'Ditolak') ditolak++;
+        else menunggu++;
+        
+        jabfungCounts[jabfung] = (jabfungCounts[jabfung] || 0) + 1;
+      }
+      
+      const jabfungData = Object.entries(jabfungCounts).map(([name, count]) => ({ name, count }));
+      
+      result = {
+        statusDistribution: { disetujui, ditolak, menunggu },
+        jabfungDistribution: jabfungData
+      };
+    } else if (action === 'checkStatus') {
+      result = { status: 'online' };
+    } else if (action === 'getAuditLogs') {
+      const session = e.parameter.session;
+      if (session && SESSION_STORE[session]) {
+        result = { logs: AUDIT_LOGS.slice(-50) };
+      } else {
+        result = { status: 'error', message: 'Unauthorized' };
+      }
+    } else {
+      result = { status: 'online' };
+    }
+    
+    return createResponse(result);
   } catch (err) {
-  console.error('Failed to load dashboard charts:', err);
+    return createResponse({ status: 'error', message: err.toString() });
   }
-  }
- 
-/* ==========================
-  LOAD ALL DATA (Parallel)
-  ========================== */
-  
-async function loadAllData(){
-  
-try{
-  const response = await fetch(WEB_APP_URL + '?action=checkStatus', { cache: 'no-store' });
-  const result = await response.json();
-  
-  if(result.status === 'maintenance'){
-  document.getElementById('pesertaCount').textContent = '-';
-  document.getElementById('instansiCount').textContent = '-';
-  document.getElementById('lowonganCount').textContent = '-';
-  document.getElementById('pengumumanList').innerHTML = '<div class="announcement" style="background:#fee2e2;border-left-color:#dc2626"><b>Sistem Dalam Perawatan</b><br>' + result.message + '</div>';
-  return;
-  }
-  
-await Promise.all([
-   loadDashboardStats(),
-   loadDashboardCharts(),
-   loadBezetting(),
-   loadPengumuman()
-   ]);
-}catch(err){
-  console.error('Failed to check system status:', err);
-  await Promise.all([
-  loadDashboardStats(),
-  loadDashboardCharts(),
-  loadBezetting(),
-  loadPengumuman()
-  ]);
-  }
- 
 }
 
-disableInspect();
- 
- /* Session restore */
- window.addEventListener('load', function(){
- const savedSession = sessionStorage.getItem('mantafSession');
- if (savedSession) {
- SECURITY_CONFIG.sessionData = JSON.parse(savedSession);
- const elapsed = Date.now() - SECURITY_CONFIG.sessionData.loginTime;
- if (elapsed < 30 * 60000) {
- document.getElementById('adminLoginSection').style.display = 'none';
- document.getElementById('adminDataSection').style.display = 'block';
- loadAdminData();
- setupSessionTimeout();
- showSection('admin', document.querySelector('.menu button:nth-child(5)'));
- } else {
- sessionStorage.removeItem('mantafSession');
- }
- }
- });
- 
- loadAllData();
-
-/* ==========================
-SUBMIT FORM
-========================== */
-
-document.getElementById('ukomForm')
-.addEventListener('submit',async function(e){
-
-e.preventDefault();
-
-const nik = document.querySelector('[name="nik"]').value;
-const nama = document.querySelector('[name="nama_tanpa_gelar"]').value;
-const unitKerja = document.querySelector('[name="nama_unit_kerja"]').value;
-
-if(!nik){
- alert('NIK wajib diisi');
- return;
- }
- 
- if(!rateLimitCheck()){
- submitBtn.disabled = false;
- return;
- }
- 
- const email = document.querySelector('[name="email_aktif"]').value;
- const phone = document.querySelector('[name="nomor_whatsapp"]').value;
- if(!validateEmail(email)){
- alert('Email tidak valid');
- submitBtn.disabled = false;
- return;
- }
- if(!validatePhone(phone)){
- alert('Nomor WhatsApp tidak valid (hanya angka, 8-15 digit)');
- submitBtn.disabled = false;
- return;
- }
- 
- const submitBtn = this.querySelector('button[type="submit"]');
-const originalText = submitBtn.textContent;
-submitBtn.textContent = 'Memproses...';
-submitBtn.disabled = true;
-
-try{
-const formData = new FormData(this);
-const fileInputs = this.querySelectorAll('input[type="file"]');
-const files = [];
-
-for (const input of fileInputs) {
-if (input.files && input.files[0]) {
-const file = input.files[0];
-const base64 = await fileToBase64(file);
-files.push({
-name: file.name,
-type: file.type,
-data: base64
-});
-}
-}
-
-formData.append('fileData', JSON.stringify(files));
- formData.append('clientId', SECURITY_CONFIG.clientId);
- 
- const csrfToken = SECURITY_CONFIG.csrfToken || await getCSRFToken();
- formData.append('csrfToken', csrfToken);
- 
- const response = await fetch(WEB_APP_URL,{
-method:'POST',
-body:formData
-});
-
-const result = await response.json();
-
-if(result.status === 'success'){
-
-submitBtn.style.background = '#16a34a';
-submitBtn.textContent = '✓ Terkirim!';
-
-setTimeout(()=>{
-submitBtn.style.background = '';
-submitBtn.textContent = originalText;
-submitBtn.disabled = false;
-}, 2000);
-
-document.getElementById('lightbox').style.display='flex';
-document.getElementById('lightbox-content').innerHTML = `
-<div style="text-align:center;padding:20px">
-<h3 style="color:#16a34a;margin-bottom:15px">Pendaftaran Berhasil!</h3>
-<p>Data Anda telah tersimpan di sistem.</p>
-<p style="margin-top:15px"><b>Silakan cek status</b> untuk melihat progres pengajuan.</p>
-<button class="btn" onclick="document.getElementById('lightbox').style.display='none'" style="margin-top:20px">Tutup</button>
-</div>
-`;
-
-this.reset();
-
-}else{
-alert(result.message);
-submitBtn.textContent = originalText;
-submitBtn.disabled = false;
-}
-
-} catch (err) {
-alert('Error: ' + err.message);
-submitBtn.textContent = originalText;
-submitBtn.disabled = false;
-}
-
-});
-
-function fileToBase64(file){
-return new Promise((resolve,reject)=>{
-const reader = new FileReader();
-reader.onload = () => resolve(reader.result.split(',')[1]);
-reader.onerror = reject;
-reader.readAsDataURL(file);
-});
-}
-
-/* ==========================
-CEK STATUS (Optimized)
-========================== */
-
-async function cekStatus(){
-
-const keyword = document.getElementById('cekData').value;
-if(!keyword) return;
-
-const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-try{
-const response = await fetch(
-WEB_APP_URL + '?action=cekStatus&keyword=' + encodeURIComponent(keyword),
-{ signal: controller.signal }
-);
-clearTimeout(timeoutId);
-
-const result = await response.json();
-
-if(result.found){
- document.getElementById('hasilStatus').innerHTML = `
- <div class="card" style="background:#ecfeff;border-left:4px solid #0f766e">
- <h4 style="margin-bottom:10px;color:#0f766e">Hasil Pengecekan</h4>
- <table style="width:100%;font-size:14px">
- <tr><td style="padding:5px 0;width:150px"><b>Nama Tanpa Gelar</b></td><td style="padding:5px 0">${result.nama || '-'}</td></tr>
- <tr><td style="padding:5px 0"><b>Status Verifikasi</b></td><td style="padding:5px 0"><span style="background:${result.status_verifikasi === 'Disetujui' ? '#dcfce7' : result.status_verifikasi === 'Ditolak' ? '#fee2e2' : '#fef3c7'};padding:3px 10px;border-radius:4px">${result.status_verifikasi || 'Belum Diverifikasi'}</span></td></tr>
- <tr><td style="padding:5px 0"><b>Catatan Admin</b></td><td style="padding:5px 0">${result.catatan_admin || '-'}</td></tr>
- </table>
- ${result.status_verifikasi === 'Ditolak' ? '<br><button class="btn" style="background:#dc2626" onclick="showPerbaikanForm(\'' + keyword + '\')">Perbaiki Data</button>' : ''}
- </div>
- `;
- }
-
-}catch(err){
- document.getElementById('hasilStatus').innerHTML = `<span style="color:red">Gagal cek status</span>`;
- }
- 
-}
- 
-/* ==========================
- PERBAIKAN FORM
- ========================== */
- 
-async function showPerbaikanForm(nik){
- try{
- const response = await fetch(WEB_APP_URL + '?action=getPesertaByNik&nik=' + encodeURIComponent(nik));
- const result = await response.json();
- 
-if(result.found){
- document.getElementById('perbaikanNik').value = result.nik || '';
- document.getElementById('perbaikanNip').value = result.nip || '';
- document.getElementById('perbaikanNama').value = result.nama || '';
- document.getElementById('perbaikanUnit').value = result.unit_kerja || '';
- document.getElementById('perbaikanPangkat').value = result.pangkat_dan_golongan || '';
- document.getElementById('perbaikanSk').value = result.nomor_sk_jabfungs_terakhir || '';
- document.getElementById('perbaikanJk').value = result.jenis_kelamin || '';
- document.getElementById('perbaikanWa').value = result.nomor_whatsapp || '';
- document.getElementById('perbaikanEmail').value = result.email_aktif || '';
- document.getElementById('perbaikanPak').value = result.nilai_pak_terakhir || '';
- document.getElementById('perbaikanJabfung').value = result.jabfung_saat_ini || '';
- document.getElementById('perbaikanJenjang').value = result.jenjang_saat_ini || '';
- document.getElementById('perbaikanTipe').value = result.tipe || '';
- document.getElementById('perbaikanJenisUkom').value = result.jenis_ukom || '';
- document.getElementById('perbaikanTujuanJabfung').value = result.jabfung_tujuan || '';
- document.getElementById('perbaikanTujuanJenjang').value = result.jenjang_tujuan || '';
- 
-showSection('perbaikan', document.querySelector('.menu button:nth-child(5)'));
- }else{
- alert('Data tidak ditemukan');
- }
- }catch(err){
- alert('Gagal mengambil data: ' + err.message);
- }
- 
-}
- 
-document.getElementById('perbaikanForm').addEventListener('submit', async function(e){
-  e.preventDefault();
-  
-const nik = document.getElementById('perbaikanNik').value;
-  const nama = document.getElementById('perbaikanNama').value;
-  const unitKerja = document.getElementById('perbaikanUnit').value;
-  if(!nik){
-  alert('NIK tidak ditemukan');
-  return;
-  }
-  
-const submitBtn = this.querySelector('button[type="submit"]');
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = 'Menyimpan...';
-  submitBtn.disabled = true;
-  
-try{
-  const formData = new FormData(this);
-  const fileInputs = this.querySelectorAll('input[type="file"]');
-  const files = [];
-  
-for (const input of fileInputs) {
-  if (input.files && input.files[0]) {
-  const file = input.files[0];
-  const base64 = await fileToBase64(file);
-  files.push({
-  name: file.name,
-  type: file.type,
-  data: base64
-  });
-  }
-  }
-  
-formData.append('fileData', JSON.stringify(files));
- formData.append('clientId', SECURITY_CONFIG.clientId);
- 
- const response = await fetch(WEB_APP_URL + '?action=updatePeserta&nik=' + encodeURIComponent(nik) + '&nama=' + encodeURIComponent(nama) + '&unit=' + encodeURIComponent(unitKerja) + '&clientId=' + SECURITY_CONFIG.clientId, {
-  method: 'POST',
-  body: formData
-  });
-  const result = await response.json();
-  
-if(result.status === 'success'){
-  alert('Data berhasil diupdate');
-  submitBtn.textContent = 'Tersimpan!';
-  submitBtn.style.background = '#16a34a';
-  setTimeout(() => {
-  submitBtn.textContent = originalText;
-  submitBtn.style.background = '';
-  submitBtn.disabled = false;
-  }, 2000);
-  }else{
-  alert(result.message || 'Gagal menyimpan');
-  submitBtn.textContent = originalText;
-  submitBtn.disabled = false;
-  }
-  }catch(err){
-  alert('Error: ' + err.message);
-  submitBtn.textContent = originalText;
-  submitBtn.disabled = false;
-  }
-  
-});
-
-/* ==========================
-LOGIN ADMIN
-========================== */
-
-async function loginAdmin(){
-  if(!rateLimitCheck()){
-  return;
-  }
-  
-  const user = sanitizeInput(document.getElementById('adminUser').value, 50);
-  const pass = document.getElementById('adminPass').value;
-  
-  if(!user || !pass || pass.length < 8){
-  document.getElementById('adminResult').innerHTML = '<div style="color:red;font-weight:bold;">Password minimal 8 karakter</div>';
-  return;
-  }
-  
-try{
-  const response = await fetch(
-   WEB_APP_URL + '?action=adminLogin&username=' + encodeURIComponent(user) + '&password=' + encodeURIComponent(pass) + '&clientId=' + SECURITY_CONFIG.clientId
-   );
-  
-  const result = await response.json();
-  
-  if(result.status === 'success'){
-  SECURITY_CONFIG.sessionData = {
-  session: result.session,
-  role: result.role,
-  username: user,
-  loginTime: Date.now()
-  };
-  sessionStorage.setItem('mantafSession', JSON.stringify(SECURITY_CONFIG.sessionData));
-  
-  updateProfile(user, result.nama_lengkap, 'Administrator');
-  
-  document.getElementById('adminResult').innerHTML = `
-  <div style="color:green;font-weight:bold;">
-  Login berhasil - Selamat datang, ${escapeHtml(result.nama_lengkap) || user}
-  </div>
-  `;
-  document.getElementById('adminLoginSection').style.display = 'none';
-  document.getElementById('adminDataSection').style.display = 'block';
-  loadAdminData();
-  setupSessionTimeout();
-  }else{
-  document.getElementById('adminResult').innerHTML = `
-  <div style="color:red;font-weight:bold;">
-  ${result.message || 'Login gagal'}
-  </div>
-  `;
-  }
-
-} catch (err) {
-    document.getElementById('adminResult').innerHTML = '<div style="color:red;font-weight:bold;">Error: ' + err.message + '</div>';
-  }
-  
- }
- 
- /* ==========================
-   LOGOUT ADMIN
-   ========================== */
-  
-function logoutAdmin(){
-  SECURITY_CONFIG.sessionData = null;
-  sessionStorage.removeItem('mantafSession');
-  document.getElementById('adminLoginSection').style.display = 'block';
-  document.getElementById('adminDataSection').style.display = 'none';
-  document.getElementById('adminUser').value = '';
-  document.getElementById('adminPass').value = '';
-  document.getElementById('adminResult').innerHTML = '';
-  document.getElementById('filterUnitKerja').value = '';
-  document.getElementById('filterStatus').value = '';
-  adminFilter = { unit_kerja: '', status: '' };
-  updateProfile('Admin MantaF', 'Administrator Sistem');
-  }
- 
- function setupSessionTimeout(){
- if (SECURITY_CONFIG.sessionTimeout) {
- clearTimeout(SECURITY_CONFIG.sessionTimeout);
- }
- SECURITY_CONFIG.sessionTimeout = setTimeout(() => {
- showToast('Session expired - auto logout');
- logoutAdmin();
- }, 30 * 60000);
- }
- 
- /* ==========================
-   LOAD ADMIN DATA
-   ========================== */
-  
-let ukomCache = null;
-let adminFilter = { unit_kerja: '', status: '', jabfung: '' };
-let adminPage = 1;
-const ADMIN_ROWS_PER_PAGE = 100;
-  
-async function loadAdminData(){
-  
-try{
-  
-const response = await fetch(
-  WEB_APP_URL + '?action=getUkomData',
-  { cache: 'no-store' }
-  );
-  
-const result = await response.json();
-  ukomCache = result.data;
-  populateAdminFilters(result.data);
-  renderAdminTable();
+function doPost(e) {
+  try {
+    if (!checkRateLimit('submit_' + (e.parameter.clientId || ''), 10000)) {
+      logAudit('RATE_LIMIT_BLOCKED', { action: 'submit', nik: e.parameter.nik }, e.parameter.clientId);
+      return createResponse({ status: 'error', message: 'Terlalu banyak submit. Tunggu 10 detik.' });
+    }
+    
+    const nik = sanitizeInput(e.parameter.nik || '', 20);
+    const nama = sanitizeInput(e.parameter.nama_tanpa_gelar || '', 100);
+    const unitKerja = sanitizeInput(e.parameter.nama_unit_kerja || '', 100);
+    
+    if (!nik) {
+      logAudit('SUSPICIOUS_ACTIVITY', { reason: 'Missing NIK', details: e.parameter }, e.parameter.clientId);
+      return createResponse({ status: 'error', message: 'NIK wajib diisi' });
+    }
+    
+    const email = e.parameter.email_aktif || '';
+    const phone = e.parameter.nomor_whatsapp || '';
+    if (!validateEmail(email)) {
+      logAudit('SUSPICIOUS_ACTIVITY', { reason: 'Invalid email', email: email }, e.parameter.clientId);
+      return createResponse({ status: 'error', message: 'Email tidak valid' });
+    }
+    if (!validatePhone(phone)) {
+      logAudit('SUSPICIOUS_ACTIVITY', { reason: 'Invalid phone', phone: phone }, e.parameter.clientId);
+      return createResponse({ status: 'error', message: 'Nomor WhatsApp tidak valid' });
+    }
+    
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName('UKOM');
+    if (!sheet) return createResponse({ status: 'error', message: 'Sheet UKOM tidak ditemukan' });
+    
+    const values = sheet.getDataRange().getValues();
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][1] === nik) {
+        return createResponse({ status: 'error', message: 'NIK sudah terdaftar' });
+      }
+    }
+    
+    let uploadedFiles = [];
+    let fileUploadError = null;
+    if (e.parameter.fileData) {
+      try {
+        uploadedFiles = uploadFileToDrive(nik, nama, unitKerja, JSON.parse(e.parameter.fileData));
+      } catch (uploadErr) {
+        fileUploadError = uploadErr.message;
+        logAudit('UPLOAD_EXCEPTION', { error: uploadErr.toString(), nik: nik }, e.parameter.clientId);
+      }
+    }
+    
+    const pak = (uploadedFiles[0] && uploadedFiles[0].url) ? uploadedFiles[0].url : '';
+    const foto4x6 = (uploadedFiles[1] && (uploadedFiles[1].thumbnail || uploadedFiles[1].url)) ? (uploadedFiles[1].thumbnail || uploadedFiles[1].url) : '';
+    const daftarRiwayat = (uploadedFiles[2] && uploadedFiles[2].url) ? uploadedFiles[2].url : '';
+    const ijazah = (uploadedFiles[3] && uploadedFiles[3].url) ? uploadedFiles[3].url : '';
+    const str = (uploadedFiles[4] && uploadedFiles[4].url) ? uploadedFiles[4].url : '';
+    const skPangkat = (uploadedFiles[5] && uploadedFiles[5].url) ? uploadedFiles[5].url : '';
+    const skJabfung = (uploadedFiles[6] && uploadedFiles[6].url) ? uploadedFiles[6].url : '';
+    const skp2Tahun = (uploadedFiles[7] && uploadedFiles[7].url) ? uploadedFiles[7].url : '';
+    const suratBebas = (uploadedFiles[8] && uploadedFiles[8].url) ? uploadedFiles[8].url : '';
+    
+    sheet.appendRow([
+      new Date(), nik, sanitizeInput(e.parameter.nip || '', 20), nama, unitKerja,
+      sanitizeInput(e.parameter.pangkat_dan_golongan || '', 50), sanitizeInput(e.parameter.nomor_sk_jabfungs_terakhir || '', 50),
+      sanitizeInput(e.parameter.jenis_kelamin || '', 20), sanitizeInput(phone, 15), sanitizeInput(email, 100),
+      sanitizeInput(e.parameter.nilai_pak_terakhir || '', 10), pak,
+      sanitizeInput(e.parameter.jabfung_saat_ini || '', 100), sanitizeInput(e.parameter.jenjang_saat_ini || '', 50), sanitizeInput(e.parameter.tipe || '', 20),
+      sanitizeInput(e.parameter.jenis_ukom || '', 20), sanitizeInput(e.parameter.jabfung_tujuan || '', 100), sanitizeInput(e.parameter.jenjang_tujuan || '', 50),
+      foto4x6, daftarRiwayat,
+      ijazah, str,
+      skPangkat, skJabfung,
+      skp2Tahun, suratBebas,
+      'Menunggu Verifikasi', ''
+    ]);
+    
+    logAudit('FORM_SUBMIT_SUCCESS', { nik: nik, nama: nama, unit: unitKerja }, e.parameter.clientId);
+    const responseMsg = fileUploadError 
+      ? 'Pendaftaran berhasil! (Beberapa file gagal diupload: ' + fileUploadError + ')' 
+      : 'Pendaftaran berhasil!';
+    return createResponse({ status: 'success', message: responseMsg, files: uploadedFiles });
   } catch (err) {
-   document.getElementById('adminDataBody').innerHTML = '<tr><td colspan="21" style="color:red">Gagal: ' + err.message + '</td></tr>';
+    logAudit('SUBMIT_ERROR', { error: err.toString(), nik: e.parameter.nik }, e.parameter.clientId);
+    return createResponse({ status: 'error', message: err.toString() });
   }
-  
- }
-  
-function populateAdminFilters(data){
-  const unitSet = new Set();
-  
- data.forEach(item=>{
-  if(item.unit_kerja) unitSet.add(item.unit_kerja);
-  });
-  
-const unitSelect = document.getElementById('filterUnitKerja');
-  
- [...unitSet].sort().forEach(v=>unitSelect.insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`));
-  }
-  
-function applyAdminFilter(){
-  adminFilter = {
-  unit_kerja: document.getElementById('filterUnitKerja').value,
-  status: document.getElementById('filterStatus').value
-  };
-  adminPage = 1;
-  renderAdminTable();
-  }
-  
-function resetAdminFilter(){
-  document.getElementById('filterUnitKerja').value = '';
-  document.getElementById('filterStatus').value = '';
-  adminFilter = { unit_kerja: '', status: '' };
-  adminPage = 1;
-  renderAdminTable();
-  }
-  
-function renderAdminTable(){
-  if(!ukomCache) return;
-  
-const filtered = ukomCache.filter(item=>{
-  const matchUnit = !adminFilter.unit_kerja || item.unit_kerja === adminFilter.unit_kerja;
-  const matchStatus = !adminFilter.status || (item.status_verifikasi || 'Menunggu') === adminFilter.status;
-  return matchUnit && matchStatus;
-  });
-  
-const totalPages = Math.ceil(filtered.length / ADMIN_ROWS_PER_PAGE);
-  const start = (adminPage - 1) * ADMIN_ROWS_PER_PAGE;
-  const pageData = filtered.slice(start, start + ADMIN_ROWS_PER_PAGE);
-  
-const tbody = document.getElementById('adminDataBody');
-  let html = '';
-  
-pageData.forEach(item=>{
-  const statusBadge = item.status_verifikasi === 'Disetujui' ? 
-  '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
-  item.status_verifikasi === 'Ditolak' ? 
-  '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
-  '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
-  
-const fotoUrl = getImageUrl(item.foto_4x6_latar_merah);
-    const backupUrl = getBackupImageUrl(item.foto_4x6_latar_merah);
-    const fotoThumb = fotoUrl ? `<img src="${fotoUrl}" onload="this.style.opacity=1" onerror="this.onerror=null;this.src='${backupUrl}'" data-src="${fotoUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer;opacity:0.8;transition:opacity:0.3s" onclick="showAdminDetail(${item.no})" title="Klik untuk lihat detail">` : `<img src="https://via.placeholder.com/50x50/cccccc/666666?text=Photo" style="width:50px;height:50px;object-fit:cover;border-radius:4px">`;
-  
-  html += `<tr>
-  <td>${fotoThumb}</td>
-  <td>${escapeHtml(item.nik || '')}</td>
-  <td>${escapeHtml(item.nip || '')}</td>
-  <td>${escapeHtml(item.nama || '')}</td>
-  <td>${escapeHtml(item.unit_kerja || '')}</td>
-  <td>${statusBadge}</td>
-  <td>${escapeHtml(item.catatan_admin || '')}</td>
-  <td>
-  <button class="btn" style="padding:5px 10px;font-size:12px" onclick="updateStatus(${item.no}, 'Disetujui')">Setuju</button>
-  <button class="btn" style="padding:5px 10px;font-size:12px;background:#dc2626" onclick="updateStatus(${item.no}, 'Ditolak')">Tolak</button>
-  </td>
-  </tr>`;
-  
-  });
-  
-tbody.innerHTML = html || '<tr><td colspan="8">Tidak ada data</td></tr>';
-  
-let paginationHtml = '';
-  if(totalPages > 1){
-  paginationHtml = '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap">';
-  for(let i = 1; i <= totalPages; i++){
-  paginationHtml += `<button class="btn" style="padding:5px 10px;font-size:12px;${i === adminPage ? 'background:#0d9488' : ''}" onclick="adminPage=${i};renderAdminTable()">${i}</button>`;
-  }
-  paginationHtml += '</div>';
-  }
-  paginationHtml += `<div style="margin-top:10px;font-size:12px;color:#64748b">Menampilkan ${pageData.length} dari ${filtered.length} data</div>`;
-  document.getElementById('adminPagination').innerHTML = paginationHtml;
-  }
- 
-/* ==========================
-   SHOW ADMIN DETAIL (Lightbox)
-   ========================== */
-   
-  function showAdminDetail(no){
-   const rowData = ukomCache.find(item => item.no === no);
-   if (!rowData) return;
-   
-   const content = document.getElementById('adminLightboxContent');
-   const statusBadge = rowData.status_verifikasi === 'Disetujui' ? 
-     '<span style="background:#dcfce7;padding:3px 8px;border-radius:4px">Disetujui</span>' :
-     rowData.status_verifikasi === 'Ditolak' ? 
-     '<span style="background:#fee2e2;padding:3px 8px;border-radius:4px">Ditolak</span>' :
-     '<span style="background:#fef3c7;padding:3px 8px;border-radius:4px">Menunggu</span>';
-   
-const fotoUrl = getImageUrl(rowData.foto_4x6_latar_merah);
-    const backupFotoUrl = getBackupImageUrl(rowData.foto_4x6_latar_merah);
-    const fotoHtml = fotoUrl ? `<img src="${fotoUrl}" onload="this.style.opacity=1" onerror="this.onerror=null;this.src='${backupFotoUrl}'" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px;opacity:0.8;transition:opacity:0.3s">` : '<img src="https://via.placeholder.com/200x200/cccccc/666666?text=Photo" style="max-width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-top:5px">';
-   
-   content.innerHTML = `
-   <span class="close" onclick="document.getElementById('adminLightbox').style.display='none'">&times;</span>
-   <h2 style="margin-bottom:15px">Detail Peserta UKOM</h2>
-   
-   <div style="display:flex;gap:20px;flex-wrap:wrap">
-   <div style="flex:1;min-width:250px">
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-   <div><b>NIK</b><br>${rowData.nik || '-'}</div>
-   <div><b>NIP</b><br>${rowData.nip || '-'}</div>
-   <div><b>Nama</b><br>${rowData.nama || '-'}</div>
-   <div><b>Unit Kerja</b><br>${rowData.unit_kerja || '-'}</div>
-   <div><b>Pangkat</b><br>${rowData.pangkat_dan_golongan || '-'}</div>
-   <div><b>SK Jabfung</b><br>${rowData.nomor_sk_jabfungs_terakhir || '-'}</div>
-   <div><b>Jenis Kelamin</b><br>${rowData.jenis_kelamin || '-'}</div>
-   <div><b>WhatsApp</b><br>${rowData.nomor_whatsapp || '-'}</div>
-   <div><b>Email</b><br>${rowData.email_aktif || '-'}</div>
-   <div><b>Nilai PAK</b><br>${rowData.nilai_pak_terakhir || '-'}</div>
-   <div><b>Jabfung</b><br>${rowData.jabfung_saat_ini || '-'}</div>
-   <div><b>Jenjang</b><br>${rowData.jenjang_saat_ini || '-'}</div>
-   <div><b>Tipe</b><br>${rowData.tipe || '-'}</div>
-   <div><b>Jenis UKOM</b><br>${rowData.jenis_ukom || '-'}</div>
-   <div><b>Jabfung Tujuan</b><br>${rowData.jabfung_tujuan || '-'}</div>
-   <div><b>Jenjang Tujuan</b><br>${rowData.jenjang_tujuan || '-'}</div>
-   <div><b>Status</b><br>${statusBadge}</div>
-   <div><b>Catatan</b><br>${rowData.catatan_admin || '-'}</div>
-   </div>
-   </div>
-   
-<div style="flex:0 0 200px;text-align:center">
-   <div style="margin-bottom:15px"><b>Foto 4x6</b><br>
-   ${fotoHtml}
-   </div>
-<div style="margin-bottom:15px"><b>PAK</b><br>
-    ${rowData.upload_pak_konvensional_integrasi_konversi_terakhir ? `<a href="https://drive.google.com/file/d/${rowData.upload_pak_konvensional_integrasi_konversi_terakhir.match(/id=([a-zA-Z0-9-_]+)/)?.[1] || ''}/preview" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-    </div>
-    <div style="margin-bottom:15px"><b>Daftar Riwayat</b><br>
-    ${rowData.daftar_riwayat_hidup ? `<a href="https://drive.google.com/file/d/${rowData.daftar_riwayat_hidup.match(/id=([a-zA-Z0-9-_]+)/)?.[1] || ''}/preview" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-    </div>
-    <div style="margin-bottom:15px"><b>Ijazah</b><br>
-    ${rowData.ijazah ? `<a href="https://drive.google.com/file/d/${rowData.ijazah.match(/id=([a-zA-Z0-9-_]+)/)?.[1] || ''}/preview" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-    </div>
-    <div style="margin-bottom:15px"><b>STR</b><br>
-    ${rowData.str ? `<a href="https://drive.google.com/file/d/${rowData.str.match(/id=([a-zA-Z0-9-_]+)/)?.[1] || ''}/preview" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-    </div>
-    <div style="margin-bottom:15px"><b>SK Pangkat</b><br>
-    ${rowData.sk_pangkat ? `<a href="https://drive.google.com/file/d/${rowData.sk_pangkat.match(/id=([a-zA-Z0-9-_]+)/)?.[1] || ''}/preview" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-    </div>
-    <div style="margin-bottom:15px"><b>SK Jabfung</b><br>
-    ${rowData.sk_jabfung ? `<a href="https://drive.google.com/file/d/${rowData.sk_jabfung.match(/id=([a-zA-Z0-9-_]+)/)?.[1] || ''}/preview" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-    </div>
-    <div style="margin-bottom:15px"><b>SKP 2 Tahun</b><br>
-    ${rowData.skp_2_tahun ? `<a href="https://drive.google.com/file/d/${rowData.skp_2_tahun.match(/id=([a-zA-Z0-9-_]+)/)?.[1] || ''}/preview" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-    </div>
-    <div style="margin-bottom:15px"><b>Surat Bebas</b><br>
-    ${rowData.surat_bebas ? `<a href="https://drive.google.com/file/d/${rowData.surat_bebas.match(/id=([a-zA-Z0-9-_]+)/)?.[1] || ''}/preview" target="_blank" class="btn" style="font-size:12px;padding:5px 10px">Lihat File</a>` : '-'}
-    </div>
-   </div>
-   </div>
-   
-   <div style="margin-top:20px;text-align:center">
-   <button class="btn" style="padding:8px 15px;margin:5px" onclick="updateStatus(${rowData.no}, 'Disetujui')">Setujui</button>
-   <button class="btn" style="padding:8px 15px;margin:5px;background:#dc2626" onclick="updateStatus(${rowData.no}, 'Ditolak')">Tolak</button>
-   </div>
-   `;
-   document.getElementById('adminLightbox').style.display = 'flex';
-   }
- 
-/* ==========================
- UPDATE STATUS
- ========================== */
- 
-async function updateStatus(row, status){
- const catatan = prompt('Catatan (opsional):') || '';
- 
-try{
- const response = await fetch(
- WEB_APP_URL + '?action=updateVerifikasi&row=' + row + '&status=' + encodeURIComponent(status) + '&catatan=' + encodeURIComponent(catatan)
- );
- 
-const result = await response.json();
- if(result.status === 'success'){
- alert('Status berhasil diupdate');
- loadAdminData();
- }
- }catch(err){
- alert('Gagal update: ' + err.message);
- }
- 
 }
 
-</script>
+function createResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}
 
-<!-- LIGHTBOX -->
-<div class="lightbox" id="lightbox" onclick="if(event.target===this) this.style.display='none'">
-<div class="lightbox-content" id="lightbox-content">
-<span class="close" onclick="document.getElementById('lightbox').style.display='none'">&times;</span>
-</div>
-</div>
-
-</body>
-</html>
+function uploadFileToDrive(nik, nama, unitKerja, files) {
+  const uploadedFiles = [];
+  try {
+    const parentFolder = DriveApp.getFolderById(FOLDER_ID);
+    const safeNik = String(nik).replace(/[^\w\-]/g, '');
+    const safeNama = String(nama || 'unknown').substring(0, 30).replace(/[^\w\s\-]/g, '');
+    const folderName = `${safeNik}_${safeNama}`;
+    let folder = null;
+    const folders = parentFolder.getFoldersByName(folderName);
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = parentFolder.createFolder(folderName);
+    }
+    if (files && files.length > 0) {
+      for (let i = 0; i < Math.min(files.length, 10); i++) {
+        const file = files[i];
+        if (file && file.name && file.data) {
+          const mimeType = file.type || 'application/octet-stream';
+          const blob = Utilities.newBlob(Utilities.base64Decode(file.data), mimeType, file.name);
+          const uploaded = folder.createFile(blob);
+          uploaded.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          const fileId = uploaded.getId();
+          const directUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+          const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId}`;
+          uploadedFiles.push({ name: file.name, url: directUrl, thumbnail: thumbnailUrl, id: fileId });
+        }
+      }
+    }
+  } catch (err) {
+    logAudit('UPLOAD_ERROR', { error: err.toString(), nik: nik }, 'uploadFileToDrive');
+    return uploadedFiles;
+  }
+  return uploadedFiles;
+}
