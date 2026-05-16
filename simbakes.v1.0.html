@@ -132,10 +132,12 @@
         -moz-transform: translateX(0);
       }
       .main-content { margin-left: 0; position: relative; z-index: 10; }
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
-      .menu-toggle { display: block; }
-    }
-  </style>
+.grid-2, .grid-3 { grid-template-columns: 1fr; }
+       .menu-toggle { display: block; }
+     }
+     @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); } 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); } }
+   </style>
 </head>
 <body>
   <div id="app">
@@ -208,7 +210,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbw3ssUVLUJYRe9uE_d0s6q0fahg99xssa8Nr9wFLHSE2P_M_KJxIfvKAKdsOYPont4h/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyROVCS17vnKamOtZNM1922Rmzd6sdbAsCKLr35suQFHGJc2tiVzpASFoLJcnHloOA0/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -342,7 +344,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // RENDER PAGES
     // ========================================
     function renderDashboard() {
-      return '<div class="stats-grid">' +
+      return '<div id="announcementBanner"></div>' +
+        '<div class="stats-grid">' +
         '<div class="stat-card"><h3>Total Pengajuan</h3><div class="value" id="statTotal">-</div></div>' +
         '<div class="stat-card success"><h3>Disetujui</h3><div class="value" id="statApproved">-</div></div>' +
         '<div class="stat-card warning"><h3>Menunggu</h3><div class="value" id="statPending">-</div></div>' +
@@ -681,9 +684,16 @@ function renderAdmin() {
         '<span id="filterCount" class="text-muted text-sm" style="align-self:center;"></span>' +
         '</div>' +
         '</div>' +
-        '<div class="alert alert-info mb-3">' +
-        '<i class="fas fa-info-circle"></i> Gunakan tombol <strong>Tambah</strong> untuk buat pengajuan baru jika diperlukan. Refresh otomatis setelah CRUD. ' +
-        '</div>' +
+'<div class="alert alert-info mb-3">' +
+         '<i class="fas fa-info-circle"></i> Gunakan tombol <strong>Tambah</strong> untuk buat pengajuan baru jika diperlukan. Refresh otomatis setelah CRUD. ' +
+         '</div>' +
+         '<div class="card" style="margin-bottom:1rem;padding:1rem;background:linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);border-radius:var(--radius);border-left:4px solid var(--warning);">' +
+         '<div class="flex justify-between items-center">' +
+           '<div><h4 style="margin:0 0 0.5rem 0;color:#92400e;"><i class="fas fa-bullhorn"></i> Pengumuman Dashboard</h4>' +
+           '<p class="text-sm text-muted" id="currentAnnouncementText" style="margin:0;">Memuat...</p></div>' +
+           '<button class="btn btn-warning btn-sm" onclick="manageAnnouncements()"><i class="fas fa-cog"></i> Kelola Pengumuman</button>' +
+         '</div>' +
+         '</div>' +
          '<div class="table-responsive"><table class="table"><thead><tr><th>No</th><th>ID</th><th>Nomor Pengajuan</th><th>Timestamp</th><th>NIK</th><th>Nama Lengkap</th><th>Jurusan Tujuan</th><th>Jenis Pendidikan</th><th>Unit Tujuan</th><th>No. HP</th><th>Email</th><th>Status</th><th>Catatan Admin</th><th>Dibuat Pada</th><th>Foto</th><th>Dokumen</th><th>Aksi</th></tr></thead>' +
         '<tbody id="applicationsTable"><tr><td colspan="17" class="text-center p-4"><div class="spinner"></div> Memuat data pengajuan...</td></tr></tbody></table></div>' +
         '<div id="noDataMsg" class="text-center p-4 text-muted hidden">' +
@@ -713,16 +723,17 @@ function renderAdmin() {
             clearTimeout(window.roadmapTimeout);
             window.roadmapTimeout = setTimeout(applyFilters, 300);
           });
-        }
-      }
-      
-      // Setup admin filter listeners
-      if (page === 'admin' && isAdminLoggedIn) {
-        setupAdminFilters();
-      }
-    }
-    
-    function setupAdminFilters() {
+}
+       }
+       
+       // Setup admin filter listeners
+       if (page === 'admin' && isAdminLoggedIn) {
+         setupAdminFilters();
+         loadAdminAnnouncement();
+       }
+     }
+     
+     function setupAdminFilters() {
       var searchEl = document.getElementById('adminSearch');
       if (searchEl) {
         searchEl.addEventListener('input', function() {
@@ -737,19 +748,47 @@ function renderAdmin() {
     }
 
     function loadDashboard() {
+      loadDashboardStats();
+      loadAnnouncement();
+    }
+    
+    function loadDashboardStats() {
       apiCall('getDashboardStats', function(res) {
         if (res && res.success) {
           var s = res.data.stats || {};
-  var statTotal = document.getElementById('statTotal');
-  var statPending = document.getElementById('statPending');
-  var statApproved = document.getElementById('statApproved');
-  var statRejected = document.getElementById('statRejected');
-  
-  if (statTotal) statTotal.textContent = s.total || 0;
-  if (statPending) statPending.textContent = s.pending || 0;
-  if (statApproved) statApproved.textContent = s.approved || 0;
-  if (statRejected) statRejected.textContent = s.rejected || 0;
+    var statTotal = document.getElementById('statTotal');
+    var statPending = document.getElementById('statPending');
+    var statApproved = document.getElementById('statApproved');
+    var statRejected = document.getElementById('statRejected');
+   
+   if (statTotal) statTotal.textContent = s.total || 0;
+   if (statPending) statPending.textContent = s.pending || 0;
+   if (statApproved) statApproved.textContent = s.approved || 0;
+   if (statRejected) statRejected.textContent = s.rejected || 0;
           renderChart(s);
+        }
+      });
+    }
+    
+    function loadAnnouncement() {
+      apiCall('getAnnouncement', function(res) {
+        var banner = document.getElementById('announcementBanner');
+        if (!banner) return;
+        
+        if (res && res.success && res.data) {
+          var ann = res.data;
+          banner.innerHTML = '<div class="card" style="background:linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);border-left:4px solid var(--primary);margin-bottom:1.5rem;animation:slideIn 0.5s ease-out;">' +
+            '<div class="card-header" style="padding:1rem 1.5rem;border-bottom:1px solid rgba(37,99,235,0.1);">' +
+              '<h3 style="margin:0;color:var(--primary);"><i class="fas fa-bullhorn"></i> ' + escapeHtml(ann.title || 'Pengumuman') + '</h3>' +
+            '</div>' +
+            '<div class="p-4">' +
+              '<p class="mb-3" style="color:#0c4a6e;line-height:1.6;">' + escapeHtml(ann.content || '') + '</p>' +
+              '<div class="flex gap-2">' +
+                '<button class="btn btn-primary btn-sm" onclick="navigate(\'status\')"><i class="fas fa-external-link-alt"></i> Cek Status Sekarang</button>' +
+                '<button class="btn btn-outline btn-sm" onclick="navigate(\'status\')"><i class="fas fa-search"></i> Pantau Hasil</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
         }
       });
     }
@@ -1380,34 +1419,47 @@ function getDownloadBtnHTML(id) {
     }
     
 function loadApplications() {
-      console.log('loadApplications called');
-      var tbody = document.getElementById('applicationsTable');
-      var noDataMsg = document.getElementById('noDataMsg');
-      if (noDataMsg) noDataMsg.classList.add('hidden');
-      
-      if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="17" class="text-center p-4"><div class="spinner"></div> Memuat data...</td></tr>';
-      }
-      
-      apiCall('getApplications', function(res) {
-        console.log('getApplications response:', res);
-        if (tbody) {
-          if (res && res.success && res.data && res.data.applications) {
-            var apps = res.data.applications;
-            console.log('Loaded', apps.length, 'apps');
-            window.allApplications = apps;
-            renderAdminTable(apps);
-            populateAdminDropdowns();
-            updateFilterCount(apps.length, apps.length);
-          } else {
-            var msg = res.message || 'Unknown error';
-            tbody.innerHTML = '<tr><td colspan="17" class="text-center text-danger p-4"><i class="fas fa-exclamation-triangle"></i> Gagal load: ' + msg + '</td></tr>';
-            console.error('Load apps error:', res);
-            showToast('Gagal memuat data: ' + msg, 'error');
+       console.log('loadApplications called');
+       var tbody = document.getElementById('applicationsTable');
+       var noDataMsg = document.getElementById('noDataMsg');
+       if (noDataMsg) noDataMsg.classList.add('hidden');
+       
+       if (tbody) {
+         tbody.innerHTML = '<tr><td colspan="17" class="text-center p-4"><div class="spinner"></div> Memuat data...</td></tr>';
+       }
+       
+       apiCall('getApplications', function(res) {
+         console.log('getApplications response:', res);
+         if (tbody) {
+           if (res && res.success && res.data && res.data.applications) {
+             var apps = res.data.applications;
+             console.log('Loaded', apps.length, 'apps');
+             window.allApplications = apps;
+             renderAdminTable(apps);
+             populateAdminDropdowns();
+             updateFilterCount(apps.length, apps.length);
+           } else {
+             var msg = res.message || 'Unknown error';
+             tbody.innerHTML = '<tr><td colspan="17" class="text-center text-danger p-4"><i class="fas fa-exclamation-triangle"></i> Gagal load: ' + msg + '</td></tr>';
+             console.error('Load apps error:', res);
+             showToast('Gagal memuat data: ' + msg, 'error');
+           }
+         }
+       });
+     }
+     
+function loadAdminAnnouncement() {
+        apiCall('getAnnouncement', function(res) {
+          var el = document.getElementById('currentAnnouncementText');
+          if (el) {
+            if (res && res.success && res.data) {
+              el.textContent = res.data.title + ': ' + res.data.content.substring(0, 80) + '...';
+            } else {
+              el.textContent = 'Belum ada pengumuman aktif';
+            }
           }
-        }
-      });
-    }
+        });
+      }
 
     function debugSheets() {
       apiCall('debug', function(res) {
@@ -1786,6 +1838,97 @@ function submitApplication(e) {
         if (res && res.success) {
           showToast('Dihapus');
           loadRoadmap();
+        } else {
+          showToast('Gagal', 'error');
+        }
+      });
+    }
+
+    // ========================================
+    // ANNOUNCEMENT MANAGEMENT (Admin)
+    // ========================================
+    function manageAnnouncements() {
+      apiCall('crudAnnouncement&mode=read', function(res) {
+        var announcements = (res && res.success && res.data) ? res.data : [];
+        var listHtml = announcements.map(function(a) {
+          return '<tr>' +
+            '<td>' + a.id + '</td>' +
+            '<td>' + escapeHtml(a.title) + '</td>' +
+            '<td><span class="text-sm">' + escapeHtml(a.content.substring(0, 60)) + '...</span></td>' +
+            '<td><span class="badge ' + (a.active ? 'badge-approved' : 'badge-pending') + '">' + (a.active ? 'Aktif' : 'Nonaktif') + '</span></td>' +
+            '<td>' +
+              '<button class="btn btn-sm btn-primary" onclick="editAnnouncement(' + a.id + ')"><i class="fas fa-edit"></i></button> ' +
+              '<button class="btn btn-sm btn-danger" onclick="deleteAnnouncement(' + a.id + ')"><i class="fas fa-trash"></i></button>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+        
+        var html = '<div><div class="flex justify-between items-center mb-3">' +
+          '<h3><i class="fas fa-bullhorn"></i> Kelola Pengumuman</h3>' +
+          '<button class="btn btn-success btn-sm" onclick="showAnnouncementForm()"><i class="fas fa-plus"></i> Tambah Baru</button>' +
+        '</div>' +
+        '<div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Judul</th><th>Konten</th><th>Status</th><th>Aksi</th></tr></thead>' +
+        '<tbody>' + listHtml + '</tbody></table></div></div>';
+        
+        showModal('Kelola Pengumuman', html);
+      });
+    }
+    
+function showAnnouncementForm(id) {
+      var isEdit = id > 0;
+      var html = '<form id="announcementForm" onsubmit="saveAnnouncement(event, ' + id + ')">' +
+        '<div class="form-group"><label class="form-label">Judul Pengumuman</label><input type="text" id="annTitle" class="form-control" required></div>' +
+        '<div class="form-group"><label class="form-label">Konten Pengumuman</label><textarea id="annContent" class="form-control" rows="4" required></textarea></div>' +
+        '<div class="form-group"><label class="form-label"><input type="checkbox" id="annActive" checked> Aktif</label></div>' +
+        '<button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Simpan</button>' +
+      '</form>';
+      
+      showModal(isEdit ? 'Edit Pengumuman' : 'Tambah Pengumuman', html);
+      
+      if (isEdit) {
+        apiCall('crudAnnouncement&mode=read', function(res) {
+          var data = res && res.success && res.data ? res.data.find(function(x) { return x.id == id; }) : null;
+          if (data) {
+            document.getElementById('annTitle').value = data.title;
+            document.getElementById('annContent').value = data.content;
+            document.getElementById('annActive').checked = data.active;
+          }
+        });
+      }
+    }
+    
+    function editAnnouncement(id) {
+      showAnnouncementForm(id);
+    }
+    
+    function saveAnnouncement(e, id) {
+      e.preventDefault();
+      var mode = id > 0 ? 'update' : 'create';
+      var params = 'mode=' + mode + 
+        '&id=' + id +
+        '&title=' + encodeURIComponent(document.getElementById('annTitle').value) +
+        '&content=' + encodeURIComponent(document.getElementById('annContent').value) +
+        '&active=' + (document.getElementById('annActive').checked ? 'true' : 'false');
+      
+      apiCall('crudAnnouncement&' + params, function(res) {
+        if (res && res.success) {
+          showToast(res.message || 'Berhasil disimpan');
+          closeModal();
+          manageAnnouncements();
+          loadAnnouncement();
+        } else {
+          showToast(res ? res.message : 'Gagal', 'error');
+        }
+      });
+    }
+    
+    function deleteAnnouncement(id) {
+      if (!confirm('Hapus pengumuman ini?')) return;
+      apiCall('crudAnnouncement&mode=delete&id=' + id, function(res) {
+        if (res && res.success) {
+          showToast('Dihapus');
+          closeModal();
+          loadAnnouncement();
         } else {
           showToast('Gagal', 'error');
         }
