@@ -253,35 +253,50 @@
     }
     
     function getDriveImageUrl(fotoData, fallbackIdx) {
-      // Handle null/undefined
-      if (!fotoData) {
-        console.log('getDriveImageUrl: fotoData is null/undefined');
-        return '';
-      }
-      // Handle string format (legacy)
+      // fotoData bisa: string (url/file-id), atau object (primary/fallback) 
+      if (!fotoData) return '';
+
+      // string: return apa adanya (legacy)
       if (typeof fotoData === 'string') {
-        console.log('getDriveImageUrl: fotoData is string:', fotoData.substring(0, 50));
-        return fotoData;
+        var s = fotoData.trim();
+        if (!s || s === '-') return '';
+        return s;
       }
-      // Handle object format {primary: 'url', fallback: 'url'}
-      if (typeof fotoData === 'object' && fotoData.primary) {
-        console.log('getDriveImageUrl: fotoData is object, primary:', fotoData.primary.substring(0, 50));
-        if (fallbackIdx === 1 && fotoData.fallback) {
-          console.log('getDriveImageUrl: returning fallback');
-          return fotoData.fallback;
-        }
-        console.log('getDriveImageUrl: returning primary');
-        return fotoData.primary || '';
+
+      // object: {primary,fallback}
+      if (typeof fotoData === 'object') {
+        if (fallbackIdx === 1 && fotoData.fallback) return fotoData.fallback;
+        if (fotoData.primary) return fotoData.primary;
       }
-      console.log('getDriveImageUrl: unknown format', typeof fotoData, fotoData);
-      return '';
+
+      // fallback: string coercion
+      try { return String(fotoData || ''); } catch(e) { return ''; }
+    }
+
+    function getFotoUrlForRender(app) {
+      // Back-end sudah kirim: app.foto_url + app.foto_url_fallback (url siap render)
+      if (!app) return {primary: '', fallback: ''};
+      var p = (app.foto_url || '').toString().trim();
+      var f = (app.foto_url_fallback || '').toString().trim();
+      // Jika backend cuma kirim fileId mentah (kemungkinan), coba konversi dengan pola drive
+      function maybeConvertToDriveUrl(x) {
+        if (!x) return '';
+        if (x.indexOf('drive.google.com') !== -1) return x;
+        if (x.indexOf('http') !== -1) return x;
+        // treat as FILE_ID
+        return 'https://drive.google.com/uc?export=view&id=' + x;
+      }
+      return {
+        primary: p ? maybeConvertToDriveUrl(p) : '',
+        fallback: f ? maybeConvertToDriveUrl(f) : ''
+      };
     }
     </script>
     <script>
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbz7yOcoFj3ZxeZZjZ3H8iJ-qE2JpdZyUyyffQY1oFt5k6nZXaZjrjExT7TSUcpItCc/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyxsdXxSzP8b89QQzVwf2ncGFLs7zVWrMpXSJXVGvQDgkEMfuEgKOtSNEdAvMBTwXkd/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -761,9 +776,15 @@ function renderAdmin() {
         '<div id="filterCount" class="mb-2 text-muted" style="font-size:0.875rem;"></div>' +
         '<div class="table-responsive"><table class="table-modern"><thead><tr class="sticky-header">' +
           '<th class="foto-cell">Foto</th>' +
-          '<th>NIK</th><th>Nama Lengkap</th><th class="hide-sm">Alamat KTP</th>' +
-          '<th class="hide-md">Jurusan Tujuan</th><th class="hide-md">Jenis Pendidikan</th>' +
-          '<th>Unit Tujuan</th><th>Status</th><th>Ubah Status</th><th>Catatan Admin</th><th>Aksi</th>' +
+          '<th>NIK</th>' +
+          '<th>Nama Lengkap</th>' +
+          '<th class="hide-sm">Alamat KTP</th>' +
+          '<th class="hide-md">Jurusan Tujuan</th>' +
+          '<th class="hide-md">Jenis Pendidikan</th>' +
+          '<th>Unit Tujuan</th>' +
+          '<th>Status</th>' +
+          '<th>Catatan Admin</th>' +
+          '<th>CRUD</th>' +
         '</tr></thead>' +
         '<tbody id="applicationsTable"><tr><td colspan="11" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div>' +
         '<div id="noDataMsg" class="text-center p-4 text-muted hidden">' +
@@ -838,7 +859,7 @@ function renderAdminTable(apps) {
         var statusText = {pending: 'Menunggu', processed: 'Diperiksa', approved: 'Disetujui', rejected: 'Ditolak', revision: 'Diperbaiki'};
         
         // Status change dropdown
-        var statusDD = '<select class="status-dropdown" onchange="changeStatusQuick(' + app.id + ', this.value)">' +
+          var statusDD = '<select class="status-dropdown" onchange="changeStatusQuick(' + app.id + ', this.value)">' +
           '<option value="">Ubah Status</option>' +
           '<option value="pending" ' + (app.status === 'pending' ? 'selected' : '') + '>Menunggu</option>' +
           '<option value="processed" ' + (app.status === 'processed' ? 'selected' : '') + '>Diperiksa</option>' +
@@ -846,15 +867,25 @@ function renderAdminTable(apps) {
           '<option value="revision" ' + (app.status === 'revision' ? 'selected' : '') + '>Diperbaiki</option>' +
           '<option value="rejected" ' + (app.status === 'rejected' ? 'selected' : '') + '>Ditolak</option>' +
           '</select>';
-        
-        var actionBtns = '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-eye"></i></button> ' +
-          '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(' + quoteForOnclick(app.id) + ')"><i class="fas fa-user"></i></button>';
-        
-        var fotoSrc = getDriveImageUrl(app.foto_url, 0);
-        var fotoHtml = fotoSrc ? 
-          '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" onclick="showProfileAdmin(' + quoteForOnclick(app.id) + ')" onerror="this.style.display=\'none\'">' : 
-          '<span class="text-muted"><i class="fas fa-image"></i></span>';
-        
+
+        var crudBtns = '<div class="flex gap-2">' +
+          '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-eye"></i></button>' +
+          '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(' + quoteForOnclick(app.id) + ')"><i class="fas fa-user"></i></button>' +
+          '</div>';
+
+        var fotoU = getFotoUrlForRender(app);
+        var fotoSrc = fotoU.primary;
+        var fotoFallback = fotoU.fallback;
+        var fotoHtml = fotoSrc ?
+          '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
+          'onclick="showLightboxAdmin(\'' + escapeHtml(fotoSrc) + '\'); showProfileAdmin(' + quoteForOnclick(app.id) + ')" ' +
+          'onerror="this.style.display=\'none\'">' :
+          (fotoFallback ? '<img src="' + escapeHtml(fotoFallback) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
+            'onclick="showLightboxAdmin(\'' + escapeHtml(fotoFallback) + '\'); showProfileAdmin(' + quoteForOnclick(app.id) + ')" ' +
+            'onerror="this.style.display=\'none\'">' +
+            '</img>' :
+            '<span class="text-muted"><i class="fas fa-image"></i></span>');
+
         return '<tr>' +
           '<td>' + fotoHtml + '</td>' +
           '<td>' + escapeHtml(app.nik || '-') + '</td>' +
@@ -863,10 +894,9 @@ function renderAdminTable(apps) {
           '<td>' + escapeHtml(app.jurusan_tujuan || '-') + '</td>' +
           '<td>' + escapeHtml(app.jenis_pendidikan || '-') + '</td>' +
           '<td>' + escapeHtml(app.unit_tujuan || '-') + '</td>' +
-          '<td><span class="badge ' + badge + '">' + (statusText[app.status] || app.status) + '</span></td>' +
           '<td>' + statusDD + '</td>' +
           '<td>' + escapeHtml(app.admin_notes || '-') + '</td>' +
-          '<td>' + actionBtns + '</td>' +
+          '<td>' + crudBtns + '</td>' +
           '</tr>';
       });
       tbody.innerHTML = rows.join('');
@@ -1904,102 +1934,107 @@ _________________________
 // ========================================
     // SHOW PROFILE WITH FULL DATA (ADMIN) - GLASSMORPHISM
     // ========================================
-    function showProfileAdmin(id) {
+function showProfileAdmin(id) {
       apiCallWithData('getApplicationDetail', {id: id}, function(res) {
         if (res && res.success && res.data) {
           var app = res.data;
           var statusText = {pending: 'Menunggu', processed: 'Diperiksa', approved: 'Disetujui', rejected: 'Ditolak', revision: 'Diperbaiki'};
           var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : app.status === 'revision' ? 'badge-revision' : 'badge-pending';
-          
+
           var fotoSrc = getDriveImageUrl(app.foto_url, 0);
           var fotoFallback = getDriveImageUrl(app.foto_url_fallback, 0) || '';
           var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
-          
-          var downloadBtn = app.status === 'approved' ? '<div class="mt-4"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
-          
-          var actionBtns = '<div class="flex gap-2 mt-4">' +
-            '<button class="btn btn-warning" onclick="viewApplication(' + quoteForOnclick(id) + ')"><i class="fas fa-edit"></i> Edit</button>' +
-            downloadBtn +
-            '<button class="btn btn-outline" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
+
+          var fields = [
+            {label: 'Foto', valueHtml: fotoSrc ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="this.onerror=null;this.src=\'' + escapeHtml(fotoFallback || placeholderImg) + '\';" />' : '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i></div>'},
+            {label: 'NIK', value: app.nik || '-'},
+            {label: 'Nama Lengkap', value: app.full_name || '-'},
+            {label: 'Alamat KTP', value: app.alamat_ktp || '-'},
+            {label: 'Jurusan Tujuan', value: app.jurusan_tujuan || '-'},
+            {label: 'Jenis Pendidikan', value: app.jenis_pendidikan || '-'},
+            {label: 'Unit Tujuan', value: app.unit_tujuan || '-'},
+            {label: 'Status', valueHtml: '<span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span>'},
+            {label: 'Catatan Admin', value: app.admin_notes || '-'}
+          ];
+
+          var crudHtml = [
+            '<div class="flex gap-2 mt-2" style="flex-wrap:wrap;">' +
+              '<select class="status-dropdown" onchange="changeStatusQuick(' + app.id + ', this.value)">' +
+                '<option value="">Ubah Status</option>' +
+                '<option value="pending" ' + (app.status === 'pending' ? 'selected' : '') + '>Menunggu</option>' +
+                '<option value="processed" ' + (app.status === 'processed' ? 'selected' : '') + '>Diperiksa</option>' +
+                '<option value="approved" ' + (app.status === 'approved' ? 'selected' : '') + '>Disetujui</option>' +
+                '<option value="revision" ' + (app.status === 'revision' ? 'selected' : '') + '>Diperbaiki</option>' +
+                '<option value="rejected" ' + (app.status === 'rejected' ? 'selected' : '') + '>Ditolak</option>' +
+              '</select>' +
+              '<button class="btn btn-outline btn-sm" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
+            '</div>'
+          ].join('');
+
+          var dataOrderHtml = '<div class="profile-section" style="padding:1.25rem;border-top:1px solid var(--gray-200);">' +
+            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-layer-group"></i> Data (sesuai urutan)</h4>' +
+            '<div class="profile-info-grid">' +
+            fields.map(function(f, idx) {
+              if (idx === 0) {
+                return '<div class="profile-field" style="grid-column:1/-1;display:flex;justify-content:center;">' + (f.valueHtml || '-') + '</div>';
+              }
+              return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(f.label) + '</span><span class="profile-field-value">' + (f.valueHtml ? f.valueHtml : escapeHtml(f.value || '-')) + '</span></div>';
+            }).join('') +
+            '<div class="profile-field" style="grid-column:1/-1;">' +
+              '<span class="profile-field-label">CRUD</span>' +
+              '<span class="profile-field-value" style="display:block;">' + crudHtml + '</span>' +
+            '</div>' +
+            '</div>' +
             '</div>';
-          
-          var html = '<div class="profile-popup-modern">' +
-            '<div class="profile-section">' +
-            '<div class="profile-header">' +
-            '<div class="text-center">' +
-            (fotoSrc ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" class="profile-foto-large" onclick="showFullScreenImage(this.src)" onerror="this.onerror=null;this.src=\'' + escapeHtml(fotoFallback || placeholderImg) + '\';">' : 
-            '<div style="width:200px;height:250px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i></div>') +
-            '</div>' +
-            '<div style="flex:1;">' +
-            '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0.75rem;">' +
-            '<div class="profile-field"><span class="profile-field-label">ID Pengajuan</span><span class="profile-field-value">' + escapeHtml(app.id || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">No. Pengajuan</span><span class="profile-field-value"><code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number || '-') + '</code></span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Status</span><span class="profile-field-value"><span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span></span></div>' +
-'<div class="profile-field"><span class="profile-field-label">Tanggal Pengajuan</span><span class="profile-field-value">' + escapeHtml(app.timestamp ? new Date(app.timestamp).toLocaleDateString('id-ID') : '-') + '</span></div>' +
-             '</div>' +
-             '</div>' +
-             '</div>' +
-             '</div>' +
-             
-             '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
-            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-user"></i> Data Pribadi</h4>' +
+
+          var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
+
+          var moreHtml = '<div class="profile-section">' +
+            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-clipboard-list"></i> Data Lengkap</h4>' +
             '<div class="profile-info-grid">' +
-            '<div class="profile-field"><span class="profile-field-label">Nama Lengkap</span><span class="profile-field-value">' + escapeHtml(app.full_name || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">NIK</span><span class="profile-field-value">' + escapeHtml(app.nik || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Tempat Lahir</span><span class="profile-field-value">' + escapeHtml(app.tempat_lahir || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Tanggal Lahir</span><span class="profile-field-value">' + escapeHtml(app.tanggal_lahir || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">No. HP</span><span class="profile-field-value">' + escapeHtml(app.phone || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">No. WhatsApp</span><span class="profile-field-value">' + escapeHtml(app.whatsapp || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Email</span><span class="profile-field-value" style="word-break:break-all;">' + escapeHtml(app.email || '-') + '</span></div>' +
+            [
+              ['No. Pengajuan', '<code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number || '-') + '</code>'],
+              ['Tanggal Pengajuan', escapeHtml(app.timestamp ? new Date(app.timestamp).toLocaleDateString('id-ID') : '-'), true],
+              ['Tempat Lahir', escapeHtml(app.tempat_lahir || '-')],
+              ['Tanggal Lahir', escapeHtml(app.tanggal_lahir || '-')],
+              ['No. HP', escapeHtml(app.phone || '-')],
+              ['No. WhatsApp', escapeHtml(app.whatsapp || '-')],
+              ['Email', escapeHtml(app.email || '-')],
+              ['Alamat Domisili', escapeHtml(app.alamat_domisili || '-')],
+              ['Lama Domisili', escapeHtml(app.lama_domisili || '-')],
+              ['Status Pekerjaan', escapeHtml(app.status_pekerjaan || '-')],
+              ['Kondisi Pemohon', escapeHtml(app.kondisi_pemohon || '-')],
+              ['Keterangan', escapeHtml(app.keterangan || '-')],
+              ['Unit Kerja', escapeHtml(app.unit_kerja || '-')],
+              ['Rencana Tahun', escapeHtml(app.rencana_tahun || '-')],
+              ['Link Dokumen', app.document_links ? ('<div style="background:var(--gray-50);padding:1rem;border-radius:10px;border-left:4px solid var(--primary);">' + formatDocumentLinks(app.document_links) + '</div>') : '-'],
+              ['Applicant Folder ID', app.folder_id ? '<a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a>' : '-'],
+              ['Dibuat Pada', escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-')],
+              ['Diperbarui', escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-')]
+            ].map(function(x) {
+              return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(x[0]) + '</span><span class="profile-field-value">' + (x[1] || '-') + '</span></div>';
+            }).join('') +
             '</div>' +
+            '</div>';
+
+          var html = '<div class="profile-popup-modern" style="width:100vw;max-width:none;height:100vh;max-height:none;">' +
+            '<div class="sticky-header profile-section" style="position:sticky;top:0;background:rgba(255,255,255,0.9);">' +
+              '<div class="profile-header" style="margin-bottom:0;">' +
+                '<div>' +
+                  '<h3 style="margin:0;color:var(--primary);"><i class="fas fa-user-cog"></i> Profil Pengaju (Full)</h3>' +
+                  '<div class="text-muted" style="font-size:0.875rem;margin-top:0.25rem;">ID: ' + escapeHtml(app.id || '-') + '</div>' +
+                '</div>' +
+                '<div class="flex gap-2" style="align-items:center;">' +
+                  downloadBtn +
+                  '<button class="btn btn-outline" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
+                '</div>' +
+              '</div>' +
             '</div>' +
-            
-            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
-            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-map-marker-alt"></i> Alamat</h4>' +
-            '<div class="profile-info-grid">' +
-            '<div class="profile-field" style="grid-column:1/-1;"><span class="profile-field-label">Alamat KTP</span><span class="profile-field-value">' + escapeHtml(app.alamat_ktp || '-') + '</span></div>' +
-            '<div class="profile-field" style="grid-column:1/-1;"><span class="profile-field-label">Alamat Domisili</span><span class="profile-field-value">' + escapeHtml(app.alamat_domisili || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Lama Domisili</span><span class="profile-field-value">' + escapeHtml(app.lama_domisili || '-') + '</span></div>' +
-            '</div>' +
-            '</div>' +
-            
-            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
-            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-briefcase"></i> Pekerjaan</h4>' +
-            '<div class="profile-info-grid">' +
-            '<div class="profile-field"><span class="profile-field-label">Status Pekerjaan</span><span class="profile-field-value">' + escapeHtml(app.status_pekerjaan || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Kondisi Pemohon</span><span class="profile-field-value">' + escapeHtml(app.kondisi_pemohon || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Unit Kerja</span><span class="profile-field-value">' + escapeHtml(app.unit_kerja || '-') + '</span></div>' +
-            '</div>' +
-            '</div>' +
-            
-            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
-            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-graduation-cap"></i> Pendidikan</h4>' +
-            '<div class="profile-info-grid">' +
-            '<div class="profile-field" style="grid-column:1/-1;"><span class="profile-field-label">Jurusan Tujuan</span><span class="profile-field-value">' + escapeHtml(app.jurusan_tujuan || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Jenis Pendidikan</span><span class="profile-field-value">' + escapeHtml(app.jenis_pendidikan || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Unit Tujuan</span><span class="profile-field-value">' + escapeHtml(app.unit_tujuan || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Rencana Tahun</span><span class="profile-field-value">' + escapeHtml(app.rencana_tahun || '-') + '</span></div>' +
-            '<div class="profile-field" style="grid-column:1/-1;"><span class="profile-field-label">Keterangan</span><span class="profile-field-value">' + escapeHtml(app.keterangan || '-') + '</span></div>' +
-            '</div>' +
-            '</div>' +
-            
-            '<div class="profile-section" style="border-top:1px solid var(--gray-200);">' +
-            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-history"></i> Informasi Tambahan</h4>' +
-            '<div class="profile-info-grid">' +
-            '<div class="profile-field"><span class="profile-field-label">Peninjau</span><span class="profile-field-value">' + escapeHtml(app.peninjau || '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Ditinjau Pada</span><span class="profile-field-value">' + escapeHtml(app.ditinjau_pada ? new Date(app.ditinjau_pada).toLocaleDateString('id-ID') : '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Dibuat Pada</span><span class="profile-field-value">' + escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-') + '</span></div>' +
-            '<div class="profile-field"><span class="profile-field-label">Diperbarui</span><span class="profile-field-value">' + escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-') + '</span></div>' +
-            '</div>' +
-            '</div>' +
-            
-            (app.admin_notes ? '<div class="profile-section" style="margin-top:1rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
-            (app.document_links ? '<div class="profile-section" style="margin-top:1rem;"><h4 style="margin-bottom:1rem;color:var(--primary);"><i class="fas fa-paperclip"></i> Link Dokumen</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDocumentLinks(app.document_links) + '</div></div>' : '') +
-            (app.folder_id ? '<div class="profile-section" style="margin-top:1rem;"><strong>Applicant Folder:</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
-            
-'<div class="profile-section">' + actionBtns + '</div>' +
-           '</div>';
-         showModal('Profil Pengaju (ID: ' + app.id + ')', html);
+            dataOrderHtml +
+            moreHtml +
+            '</div>';
+
+          showModal('Profil Pengaju (ID: ' + app.id + ')', html);
         }
       });
     }
