@@ -278,13 +278,25 @@
       var raw = (app.foto_url || '').toString().trim();
       if (!raw) return {primary: '', sources: []};
 
-      // Extract file ID if possible
-      var fileIdMatch = raw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || 
-                        raw.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
-                        raw.match(/([a-zA-Z0-9_-]{25,})/);
-      var fileId = fileIdMatch ? fileIdMatch[1] : raw;
+      // Extract file ID from various Drive URL formats
+      var fileId = null;
+      var m1 = raw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (m1) fileId = m1[1];
+      if (!fileId) {
+        var m2 = raw.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (m2) fileId = m2[1];
+      }
+      if (!fileId) {
+        var m3 = raw.match(/([a-zA-Z0-9_-]{25,})/);
+        if (m3) fileId = m3[1];
+      }
 
-      // Best direct view URL for <img>
+      if (!fileId) {
+        // If can't extract ID, try using raw as is (might already be good)
+        return { primary: raw, sources: [raw] };
+      }
+
+      // Most reliable formats for displaying in <img>
       var primary = 'https://drive.google.com/uc?export=view&id=' + fileId;
       var thumb = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
 
@@ -905,7 +917,7 @@ function renderAdminTable(apps) {
         var fotoHtml = fotoSrc 
           ? '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
             'onclick="showFullScreenImage(\'' + escapeHtml(fotoSrc) + '\')" ' +
-            'onerror="this.onerror=null;this.src=\'https://via.placeholder.com/40x40?text=No+Foto\';">'
+            'onerror="this.onerror=null; this.src=\'https://drive.google.com/thumbnail?id=' + (fotoSrc.match(/[?&]id=([a-zA-Z0-9_-]+)/)||[,''])[1] + '&sz=w800\';">'
           : '<span class="text-muted"><i class="fas fa-image"></i></span>';
 
         return '<tr>' +
@@ -2034,7 +2046,7 @@ var fotoU = getFotoUrlForRender(app);
             var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
             
             var fotoHtml = fotoSrc 
-              ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/220x280?text=No+Image\';">'
+              ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="this.src=\'https://drive.google.com/thumbnail?id=' + (fotoSrc.match(/[?&]id=([a-zA-Z0-9_-]+)/)||[,''])[1] + '&sz=w800\';this.onerror=null;">'
               : '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
 
            var fields = [
