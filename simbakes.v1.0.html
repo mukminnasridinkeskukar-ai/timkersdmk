@@ -1371,18 +1371,53 @@ var fotoSources = fotoU.sources || [];
     }
 
     function showFullScreenImage(src) {
+      // Hapus modal lama jika ada
+      var oldModal = document.getElementById('fullscreenModal');
+      if (oldModal) oldModal.remove();
+
       var modal = document.createElement('div');
+      modal.id = 'fullscreenModal';
       modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;z-index:20000;';
-      modal.innerHTML = 
-        '<div style="position:relative;text-align:center;max-width:95vw;max-height:95vh;">' +
-          '<button onclick="closeFullScreenImage()" style="position:absolute;top:20px;right:20px;background:white;border:none;width:40px;height:40px;border-radius:50%;font-size:1.5rem;cursor:pointer;z-index:20001;">&times;</button>' +
-          '<img src="' + src + '" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.5);" ' +
-               'onerror="this.src=\'https://drive.google.com/thumbnail?id=' + (src.match(/[?&]id=([a-zA-Z0-9_-]+)/)||[,''])[1] + '&sz=w800\';this.onerror=null;">' +
-          '<p style="color:white;margin-top:1rem;">Klik di mana saja untuk menutup</p>' +
-        '</div>';
-      modal.onclick = function(e) {
-        if (e.target === modal) closeFullScreenImage();
+
+      var content = document.createElement('div');
+      content.style.cssText = 'position:relative;text-align:center;max-width:95vw;max-height:95vh;';
+
+      var closeBtn = document.createElement('button');
+      closeBtn.innerHTML = '&times;';
+      closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;background:white;border:none;width:40px;height:40px;border-radius:50%;font-size:1.5rem;cursor:pointer;z-index:20001;';
+      closeBtn.onclick = function() {
+        modal.remove();
       };
+
+      var img = document.createElement('img');
+      img.src = src;
+      img.style.cssText = 'max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.5);';
+      img.onerror = function() {
+        // Fallback ke thumbnail
+        var fileIdMatch = src.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (fileIdMatch) {
+          this.src = 'https://drive.google.com/thumbnail?id=' + fileIdMatch[1] + '&sz=w800';
+          this.onerror = function() {
+            this.src = 'https://via.placeholder.com/800x600?text=Foto+Tidak+Tersedia';
+          };
+        } else {
+          this.src = 'https://via.placeholder.com/800x600?text=Foto+Tidak+Tersedia';
+        }
+      };
+
+      var hint = document.createElement('p');
+      hint.style.cssText = 'color:white;margin-top:1rem;';
+      hint.textContent = 'Klik di mana saja untuk menutup';
+
+      content.appendChild(closeBtn);
+      content.appendChild(img);
+      content.appendChild(hint);
+      modal.appendChild(content);
+
+      modal.onclick = function(e) {
+        if (e.target === modal) modal.remove();
+      };
+
       document.body.appendChild(modal);
     }
 
