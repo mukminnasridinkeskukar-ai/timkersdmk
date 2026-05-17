@@ -321,7 +321,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbzh5_7Eh_F_YFLFUzrb-hrAS-5kntMnduN8z7p2TO-WVTFcbD1eM4-axWTFMOWqgBa2/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbzO534LEXghwRXbzYoIgN7VOHKRx9k9W_TnhpBUHl9OnsLLIo9ZvxdAUFtLr3ZZ69C7/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -879,12 +879,27 @@ function renderAdminTable(apps) {
         tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4 text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
         return;
       }
+
       var rows = apps.map(function(app, i) {
-        var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : app.status === 'revision' ? 'badge-revision' : 'badge-pending';
-        var statusText = {pending: 'Menunggu', processed: 'Diperiksa', approved: 'Disetujui', rejected: 'Ditolak', revision: 'Diperbaiki'};
-        
-        // Status change dropdown
-          var statusDD = '<select class="status-dropdown" onchange="changeStatusQuick(' + app.id + ', this.value)">' +
+        var badge = app.status === 'approved'
+          ? 'badge-approved'
+          : app.status === 'rejected'
+            ? 'badge-rejected'
+            : app.status === 'processed'
+              ? 'badge-processed'
+              : app.status === 'revision'
+                ? 'badge-revision'
+                : 'badge-pending';
+
+        var statusText = {
+          pending: 'Menunggu',
+          processed: 'Diperiksa',
+          approved: 'Disetujui',
+          rejected: 'Ditolak',
+          revision: 'Diperbaiki'
+        };
+
+        var statusDD = '<select class="status-dropdown" onchange="changeStatusQuick(' + app.id + ', this.value)">' +
           '<option value="">Ubah Status</option>' +
           '<option value="pending" ' + (app.status === 'pending' ? 'selected' : '') + '>Menunggu</option>' +
           '<option value="processed" ' + (app.status === 'processed' ? 'selected' : '') + '>Diperiksa</option>' +
@@ -893,26 +908,29 @@ function renderAdminTable(apps) {
           '<option value="rejected" ' + (app.status === 'rejected' ? 'selected' : '') + '>Ditolak</option>' +
           '</select>';
 
-var crudBtns = '<div class="flex gap-2">' +
-           '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-eye"></i></button>' +
-           '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(' + quoteForOnclick(app.id) + ')"><i class="fas fa-user"></i></button>' +
-           (app.status === 'approved' ? '<button class="btn btn-success btn-sm" onclick="downloadRekomendasi(' + app.id + ')"><i class="fas fa-download"></i></button>' : '') +
-           '<button class="btn btn-warning btn-sm" onclick="editApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-edit"></i></button>' +
-           '<button class="btn btn-danger btn-sm" onclick="deleteApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-trash"></i></button>' +
-           '</div>';
+        var crudBtns = '<div class="flex gap-2">' +
+          '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-eye"></i></button>' +
+          '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(' + quoteForOnclick(app.id) + ')"><i class="fas fa-user"></i></button>' +
+          (app.status === 'approved'
+            ? '<button class="btn btn-success btn-sm" onclick="downloadRekomendasi(' + app.id + ')"><i class="fas fa-download"></i></button>'
+            : '') +
+          '<button class="btn btn-warning btn-sm" onclick="editApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-edit"></i></button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-trash"></i></button>' +
+          '</div>';
 
         var fotoU = getFotoUrlForRender(app);
         var fotoSrc = fotoU.primary;
         var fotoSources = fotoU.sources || [];
-        
-// Build multi-source img tag with multiple fallbacks
-         var fotoHtml = '';
-         if (fotoSources.length > 0) {
-           var sourcesStr = "'" + fotoSources.join("','") + "'";
-           fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
-             'onclick="showLightboxAdmin(\'' + escapeHtml(fotoSrc) + '\'); showProfileAdmin(' + quoteForOnclick(app.id) + ')" ' +
-             'onerror="var s=document.getElementById(\'foto-' + app.id + '\'); if(s && s.next) { s.src=s.next; } else { var sources=' + sourcesStr + ".split(\x27,\x27); for(var i=0;i<sources.length;i++) { if(sources[i]!=\'' + escapeHtml(fotoSrc) + '\' && s.src.indexOf(sources[i])===-1) { s.src=sources[i]; break; } } }">';
-         } else {
+
+        // HTML aman untuk thumbnail (tanpa multi-source array/logic kompleks di atribut)
+        var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
+
+        var fotoHtml = '';
+        if (fotoSources.length > 0 && fotoSrc) {
+          fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
+            'onclick="showLightboxAdmin(\'' + escapeHtml(fotoSrc) + '\'); showProfileAdmin(' + quoteForOnclick(app.id) + ')" ' +
+            'onerror="this.onerror=null;this.src=\'' + placeholderImg + '\';">';
+        } else {
           fotoHtml = '<span class="text-muted"><i class="fas fa-image"></i></span>';
         }
 
@@ -929,6 +947,7 @@ var crudBtns = '<div class="flex gap-2">' +
           '<td>' + crudBtns + '</td>' +
           '</tr>';
       });
+
       tbody.innerHTML = rows.join('');
     }
 
@@ -1147,14 +1166,12 @@ var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
              // Build foto HTML with multiple fallback sources
-             var sourcesStr = "'" + fotoSources.join("','") + "'";
-             var onErrorHandler = "var s=this; var sources=" + sourcesStr + ".split(','); var idx=sources.indexOf(s.src); if(idx<sources.length-1) { s.onerror=null; s.src=sources[idx+1]; } else { s.onerror=null; s.src='" + placeholderImg + "'; }";
-             var fotoImg;
-            if (fotoSources.length > 0) {
-              fotoImg = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;cursor:pointer;" onerror="' + onErrorHandler + '" onclick="showFullScreenImage(this.src)">';
-            } else {
-              fotoImg = '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;">';
-            }
+              var fotoImg;
+             if (fotoSources.length > 0) {
+               fotoImg = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;cursor:pointer;" onerror="this.onerror=null;this.src=\'' + placeholderImg + '\';" onclick="showFullScreenImage(this.src)">';
+             } else {
+               fotoImg = '<img src="' + placeholderImg + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;">';
+             }
           
           var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user"></i> Profil Pengaju Beasiswa ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
             '<div class="p-4">' +
@@ -1584,15 +1601,12 @@ var fotoSrc = fotoU.primary;
              var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
-             // Build foto HTML with multiple fallback sources
-             var sourcesStr = "'" + fotoSources.join("','") + "'";
-             var onErrorHandler = "var s=this; var sources=" + sourcesStr + ".split(','); var idx=sources.indexOf(s.src); if(idx<sources.length-1) { s.onerror=null; s.src=sources[idx+1]; } else { s.onerror=null; s.src='" + placeholderImg + "'; }";
- var fotoImg;
-            if (fotoSources.length > 0) {
-              fotoImg = '<div style="text-align:center;margin-bottom:1rem;"><img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:0.5rem;cursor:pointer;" onerror="' + onErrorHandler + '" onclick="showFullScreenImage(this.src)"><p style="color:var(--success);font-size:0.875rem;"><i class="fas fa-check-circle"></i> Foto tersedia</p></div>';
-            } else {
-              fotoImg = '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);"><i class="fas fa-image" style="font-size:4rem;color:var(--gray-500);"></i><p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
-            }
+              var fotoImg;
+             if (fotoSources.length > 0) {
+               fotoImg = '<div style="text-align:center;margin-bottom:1rem;"><img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:0.5rem;cursor:pointer;" onerror="this.onerror=null;this.src=\'' + placeholderImg + '\';" onclick="showFullScreenImage(this.src)"><p style="color:var(--success);font-size:0.875rem;"><i class="fas fa-check-circle"></i> Foto tersedia</p></div>';
+             } else {
+               fotoImg = '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);"><i class="fas fa-image" style="font-size:4rem;color:var(--gray-500);"></i><p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
+             }
             var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user-cog"></i> Detail Pengajuan ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
              '<div class="p-4">' +
              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:2rem;">' +
@@ -2036,9 +2050,7 @@ var fotoU = getFotoUrlForRender(app);
             
             var fotoHtml;
             if (fotoSources.length > 0) {
-              var sourcesStr = "'" + fotoSources.join("','") + "'";
-              var onErrorHandler = "var s=this; var sources=" + sourcesStr + ".split(','); var idx=sources.indexOf(s.src); if(idx<sources.length-1) { s.src=sources[idx+1]; } else { s.onerror=null; s.src='" + placeholderImg + "'; }";
-              fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="' + onErrorHandler + '" />';
+              fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="this.onerror=null;this.src=\'' + placeholderImg + '\';" />';
             } else {
              fotoHtml = '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
            }
