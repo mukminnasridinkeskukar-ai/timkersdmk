@@ -321,7 +321,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbw4mD5s_fxOvUrxYoKas6XeWr2yQonJcMJYxmJqsgC5DeJ-duFihuAMKslSbHFyBK0/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbwCOYJq_unD9VDyj2EwfTk1g3B8BTUXhtCsqLgR1G6t3uXdVhZe5egF0e-kSDp0_4yH/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1552,17 +1552,19 @@ function exportApplications() {
       });
     }
 
-    function deleteApplication(id) {
-      if (!confirm('Hapus pengajuan ini? Tindakan ini tidak dapat dibatalkan.')) return;
-      apiCallWithData('deleteApplication', {id: id, role: 'admin'}, function(res) {
-        if (res && res.success) {
-          showToast('Data berhasil dihapus');
-          loadApplications();
-        } else {
-          showToast(res ? res.message : 'Gagal', 'error');
-        }
-      });
-    }
+function deleteApplication(id) {
+       if (!confirm('Hapus pengajuan ini? Tindakan ini tidak dapat dibatalkan.')) return;
+       // Note: Backend requires superadmin role for delete
+       var role = (currentUser && currentUser.role === 'superadmin') ? 'superadmin' : 'admin';
+       apiCallWithData('deleteApplication', {id: id, role: role}, function(res) {
+         if (res && res.success) {
+           showToast('Data berhasil dihapus');
+           loadApplications();
+         } else {
+           showToast(res ? res.message : 'Gagal - hanya superadmin yang dapat menghapus', 'error');
+         }
+       });
+     }
 
 function viewApplication(id) {
        apiCallWithData('getApplicationDetail', {id: id}, function(res) {
@@ -1869,83 +1871,14 @@ var fotoImg;
       container.appendChild(modal);
     }
 
-    function closeModal() {
-      var m = document.getElementById('modal');
-      if (m) m.remove();
-    }
+function closeModal() {
+       var m = document.getElementById('modal');
+       if (m) m.remove();
+     }
 
-    // ========================================
-    // APPLICATION CRUD (Admin)
-    // ========================================
-    function showCreateModal() {
-      showToast('Fitur buat pengajuan baru belum tersedia. Gunakan formulir di halaman Ajukan Rekomendasi.', 'info');
-    }
-
-function editApplication(id) {
-      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
-        if (res && res.success && res.data) {
-          var app = res.data;
-          var html = '<form id="editApplicationForm" onsubmit="updateApplicationAdmin(event, ' + app.id + ')">' +
-            '<div class="alert alert-info mb-3">Edit data aplikasi ID: ' + app.id + '</div>' +
-            '<div class="grid-2">' +
-            '<div class="form-group"><label class="form-label">NIK</label><input type="text" name="nik" class="form-control" value="' + escapeHtml(app.nik || '') + '" readonly></div>' +
-            '<div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" name="nama_lengkap" class="form-control" value="' + escapeHtml(app.full_name || '') + '" required></div>' +
-            '</div>' +
-            '<div class="grid-2">' +
-            '<div class="form-group"><label class="form-label">No. HP</label><input type="tel" name="no_hp" class="form-control" value="' + escapeHtml(app.phone || '') + '"></div>' +
-            '<div class="form-group"><label class="form-label">No. WhatsApp</label><input type="tel" name="no_wa" class="form-control" value="' + escapeHtml(app.whatsapp || '') + '"></div>' +
-            '</div>' +
-            '<div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="' + escapeHtml(app.email || '') + '"></div>' +
-            '<div class="form-group"><label class="form-label">Catatan Admin</label><textarea name="admin_notes" class="form-control">' + escapeHtml(app.admin_notes || '') + '</textarea></div>' +
-            '<div class="flex gap-2 mt-3">' +
-            '<button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>' +
-            '<button type="submit" class="btn btn-warning"><i class="fas fa-save"></i> Simpan Perubahan</button>' +
-            '</div></form>';
-          showModal('Edit Aplikasi (ID: ' + app.id + ')', html);
-        } else {
-          showToast('Gagal memuat data', 'error');
-        }
-      });
-    }
-
-    function updateApplicationAdmin(e, id) {
-      e.preventDefault();
-      var form = document.getElementById('editApplicationForm');
-      var params = {
-        id: id,
-        nik: form.querySelector('[name="nik"]').value,
-        nama_lengkap: form.querySelector('[name="nama_lengkap"]').value,
-        no_hp: form.querySelector('[name="no_hp"]').value,
-        no_wa: form.querySelector('[name="no_wa"]').value,
-        email: form.querySelector('[name="email"]').value,
-        admin_notes: form.querySelector('[name="admin_notes"]').value
-      };
-      apiCallWithData('updateApplication', params, function(res) {
-        if (res && res.success) {
-          showToast('Data berhasil diperbarui');
-          closeModal();
-          loadApplications();
-        } else {
-          showToast(res ? res.message : 'Gagal', 'error');
-        }
-      });
-    }
-
-    function deleteApplication(id) {
-      if (!confirm('Hapus pengajuan ini? Tindakan ini tidak dapat dibatalkan.')) return;
-      apiCallWithData('deleteApplication', {id: id, role: 'admin'}, function(res) {
-        if (res && res.success) {
-          showToast('Data berhasil dihapus');
-          loadApplications();
-        } else {
-          showToast(res ? res.message : 'Gagal', 'error');
-        }
-      });
-    }
-
-    // ========================================
-    // UTILITIES
-    // ========================================
+     // ========================================
+     // UTILITIES
+     // ========================================
     function escapeHtml(text) {
       if (!text) return '';
       var div = document.createElement('div');
@@ -2083,175 +2016,114 @@ _________________________
 // ========================================
     // SHOW PROFILE WITH FULL DATA (ADMIN) - GLASSMORPHISM
     // ========================================
-    function showProfileAdmin(id) {
-      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
-        if (res && res.success && res.data) {
-          var app = res.data;
-          var statusText = {pending: 'Menunggu', processed: 'Diperiksa', approved: 'Disetujui', rejected: 'Ditolak', revision: 'Diperbaiki'};
-          var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : app.status === 'revision' ? 'badge-revision' : 'badge-pending';
+function showProfileAdmin(id) {
+       apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+         if (res && res.success && res.data) {
+           var app = res.data;
+           var statusText = {pending: 'Menunggu', processed: 'Diperiksa', approved: 'Disetujui', rejected: 'Ditolak', revision: 'Diperbaiki'};
+           var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : app.status === 'revision' ? 'badge-revision' : 'badge-pending';
 
-          var fotoU = getFotoUrlForRender(app);
-          var fotoSrc = fotoU.primary;
-          var fotoSources = fotoU.sources || [];
-          var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
-          
-          // Build foto HTML with multiple sources for robust loading
-          var fotoHtml;
-          if (fotoSources.length > 0) {
-            var onErrorHandler = "var s=this; var sources=" + JSON.stringify(fotoSources) + "; var idx=sources.indexOf(s.src); if(idx<sources.length-1) { s.src=sources[idx+1]; } else { s.onerror=null; s.src='" + placeholderImg + "'; }";
-            fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="' + onErrorHandler + '" />';
-          } else {
-            fotoHtml = '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
+           var fotoU = getFotoUrlForRender(app);
+           var fotoSrc = fotoU.primary;
+           var fotoSources = fotoU.sources || [];
+           var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
+           
+           var fotoHtml;
+           if (fotoSources.length > 0) {
+             var onErrorHandler = "var s=this; var sources=" + JSON.stringify(fotoSources) + "; var idx=sources.indexOf(s.src); if(idx<sources.length-1) { s.src=sources[idx+1]; } else { s.onerror=null; s.src='" + placeholderImg + "'; }";
+             fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="' + onErrorHandler + '" />';
+           } else {
+             fotoHtml = '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
+           }
+
+           var fields = [
+             {label: 'Foto', valueHtml: fotoHtml},
+             {label: 'NIK', value: app.nik || '-'},
+             {label: 'Nama Lengkap', value: app.full_name || '-'},
+             {label: 'Alamat KTP', value: app.alamat_ktp || '-'},
+             {label: 'Jurusan Tujuan', value: app.jurusan_tujuan || '-'},
+             {label: 'Jenis Pendidikan', value: app.jenis_pendidikan || '-'},
+             {label: 'Unit Tujuan', value: app.unit_tujuan || '-'},
+             {label: 'Status', valueHtml: '<span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span>'},
+             {label: 'Catatan Admin', value: app.admin_notes || '-'}
+           ];
+
+           var crudHtml = [
+             '<div class="flex gap-2 mt-2" style="flex-wrap:wrap;">',
+             '<button class="btn btn-primary btn-sm" onclick="approveApplication(' + app.id + ')"><i class="fas fa-check"></i> Setujui</button>',
+             '<button class="btn btn-warning btn-sm" onclick="editApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-edit"></i> Edit</button>',
+             '<button class="btn btn-danger btn-sm" onclick="rejectApplication(' + app.id + ')"><i class="fas fa-times"></i> Tolak</button>',
+             '<button class="btn btn-outline btn-sm" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>',
+             '</div>'
+           ].join('');
+
+           var dataOrderHtml = '<div class="profile-section" style="padding:1.25rem;border-top:1px solid var(--gray-200);">' +
+             '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-layer-group"></i> Data (sesuai urutan)</h4>' +
+             '<div class="profile-info-grid">' +
+             fields.map(function(f, idx) {
+               if (idx === 0) {
+                 return '<div class="profile-field" style="grid-column:1/-1;display:flex;justify-content:center;">' + (f.valueHtml || '-') + '</div>';
+               }
+               return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(f.label) + '</span><span class="profile-field-value">' + (f.valueHtml ? f.valueHtml : escapeHtml(f.value || '-')) + '</span></div>';
+             }).join('') +
+             '<div class="profile-field" style="grid-column:1/-1;">' +
+               '<span class="profile-field-label">CRUD</span>' +
+               '<span class="profile-field-value" style="display:block;">' + crudHtml + '</span>' +
+             '</div>' +
+             '</div>' +
+             '</div>';
+
+           var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
+
+           var moreHtml = '<div class="profile-section">' +
+             '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-clipboard-list"></i> Data Lengkap</h4>' +
+             '<div class="profile-info-grid">' +
+             [
+               ['No. Pengajuan', '<code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number || '-') + '</code>'],
+               ['Tanggal Pengajuan', escapeHtml(app.timestamp ? new Date(app.timestamp).toLocaleDateString('id-ID') : '-')],
+               ['Tempat Lahir', escapeHtml(app.tempat_lahir || '-')],
+               ['Tanggal Lahir', escapeHtml(app.tanggal_lahir || '-')],
+               ['No. HP', escapeHtml(app.phone || '-')],
+               ['No. WhatsApp', escapeHtml(app.whatsapp || '-')],
+               ['Email', escapeHtml(app.email || '-')],
+               ['Alamat Domisili', escapeHtml(app.alamat_domisili || '-')],
+               ['Lama Domisili', escapeHtml(app.lama_domisili || '-')],
+               ['Status Pekerjaan', escapeHtml(app.status_pekerjaan || '-')],
+               ['Kondisi Pemohon', escapeHtml(app.kondisi_pemohon || '-')],
+               ['Keterangan', escapeHtml(app.keterangan || '-')],
+               ['Unit Kerja', escapeHtml(app.unit_kerja || '-')],
+               ['Rencana Tahun', escapeHtml(app.rencana_tahun || '-')],
+               ['Link Dokumen', app.document_links ? ('<div style="background:var(--gray-50);padding:1rem;border-radius:10px;border-left:4px solid var(--primary);">' + formatDocumentLinks(app.document_links) + '</div>') : '-'],
+               ['Applicant Folder ID', app.folder_id ? '<a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a>' : '-'],
+               ['Dibuat Pada', escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-')],
+               ['Diperbarui', escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-')]
+             ].map(function(x) {
+               return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(x[0]) + '</span><span class="profile-field-value">' + (x[1] || '-') + '</span></div>';
+             }).join('') +
+             '</div>' +
+             '</div>';
+
+var html = '<div class="profile-popup-modern" style="width:100vw;max-width:none;height:100vh;max-height:none;">' +
+              '<div class="sticky-header profile-section" style="position:sticky;top:0;background:rgba(255,255,255,0.9);">' +
+                '<div class="profile-header" style="margin-bottom:0;">' +
+                  '<div>' +
+                    '<h3 style="margin:0;color:var(--primary);"><i class="fas fa-user-cog"></i> Profil Pengaju (Full)</h3>' +
+                    '<div class="text-muted" style="font-size:0.875rem;margin-top:0.25rem;">ID: ' + escapeHtml(app.id || '-') + '</div>' +
+                  '</div>' +
+                  '<div class="flex gap-2" style="align-items:center;">' +
+                    downloadBtn +
+                    '<button class="btn btn-outline" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+              dataOrderHtml +
+              moreHtml +
+              '</div>';
+
+            showModal('Profil Pengaju (ID: ' + app.id + ')', html);
           }
-
-          var fields = [
-            {label: 'Foto', valueHtml: fotoHtml},
-            {label: 'NIK', value: app.nik || '-'},
-            {label: 'Nama Lengkap', value: app.full_name || '-'},
-            {label: 'Alamat KTP', value: app.alamat_ktp || '-'},
-            {label: 'Jurusan Tujuan', value: app.jurusan_tujuan || '-'},
-            {label: 'Jenis Pendidikan', value: app.jenis_pendidikan || '-'},
-            {label: 'Unit Tujuan', value: app.unit_tujuan || '-'},
-            {label: 'Status', valueHtml: '<span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span>'},
-            {label: 'Catatan Admin', value: app.admin_notes || '-'}
-          ];
-
-          var crudHtml = [
-            '<div class="flex gap-2 mt-2" style="flex-wrap:wrap;">',
-            '<button class="btn btn-primary btn-sm" onclick="approveApplication(' + app.id + ')"><i class="fas fa-check"></i> Setujui</button>',
-            '<button class="btn btn-warning btn-sm" onclick="editApplication(' + quoteForOnclick(app.id) + ')"><i class="fas fa-edit"></i> Edit</button>',
-            '<button class="btn btn-danger btn-sm" onclick="rejectApplication(' + app.id + ')"><i class="fas fa-times"></i> Tolak</button>',
-            '<button class="btn btn-outline btn-sm" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>',
-            '</div>'
-          ].join('');
-
-          var dataOrderHtml = '<div class="profile-section" style="padding:1.25rem;border-top:1px solid var(--gray-200);">' +
-            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-layer-group"></i> Data (sesuai urutan)</h4>' +
-            '<div class="profile-info-grid">' +
-            fields.map(function(f, idx) {
-              if (idx === 0) {
-                return '<div class="profile-field" style="grid-column:1/-1;display:flex;justify-content:center;">' + (f.valueHtml || '-') + '</div>';
-              }
-              return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(f.label) + '</span><span class="profile-field-value">' + (f.valueHtml ? f.valueHtml : escapeHtml(f.value || '-')) + '</span></div>';
-            }).join('') +
-            '<div class="profile-field" style="grid-column:1/-1;">' +
-              '<span class="profile-field-label">CRUD</span>' +
-              '<span class="profile-field-value" style="display:block;">' + crudHtml + '</span>' +
-            '</div>' +
-            '</div>' +
-            '</div>';
-
-          var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
-
-          var moreHtml = '<div class="profile-section">' +
-            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-clipboard-list"></i> Data Lengkap</h4>' +
-            '<div class="profile-info-grid">' +
-            [
-              ['No. Pengajuan', '<code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number || '-') + '</code>'],
-              ['Tanggal Pengajuan', escapeHtml(app.timestamp ? new Date(app.timestamp).toLocaleDateString('id-ID') : '-')],
-              ['Tempat Lahir', escapeHtml(app.tempat_lahir || '-')],
-              ['Tanggal Lahir', escapeHtml(app.tanggal_lahir || '-')],
-              ['No. HP', escapeHtml(app.phone || '-')],
-              ['No. WhatsApp', escapeHtml(app.whatsapp || '-')],
-              ['Email', escapeHtml(app.email || '-')],
-              ['Alamat Domisili', escapeHtml(app.alamat_domisili || '-')],
-              ['Lama Domisili', escapeHtml(app.lama_domisili || '-')],
-              ['Status Pekerjaan', escapeHtml(app.status_pekerjaan || '-')],
-              ['Kondisi Pemohon', escapeHtml(app.kondisi_pemohon || '-')],
-              ['Keterangan', escapeHtml(app.keterangan || '-')],
-              ['Unit Kerja', escapeHtml(app.unit_kerja || '-')],
-              ['Rencana Tahun', escapeHtml(app.rencana_tahun || '-')],
-              ['Link Dokumen', app.document_links ? ('<div style="background:var(--gray-50);padding:1rem;border-radius:10px;border-left:4px solid var(--primary);">' + formatDocumentLinks(app.document_links) + '</div>') : '-'],
-              ['Applicant Folder ID', app.folder_id ? '<a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a>' : '-'],
-              ['Dibuat Pada', escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-')],
-              ['Diperbarui', escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-')]
-            ].map(function(x) {
-              return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(x[0]) + '</span><span class="profile-field-value">' + (x[1] || '-') + '</span></div>';
-            }).join('') +
-            '</div>' +
-            '</div>';
-
-          var html = '<div class="profile-popup-modern" style="width:100vw;max-width:none;height:100vh;max-height:none;">' +
-            '<div class="sticky-header profile-section" style="position:sticky;top:0;background:rgba(255,255,255,0.9);">' +
-              '<div class="profile-header" style="margin-bottom:0;">' +
-                '<div>' +
-                  '<h3 style="margin:0;color:var(--primary);"><i class="fas fa-user-cog"></i> Profil Pengaju (Full)</h3>' +
-                  '<div class="text-muted" style="font-size:0.875rem;margin-top:0.25rem;">ID: ' + escapeHtml(app.id || '-') + '</div>' +
-                '</div>' +
-                '<div class="flex gap-2" style="align-items:center;">' +
-                  downloadBtn +
-                  '<button class="btn btn-outline" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-            dataOrderHtml +
-            moreHtml +
-            '</div>';
-
-          showModal('Profil Pengaju (ID: ' + app.id + ')', html);
-        }
-      });
-    }
-              return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(f.label) + '</span><span class="profile-field-value">' + (f.valueHtml ? f.valueHtml : escapeHtml(f.value || '-')) + '</span></div>';
-            }).join('') +
-            '<div class="profile-field" style="grid-column:1/-1;">' +
-              '<span class="profile-field-label">CRUD</span>' +
-              '<span class="profile-field-value" style="display:block;">' + crudHtml + '</span>' +
-            '</div>' +
-            '</div>' +
-            '</div>';
-
-          var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="btn btn-success btn-block" onclick="downloadRekomendasi(' + id + ')"><i class="fas fa-download"></i> Download Surat Rekomendasi</button></div>' : '';
-
-          var moreHtml = '<div class="profile-section">' +
-            '<h4 class="mb-3" style="color:var(--primary);"><i class="fas fa-clipboard-list"></i> Data Lengkap</h4>' +
-            '<div class="profile-info-grid">' +
-            [
-              ['No. Pengajuan', '<code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number || '-') + '</code>'],
-              ['Tanggal Pengajuan', escapeHtml(app.timestamp ? new Date(app.timestamp).toLocaleDateString('id-ID') : '-'), true],
-              ['Tempat Lahir', escapeHtml(app.tempat_lahir || '-')],
-              ['Tanggal Lahir', escapeHtml(app.tanggal_lahir || '-')],
-              ['No. HP', escapeHtml(app.phone || '-')],
-              ['No. WhatsApp', escapeHtml(app.whatsapp || '-')],
-              ['Email', escapeHtml(app.email || '-')],
-              ['Alamat Domisili', escapeHtml(app.alamat_domisili || '-')],
-              ['Lama Domisili', escapeHtml(app.lama_domisili || '-')],
-              ['Status Pekerjaan', escapeHtml(app.status_pekerjaan || '-')],
-              ['Kondisi Pemohon', escapeHtml(app.kondisi_pemohon || '-')],
-              ['Keterangan', escapeHtml(app.keterangan || '-')],
-              ['Unit Kerja', escapeHtml(app.unit_kerja || '-')],
-              ['Rencana Tahun', escapeHtml(app.rencana_tahun || '-')],
-              ['Link Dokumen', app.document_links ? ('<div style="background:var(--gray-50);padding:1rem;border-radius:10px;border-left:4px solid var(--primary);">' + formatDocumentLinks(app.document_links) + '</div>') : '-'],
-              ['Applicant Folder ID', app.folder_id ? '<a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a>' : '-'],
-              ['Dibuat Pada', escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-')],
-              ['Diperbarui', escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-')]
-            ].map(function(x) {
-              return '<div class="profile-field"><span class="profile-field-label">' + escapeHtml(x[0]) + '</span><span class="profile-field-value">' + (x[1] || '-') + '</span></div>';
-            }).join('') +
-            '</div>' +
-            '</div>';
-
-          var html = '<div class="profile-popup-modern" style="width:100vw;max-width:none;height:100vh;max-height:none;">' +
-            '<div class="sticky-header profile-section" style="position:sticky;top:0;background:rgba(255,255,255,0.9);">' +
-              '<div class="profile-header" style="margin-bottom:0;">' +
-                '<div>' +
-                  '<h3 style="margin:0;color:var(--primary);"><i class="fas fa-user-cog"></i> Profil Pengaju (Full)</h3>' +
-                  '<div class="text-muted" style="font-size:0.875rem;margin-top:0.25rem;">ID: ' + escapeHtml(app.id || '-') + '</div>' +
-                '</div>' +
-                '<div class="flex gap-2" style="align-items:center;">' +
-                  downloadBtn +
-                  '<button class="btn btn-outline" onclick="closeModal()"><i class="fas fa-times"></i> Tutup</button>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-            dataOrderHtml +
-            moreHtml +
-            '</div>';
-
-          showModal('Profil Pengaju (ID: ' + app.id + ')', html);
-        }
-      });
-    }
-     </script>
-   </body>
- </html>
+        });
+      }
+    </script>
+  </body>
+</html>
