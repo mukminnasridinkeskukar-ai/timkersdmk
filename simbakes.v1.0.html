@@ -274,46 +274,23 @@
     }
 
     function getFotoUrlForRender(app) {
-      // Back-end sudah kirim: app.foto_url + app.foto_url_fallback (url siap render)
-      if (!app) return {primary: '', fallback: '', sources: []};
-      var p = (app.foto_url || '').toString().trim();
-      var f = (app.foto_url_fallback || '').toString().trim();
-      
-      // Build multiple URL sources for robust photo loading
-      function buildUrlSources(url) {
-        if (!url) return [];
-        var sources = [];
-        var cleanUrl = url.trim();
-        
-        // Pattern 1: Already a google drive URL
-        if (cleanUrl.indexOf('drive.google.com') !== -1) {
-          sources.push(cleanUrl);
-          // Add thumbnail version
-          var fileId = cleanUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-          if (fileId && fileId[1]) {
-            sources.push('https://drive.google.com/uc?export=view&id=' + fileId[1]);
-            sources.push('https://drive.google.com/thumbnail?id=' + fileId[1] + '&sz=w800');
-          }
-        } else if (cleanUrl.indexOf('lh3.googleusercontent.com') !== -1) {
-          sources.push(cleanUrl);
-        } else if (cleanUrl.indexOf('http') === 0) {
-          sources.push(cleanUrl);
-        } else {
-          // Treat as raw file ID
-          sources.push('https://drive.google.com/uc?export=view&id=' + cleanUrl);
-          sources.push('https://drive.google.com/thumbnail?id=' + cleanUrl + '&sz=w800');
-        }
-        return [...new Set(sources)]; // Remove duplicates
-      }
-      
-      var primarySources = buildUrlSources(p);
-      var fallbackSources = f ? buildUrlSources(f) : [];
-      var allSources = [...primarySources, ...fallbackSources];
-      
+      if (!app) return {primary: '', sources: []};
+      var raw = (app.foto_url || '').toString().trim();
+      if (!raw) return {primary: '', sources: []};
+
+      // Extract file ID if possible
+      var fileIdMatch = raw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || 
+                        raw.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+                        raw.match(/([a-zA-Z0-9_-]{25,})/);
+      var fileId = fileIdMatch ? fileIdMatch[1] : raw;
+
+      // Best direct view URL for <img>
+      var primary = 'https://drive.google.com/uc?export=view&id=' + fileId;
+      var thumb = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+
       return {
-        primary: primarySources[0] || '',
-        fallback: fallbackSources[0] || '',
-        sources: allSources
+        primary: primary,
+        sources: [primary, thumb]
       };
     }
     </script>
@@ -321,7 +298,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbyc8TwpEkV7FHLMMXJzNNQB14cfmymAEnN4iUOJEPcGSwFTm-066JXD9wGueyXdy74T/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbzIXtohpr1q7o3RxN9hCqNNxuyHfU2EkfAE-V6Bf9bV5VyWIkC3PTrqfTXdoTEH89iJ/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -925,14 +902,11 @@ function renderAdminTable(apps) {
         // HTML aman untuk thumbnail (tanpa multi-source array/logic kompleks di atribut)
         var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
 
-        var fotoHtml = '';
-        if (fotoSources.length > 0 && fotoSrc) {
-          fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
+        var fotoHtml = fotoSrc 
+          ? '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
             'onclick="showFullScreenImage(\'' + escapeHtml(fotoSrc) + '\')" ' +
-            'onerror="this.onerror=null;this.src=\'' + placeholderImg + '\';">';
-        } else {
-          fotoHtml = '<span class="text-muted"><i class="fas fa-image"></i></span>';
-        }
+            'onerror="this.onerror=null;this.src=\'https://via.placeholder.com/40x40?text=No+Foto\';">'
+          : '<span class="text-muted"><i class="fas fa-image"></i></span>';
 
         return '<tr>' +
           '<td>' + fotoHtml + '</td>' +
@@ -1166,12 +1140,9 @@ var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
              // Build foto HTML with multiple fallback sources
-              var fotoImg;
-             if (fotoSources.length > 0) {
-               fotoImg = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;cursor:pointer;" onerror="this.onerror=null;this.src=\'' + placeholderImg + '\';" onclick="showFullScreenImage(this.src)">';
-             } else {
-               fotoImg = '<img src="' + placeholderImg + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;">';
-             }
+              var fotoImg = fotoSrc 
+                ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;cursor:pointer;" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/200x250?text=No+Image\';" onclick="showFullScreenImage(this.src)">'
+                : '<img src="https://via.placeholder.com/200x250?text=No+Image" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;">';
           
           var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user"></i> Profil Pengaju Beasiswa ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
             '<div class="p-4">' +
@@ -1601,12 +1572,9 @@ var fotoSrc = fotoU.primary;
              var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
-              var fotoImg;
-             if (fotoSources.length > 0) {
-               fotoImg = '<div style="text-align:center;margin-bottom:1rem;"><img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:0.5rem;cursor:pointer;" onerror="this.onerror=null;this.src=\'' + placeholderImg + '\';" onclick="showFullScreenImage(this.src)"><p style="color:var(--success);font-size:0.875rem;"><i class="fas fa-check-circle"></i> Foto tersedia</p></div>';
-             } else {
-               fotoImg = '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);"><i class="fas fa-image" style="font-size:4rem;color:var(--gray-500);"></i><p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
-             }
+               var fotoImg = fotoSrc 
+                ? '<div style="text-align:center;margin-bottom:1rem;"><img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:0.5rem;cursor:pointer;" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/200x250?text=No+Image\';" onclick="showFullScreenImage(this.src)"><p style="color:var(--success);font-size:0.875rem;"><i class="fas fa-check-circle"></i> Foto tersedia</p></div>'
+                : '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);"><i class="fas fa-image" style="font-size:4rem;color:var(--gray-500);"></i><p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
             var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user-cog"></i> Detail Pengajuan ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
              '<div class="p-4">' +
              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:2rem;">' +
@@ -2048,12 +2016,9 @@ var fotoU = getFotoUrlForRender(app);
             var fotoSources = fotoU.sources || [];
             var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
             
-            var fotoHtml;
-            if (fotoSources.length > 0) {
-              fotoHtml = '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="this.onerror=null;this.src=\'' + placeholderImg + '\';" />';
-            } else {
-             fotoHtml = '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
-           }
+            var fotoHtml = fotoSrc 
+              ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(this.src)" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/220x280?text=No+Image\';">'
+              : '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
 
            var fields = [
              {label: 'Foto', valueHtml: fotoHtml},
