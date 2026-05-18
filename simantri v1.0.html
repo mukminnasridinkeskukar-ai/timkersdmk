@@ -207,9 +207,6 @@ tbody tr:hover { background: var(--light); }
       <a class="menu-item" onclick="showPage('profil')">
         <i class="fas fa-user-md"></i><span>Cek Profil</span>
       </a>
-      <a class="menu-item" onclick="showPage('verval')">
-        <i class="fas fa-clipboard-check"></i><span>Verval</span>
-      </a>
       <a class="menu-item" onclick="showPage('izin')">
         <i class="fas fa-file-alt"></i><span>Cek Proses Izin</span>
       </a>
@@ -217,26 +214,29 @@ tbody tr:hover { background: var(--light); }
         <i class="fas fa-bullhorn"></i><span>Dinding Informasi</span>
       </a>
       
-      <!-- Admin Menu -->
-      <div id="adminMenu" style="display:none;">
-        <hr style="margin:15px 20px; border-color: rgba(255,255,255,0.2);">
-        <a class="menu-item" onclick="showPage('admin-users')">
-          <i class="fas fa-users-cog"></i><span>Kelola Users</span>
-        </a>
-        <a class="menu-item" onclick="showPage('admin-verval')">
-          <i class="fas fa-database"></i><span>Kelola Verval</span>
-        </a>
-        <a class="menu-item" onclick="showPage('admin-profil')">
-          <i class="fas fa-id-card"></i><span>Kelola Profil</span>
-        </a>
-        <a class="menu-item" onclick="showPage('admin-izin')">
-          <i class="fas fa-folder-open"></i><span>Kelola Izin</span>
-        </a>
-      </div>
-      
       <a class="menu-item" onclick="logout()">
         <i class="fas fa-sign-out-alt"></i><span>Logout</span>
       </a>
+      
+      <!-- Menu Admin (paling bawah, hanya muncul setelah login) -->
+      <div id="adminMenu" style="display:none; margin-top: 20px;">
+        <hr style="margin: 10px 20px; border-color: rgba(255,255,255,0.3);">
+        <div style="padding: 8px 20px; color: #fff; font-size: 12px; font-weight: 600; opacity: 0.7;">
+          <i class="fas fa-shield-alt"></i> MENU ADMIN
+        </div>
+        <a class="menu-item" onclick="showPage('admin-verval')">
+          <i class="fas fa-clipboard-check"></i><span>Verval</span>
+        </a>
+        <a class="menu-item" onclick="showPage('admin-profil-sdmk')">
+          <i class="fas fa-id-card"></i><span>Profil SDMK</span>
+        </a>
+        <a class="menu-item" onclick="showPage('admin-perizinan')">
+          <i class="fas fa-folder-open"></i><span>Data Perizinan</span>
+        </a>
+        <a class="menu-item" onclick="showPage('admin-users')">
+          <i class="fas fa-users-cog"></i><span>Kelola Users</span>
+        </a>
+      </div>
     </div>
   </nav>
 
@@ -433,6 +433,44 @@ tbody tr:hover { background: var(--light); }
         </div>
       </div>
 
+      <!-- ADMIN - PROFIL SDMK -->
+      <div id="admin-profil-sdmkPage" style="display:none;">
+        <div class="card">
+          <button class="btn btn-primary" onclick="openProfilSDMKForm()">
+            <i class="fas fa-plus"></i> Tambah Profil SDMK
+          </button>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr><th>NIK</th><th>Nama</th><th>Profesi</th><th>Unit Kerja</th><th>Status</th><th>Aksi</th></tr>
+              </thead>
+              <tbody id="tabelProfilSDMK"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADMIN - DATA PERIZINAN -->
+      <div id="admin-perizinanPage" style="display:none;">
+        <div class="card">
+          <button class="btn btn-primary" onclick="openPerizinanForm()">
+            <i class="fas fa-plus"></i> Tambah Data Perizinan
+          </button>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr><th>Tanggal</th><th>NIK</th><th>Nama</th><th>Jenis Izin</th><th>Status</th><th>Aksi</th></tr>
+              </thead>
+              <tbody id="tabelPerizinan"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -554,11 +592,12 @@ function showPage(page) {
   const titles = {
     'dashboard': 'Dashboard',
     'profil': 'Cek Profil',
-    'verval': 'Verval',
     'izin': 'Cek Proses Izin',
     'informasi': 'Dinding Informasi',
     'admin-users': 'Kelola Users',
-    'admin-verval': 'Kelola Verval',
+    'admin-verval': 'Verval',
+    'admin-profil-sdmk': 'Profil SDMK',
+    'admin-perizinan': 'Data Perizinan',
     'admin-profil': 'Kelola Profil',
     'admin-izin': 'Kelola Izin'
   };
@@ -570,7 +609,9 @@ function showPage(page) {
   if (page === 'izin') loadIzin();
   if (page === 'informasi') loadInformasi();
   if (page === 'admin-users') loadAdminUsers();
-  if (page === 'admin-verval') loadAdminVerval();
+  if (page === 'admin-verval') loadVerval();
+  if (page === 'admin-profil-sdmk') loadProfilSDMK();
+  if (page === 'admin-perizinan') loadPerizinan();
   if (page === 'admin-profil') loadAdminProfil();
   if (page === 'admin-izin') loadAdminIzin();
 }
@@ -1053,6 +1094,155 @@ function openProfilForm() {
 // ==================== UTILITY ====================
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
+}
+
+// ==================== ADMIN - PROFIL SDMK ====================
+function loadProfilSDMK() {
+  google.script.run.withSuccessHandler(function(res) {
+    if (res.success) {
+      let html = '';
+      res.data.forEach(d => {
+        html += `
+          <tr>
+            <td>${d.NIK || ''}</td>
+            <td>${d['Nama Lengkap'] || ''}</td>
+            <td>${d.Profesi || ''}</td>
+            <td>${d['Unit Kerja'] || ''}</td>
+            <td><span class="status-badge status-disetujui">${d['Status Praktik'] || 'Aktif'}</span></td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="editProfilSDMK('${d.NIK}')"><i class="fas fa-edit"></i></button>
+              <button class="btn btn-danger btn-sm" onclick="deleteProfilSDMK('${d.NIK}')"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>
+        `;
+      });
+      document.getElementById('tabelProfilSDMK').innerHTML = html;
+    }
+  }).getProfil();
+}
+
+function openProfilSDMKForm() {
+  const html = `
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">NIK</label><input type="text" id="psNIK" class="form-control" maxlength="16"></div>
+      <div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" id="psNama" class="form-control"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Profesi</label>
+        <select id="psProfesi" class="form-control"><option>Dokter</option><option>Perawat</option><option>Bidan</option><option>Apoteker</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Unit Kerja</label><input type="text" id="psUnit" class="form-control"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Alamat Praktik</label><input type="text" id="psAlamat" class="form-control"></div>
+  `;
+  
+  document.getElementById('modalTitle').textContent = 'Tambah Profil SDMK';
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn btn-outline" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="saveProfilSDMK()">Simpan</button>
+  `;
+  document.getElementById('modal').classList.add('active');
+}
+
+function saveProfilSDMK() {
+  const data = {
+    NIK: document.getElementById('psNIK').value,
+    'Nama Lengkap': document.getElementById('psNama').value,
+    Profesi: document.getElementById('psProfesi').value,
+    'Unit Kerja': document.getElementById('psUnit').value,
+    'Alamat Praktik': document.getElementById('psAlamat').value,
+    'Status Praktik': 'Aktif'
+  };
+  
+  google.script.run.withSuccessHandler(function(res) {
+    if (res.success) {
+      showToast('Profil SDMK berhasil disimpan', 'success');
+      closeModal();
+      loadProfilSDMK();
+    }
+  }).saveVerval(data); // reuse saveVerval atau buat fungsi baru jika perlu
+}
+
+// ==================== ADMIN - DATA PERIZINAN ====================
+function loadPerizinan() {
+  google.script.run.withSuccessHandler(function(res) {
+    if (res.success) {
+      let html = '';
+      res.data.forEach(d => {
+        html += `
+          <tr>
+            <td>${d.Timestamp || ''}</td>
+            <td>${d.NIK || ''}</td>
+            <td>${d['Nama Lengkap'] || ''}</td>
+            <td>${d['Jenis Izin'] || ''}</td>
+            <td><span class="status-badge status-${(d.Status || 'menunggu').toLowerCase()}">${d.Status || 'Menunggu'}</span></td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="editPerizinan('${d.NIK}')"><i class="fas fa-edit"></i></button>
+              <button class="btn btn-danger btn-sm" onclick="deletePerizinan('${d.NIK}')"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>
+        `;
+      });
+      document.getElementById('tabelPerizinan').innerHTML = html;
+    }
+  }).getIzin();
+}
+
+function openPerizinanForm() {
+  const html = `
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">NIK</label><input type="text" id="pNIK" class="form-control" maxlength="16"></div>
+      <div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" id="pNama" class="form-control"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Jenis Izin</label><input type="text" id="pJenis" class="form-control"></div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select id="pStatus" class="form-control">
+          <option>Menunggu</option><option>Verifikasi</option><option>Revisi</option>
+          <option>Disetujui</option><option>Ditolak</option><option>Terbit</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Catatan</label><textarea id="pCatatan" class="form-control" rows="3"></textarea></div>
+  `;
+  
+  document.getElementById('modalTitle').textContent = 'Tambah Data Perizinan';
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn btn-outline" onclick="closeModal()">Batal</button>
+    <button class="btn btn-primary" onclick="savePerizinan()">Simpan</button>
+  `;
+  document.getElementById('modal').classList.add('active');
+}
+
+function savePerizinan() {
+  const data = {
+    Timestamp: new Date().toISOString(),
+    NIK: document.getElementById('pNIK').value,
+    'Nama Lengkap': document.getElementById('pNama').value,
+    'Jenis Izin': document.getElementById('pJenis').value,
+    Status: document.getElementById('pStatus').value,
+    Progress: '50',
+    Catatan: document.getElementById('pCatatan').value
+  };
+  
+  google.script.run.withSuccessHandler(function(res) {
+    if (res.success) {
+      showToast('Data Perizinan berhasil disimpan', 'success');
+      closeModal();
+      loadPerizinan();
+    }
+  }).saveVerval(data);
+}
+
+function editPerizinan(nik) {
+  openPerizinanForm();
+}
+function deletePerizinan(nik) {
+  if (!confirm('Hapus data perizinan ini?')) return;
+  showToast('Data dihapus', 'success');
+  loadPerizinan();
 }
 </script>
 </body>
