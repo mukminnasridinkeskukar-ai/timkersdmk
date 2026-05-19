@@ -204,7 +204,8 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
       <div class="glass card"><h3>Total Verval</h3><div class="counter" id="admin-total-verval">0</div></div>
       <div class="glass card"><h3>Total Profil</h3><div class="counter" id="admin-total-profil">0</div></div>
     </div>
-    <div class="glass card"><canvas id="admin-chart" height="80"></canvas></div>
+    <div id="admin-sheets-container"></div>
+    <div class="glass card" style="margin-top:24px;"><canvas id="admin-chart" height="80"></canvas></div>
   </div>
   
   <div id="admin-verval" class="page">
@@ -320,7 +321,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxGn8BGY-KMnppJmxiJAvezdbytZMETfAkIRpFIdWGIqK8zZ_4_22QLeiUyaCt3V9Lf/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx6M2ZH6ZqzSduB5kH8qhwW7NxD-gIMMGXu4-HdmRn72HeQiZGfV5jGWKY4LmR_94WC/exec";
 const DEMO_MODE = true;
 
 const demoData = {
@@ -330,6 +331,12 @@ const demoData = {
   ],
   getProfil: [],
   getVerval: [],
+  getAllSheetsData: {
+    "Profil SDMK": { rowCount: 0, colCount: 7 },
+    "Verval Izin Praktik": { rowCount: 0, colCount: 25 },
+    "Informasi": { rowCount: 1, colCount: 3 },
+    "Users": { rowCount: 1, colCount: 5 }
+  },
   login: { success: true, user: { username: "admin", role: "admin", nama: "Administrator" } }
 };
 
@@ -650,12 +657,28 @@ function logout() {
 
 async function loadAdminDashboard() {
   try {
-    const [verval, profil] = await Promise.all([
+    const [verval, profil, sheetsData] = await Promise.all([
       callGAS('getVerval'),
-      callGAS('getProfil')
+      callGAS('getProfil'),
+      callGAS('getAllSheetsData')
     ]);
     document.getElementById('admin-total-verval').innerHTML = verval.length;
     document.getElementById('admin-total-profil').innerHTML = profil.length;
+    
+    const sheetsContainer = document.getElementById('admin-sheets-container');
+    if (sheetsContainer && sheetsData) {
+      let html = '<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-top:24px;">';
+      for (const [sheetName, info] of Object.entries(sheetsData)) {
+        html += `
+          <div class="glass card" style="padding:16px;">
+            <h4 style="color:#00d4ff; margin-bottom:8px;">${sheetName}</h4>
+            <div style="font-size:14px; opacity:0.8;">${info.rowCount} baris, ${info.colCount} kolom</div>
+          </div>
+        `;
+      }
+      html += '</div>';
+      sheetsContainer.innerHTML = html;
+    }
   } catch(e) {
     console.error(e);
   }
