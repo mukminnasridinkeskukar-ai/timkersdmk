@@ -232,12 +232,25 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
   </div>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzfndTRJN42BR7NcJcpV7BL7IqKOy2lmC8dQosGVcIaWH26VduF7hPTVbpdylbFCp1s/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzCRYnO-gcddcqBQ13XSNVmHBOMAym3Iq0EYEuGpCWty0rt_6cTcHpi8v11zUE8Cx5a/exec";
+
+async function callGAS(action, payload = {}) {
+  const url = new URL(WEB_APP_URL);
+  url.searchParams.set("action", action);
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
 let currentUser = null;
 let charts = {};
 
@@ -280,7 +293,7 @@ function animateCounter(id, target) {
 
 async function refreshDashboard() {
   try {
-    const data = await google.script.run.withSuccessHandler(res => res).getDashboardData();
+    const data = await callGAS('getDashboardData');
     animateCounter('total-sdmk', data.totalSDMK || 1247);
     animateCounter('total-sip', data.totalSIP || 986);
     animateCounter('total-mandiri', data.totalMandiri || 312);
@@ -307,7 +320,7 @@ async function loadInformasi() {
   const container = document.getElementById('info-container');
   container.innerHTML = '<div class="glass card">Memuat informasi...</div>';
   
-  const data = await google.script.run.withSuccessHandler(d => d).getInformasi();
+  const data = await callGAS('getInformasi');
   container.innerHTML = '';
   
   data.forEach(item => {
@@ -337,7 +350,7 @@ function closeModal() {
 async function loadProfil() {
   const tbody = document.getElementById('profil-tbody');
   tbody.innerHTML = '';
-  const data = await google.script.run.withSuccessHandler(d => d).getProfil();
+  const data = await callGAS('getProfil');
   
   data.forEach(p => {
     const tr = document.createElement('tr');
@@ -397,11 +410,10 @@ async function submitVerval(e) {
   btn.disabled = true;
   
   try {
-    await google.script.run.withSuccessHandler(() => {
-      Swal.fire({icon:'success', title:'Data Tersimpan!', text:'Data verval berhasil dikirim ke sistem.', timer:2200});
-      form.reset();
-      showToast('Data berhasil disimpan ke Google Sheet');
-    }).saveVerval(data);
+    await callGAS('saveVerval', data);
+    Swal.fire({icon:'success', title:'Data Tersimpan!', text:'Data verval berhasil dikirim ke sistem.', timer:2200});
+    form.reset();
+    showToast('Data berhasil disimpan ke Google Sheet');
   } catch(err) {
     Swal.fire({icon:'error', title:'Gagal', text:'Terjadi kesalahan saat menyimpan.'});
   } finally {
@@ -422,7 +434,7 @@ async function cekIzinPraktik() {
   resultDiv.style.display = 'block';
   resultDiv.innerHTML = '<div class="glass card">Mencari data...</div>';
   
-  const data = await google.script.run.withSuccessHandler(d => d).cekIzin(nik);
+  const data = await callGAS('cekIzin', { nik });
   
   if (!data || !data.nama) {
     resultDiv.innerHTML = `<div class="glass card" style="text-align:center; padding:40px;"><i class="fas fa-search fa-3x" style="opacity:0.3"></i><h3 style="margin-top:16px;">Data tidak ditemukan</h3></div>`;
@@ -450,7 +462,7 @@ async function loginAdmin(e) {
   const username = document.getElementById('login-username').value;
   const password = document.getElementById('login-password').value;
   
-  const res = await google.script.run.withSuccessHandler(r => r).login(username, password);
+  const res = await callGAS('login', { username, password });
   if (res.success) {
     currentUser = res.user;
     document.getElementById('login-modal').style.display = 'none';
@@ -471,7 +483,7 @@ function logout() {
 }
 
 async function loadAdminDashboard() {
-  const verval = await google.script.run.withSuccessHandler(d => d).getVerval();
+  const verval = await callGAS('getVerval');
   document.getElementById('admin-total-verval').innerHTML = verval.length;
   // Add more stats & chart
 }
@@ -479,7 +491,7 @@ async function loadAdminDashboard() {
 async function loadAdminVerval() {
   const tbody = document.getElementById('admin-verval-tbody');
   tbody.innerHTML = '';
-  const data = await google.script.run.withSuccessHandler(d => d).getVerval();
+  const data = await callGAS('getVerval');
   data.forEach(row => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${row.nik}</td><td>${row.nama}</td><td>${row.sip}</td><td>${row.unitKerja}</td><td>Aktif</td>
