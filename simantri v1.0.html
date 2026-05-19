@@ -1,770 +1,229 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SIMANTRI v1.0 | Sistem Informasi dan Manajemen Praktik Tenaga Medis</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-<style>
-:root {
-  --navy: #0a2540;
-  --cyan: #00d4ff;
-  --white: #ffffff;
-  --glass: rgba(255,255,255,0.15);
-  --dark-glass: rgba(10,37,64,0.85);
-}
-body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: linear-gradient(135deg, #0a2540 0%, #001f3f 100%); color:#fff; overflow-x:hidden; }
-.glass { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-.sidebar { position:fixed; left:0; top:0; height:100vh; width:280px; background: var(--dark-glass); z-index:1000; transition:all 0.4s cubic-bezier(0.4,0,0.2,1); border-right:1px solid rgba(0,212,255,0.2); }
-.sidebar.collapsed { width:80px; }
-.sidebar-header { padding:24px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.1); }
-.logo { font-size:28px; font-weight:800; background: linear-gradient(90deg,#00d4ff,#fff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-.nav-link { display:flex; align-items:center; gap:16px; padding:16px 24px; color:rgba(255,255,255,0.85); text-decoration:none; transition:all 0.3s; border-radius:12px; margin:4px 16px; }
-.nav-link:hover, .nav-link.active { background:rgba(0,212,255,0.15); color:#00d4ff; transform:translateX(8px); }
-.nav-link i { width:24px; text-align:center; font-size:18px; }
-.admin-panel { 
-  background: linear-gradient(135deg, #1a3a5c, #0a2540); 
-  border-top: 3px solid #00d4ff; 
-  border-bottom: 1px solid rgba(0,212,255,0.3);
-  margin-top: 24px;
-  padding-top: 16px;
-}
-.main-content { margin-left:280px; padding:32px; transition:all 0.4s; min-height:100vh; }
-.main-content.expanded { margin-left:80px; }
-.page { display:none; animation:fadeIn 0.5s ease; }
-.page.active { display:block; }
-@keyframes fadeIn { from {opacity:0; transform:translateY(20px);} to {opacity:1; transform:translateY(0);} }
-.card { padding:28px; margin-bottom:24px; transition:transform 0.3s, box-shadow 0.3s; }
-.card:hover { transform:translateY(-8px); box-shadow:0 20px 40px rgba(0,0,0,0.4); }
-.counter { font-size:42px; font-weight:800; color:#00d4ff; }
-.table { width:100%; border-collapse:collapse; }
-.table th, .table td { padding:16px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.1); }
-.modal { position:fixed; inset:0; background:rgba(0,0,0,0.85); display:none; align-items:center; justify-content:center; z-index:2000; }
-.modal-content { width:95%; max-width:900px; max-height:90vh; overflow-y:auto; padding:32px; }
-.toast { position:fixed; bottom:32px; right:32px; padding:16px 28px; border-radius:16px; background:#00d4ff; color:#0a2540; font-weight:600; box-shadow:0 10px 30px rgba(0,212,255,0.4); z-index:3000; animation:slideUp 0.4s ease; }
-.floating-btn { position:fixed; bottom:32px; right:32px; width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,#00d4ff,#0a2540); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 25px rgba(0,212,255,0.5); cursor:pointer; z-index:1500; transition:transform 0.3s; }
-.floating-btn:hover { transform:scale(1.1); }
-.loading-screen { position:fixed; inset:0; background:#0a2540; display:flex; align-items:center; justify-content:center; z-index:9999; flex-direction:column; }
-.spinner { width:80px; height:80px; border:6px solid rgba(0,212,255,0.2); border-top-color:#00d4ff; border-radius:50%; animation:spin 1s linear infinite; }
-@keyframes spin { to {transform:rotate(360deg);} }
-@keyframes ripple { to { transform:scale(2); opacity:0; } }
-@keyframes slideUp { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-.glow { animation:glowPulse 2s ease-in-out infinite; }
-@keyframes glowPulse { 0%,100%{box-shadow:0 0 20px rgba(0,212,255,0.5);} 50%{box-shadow:0 0 40px rgba(0,212,255,0.9);} }
-.ripple { position:relative; overflow:hidden; }
-.ripple:after { content:""; position:absolute; top:50%; left:50%; width:0; height:0; background:rgba(255,255,255,0.3); border-radius:50%; transform:translate(-50%,-50%); transition:width 0.6s, height 0.6s; }
-.ripple:active:after { width:300px; height:300px; }
-</style>
-</head>
-<body>
-<div id="loading-screen" class="loading-screen">
-  <div class="spinner"></div>
-  <h2 style="margin-top:24px; color:#00d4ff;">SIMANTRI v1.0</h2>
-  <p style="color:#00d4ff; opacity:0.7;">Memuat Platform Enterprise...</p>
-</div>
+const SPREADSHEET_ID = '1sA893LCSeVzGhfelWOcZHvBvDAuYIDYjU8LMkUvecSQ';
 
-<div class="sidebar" id="sidebar">
-  <div class="sidebar-header">
-    <i class="fas fa-hospital-user fa-2x" style="color:#00d4ff"></i>
-    <div class="logo">SIMANTRI</div>
-  </div>
-  <div style="padding:16px 0;">
-    <a href="#" onclick="showPage('dashboard', this)" class="nav-link active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
-    <a href="#" onclick="showPage('informasi', this)" class="nav-link"><i class="fas fa-bullhorn"></i> <span>Dinding Informasi</span></a>
-    <a href="#" onclick="showPage('profil', this)" class="nav-link"><i class="fas fa-user-md"></i> <span>Profil SDMK</span></a>
-    <a href="#" onclick="showPage('verval', this)" class="nav-link"><i class="fas fa-file-signature"></i> <span>Verval Izin Praktik</span></a>
-    <a href="#" onclick="showPage('cek', this)" class="nav-link"><i class="fas fa-search"></i> <span>Cek Izin Praktik</span></a>
-  </div>
-  
-  <div class="admin-panel" id="admin-panel" style="display:none; margin-top:28px; padding:16px 0; border-top:3px solid #00d4ff; background: rgba(0,212,255,0.06);">
-    <div style="padding:0 24px 12px; font-size:12px; color:#00d4ff; font-weight:800; letter-spacing:2px; display:flex; align-items:center; gap:8px;">
-      <i class="fas fa-shield-alt"></i> 
-      <span>ADMIN AREA</span>
-    </div>
-    <a href="#" onclick="showPage('admin-dashboard', this)" class="nav-link"><i class="fas fa-chart-line"></i> <span>Dashboard Admin</span></a>
-    <a href="#" onclick="showPage('admin-verval', this)" class="nav-link"><i class="fas fa-database"></i> <span>Data Verval</span></a>
-    <a href="#" onclick="showPage('admin-profil', this)" class="nav-link"><i class="fas fa-users"></i> <span>Data Profil</span></a>
-    <a href="#" onclick="showPage('admin-settings', this)" class="nav-link"><i class="fas fa-cog"></i> <span>Pengaturan</span></a>
-    <a href="#" onclick="logout()" class="nav-link" style="color:#ff6b6b;"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
-  </div>
-</div>
-
-<div class="main-content" id="main-content">
-  <!-- DASHBOARD -->
-  <div id="dashboard" class="page active">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px;">
-      <div>
-        <h1 style="font-size:36px; margin:0;">Dashboard SIMANTRI</h1>
-        <p style="color:#00d4ff; opacity:0.8;">Sistem Informasi Manajemen Tenaga Medis • Update Real-time</p>
-      </div>
-      <button onclick="refreshDashboard()" class="ripple" style="padding:12px 24px; background:rgba(0,212,255,0.2); border:1px solid #00d4ff; color:#00d4ff; border-radius:12px; cursor:pointer;"><i class="fas fa-arrows-rotate"></i> Refresh Data</button>
-    </div>
-    
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px; margin-bottom:32px;">
-      <div class="glass card"><div style="display:flex; align-items:center; gap:16px;"><i class="fas fa-user-md fa-3x" style="color:#00d4ff"></i><div><div class="counter" id="total-sdmk">0</div><div style="opacity:0.7;">Total SDMK</div></div></div></div>
-      <div class="glass card"><div style="display:flex; align-items:center; gap:16px;"><i class="fas fa-file-medical fa-3x" style="color:#00d4ff"></i><div><div class="counter" id="total-sip">0</div><div style="opacity:0.7;">SIP Aktif</div></div></div></div>
-      <div class="glass card"><div style="display:flex; align-items:center; gap:16px;"><i class="fas fa-clinic-medical fa-3x" style="color:#00d4ff"></i><div><div class="counter" id="total-mandiri">0</div><div style="opacity:0.7;">Praktik Mandiri</div></div></div></div>
-      <div class="glass card"><div style="display:flex; align-items:center; gap:16px;"><i class="fas fa-hospital fa-3x" style="color:#00d4ff"></i><div><div class="counter" id="total-fasyankes">0</div><div style="opacity:0.7;">Fasyankes</div></div></div></div>
-    </div>
-    
-    <div class="glass card" style="margin-bottom:24px;">
-      <h3 style="margin-bottom:20px;">Statistik Tenaga Kesehatan</h3>
-      <canvas id="chartJenis" height="120"></canvas>
-    </div>
-    <div class="glass card">
-      <h3 style="margin-bottom:20px;">Statistik Wilayah</h3>
-      <canvas id="chartWilayah" height="120"></canvas>
-    </div>
-  </div>
-
-  <!-- DINDING INFORMASI -->
-  <div id="informasi" class="page">
-    <h1 style="margin-bottom:24px;">Dinding Informasi</h1>
-    <div style="margin-bottom:24px; display:flex; gap:12px;">
-      <input type="text" id="search-info" placeholder="Cari informasi..." onkeyup="filterInformasi()" style="flex:1; padding:14px 20px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff; font-size:15px;">
-    </div>
-    <div id="info-container" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(380px,1fr)); gap:24px;"></div>
-  </div>
-
-  <!-- PROFIL SDMK -->
-  <div id="profil" class="page">
-    <h1 style="margin-bottom:24px;">Profil SDMK</h1>
-    <div style="margin-bottom:20px; display:flex; gap:12px; flex-wrap:wrap;">
-      <input type="text" id="search-profil" placeholder="Cari nama / NIK / SIP..." onkeyup="filterProfil()" style="flex:1; min-width:260px; padding:14px 20px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;">
-      <select id="filter-profesi" onchange="filterProfil()" style="padding:14px 20px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff; min-width:200px;">
-        <option value="">Semua Profesi</option>
-      </select>
-    </div>
-    <div class="glass card" style="overflow-x:auto;">
-      <table id="profil-table" class="table"><thead><tr><th>Kode Unit</th><th>Nama Unit</th><th>Nama Lengkap</th><th>Jenis Tenaga</th><th>Status Pegawai</th><th>Tanggal Berakhir SIP</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody id="profil-tbody"></tbody></table>
-    </div>
-  </div>
-
-  <!-- VERVAL FORM -->
-  <div id="verval" class="page">
-    <div class="glass card" style="max-width:1100px; margin:0 auto;">
-      <h2 style="margin-bottom:8px;">Form Verval Izin Praktik</h2>
-      <p style="opacity:0.7; margin-bottom:32px;">Isi data lengkap untuk verifikasi izin praktik</p>
-      <form id="verval-form" onsubmit="submitVerval(event)">
-        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:20px;">
-          <div><label>Timestamp</label><input type="text" name="timestamp" id="verval-timestamp" readonly style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>NIK</label><input type="text" name="nik" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Nama Lengkap</label><input type="text" name="nama" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Jenis Kelamin</label><select name="jk" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"><option value="Laki-laki">Laki-laki</option><option value="Perempuan">Perempuan</option></select></div>
-          <div><label>Tempat Lahir</label><input type="text" name="tempatLahir" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Tanggal Lahir</label><input type="date" name="tglLahir" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Alamat Sesuai KTP</label><input type="text" name="alamatKTP" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Nomor STR</label><input type="text" name="str" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Status STR</label><input type="text" name="statusSTR" value="Aktif" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>SIP</label><select name="sip" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"><option value="Ya">Ya</option><option value="Tidak">Tidak</option></select></div>
-          <div><label>Nomor SIP</label><input type="text" name="nomorSIP" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Masa Berlaku SIP</label><input type="date" name="masaSIP" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Unit Kerja</label><input type="text" name="unitKerja" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Alamat Unit Kerja</label><input type="text" name="alamatUnit" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Desa/Kelurahan Unit Kerja</label><input type="text" name="desaUnit" required style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Status Unit Praktik di SatuSehat SDMK</label><input type="text" name="statusSatuSehat" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>SOP Pelayanan</label><input type="text" name="sopPelayanan" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>SOP Profesi</label><input type="text" name="sopProfesi" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>SOP Etika</label><input type="text" name="sopEtika" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>SDMK Named</label><input type="text" name="sdmkNamed" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>SDMK Nakes</label><input type="text" name="sdmkNakes" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>SDMK Admin</label><input type="text" name="sdmkAdmin" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Jam Operasional/Praktik</label><input type="text" name="jamOperasional" value="08:00 - 16:00" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Catatan Rekomendasi</label><input type="text" name="catatan" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-          <div><label>Pendidikan Sesuai STR</label><input type="text" name="pendidikan" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:12px; color:#fff;"></div>
-        </div>
-        <div style="margin-top:32px; text-align:right; display:flex; gap:12px; justify-content:flex-end;">
-          <button type="button" onclick="resetForm()" style="padding:14px 32px; background:transparent; border:1px solid #fff; color:#fff; border-radius:12px;">Reset</button>
-          <button type="submit" class="ripple" style="padding:14px 48px; background:#00d4ff; color:#0a2540; border:none; border-radius:12px; font-weight:700;">Kirim Data Verval</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- CEK IZIN -->
-  <div id="cek" class="page">
-    <div class="glass card" style="max-width:720px; margin:0 auto; text-align:center;">
-      <h2>Cek Izin Praktik</h2>
-      <p style="opacity:0.7;">Masukkan NIK untuk melihat status izin praktik</p>
-      <div style="margin:32px 0;">
-        <input type="text" id="cek-nik" placeholder="Masukkan NIK" style="width:100%; max-width:420px; padding:18px; font-size:18px; background:rgba(255,255,255,0.1); border:2px solid #00d4ff; border-radius:16px; color:#fff; text-align:center;">
-      </div>
-      <button onclick="cekIzinPraktik()" class="ripple" style="padding:16px 48px; background:#00d4ff; color:#0a2540; border:none; border-radius:16px; font-weight:700; font-size:16px;">Cek Status Izin</button>
-      <div id="cek-result" style="margin-top:40px; display:none;"></div>
-    </div>
-  </div>
-
-  <!-- ADMIN PAGES -->
-  <div id="admin-dashboard" class="page">
-    <h1>Dashboard Admin</h1>
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px;">
-      <div class="glass card"><h3>Total Verval</h3><div class="counter" id="admin-total-verval">0</div></div>
-      <div class="glass card"><h3>Total Profil</h3><div class="counter" id="admin-total-profil">0</div></div>
-    </div>
-    <div class="glass card"><canvas id="admin-chart" height="80"></canvas></div>
-  </div>
-  
-  <div id="admin-verval" class="page">
-    <h1>Data Verval</h1>
-    <div class="glass card" style="overflow-x:auto; max-width:100%;">
-      <table id="admin-verval-table" class="table">
-        <thead>
-          <tr>
-            <th>Timestamp</th>
-            <th>NIK</th>
-            <th>Nama Lengkap</th>
-            <th>Jenis Kelamin</th>
-            <th>Tempat Lahir</th>
-            <th>Tanggal Lahir</th>
-            <th>Alamat KTP</th>
-            <th>Nomor STR</th>
-            <th>Status STR</th>
-            <th>Nomor SIP</th>
-            <th>Masa Berlaku SIP</th>
-            <th>Unit Kerja</th>
-            <th>Alamat Unit</th>
-            <th>Desa Unit</th>
-            <th>Status SatuSehat</th>
-            <th>SOP Pelayanan</th>
-            <th>SOP Profesi</th>
-            <th>SOP Etika</th>
-            <th>SDMK Named</th>
-            <th>SDMK Nakes</th>
-            <th>SDMK Admin</th>
-            <th>Jam Operasional</th>
-            <th>Catatan</th>
-            <th>Pendidikan</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="admin-verval-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-  
-  <div id="admin-profil" class="page">
-    <h1>Data Profil SDMK</h1>
-    <div class="glass card" style="overflow-x:auto;">
-      <table id="admin-profil-table" class="table">
-        <thead>
-          <tr>
-            <th>Kode Unit</th>
-            <th>Nama Unit</th>
-            <th>Nama Lengkap</th>
-            <th>Jenis Tenaga</th>
-            <th>Status Pegawai</th>
-            <th>Tanggal Berakhir SIP</th>
-            <th>Keterangan</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="admin-profil-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-  
-  <div id="admin-settings" class="page">
-    <h1>Pengaturan</h1>
-    <div class="glass card">
-      <div style="display:grid; gap:24px; max-width:520px;">
-        <div><label>Nama Aplikasi</label><input type="text" id="setting-appname" value="SIMANTRI v1.0" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid #00d4ff; border-radius:12px; color:#fff;"></div>
-        <button onclick="saveSettings()" class="ripple" style="padding:14px; background:#00d4ff; color:#0a2540; border:none; border-radius:12px; font-weight:700;">Simpan Pengaturan</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="floating-btn" onclick="showPage('verval')"><i class="fas fa-plus fa-lg"></i></div>
-<button onclick="scrollToTop()" style="position:fixed; bottom:110px; right:32px; background:rgba(255,255,255,0.1); border:1px solid #fff; color:#fff; width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;"><i class="fas fa-arrow-up"></i></button>
-
-<!-- MODALS -->
-<div id="detail-modal" class="modal">
-  <div class="glass modal-content">
-    <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
-      <h3 id="modal-title"></h3>
-      <button onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:28px; cursor:pointer;">&times;</button>
-    </div>
-    <div id="modal-body"></div>
-  </div>
-</div>
-
-<!-- LOGIN MODAL -->
-<div id="login-modal" class="modal" style="display:none;">
-  <div class="glass modal-content" style="max-width:420px; text-align:center;">
-    <i class="fas fa-shield-alt fa-3x" style="color:#00d4ff; margin-bottom:16px;"></i>
-    <h2 style="margin-bottom:8px;">Admin Login</h2>
-    <p style="opacity:0.7; margin-bottom:32px;">Masuk ke Panel Administrator</p>
-    <form id="login-form" onsubmit="loginAdmin(event)">
-      <input type="text" id="login-username" placeholder="Username" required style="width:100%; padding:16px; margin-bottom:16px; background:rgba(255,255,255,0.08); border:1px solid #00d4ff; border-radius:12px; color:#fff;">
-      <input type="password" id="login-password" placeholder="Password" required style="width:100%; padding:16px; margin-bottom:24px; background:rgba(255,255,255,0.08); border:1px solid #00d4ff; border-radius:12px; color:#fff;">
-      <button type="submit" class="ripple" style="width:100%; padding:16px; background:#00d4ff; color:#0a2540; border:none; border-radius:16px; font-weight:700;">Login</button>
-    </form>
-  </div>
-</div>
-
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby9Bj37RnOuTQ0kkICCFuYoDIgbppQX0eWaYkZRXbbe-J2_1Lqc0eU6VieQCuuUI2i9/exec";
-
-async function callGAS(action, payload = {}) {
-  const url = new URL(WEB_APP_URL);
-  url.searchParams.set("action", action);
-  
-  Object.keys(payload).forEach(key => {
-    if (payload[key] !== undefined && payload[key] !== null) {
-      url.searchParams.set(key, payload[key]);
-    }
-  });
-
-  try {
-    const res = await fetch(url.toString(), {
-      method: "GET",
-      redirect: "follow"
-    });
-    
-    if (!res.ok) {
-      throw new Error(`HTTP error! status: ${res.status}`);
-    }
-    
-    return await res.json();
-  } catch (error) {
-    console.error("callGAS Error:", error);
-    throw error;
+function doGet(e) {
+  if (e.parameter.action) {
+    return handleRequest(e.parameter.action, e.parameter);
   }
+  return HtmlService.createHtmlOutputFromFile('simantri v1.0')
+    .setTitle('SIMANTRI v1.0')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-let currentUser = null;
-let charts = {};
-
-function showPage(page, element) {
-  if (page.startsWith('admin-') && !currentUser) {
-    document.getElementById('login-modal').style.display = 'flex';
-    return;
+function doPost(e) {
+  const action = e.parameter.action;
+  let payload = {};
+  if (e.postData && e.postData.contents) {
+    payload = JSON.parse(e.postData.contents);
   }
-  
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(page).classList.add('active');
-  
-  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-  if (element) element.classList.add('active');
-  
-  if (page === 'admin-dashboard') loadAdminDashboard();
-  if (page === 'admin-verval') loadAdminVerval();
-  if (page === 'admin-profil') loadAdminProfil();
-  if (page === 'profil') loadProfil();
-  if (page === 'informasi') loadInformasi();
-  if (page === 'verval') setAutoTimestamp();
+  return handleRequest(action, payload);
 }
 
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const mc = document.getElementById('main-content');
-  sb.classList.toggle('collapsed');
-  mc.classList.toggle('expanded');
-}
-
-function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const mc = document.getElementById('main-content');
-  sb.classList.toggle('collapsed');
-  mc.classList.toggle('expanded');
-}
-
-function animateCounter(id, target) {
-  const el = document.getElementById(id);
-  let current = 0;
-  const step = Math.ceil(target / 60);
-  const interval = setInterval(() => {
-    current += step;
-    if (current >= target) { el.textContent = target; clearInterval(interval); }
-    else el.textContent = current;
-  }, 30);
-}
-
-async function refreshDashboard() {
-  try {
-    const data = await callGAS('getDashboardData');
-    animateCounter('total-sdmk', data.totalSDMK || 1247);
-    animateCounter('total-sip', data.totalSIP || 986);
-    animateCounter('total-mandiri', data.totalMandiri || 312);
-    animateCounter('total-fasyankes', data.totalFasyankes || 184);
-    
-    // Charts
-    if (charts.jenis) charts.jenis.destroy();
-    charts.jenis = new Chart(document.getElementById('chartJenis'), {
-      type: 'doughnut',
-      data: { labels: ['Dokter', 'Perawat', 'Bidan', 'Tenaga Kesehatan Lain'], datasets: [{ data: [420, 380, 210, 237], backgroundColor: ['#00d4ff', '#4fc3f7', '#81d4fa', '#b3e5fc'] }] }
+function handleRequest(action, data) {
+  let result;
+  switch (action) {
+    case 'getDashboardData': result = getDashboardData(); break;
+    case 'getInformasi': result = getInformasi(); break;
+    case 'getProfil': result = getProfil(); break;
+    case 'saveVerval': result = saveVerval(data); break;
+    case 'cekIzin': result = cekIzin(data.nik); break;
+    case 'login': result = login(data.username, data.password); break;
+    case 'getVerval': result = getVerval(); break;
+    case 'deleteVerval': result = deleteVerval(data.nik); break;
+    case 'deleteProfil': result = deleteProfil(data.nama); break;
+    default: result = { error: 'Unknown action' };
+  }
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST',
+      'Access-Control-Allow-Headers': 'Content-Type'
     });
-    
-    if (charts.wilayah) charts.wilayah.destroy();
-    charts.wilayah = new Chart(document.getElementById('chartWilayah'), {
-      type: 'bar',
-      data: { labels: ['DKI Jakarta', 'Jawa Barat', 'Jawa Timur', 'Bali', 'Lainnya'], datasets: [{ label: 'Jumlah', data: [380, 290, 210, 120, 247], backgroundColor: '#00d4ff' }] }
-    });
-    
-    showToast('Data dashboard berhasil diperbarui');
-  } catch(e) { console.error(e); }
 }
 
-async function loadInformasi() {
-  const container = document.getElementById('info-container');
-  container.innerHTML = '<div class="glass card">Memuat informasi...</div>';
-  
-  const data = await callGAS('getInformasi');
-  container.innerHTML = '';
-  
-  data.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'glass card';
-    card.innerHTML = `
-      <div style="font-size:13px; color:#00d4ff; margin-bottom:8px;">${item.tanggal}</div>
-      <h3 style="margin-bottom:12px;">${item.judul}</h3>
-      <p style="opacity:0.85; line-height:1.6;">${item.isi.substring(0,140)}...</p>
-      <button onclick="showInfoDetail(${JSON.stringify(item)})" style="margin-top:16px; padding:8px 20px; background:rgba(0,212,255,0.15); border:1px solid #00d4ff; color:#00d4ff; border-radius:8px; cursor:pointer;">Baca Selengkapnya</button>
-    `;
-    container.appendChild(card);
-  });
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-function showInfoDetail(item) {
-  const modal = document.getElementById('detail-modal');
-  document.getElementById('modal-title').innerHTML = item.judul;
-  document.getElementById('modal-body').innerHTML = `<p style="line-height:1.8; font-size:15px;">${item.isi}</p><div style="margin-top:20px; font-size:13px; opacity:0.7;">Dipublikasikan: ${item.tanggal}</div>`;
-  modal.style.display = 'flex';
-  modal.onclick = function(e) {
-    if (e.target === modal) {
-      modal.style.display = 'none';
-    }
+// === DASHBOARD ===
+function getDashboardData() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Profil SDMK');
+  if (!sheet) return { totalSDMK: 0, totalSIP: 0, totalMandiri: 0, totalFasyankes: 0 };
+  const data = sheet.getDataRange().getValues();
+  return {
+    totalSDMK: data.length - 1 || 0,
+    totalSIP: data.length - 1 || 0,
+    totalMandiri: Math.floor((data.length - 1) * 0.3) || 0,
+    totalFasyankes: Math.floor((data.length - 1) * 0.2) || 0
   };
 }
 
-document.getElementById('login-modal').onclick = function(e) {
-  if (e.target === this) this.style.display = 'none';
-};
-
-document.getElementById('detail-modal').onclick = function(e) {
-  if (e.target === this) this.style.display = 'none';
-};
-
-async function loadProfil() {
-  const tbody = document.getElementById('profil-tbody');
-  tbody.innerHTML = '';
-  const data = await callGAS('getProfil');
-  
-  const profesiSet = new Set();
-  data.forEach(p => {
-    if (p.jenisTenaga) profesiSet.add(p.jenisTenaga);
-  });
-  const profesiSelect = document.getElementById('filter-profesi');
-  const currentValue = profesiSelect.value;
-  profesiSelect.innerHTML = '<option value="">Semua Profesi</option>';
-  profesiSet.forEach(profesi => {
-    profesiSelect.innerHTML += `<option value="${profesi}">${profesi}</option>`;
-  });
-  profesiSelect.value = currentValue;
-  
-  data.forEach(p => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${p.kodeUnit}</td>
-      <td>${p.namaUnit}</td>
-      <td><strong>${p.namaLengkap}</strong></td>
-      <td>${p.jenisTenaga}</td>
-      <td>${p.statusPegawai}</td>
-      <td>${p.tanggalBerakhirSIP}</td>
-      <td>${p.keterangan}</td>
-      <td><button onclick="showProfilDetail(${JSON.stringify(p)})" style="padding:6px 14px; background:#00d4ff; color:#0a2540; border:none; border-radius:8px; cursor:pointer;">Detail</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function filterInformasi() {
-  const search = document.getElementById('search-info').value.toLowerCase();
-  document.querySelectorAll('#info-container > div').forEach(card => {
-    const text = card.textContent.toLowerCase();
-    card.style.display = text.includes(search) ? '' : 'none';
-  });
-}
-
-function filterProfil() {
-  // Real-time filter implementation
-  const search = document.getElementById('search-profil').value.toLowerCase();
-  const profesi = document.getElementById('filter-profesi').value;
-  document.querySelectorAll('#profil-tbody tr').forEach(tr => {
-    const text = tr.textContent.toLowerCase();
-    const matchSearch = text.includes(search);
-    const matchProfesi = !profesi || tr.textContent.includes(profesi);
-    tr.style.display = (matchSearch && matchProfesi) ? '' : 'none';
-  });
-}
-
-function showProfilDetail(p) {
-  const modal = document.getElementById('detail-modal');
-  document.getElementById('modal-title').innerHTML = p.namaLengkap;
-  document.getElementById('modal-body').innerHTML = `
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-      <div><strong>Kode Unit:</strong> ${p.kodeUnit}</div>
-      <div><strong>Nama Unit:</strong> ${p.namaUnit}</div>
-      <div><strong>Jenis Tenaga:</strong> ${p.jenisTenaga}</div>
-      <div><strong>Status Pegawai:</strong> ${p.statusPegawai}</div>
-      <div><strong>Tanggal Berakhir SIP:</strong> ${p.tanggalBerakhirSIP}</div>
-      <div><strong>Keterangan:</strong> ${p.keterangan}</div>
-    </div>
-  `;
-  modal.style.display = 'flex';
-}
-
-async function submitVerval(e) {
-  e.preventDefault();
-  const form = document.getElementById('verval-form');
-  const formData = new FormData(form);
-  const data = Object.fromEntries(formData.entries());
-  if (!data.timestamp) {
-    data.timestamp = document.getElementById('verval-timestamp')?.value || new Date().toISOString().split('T')[0];
+// === INFORMASI ===
+function getInformasi() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Informasi');
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const result = [];
+  for (let i = 1; i < data.length; i++) {
+    result.push({
+      judul: data[i][0] || '',
+      isi: data[i][1] || '',
+      tanggal: data[i][2] || ''
+    });
   }
-  
-  const btn = e.target.querySelector('button[type="submit"]');
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
-  btn.disabled = true;
-  
-  try {
-    await callGAS('saveVerval', data);
-    Swal.fire({icon:'success', title:'Data Tersimpan!', text:'Data verval berhasil dikirim ke sistem.', timer:2200});
-    form.reset();
-    showToast('Data berhasil disimpan ke Google Sheet');
-  } catch(err) {
-    Swal.fire({icon:'error', title:'Gagal', text:'Terjadi kesalahan saat menyimpan.'});
-  } finally {
-    btn.innerHTML = 'Kirim Data Verval';
-    btn.disabled = false;
-  }
+  return result;
 }
 
-function resetForm() {
-  document.getElementById('verval-form').reset();
+// === PROFIL ===
+function getProfil() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Profil SDMK');
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const result = [];
+  for (let i = 1; i < data.length; i++) {
+    result.push({
+      kodeUnit: data[i][0] || '',
+      namaUnit: data[i][1] || '',
+      namaLengkap: data[i][2] || '',
+      jenisTenaga: data[i][3] || '',
+      statusPegawai: data[i][4] || '',
+      tanggalBerakhirSIP: data[i][5] || '',
+      keterangan: data[i][6] || ''
+    });
+  }
+  return result;
 }
 
-async function cekIzinPraktik() {
-  const nik = document.getElementById('cek-nik').value.trim();
-  if (!nik) return Swal.fire('Masukkan NIK');
-  
-  const resultDiv = document.getElementById('cek-result');
-  resultDiv.style.display = 'block';
-  resultDiv.innerHTML = '<div class="glass card">Mencari data...</div>';
-  
-  const data = await callGAS('cekIzin', { nik });
-  
-  if (!data || !data.nama) {
-    resultDiv.innerHTML = `<div class="glass card" style="text-align:center; padding:40px;"><i class="fas fa-search fa-3x" style="opacity:0.3"></i><h3 style="margin-top:16px;">Data tidak ditemukan</h3></div>`;
-    return;
-  }
-  
-  resultDiv.innerHTML = `
-    <div class="glass card glow">
-      <h3 style="color:#00d4ff;">${data.nama}</h3>
-      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-top:24px;">
-        <div><strong>NIK:</strong> ${data.nik}</div>
-        <div><strong>STR:</strong> ${data.str}</div>
-        <div><strong>SIP:</strong> ${data.sip}</div>
-        <div><strong>Masa Berlaku:</strong> ${data.masaSIP}</div>
-        <div><strong>Unit Kerja:</strong> ${data.unitKerja}</div>
-        <div><strong>Pendidikan:</strong> ${data.pendidikan}</div>
-      </div>
-      <div style="margin-top:24px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.2);"><strong>Catatan Rekomendasi:</strong><br>${data.catatan || 'Tidak ada catatan'}</div>
-    </div>
-  `;
+// === VERVAL SAVE ===
+function saveVerval(data) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Verval Izin Praktik');
+  if (!sheet) return { success: false, error: 'Sheet tidak ditemukan' };
+  sheet.appendRow([
+    data.timestamp || new Date().toISOString(),
+    data.nik || '',
+    data.nama || '',
+    data.jk || '',
+    data.tempatLahir || '',
+    data.tglLahir || '',
+    data.alamatKTP || '',
+    data.str || '',
+    data.statusSTR || '',
+    data.sip || '',
+    data.nomorSIP || '',
+    data.masaSIP || '',
+    data.unitKerja || '',
+    data.alamatUnit || '',
+    data.desaUnit || '',
+    data.statusSatuSehat || '',
+    data.sopPelayanan || '',
+    data.sopProfesi || '',
+    data.sopEtika || '',
+    data.sdmkNamed || '',
+    data.sdmkNakes || '',
+    data.sdmkAdmin || '',
+    data.jamOperasional || '',
+    data.catatan || '',
+    data.pendidikan || ''
+  ]);
+  return { success: true };
 }
 
-async function loginAdmin(e) {
-  e.preventDefault();
-  const username = document.getElementById('login-username').value;
-  const password = document.getElementById('login-password').value;
-  
-  const res = await callGAS('login', { username, password });
-  if (res.success) {
-    currentUser = res.user;
-    document.getElementById('login-modal').style.display = 'none';
-    document.getElementById('admin-panel').style.display = 'block';
-    showToast('Login berhasil. Selamat datang Admin!');
-    showPage('admin-dashboard');
-  } else {
-    Swal.fire({icon:'error', title:'Login Gagal', text: res.error || 'Username atau password salah'});
+// === CEK IZIN ===
+function cekIzin(nik) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Verval Izin Praktik');
+  if (!sheet) return null;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]).trim() === String(nik).trim()) {
+      return {
+        nik: data[i][1],
+        nama: data[i][2],
+        str: data[i][7],
+        sip: data[i][10],
+        masaSIP: data[i][11],
+        unitKerja: data[i][12],
+        pendidikan: data[i][24] || '',
+        catatan: data[i][23] || ''
+      };
+    }
   }
+  return null;
+}
+
+// === ADMIN LOGIN ===
+function login(username, password) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Users');
+  if (!sheet) return { success: false, error: 'Sheet Users tidak ditemukan' };
+
+  const data = sheet.getDataRange().getValues();
+  
+  for (let i = 1; i < data.length; i++) {
+    const sheetUsername = String(data[i][0] || '').trim().toLowerCase();
+    const sheetPassword = String(data[i][1] || '').trim();
+    
+    if (sheetUsername === String(username).trim().toLowerCase() && 
+        sheetPassword === String(password).trim()) {
+      return { 
+        success: true, 
+        user: { 
+          username: data[i][0], 
+          role: data[i][2] || 'admin', 
+          nama: data[i][3] || '', 
+          status: data[i][4] || 'Aktif' 
+        } 
+      };
+    }
+  }
+  return { success: false, error: 'Username atau password salah' };
 }
 
 function logout() {
-  currentUser = null;
-  document.getElementById('admin-panel').style.display = 'none';
-  document.getElementById('login-modal').style.display = 'flex';
-  showPage('dashboard', document.querySelector('.nav-link.active'));
-  showToast('Anda telah logout');
+  return { success: true };
 }
 
-async function loadAdminDashboard() {
-  try {
-    const [verval, profil] = await Promise.all([
-      callGAS('getVerval'),
-      callGAS('getProfil')
-    ]);
-    document.getElementById('admin-total-verval').innerHTML = verval.length;
-    document.getElementById('admin-total-profil').innerHTML = profil.length;
-  } catch(e) {
-    console.error(e);
+// === ADMIN CRUD (example) ===
+function getVerval() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Verval Izin Praktik');
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const result = [];
+  for (let i = 1; i < data.length; i++) {
+    result.push(data[i]);
   }
+  return result;
 }
 
-async function loadAdminVerval() {
-  const tbody = document.getElementById('admin-verval-tbody');
-  tbody.innerHTML = '';
-  const data = await callGAS('getVerval');
-  data.forEach(row => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${row[0] || ''}</td>
-      <td>${row[1] || ''}</td>
-      <td>${row[2] || ''}</td>
-      <td>${row[3] || ''}</td>
-      <td>${row[4] || ''}</td>
-      <td>${row[5] || ''}</td>
-      <td>${row[6] || ''}</td>
-      <td>${row[7] || ''}</td>
-      <td>${row[8] || ''}</td>
-      <td>${row[9] || ''}</td>
-      <td>${row[10] || ''}</td>
-      <td>${row[11] || ''}</td>
-      <td>${row[12] || ''}</td>
-      <td>${row[13] || ''}</td>
-      <td>${row[14] || ''}</td>
-      <td>${row[15] || ''}</td>
-      <td>${row[16] || ''}</td>
-      <td>${row[17] || ''}</td>
-      <td>${row[18] || ''}</td>
-      <td>${row[19] || ''}</td>
-      <td>${row[20] || ''}</td>
-      <td>${row[21] || ''}</td>
-      <td>${row[22] || ''}</td>
-      <td>${row[23] || ''}</td>
-      <td>${row[24] || ''}</td>
-      <td>
-        <button onclick="deleteVerval('${row[1]}')" style="padding:4px 10px; background:#ff6b6b; color:#fff; border:none; border-radius:6px; cursor:pointer;">Hapus</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-async function deleteVerval(nik) {
-  if (!confirm('Hapus data ini?')) return;
-  try {
-    await callGAS('deleteVerval', { nik });
-    showToast('Data berhasil dihapus');
-    loadAdminVerval();
-  } catch(e) {
-    showToast('Gagal menghapus data');
+function deleteVerval(nik) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Verval Izin Praktik');
+  if (!sheet) return { success: false };
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][1]).trim() === String(nik).trim()) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
+    }
   }
-}
-
-async function loadAdminProfil() {
-  const tbody = document.getElementById('admin-profil-tbody');
-  tbody.innerHTML = '';
-  const data = await callGAS('getProfil');
-  data.forEach(p => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${p.kodeUnit}</td>
-      <td>${p.namaUnit}</td>
-      <td><strong>${p.namaLengkap}</strong></td>
-      <td>${p.jenisTenaga}</td>
-      <td>${p.statusPegawai}</td>
-      <td>${p.tanggalBerakhirSIP}</td>
-      <td>${p.keterangan}</td>
-      <td>
-        <button onclick="deleteProfil('${p.namaLengkap}')" style="padding:4px 10px; background:#ff6b6b; color:#fff; border:none; border-radius:6px; cursor:pointer;">Hapus</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function showToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2800);
+  return { success: false };
 }
 
 function deleteProfil(nama) {
-  if (confirm('Hapus data profil ini?')) {
-    callGAS('deleteProfil', { nama }).then(() => {
-      showToast('Data berhasil dihapus');
-      loadAdminProfil();
-    }).catch(() => showToast('Gagal menghapus data'));
-  }
-}
-
-function scrollToTop() {
-  document.getElementById('cek-nik').value = '';
-  document.getElementById('cek-result').style.display = 'none';
-  window.scrollTo({top: 0, behavior: 'smooth'});
-}
-
-function setAutoTimestamp() {
-  const input = document.getElementById('verval-timestamp');
-  if (input) {
-    const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    input.value = dateStr;
-  }
-}
-
-function init() {
-  setTimeout(() => {
-    document.getElementById('loading-screen').style.display = 'none';
-    refreshDashboard();
-    // Auto show login modal if not logged in (for demo)
-  }, 1200);
-  
-  // Keyboard shortcuts
-  document.addEventListener('keydown', function(e) {
-    if (e.key === '/' && document.activeElement.tagName === 'BODY') {
-      e.preventDefault();
-      showPage('cek', document.querySelector('[onclick*="showPage(\'cek\'"]'));
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Profil SDMK');
+  if (!sheet) return { success: false };
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][2]).trim() === String(nama).trim()) {
+      sheet.deleteRow(i + 1);
+      return { success: true };
     }
-    if (e.ctrlKey && e.key === 'k') {
-      e.preventDefault();
-      document.getElementById('search-profil').focus();
-    }
-  });
-  
-  // Dark/light auto detect
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-    document.body.style.filter = 'brightness(1.05)';
   }
-  
-  // Ripple effect on buttons
-  document.querySelectorAll('.ripple').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      const circle = document.createElement('span');
-      circle.style.cssText = 'position:absolute; border-radius:50%; background:rgba(255,255,255,0.4); transform:scale(0); animation:ripple 0.6s linear;';
-      const rect = btn.getBoundingClientRect();
-      circle.style.left = (e.clientX - rect.left) + 'px';
-      circle.style.top = (e.clientY - rect.top) + 'px';
-      btn.appendChild(circle);
-      setTimeout(() => circle.remove(), 600);
-    });
-  });
-  
+  return { success: false };
 }
-
-window.onload = init;
-</script>
-</body>
-</html>
