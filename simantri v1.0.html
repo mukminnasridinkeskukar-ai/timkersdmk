@@ -139,7 +139,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
       </select>
     </div>
     <div class="glass card" style="overflow-x:auto;">
-      <table id="profil-table" class="table"><thead><tr><th>Kode Unit</th><th>Nama Unit</th><th>Nama Lengkap</th><th>Jenis Tenaga</th><th>Status Pegawai</th><th>Tanggal Berakhir SIP</th><th>Keterangan</th><th>Aksi</th></tr></thead><tbody id="profil-tbody"></tbody></table>
+      <table id="profil-table" class="table"><thead><tr><th>Kode Unit</th><th>Nama Unit</th><th>Nama Lengkap</th><th>Jenis Tenaga</th><th>Status</th><th>SIP</th><th>Unit Kerja</th><th>Aksi</th></tr></thead><tbody id="profil-tbody"></tbody></table>
     </div>
   </div>
 
@@ -216,28 +216,16 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
           <tr>
             <th>Timestamp</th>
             <th>NIK</th>
-            <th>Nama Lengkap</th>
-            <th>Jenis Kelamin</th>
+            <th>Nama</th>
+            <th>JK</th>
             <th>Tempat Lahir</th>
             <th>Tanggal Lahir</th>
             <th>Alamat KTP</th>
-            <th>Nomor STR</th>
+            <th>STR</th>
             <th>Status STR</th>
-            <th>Nomor SIP</th>
-            <th>Masa Berlaku SIP</th>
+            <th>SIP</th>
+            <th>Masa SIP</th>
             <th>Unit Kerja</th>
-            <th>Alamat Unit</th>
-            <th>Desa Unit</th>
-            <th>Status SatuSehat</th>
-            <th>SOP Pelayanan</th>
-            <th>SOP Profesi</th>
-            <th>SOP Etika</th>
-            <th>SDMK Named</th>
-            <th>SDMK Nakes</th>
-            <th>SDMK Admin</th>
-            <th>Jam Operasional</th>
-            <th>Catatan</th>
-            <th>Pendidikan</th>
             <th>Aksi</th>
           </tr>
         </thead>
@@ -252,13 +240,13 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
       <table id="admin-profil-table" class="table">
         <thead>
           <tr>
+            <th>Foto</th>
             <th>Kode Unit</th>
             <th>Nama Unit</th>
             <th>Nama Lengkap</th>
             <th>Jenis Tenaga</th>
-            <th>Status Pegawai</th>
-            <th>Tanggal Berakhir SIP</th>
-            <th>Keterangan</th>
+            <th>STR</th>
+            <th>SIP</th>
             <th>Aksi</th>
           </tr>
         </thead>
@@ -321,8 +309,8 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx6M2ZH6ZqzSduB5kH8qhwW7NxD-gIMMGXu4-HdmRn72HeQiZGfV5jGWKY4LmR_94WC/exec";
-const DEMO_MODE = true;
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwG3b_20JTongP_eB48evXvYyBXc6bzKSVith8bOgJV1vK_i3v869Nfy1TceIN4LFFt/exec";
+let DEMO_MODE = false;
 
 const demoData = {
   getDashboardData: { totalSDMK: 1247, totalSIP: 986, totalMandiri: 312, totalFasyankes: 184 },
@@ -332,9 +320,10 @@ const demoData = {
   getProfil: [],
   getVerval: [],
   getAllSheetsData: {
-    "Profil SDMK": { rowCount: 0, colCount: 7 },
-    "Verval Izin Praktik": { rowCount: 0, colCount: 25 },
+    "Dashboard": { rowCount: 5, colCount: 2 },
     "Informasi": { rowCount: 1, colCount: 3 },
+    "Profil": { rowCount: 0, colCount: 10 },
+    "Verval": { rowCount: 0, colCount: 25 },
     "Users": { rowCount: 1, colCount: 5 }
   },
   login: { success: true, user: { username: "admin", role: "admin", nama: "Administrator" } }
@@ -508,13 +497,13 @@ async function loadProfil() {
   data.forEach(p => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${p.kodeUnit}</td>
-      <td>${p.namaUnit}</td>
-      <td><strong>${p.namaLengkap}</strong></td>
-      <td>${p.jenisTenaga}</td>
-      <td>${p.statusPegawai}</td>
-      <td>${p.tanggalBerakhirSIP}</td>
-      <td>${p.keterangan}</td>
+      <td>${p.kodeUnit || ''}</td>
+      <td>${p.namaUnit || ''}</td>
+      <td><strong>${p.namaLengkap || ''}</strong></td>
+      <td>${p.jenisTenaga || ''}</td>
+      <td>${p.status || ''}</td>
+      <td>${p.sip || ''}</td>
+      <td>${p.unitKerja || ''}</td>
       <td><button onclick="showProfilDetail(${JSON.stringify(p)})" style="padding:6px 14px; background:#00d4ff; color:#0a2540; border:none; border-radius:8px; cursor:pointer;">Detail</button></td>
     `;
     tbody.appendChild(tr);
@@ -543,15 +532,17 @@ function filterProfil() {
 
 function showProfilDetail(p) {
   const modal = document.getElementById('detail-modal');
-  document.getElementById('modal-title').innerHTML = p.namaLengkap;
+  document.getElementById('modal-title').innerHTML = p.namaLengkap || 'Detail Profil';
   document.getElementById('modal-body').innerHTML = `
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-      <div><strong>Kode Unit:</strong> ${p.kodeUnit}</div>
-      <div><strong>Nama Unit:</strong> ${p.namaUnit}</div>
-      <div><strong>Jenis Tenaga:</strong> ${p.jenisTenaga}</div>
-      <div><strong>Status Pegawai:</strong> ${p.statusPegawai}</div>
-      <div><strong>Tanggal Berakhir SIP:</strong> ${p.tanggalBerakhirSIP}</div>
-      <div><strong>Keterangan:</strong> ${p.keterangan}</div>
+      <div><strong>Kode Unit:</strong> ${p.kodeUnit || '-'}</div>
+      <div><strong>Nama Unit:</strong> ${p.namaUnit || '-'}</div>
+      <div><strong>Jenis Tenaga:</strong> ${p.jenisTenaga || '-'}</div>
+      <div><strong>Status:</strong> ${p.status || '-'}</div>
+      <div><strong>STR:</strong> ${p.str || '-'}</div>
+      <div><strong>SIP:</strong> ${p.sip || '-'}</div>
+      <div><strong>Unit Kerja:</strong> ${p.unitKerja || '-'}</div>
+      <div><strong>Alamat:</strong> ${p.alamat || '-'}</div>
     </div>
   `;
   modal.style.display = 'flex';
@@ -701,21 +692,8 @@ async function loadAdminVerval() {
       <td>${row[7] || ''}</td>
       <td>${row[8] || ''}</td>
       <td>${row[9] || ''}</td>
-      <td>${row[10] || ''}</td>
       <td>${row[11] || ''}</td>
       <td>${row[12] || ''}</td>
-      <td>${row[13] || ''}</td>
-      <td>${row[14] || ''}</td>
-      <td>${row[15] || ''}</td>
-      <td>${row[16] || ''}</td>
-      <td>${row[17] || ''}</td>
-      <td>${row[18] || ''}</td>
-      <td>${row[19] || ''}</td>
-      <td>${row[20] || ''}</td>
-      <td>${row[21] || ''}</td>
-      <td>${row[22] || ''}</td>
-      <td>${row[23] || ''}</td>
-      <td>${row[24] || ''}</td>
       <td>
         <button onclick="deleteVerval('${row[1]}')" style="padding:4px 10px; background:#ff6b6b; color:#fff; border:none; border-radius:6px; cursor:pointer;">Hapus</button>
       </td>
@@ -742,13 +720,13 @@ async function loadAdminProfil() {
   data.forEach(p => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${p.kodeUnit}</td>
-      <td>${p.namaUnit}</td>
-      <td><strong>${p.namaLengkap}</strong></td>
-      <td>${p.jenisTenaga}</td>
-      <td>${p.statusPegawai}</td>
-      <td>${p.tanggalBerakhirSIP}</td>
-      <td>${p.keterangan}</td>
+      <td>${p.foto ? '<img src="' + p.foto + '" width="40">' : '-'}</td>
+      <td>${p.kodeUnit || ''}</td>
+      <td>${p.namaUnit || ''}</td>
+      <td><strong>${p.namaLengkap || ''}</strong></td>
+      <td>${p.jenisTenaga || ''}</td>
+      <td>${p.str || ''}</td>
+      <td>${p.sip || ''}</td>
       <td>
         <button onclick="deleteProfil('${p.namaLengkap}')" style="padding:4px 10px; background:#ff6b6b; color:#fff; border:none; border-radius:6px; cursor:pointer;">Hapus</button>
       </td>
