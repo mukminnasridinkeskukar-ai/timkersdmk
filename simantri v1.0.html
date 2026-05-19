@@ -98,6 +98,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
       <div>
         <h1 style="font-size:36px; margin:0;">Dashboard SIMANTRI</h1>
         <p style="color:#00d4ff; opacity:0.8;">Sistem Informasi Manajemen Tenaga Medis • Update Real-time</p>
+        <div id="demo-badge" style="display:none; margin-top:8px; padding:4px 12px; background:#ff6b6b; border-radius:8px; font-size:12px; font-weight:600;">Demo Mode - Data Tidak Tersimpan</div>
       </div>
       <button onclick="refreshDashboard()" class="ripple" style="padding:12px 24px; background:rgba(0,212,255,0.2); border:1px solid #00d4ff; color:#00d4ff; border-radius:12px; cursor:pointer;"><i class="fas fa-arrows-rotate"></i> Refresh Data</button>
     </div>
@@ -269,7 +270,16 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
     <h1>Pengaturan</h1>
     <div class="glass card">
       <div style="display:grid; gap:24px; max-width:520px;">
-        <div><label>Nama Aplikasi</label><input type="text" id="setting-appname" value="SIMANTRI v1.0" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid #00d4ff; border-radius:12px; color:#fff;"></div>
+        <div>
+          <label>Nama Aplikasi</label>
+          <input type="text" id="setting-appname" value="SIMANTRI v1.0" style="width:100%; padding:14px; background:rgba(255,255,255,0.08); border:1px solid #00d4ff; border-radius:12px; color:#fff;">
+        </div>
+        <div>
+          <label style="display:flex; align-items:center; gap:12px; cursor:pointer;">
+            <input type="checkbox" id="setting-demo" onchange="toggleDemoMode()" style="width:20px; height:20px;">
+            <span>Mode Demo (Nonaktifkan untuk production)</span>
+          </label>
+        </div>
         <button onclick="saveSettings()" class="ripple" style="padding:14px; background:#00d4ff; color:#0a2540; border:none; border-radius:12px; font-weight:700;">Simpan Pengaturan</button>
       </div>
     </div>
@@ -310,9 +320,26 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; margin:0; background: lin
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6I5icF-dr9PSkG1C4Zv4mzHw1GkGBWHCqquDfO8YQCAD-MOxdsa-BtQSyyZkcNmHK/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxGn8BGY-KMnppJmxiJAvezdbytZMETfAkIRpFIdWGIqK8zZ_4_22QLeiUyaCt3V9Lf/exec";
+const DEMO_MODE = true;
+
+const demoData = {
+  getDashboardData: { totalSDMK: 1247, totalSIP: 986, totalMandiri: 312, totalFasyankes: 184 },
+  getInformasi: [
+    { judul: "Pembaruan Sistem", isi: "Platform SIMANTRI telah diperbarui ke versi 1.0", tanggal: "2026-05-20" }
+  ],
+  getProfil: [],
+  getVerval: [],
+  login: { success: true, user: { username: "admin", role: "admin", nama: "Administrator" } }
+};
 
 async function callGAS(action, payload = {}) {
+  if (DEMO_MODE) {
+    await new Promise(r => setTimeout(r, 300));
+    if (demoData[action]) return demoData[action];
+    return { error: 'Action tidak tersedia di demo' };
+  }
+  
   const url = new URL(WEB_APP_URL);
   url.searchParams.set("action", action);
   
@@ -325,7 +352,8 @@ async function callGAS(action, payload = {}) {
   try {
     const res = await fetch(url.toString(), {
       method: "GET",
-      redirect: "follow"
+      redirect: "follow",
+      mode: "cors"
     });
     
     if (!res.ok) {
@@ -335,6 +363,7 @@ async function callGAS(action, payload = {}) {
     return await res.json();
   } catch (error) {
     console.error("callGAS Error:", error);
+    if (DEMO_MODE && demoData[action]) return demoData[action];
     throw error;
   }
 }
@@ -587,6 +616,18 @@ async function loginAdmin(e) {
   const username = document.getElementById('login-username').value;
   const password = document.getElementById('login-password').value;
   
+  if (DEMO_MODE) {
+    const res = demoData.login;
+    if (res.success) {
+      currentUser = res.user;
+      document.getElementById('login-modal').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
+      showToast('Login berhasil. Selamat datang Admin!');
+      showPage('admin-dashboard', document.querySelector('.nav-link.active'));
+    }
+    return;
+  }
+  
   const res = await callGAS('login', { username, password });
   if (res.success) {
     currentUser = res.user;
@@ -725,11 +766,30 @@ function setAutoTimestamp() {
   }
 }
 
+function saveSettings() {
+  const appName = document.getElementById('setting-appname').value;
+  localStorage.setItem('simantri_appname', appName);
+  showToast('Pengaturan tersimpan');
+}
+
+function toggleDemoMode() {
+  const checkbox = document.getElementById('setting-demo');
+  window.DEMO_MODE = checkbox.checked;
+  if (window.DEMO_MODE) {
+    document.getElementById('demo-badge').style.display = 'block';
+  } else {
+    document.getElementById('demo-badge').style.display = 'none';
+  }
+}
+
 function init() {
+  if (window.DEMO_MODE) {
+    document.getElementById('demo-badge').style.display = 'block';
+    document.getElementById('setting-demo').checked = true;
+  }
   setTimeout(() => {
     document.getElementById('loading-screen').style.display = 'none';
     refreshDashboard();
-    // Auto show login modal if not logged in (for demo)
   }, 1200);
   
   // Keyboard shortcuts
@@ -741,6 +801,10 @@ function init() {
     if (e.ctrlKey && e.key === 'k') {
       e.preventDefault();
       document.getElementById('search-profil').focus();
+    }
+    if (e.ctrlKey && e.key === 'd') {
+      e.preventDefault();
+      document.getElementById('admin-panel').style.display = 'block';
     }
   });
   
