@@ -661,7 +661,25 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzOjHFRB4iBBcz0N5CPUwPHMCZegTpzWFY7wmiRSx2hp9C7RYekqy27uxmVDfLwSSWI/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzC2obWFY33p_DlvyzgQ6kZ5VeV1ntblbBOwUcpPvmtvYLWgJHuscoykUE6Iql_kKE5/exec";
+
+        // ================== FETCH HELPER (pakai GAS URL) ==================
+        async function fetchFromGAS(action, params = {}) {
+            if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
+                throw new Error('WEB_APP_URL belum diisi');
+            }
+            const url = new URL(WEB_APP_URL);
+            url.searchParams.set('action', action);
+            Object.entries(params).forEach(([k, v]) => {
+                if (v !== undefined && v !== null) url.searchParams.set(k, v);
+            });
+            const res = await fetch(url.toString(), { 
+                method: 'GET',
+                redirect: 'follow'
+            });
+            if (!res.ok) throw new Error('Network error');
+            return res.json();
+        }
 
         // Tailwind script
         function initializeTailwind() {
@@ -723,29 +741,22 @@
 
         // Load initial stats
         async function loadDashboardStats() {
-            if (!isGAS()) {
-                // Mode lokal: tetap tampilkan angka demo
+            try {
+                const data = await fetchFromGAS('getDashboardStats');
+                const d = data || {};
+                document.getElementById('stat-kegiatan').innerText = d.kegiatan || '0';
+                document.getElementById('stat-peserta').innerText = d.peserta || '0';
+                document.getElementById('stat-instansi').innerText = d.instansi || '0';
+                document.getElementById('stat-provinsi').innerText = d.provinsi || '0';
+                
+                renderActivityChart();
+                renderLatestActivities(d.latest || []);
+            } catch (err) {
+                // Fallback demo jika gagal fetch
                 document.getElementById('stat-kegiatan').innerText = '124';
                 document.getElementById('stat-peserta').innerText = '3,872';
                 renderActivityChart();
-                return;
             }
-
-            google.script.run
-                .withSuccessHandler(data => {
-                    const d = data || {};
-                    document.getElementById('stat-kegiatan').innerText = d.kegiatan || '0';
-                    document.getElementById('stat-peserta').innerText = d.peserta || '0';
-                    document.getElementById('stat-instansi').innerText = d.instansi || '0';
-                    document.getElementById('stat-provinsi').innerText = d.provinsi || '0';
-                    
-                    renderActivityChart();
-                    renderLatestActivities(d.latest || []);
-                })
-                .withFailureHandler(() => {
-                    // Biarkan angka 0 jika gagal
-                })
-                .getDashboardStats();
         }
 
         function renderActivityChart() {
@@ -805,23 +816,20 @@
             const container = document.getElementById('pengumuman-list');
             container.innerHTML = `<div class="col-span-full text-center py-8"><div class="skeleton h-6 w-1/2 mx-auto bg-slate-100 rounded"></div></div>`;
             
-            if (!isGAS()) {
-                container.innerHTML = `<div class="col-span-full text-center py-12 text-amber-600 text-sm">Buka melalui Web App URL.</div>`;
-                return;
+            try {
+                // Selalu pakai GAS URL (fetch) agar terintegrasi dengan Google Sheet
+                const pengumuman = await fetchFromGAS('getPengumuman');
+                allPengumuman = pengumuman || [];
+                
+                if (allPengumuman.length === 0) {
+                    container.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400">Belum ada pengumuman.</div>`;
+                } else {
+                    renderPengumumanList(allPengumuman);
+                }
+            } catch (err) {
+                console.error('loadPengumuman error:', err);
+                container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">Gagal memuat data dari Google Sheet.<br><span class="text-xs">Pastikan WEB_APP_URL di index.html sudah benar dan script sudah di-deploy.</span></div>`;
             }
-            google.script.run
-                .withSuccessHandler(pengumuman => {
-                    allPengumuman = pengumuman || [];
-                    if (allPengumuman.length === 0) {
-                        container.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400">Belum ada pengumuman.</div>`;
-                    } else {
-                        renderPengumumanList(allPengumuman);
-                    }
-                })
-                .withFailureHandler(() => {
-                    container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">Gagal memuat data dari server.</div>`;
-                })
-                .getPengumuman();
         }
         
         function renderPengumumanList(list) {
@@ -869,24 +877,17 @@
             const tbody = document.getElementById('jadwal-table-body');
             tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-8 text-center"><div class="skeleton h-4 w-2/3 mx-auto bg-slate-100 rounded"></div></td></tr>`;
             
-            if (!isGAS()) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-12 text-center text-amber-600 text-sm">Buka melalui Web App URL (bukan file lokal).</td></tr>`;
-                return;
+            try {
+                const jadwal = await fetchFromGAS('getJadwalKegiatan');
+                allJadwal = jadwal || [];
+                if (allJadwal.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-12 text-center text-slate-400">Belum ada jadwal kegiatan.</td></tr>`;
+                } else {
+                    renderJadwalTable(allJadwal);
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-12 text-center text-rose-500">Gagal memuat data dari Google Sheet.</td></tr>`;
             }
-
-            google.script.run
-                .withSuccessHandler(jadwal => {
-                    allJadwal = jadwal || [];
-                    if (allJadwal.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-12 text-center text-slate-400">Belum ada jadwal kegiatan.</td></tr>`;
-                    } else {
-                        renderJadwalTable(allJadwal);
-                    }
-                })
-                .withFailureHandler(() => {
-                    tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-12 text-center text-rose-500">Gagal memuat data.</td></tr>`;
-                })
-                .getJadwalKegiatan();
         }
         
         function renderJadwalTable(data) {
@@ -1000,46 +1001,40 @@
             resultContainer.innerHTML = `<div class="text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
             resultContainer.classList.remove('hidden');
             
-            if (!isGAS()) {
-                resultContainer.innerHTML = `<div class="text-center py-3 text-amber-600">Buka melalui Web App URL.</div>`;
-                return;
-            }
-
-            google.script.run
-                .withSuccessHandler(data => {
-                    if (!data) {
-                        resultContainer.innerHTML = `<div class="text-center py-3 text-rose-600">Data tidak ditemukan.</div>`;
-                        return;
-                    }
-                    
-                    resultContainer.innerHTML = `
-                        <div>
-                            <div class="flex justify-between items-center mb-4">
-                                <div>
-                                    <div class="font-semibold">${data.nama}</div>
-                                    <div class="text-xs text-emerald-700">${data.registrasi}</div>
-                                </div>
-                                <span class="px-4 py-1 text-xs font-bold rounded-3xl ${data.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${data.status}</span>
+            try {
+                const data = await fetchFromGAS('getStatusPeserta', { input });
+                
+                if (!data) {
+                    resultContainer.innerHTML = `<div class="text-center py-3 text-rose-600">Data tidak ditemukan.</div>`;
+                    return;
+                }
+                
+                resultContainer.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <div class="font-semibold">${data.nama}</div>
+                                <div class="text-xs text-emerald-700">${data.registrasi}</div>
                             </div>
-                            
-                            <div class="text-sm text-slate-600 grid grid-cols-2 gap-y-3">
-                                <div><span class="font-medium text-xs block text-slate-400">KEGIATAN</span> ${data.kegiatan}</div>
-                                <div><span class="font-medium text-xs block text-slate-400">JADWAL</span> ${data.jadwal}</div>
-                                <div class="col-span-2"><span class="font-medium text-xs block text-slate-400">KETERANGAN ADMIN</span> ${data.keterangan || '-'}</div>
-                            </div>
-                            
-                            <div class="mt-8">
-                                <button onclick="downloadBukti('${data.registrasi}')" class="w-full py-3 border border-emerald-700 text-emerald-700 hover:bg-emerald-50 transition-colors text-xs font-semibold rounded-3xl">
-                                    <i class="fa-solid fa-download mr-2"></i> DOWNLOAD BUKTI PENDAFTARAN
-                                </button>
-                            </div>
+                            <span class="px-4 py-1 text-xs font-bold rounded-3xl ${data.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${data.status}</span>
                         </div>
-                    `;
-                })
-                .withFailureHandler(() => {
-                    resultContainer.innerHTML = `<div class="text-center py-3 text-rose-600">Gagal memuat status.</div>`;
-                })
-                .getStatusPeserta(input);
+                        
+                        <div class="text-sm text-slate-600 grid grid-cols-2 gap-y-3">
+                            <div><span class="font-medium text-xs block text-slate-400">KEGIATAN</span> ${data.kegiatan}</div>
+                            <div><span class="font-medium text-xs block text-slate-400">JADWAL</span> ${data.jadwal}</div>
+                            <div class="col-span-2"><span class="font-medium text-xs block text-slate-400">KETERANGAN ADMIN</span> ${data.keterangan || '-'}</div>
+                        </div>
+                        
+                        <div class="mt-8">
+                            <button onclick="downloadBukti('${data.registrasi}')" class="w-full py-3 border border-emerald-700 text-emerald-700 hover:bg-emerald-50 transition-colors text-xs font-semibold rounded-3xl">
+                                <i class="fa-solid fa-download mr-2"></i> DOWNLOAD BUKTI PENDAFTARAN
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                resultContainer.innerHTML = `<div class="text-center py-3 text-rose-600">Gagal memuat status.</div>`;
+            }
         }
         
         function downloadBukti(registrasi) {
@@ -1057,37 +1052,14 @@
             const tbody = document.getElementById('sertifikat-table-body');
             tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center"><div class="skeleton h-4 w-1/3 mx-auto bg-slate-100 rounded"></div></td></tr>`;
 
-            if (!isGAS()) {
-                // Demo data hanya untuk testing lokal
-                allSertifikat = [
-                    {
-                        id: 1, nama: "dr. Andi Saputra", jenis_sdmk: "Dokter", tempat_bekerja: "RSUD Sejahtera",
-                        nama_kegiatan: "Workshop Manajemen Kesehatan", tanggal: "2026-02-10", tempat: "Hotel Grand Indonesia",
-                        link_preview: "https://drive.google.com/file/d/1abc123/view", link_download: "https://drive.google.com/uc?export=download&id=1abc123"
-                    },
-                    {
-                        id: 2, nama: "Ns. Rina Marlina", jenis_sdmk: "Perawat", tempat_bekerja: "Puskesmas Cempaka",
-                        nama_kegiatan: "Pelatihan Digitalisasi RS", tanggal: "2026-02-12", tempat: "Balai Kesehatan",
-                        link_preview: "https://drive.google.com/file/d/1def456/view", link_download: "https://drive.google.com/uc?export=download&id=1def456"
-                    }
-                ];
+            try {
+                const data = await fetchFromGAS('getSertifikatData');
+                allSertifikat = data || [];
                 renderSertifikatTable(allSertifikat);
                 populateFilters(allSertifikat);
-                return;
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">Gagal mengambil data dari Google Sheet.</td></tr>`;
             }
-
-            // Selalu ambil dari Google Sheet saat di-deploy
-            google.script.run
-                .withSuccessHandler(data => {
-                    allSertifikat = data || [];
-                    renderSertifikatTable(allSertifikat);
-                    populateFilters(allSertifikat);
-                })
-                .withFailureHandler(() => {
-                    const tbody = document.getElementById('sertifikat-table-body');
-                    tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">Gagal mengambil data dari Google Sheet.</td></tr>`;
-                })
-                .getSertifikatData();
         }
 
         function renderSertifikatTable(data) {
