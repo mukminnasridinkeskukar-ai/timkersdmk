@@ -522,7 +522,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/XXXXXXXXXXXXXXXX/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyI8ip5H9xrfSIQEfxWwQAau37D3vG16K3hs2NYNlN048tsH-xl1yYD_DkXcfQHVvbO/exec';
 
         // Tailwind script
         function initializeTailwind() {
@@ -579,25 +579,21 @@
 
         // Load initial stats
         async function loadDashboardStats() {
-            try {
-                const res = await google.script.run.withSuccessHandler(data => {
-                    document.getElementById('stat-kegiatan').innerText = data.kegiatan || '124';
-                    document.getElementById('stat-peserta').innerText = data.peserta || '3,872';
-                    document.getElementById('stat-instansi').innerText = data.instansi || '287';
-                    document.getElementById('stat-provinsi').innerText = data.provinsi || '34';
+            google.script.run
+                .withSuccessHandler(data => {
+                    const d = data || {};
+                    document.getElementById('stat-kegiatan').innerText = d.kegiatan || '0';
+                    document.getElementById('stat-peserta').innerText = d.peserta || '0';
+                    document.getElementById('stat-instansi').innerText = d.instansi || '0';
+                    document.getElementById('stat-provinsi').innerText = d.provinsi || '0';
                     
-                    // Chart
                     renderActivityChart();
-                    
-                    // Latest activities
-                    renderLatestActivities(data.latest || []);
-                }).getDashboardStats();
-            } catch(e) {
-                // Fallback demo data
-                document.getElementById('stat-kegiatan').innerText = '124';
-                document.getElementById('stat-peserta').innerText = '3,872';
-                renderActivityChart();
-            }
+                    renderLatestActivities(d.latest || []);
+                })
+                .withFailureHandler(() => {
+                    // Biarkan angka 0 jika gagal
+                })
+                .getDashboardStats();
         }
 
         function renderActivityChart() {
@@ -657,19 +653,19 @@
             const container = document.getElementById('pengumuman-list');
             container.innerHTML = `<div class="col-span-full text-center py-8"><div class="skeleton h-6 w-1/2 mx-auto bg-slate-100 rounded"></div></div>`;
             
-            try {
-                const data = await google.script.run.withSuccessHandler(pengumuman => {
-                    allPengumuman = pengumuman;
-                    renderPengumumanList(pengumuman);
-                }).getPengumuman();
-            } catch(e) {
-                // Demo
-                allPengumuman = [
-                    {id:1, judul:"Pendaftaran Kegiatan Q1 Dibuka", tanggal:"18 Feb 2026", isi:"Seluruh SDM Kesehatan diharapkan mendaftar secepatnya."},
-                    {id:2, judul:"Jadwal Kegiatan Maret 2026", tanggal:"15 Feb 2026", isi:"Update jadwal terbaru telah tersedia di sistem."}
-                ];
-                renderPengumumanList(allPengumuman);
-            }
+            google.script.run
+                .withSuccessHandler(pengumuman => {
+                    allPengumuman = pengumuman || [];
+                    if (allPengumuman.length === 0) {
+                        container.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400">Belum ada pengumuman.</div>`;
+                    } else {
+                        renderPengumumanList(allPengumuman);
+                    }
+                })
+                .withFailureHandler(() => {
+                    container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">Gagal memuat data dari server.</div>`;
+                })
+                .getPengumuman();
         }
         
         function renderPengumumanList(list) {
@@ -717,18 +713,19 @@
             const tbody = document.getElementById('jadwal-table-body');
             tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-8 text-center"><div class="skeleton h-4 w-2/3 mx-auto bg-slate-100 rounded"></div></td></tr>`;
             
-            try {
-                const data = await google.script.run.withSuccessHandler(jadwal => {
-                    allJadwal = jadwal;
-                    renderJadwalTable(jadwal);
-                }).getJadwalKegiatan();
-            } catch(e) {
-                allJadwal = [
-                    {id:1, nama:"Workshop Manajemen Kesehatan", tanggal:"2026-03-05", jenis:"Workshop", kuota:120, status:"Akan Datang"},
-                    {id:2, nama:"Pelatihan Digitalisasi", tanggal:"2026-02-28", jenis:"Pelatihan", kuota:85, status:"Berlangsung"}
-                ];
-                renderJadwalTable(allJadwal);
-            }
+            google.script.run
+                .withSuccessHandler(jadwal => {
+                    allJadwal = jadwal || [];
+                    if (allJadwal.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-12 text-center text-slate-400">Belum ada jadwal kegiatan.</td></tr>`;
+                    } else {
+                        renderJadwalTable(allJadwal);
+                    }
+                })
+                .withFailureHandler(() => {
+                    tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-12 text-center text-rose-500">Gagal memuat data.</td></tr>`;
+                })
+                .getJadwalKegiatan();
         }
         
         function renderJadwalTable(data) {
@@ -768,24 +765,28 @@
             const select = document.getElementById('kegiatan');
             select.innerHTML = `<option value="">-- Pilih Kegiatan --</option>`;
             
-            try {
-                const kegiatan = await google.script.run.withSuccessHandler(data => {
-                    data.forEach(k => {
+            google.script.run
+                .withSuccessHandler(data => {
+                    const list = data || [];
+                    list.forEach(k => {
                         const opt = document.createElement('option');
                         opt.value = k.id;
                         opt.textContent = k.nama;
                         select.appendChild(opt);
                     });
-                }).getKegiatanAktif();
-            } catch(e) {
-                const demo = ["Workshop Manajemen Kesehatan", "Pelatihan Digitalisasi RS"];
-                demo.forEach((name, i) => {
+                    if (list.length === 0) {
+                        const opt = document.createElement('option');
+                        opt.textContent = 'Belum ada kegiatan aktif';
+                        opt.disabled = true;
+                        select.appendChild(opt);
+                    }
+                })
+                .withFailureHandler(() => {
                     const opt = document.createElement('option');
-                    opt.value = i + 1;
-                    opt.textContent = name;
+                    opt.textContent = 'Gagal memuat kegiatan';
                     select.appendChild(opt);
-                });
-            }
+                })
+                .getKegiatanAktif();
         }
         
         function previewFile(input, previewId) {
@@ -847,8 +848,8 @@
             resultContainer.innerHTML = `<div class="text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
             resultContainer.classList.remove('hidden');
             
-            try {
-                const status = await google.script.run.withSuccessHandler(data => {
+            google.script.run
+                .withSuccessHandler(data => {
                     if (!data) {
                         resultContainer.innerHTML = `<div class="text-center py-3 text-rose-600">Data tidak ditemukan.</div>`;
                         return;
@@ -877,10 +878,11 @@
                             </div>
                         </div>
                     `;
-                }).getStatusPeserta(input);
-            } catch(e) {
-                resultContainer.innerHTML = `<div class="p-4 text-emerald-700">Status: <strong>Disetujui</strong><br>Nomor Registrasi: REG-2026-00842</div>`;
-            }
+                })
+                .withFailureHandler(() => {
+                    resultContainer.innerHTML = `<div class="text-center py-3 text-rose-600">Gagal memuat status.</div>`;
+                })
+                .getStatusPeserta(input);
         }
         
         function downloadBukti(registrasi) {
