@@ -71,10 +71,12 @@ body { background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%); font-famil
       <p class="text-muted mb-0">Sistem Informasi dan Manajemen Praktik Tenaga Medis</p>
     </div>
     <div class="d-flex align-items-center gap-3">
-      <div class="text-end">
+      <div class="text-end" id="adminHeader" onclick="showLoginModal()" style="cursor:pointer">
         <div class="fw-semibold">Admin SDMK Dinkes Kutai Kartanegara</div>
-        <small class="text-success"><i class="fas fa-circle fa-xs me-1"></i>Online</small>
+        <small class="text-success"><i class="fas fa-circle fa-xs me-1"></i>Login untuk akses Admin Panel</small>
       </div>
+      <img src="https://i.pravatar.cc/40" class="rounded-circle" width="40" height="40">
+    </div>
       <img src="https://i.pravatar.cc/40" class="rounded-circle" width="40" height="40">
     </div>
   </div>
@@ -188,7 +190,7 @@ body { background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%); font-famil
 <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
 <script>
 // ==================== CONFIG ====================
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzdGxWxDW2tG9X_IY-rKTeB_4oCEt_9wBnyRTVcKfa-LFweqAAwUpmdhFlvW0HaY6mQ/exec"; // GANTI DENGAN URL ANDA
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyoptXW8EFzWThZ0ImkMnxfyKRD6lQL7hGhRx1_x8hy7191MwD5AjNxO-HV71Jm_fCN/exec"; // GANTI DENGAN URL ANDA
 
 // ==================== NAVIGATION ====================
 document.querySelectorAll('.nav-link').forEach(link => {
@@ -454,9 +456,79 @@ function closeLightbox() {
   lb.classList.remove('show');
 }
 
+// ==================== ADMIN LOGIN ====================
+let currentUser = null;
+
+function showLoginModal() {
+  Swal.fire({
+    title: 'Login Admin Panel',
+    html: `
+      <input type="text" id="loginUsername" class="swal2-input" placeholder="Username">
+      <input type="password" id="loginPassword" class="swal2-input" placeholder="Password">
+    `,
+    confirmButtonText: 'Login',
+    focusConfirm: false,
+    preConfirm: () => {
+      const username = Swal.getPopup().querySelector('#loginUsername').value;
+      const password = Swal.getPopup().querySelector('#loginPassword').value;
+      if (!username || !password) {
+        Swal.showValidationMessage('Username dan password wajib diisi');
+        return false;
+      }
+      return { username, password };
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      loginAdmin(result.value.username, result.value.password);
+    }
+  });
+}
+
+async function loginAdmin(username, password) {
+  try {
+    const res = await fetch(`${WEB_APP_URL}?action=login&username=${username}&password=${password}`);
+    const data = await res.json();
+
+    if (data.success) {
+      currentUser = data.user;
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      
+      document.getElementById('adminHeader').innerHTML = `
+        <div class="fw-semibold">${currentUser.nama}</div>
+        <small class="text-primary">${currentUser.role}</small>
+      `;
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Login Berhasil',
+        text: `Selamat datang, ${currentUser.nama}`,
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } else {
+      Swal.fire('Login Gagal', data.message, 'error');
+    }
+  } catch (err) {
+    Swal.fire('Error', 'Gagal terhubung ke server', 'error');
+  }
+}
+
+// Auto restore login
+function restoreLogin() {
+  const saved = localStorage.getItem('currentUser');
+  if (saved) {
+    currentUser = JSON.parse(saved);
+    document.getElementById('adminHeader').innerHTML = `
+      <div class="fw-semibold">${currentUser.nama}</div>
+      <small class="text-primary">${currentUser.role}</small>
+    `;
+  }
+}
+
 // ==================== INIT ====================
 AOS.init({ duration: 600, once: true });
 initDashboard();
+restoreLogin();
 document.getElementById('page-dashboard').classList.remove('d-none');
 </script>
 </body>
