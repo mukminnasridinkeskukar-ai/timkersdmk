@@ -211,6 +211,10 @@
                         <i class="fa-solid fa-search w-5"></i>
                         <span>Cek Status Peserta</span>
                     </a>
+                    <a onclick="navigateTo('cek-sertifikat')" class="nav-item flex items-center gap-x-3 px-4 py-3.5 text-slate-700 font-medium cursor-pointer rounded-3xl" id="nav-cek-sertifikat">
+                        <i class="fa-solid fa-certificate w-5"></i>
+                        <span>Cek Sertifikat</span>
+                    </a>
                     <a onclick="navigateTo('kontak')" class="nav-item flex items-center gap-x-3 px-4 py-3.5 text-slate-700 font-medium cursor-pointer rounded-3xl" id="nav-kontak">
                         <i class="fa-solid fa-users w-5"></i>
                         <span>Kontak PIC</span>
@@ -492,6 +496,56 @@
                 </div>
             </div>
 
+            <!-- CEK SERTIFIKAT -->
+            <div id="section-cek-sertifikat" class="hidden">
+                <div class="mb-6">
+                    <h2 class="text-3xl font-bold">Cek Sertifikat</h2>
+                    <p class="text-sm text-slate-600 mt-1">Daftar peserta yang sudah mendapatkan sertifikat pengabdian masyarakat.</p>
+                </div>
+
+                <!-- Search & Filters -->
+                <div class="mb-5 flex flex-col md:flex-row gap-3">
+                    <div class="flex-1">
+                        <input type="text" id="search-sertifikat" placeholder="Cari Nama Peserta atau Nama Kegiatan..." 
+                               onkeyup="filterSertifikat()" 
+                               class="w-full border border-slate-200 bg-white px-5 py-3 rounded-3xl text-sm">
+                    </div>
+                    
+                    <div class="w-full md:w-56">
+                        <select id="filter-tempat-bekerja" onchange="filterSertifikat()" class="w-full border border-slate-200 bg-white px-4 py-3 rounded-3xl text-sm">
+                            <option value="">Semua Tempat Bekerja</option>
+                        </select>
+                    </div>
+                    
+                    <div class="w-full md:w-48">
+                        <select id="filter-jenis-sdmk" onchange="filterSertifikat()" class="w-full border border-slate-200 bg-white px-4 py-3 rounded-3xl text-sm">
+                            <option value="">Semua Jenis SDMK</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-50">
+                            <tr class="text-xs text-slate-500 font-medium">
+                                <th class="py-4 px-5 text-left w-10">No</th>
+                                <th class="py-4 px-5 text-left">Nama Peserta</th>
+                                <th class="py-4 px-5 text-left">Jenis SDMK</th>
+                                <th class="py-4 px-5 text-left">Tempat Bekerja</th>
+                                <th class="py-4 px-5 text-left">Nama Kegiatan</th>
+                                <th class="py-4 px-5 text-left">Tanggal</th>
+                                <th class="py-4 px-5 text-left">Tempat</th>
+                                <th class="py-4 px-5 text-center w-48">Sertifikat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sertifikat-table-body" class="divide-y text-slate-700">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- KONTAK PIC -->
             <div id="section-kontak" class="hidden">
                 <h2 class="text-3xl font-bold mb-6">Kontak Person In Charge</h2>
@@ -522,7 +576,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxK583Qc2h_4uJTfprk9gxVbQP5GmRigypE3rvKYJtulZEjq_bWUl7gISFCy3oHImCo/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyHT31pRNhSED5bYXt9gbuUDSTy3D58dIW5eDKKTKoEmADkgFnZqekAlgdzcZFGRTqe/exec';
 
         // Tailwind script
         function initializeTailwind() {
@@ -580,6 +634,7 @@
             if (section === 'jadwal') loadJadwal();
             if (section === 'pendaftaran') loadKegiatanDropdown();
             if (section === 'kontak') loadPIC();
+            if (section === 'cek-sertifikat') loadSertifikat();
         }
 
         // Load initial stats
@@ -925,6 +980,129 @@
             setTimeout(() => {
                 window.open('https://drive.google.com/file/d/demo/view', '_blank');
             }, 800);
+        }
+
+        // ==================== CEK SERTIFIKAT ====================
+        let allSertifikat = [];
+
+        async function loadSertifikat() {
+            const tbody = document.getElementById('sertifikat-table-body');
+            tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center"><div class="skeleton h-4 w-1/3 mx-auto bg-slate-100 rounded"></div></td></tr>`;
+
+            if (!isGAS()) {
+                // Demo data for local testing
+                allSertifikat = [
+                    {
+                        id: 1, nama: "dr. Andi Saputra", jenis_sdmk: "Dokter", tempat_bekerja: "RSUD Sejahtera",
+                        nama_kegiatan: "Workshop Manajemen Kesehatan", tanggal: "2026-02-10", tempat: "Hotel Grand Indonesia",
+                        link_preview: "https://drive.google.com/file/d/1abc123/view", link_download: "https://drive.google.com/uc?export=download&id=1abc123"
+                    },
+                    {
+                        id: 2, nama: "Ns. Rina Marlina", jenis_sdmk: "Perawat", tempat_bekerja: "Puskesmas Cempaka",
+                        nama_kegiatan: "Pelatihan Digitalisasi RS", tanggal: "2026-02-12", tempat: "Balai Kesehatan",
+                        link_preview: "https://drive.google.com/file/d/1def456/view", link_download: "https://drive.google.com/uc?export=download&id=1def456"
+                    }
+                ];
+                renderSertifikatTable(allSertifikat);
+                populateFilters(allSertifikat);
+                return;
+            }
+
+            google.script.run
+                .withSuccessHandler(data => {
+                    allSertifikat = data || [];
+                    renderSertifikatTable(allSertifikat);
+                    populateFilters(allSertifikat);
+                })
+                .withFailureHandler(() => {
+                    tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">Gagal memuat data sertifikat.</td></tr>`;
+                })
+                .getSertifikatData();   // <-- nanti kita buat di Code.gs
+        }
+
+        function renderSertifikatTable(data) {
+            const tbody = document.getElementById('sertifikat-table-body');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-slate-400">Tidak ada data sertifikat.</td></tr>`;
+                return;
+            }
+
+            data.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-5 py-4 text-slate-500">${index + 1}</td>
+                    <td class="px-5 py-4 font-medium">${item.nama}</td>
+                    <td class="px-5 py-4"><span class="px-3 py-0.5 text-xs bg-teal-100 text-teal-700 rounded-2xl">${item.jenis_sdmk}</span></td>
+                    <td class="px-5 py-4 text-slate-600">${item.tempat_bekerja}</td>
+                    <td class="px-5 py-4">${item.nama_kegiatan}</td>
+                    <td class="px-5 py-4 text-sm">${item.tanggal}</td>
+                    <td class="px-5 py-4 text-sm text-slate-600">${item.tempat}</td>
+                    <td class="px-5 py-4">
+                        <div class="flex gap-2 justify-center">
+                            <a href="${item.link_preview}" target="_blank" 
+                               class="px-3 py-1.5 text-xs bg-white border border-emerald-700 hover:bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-1">
+                                <i class="fa-solid fa-eye text-xs"></i> <span>Preview</span>
+                            </a>
+                            <a href="${item.link_download}" target="_blank" 
+                               class="px-3 py-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl flex items-center gap-1">
+                                <i class="fa-solid fa-download text-xs"></i> <span>Download</span>
+                            </a>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function populateFilters(data) {
+            // Tempat Bekerja
+            const tempatSelect = document.getElementById('filter-tempat-bekerja');
+            const tempatList = [...new Set(data.map(d => d.tempat_bekerja))].sort();
+            tempatSelect.innerHTML = `<option value="">Semua Tempat Bekerja</option>`;
+            tempatList.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                opt.textContent = item;
+                tempatSelect.appendChild(opt);
+            });
+
+            // Jenis SDMK
+            const jenisSelect = document.getElementById('filter-jenis-sdmk');
+            const jenisList = [...new Set(data.map(d => d.jenis_sdmk))].sort();
+            jenisSelect.innerHTML = `<option value="">Semua Jenis SDMK</option>`;
+            jenisList.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                opt.textContent = item;
+                jenisSelect.appendChild(opt);
+            });
+        }
+
+        function filterSertifikat() {
+            const searchTerm = document.getElementById('search-sertifikat').value.toLowerCase().trim();
+            const tempat = document.getElementById('filter-tempat-bekerja').value;
+            const jenis = document.getElementById('filter-jenis-sdmk').value;
+
+            let filtered = allSertifikat;
+
+            if (searchTerm) {
+                filtered = filtered.filter(item =>
+                    item.nama.toLowerCase().includes(searchTerm) ||
+                    item.nama_kegiatan.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            if (tempat) {
+                filtered = filtered.filter(item => item.tempat_bekerja === tempat);
+            }
+
+            if (jenis) {
+                filtered = filtered.filter(item => item.jenis_sdmk === jenis);
+            }
+
+            renderSertifikatTable(filtered);
         }
 
         // Kontak PIC
