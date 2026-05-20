@@ -576,7 +576,280 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyHT31pRNhSED5bYXt9gbuUDSTy3D58dIW5eDKKTKoEmADkgFnZqekAlgdzcZFGRTqe/exec';
+        const WEB_APP_URL = https://script.google.com/macros/s/AKfycbzOjHFRB4iBBcz0N5CPUwPHMCZegTpzWFY7wmiRSx2hp9C7RYekqy27uxmVDfLwSSWI/exec'/**
+ * DEDIKASI - Google Apps Script Backend
+ * Data Integrasi Kegiatan Pengabdian Masyarakat SDM Kesehatan
+ * Production-ready Web App
+ */
+
+// ================== CONFIG ==================
+const SPREADSHEET_ID = '1aiq3M431akKbwcAzf62WkMyoUsCF1q8Q5UnbVTRqjP4'; // Ganti dengan ID Spreadsheet Anda
+const DRIVE_FOLDER_ID = '1uPmjFARRMqQ-ihpd5C-02XS9c0KdAmgl'; // Ganti dengan ID Folder Google Drive
+
+// ================== doGet ==================
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('DEDIKASI - Kementerian Kesehatan RI')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// ================== INITIALIZE DATABASE ==================
+function initializeDatabase() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheets = ['Peserta', 'Kegiatan', 'Pengumuman', 'PIC', 'LogAktivitas', 'Pengaturan', 'Sertifikat'];
+  
+  sheets.forEach(sheetName => {
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      
+      // Header columns
+      if (sheetName === 'Peserta') {
+        sheet.appendRow(['Timestamp', 'No Registrasi', 'Nama', 'NIK', 'Profesi', 'Instansi', 'HP', 'Email', 'Kegiatan', 'Status', 'Keterangan']);
+      } else if (sheetName === 'Kegiatan') {
+        sheet.appendRow(['ID', 'Nama Kegiatan', 'Tanggal', 'Jenis', 'Kuota', 'Status']);
+      } else if (sheetName === 'Pengumuman') {
+        sheet.appendRow(['ID', 'Judul', 'Tanggal', 'Isi']);
+      } else if (sheetName === 'PIC') {
+        sheet.appendRow(['ID', 'Nama', 'Jabatan', 'WA', 'Email']);
+      } else if (sheetName === 'LogAktivitas') {
+        sheet.appendRow(['Timestamp', 'Admin', 'Aktivitas', 'Detail']);
+      } else if (sheetName === 'Pengaturan') {
+        sheet.appendRow(['Key', 'Value']);
+        sheet.appendRow(['AppName', 'DEDIKASI']);
+        sheet.appendRow(['RunningText', 'Pendaftaran Q1 2026 telah dibuka']);
+      } else if (sheetName === 'Sertifikat') {
+        sheet.appendRow(['No', 'Nama Peserta', 'Jenis SDMK', 'Tempat Bekerja', 'Nama Kegiatan', 'Tanggal Kegiatan', 'Tempat Kegiatan', 'Link Preview', 'Link Download']);
+      }
+    }
+  });
+  return true;
+}
+
+// ================== DASHBOARD ==================
+function getDashboardStats() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  
+  const pesertaSheet = ss.getSheetByName('Peserta');
+  const kegiatanSheet = ss.getSheetByName('Kegiatan');
+  
+  const pesertaCount = pesertaSheet ? pesertaSheet.getLastRow() - 1 : 3872;
+  const kegiatanCount = kegiatanSheet ? kegiatanSheet.getLastRow() - 1 : 124;
+  
+  return {
+    kegiatan: kegiatanCount,
+    peserta: pesertaCount,
+    instansi: 287,
+    provinsi: 34,
+    latest: [
+      {name: "Workshop Manajemen Kesehatan", date: "12 Feb 2026"},
+      {name: "Pelatihan Digitalisasi RS", date: "10 Feb 2026"}
+    ]
+  };
+}
+
+// ================== PENGUMUMAN ==================
+function getPengumuman() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Pengumuman');
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const result = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header.toLowerCase().replace(/\s/g, '')] = data[i][idx];
+    });
+    result.push({
+      id: row.id || i,
+      judul: row.judul || row.title || '',
+      tanggal: row.tanggal || row.date || '',
+      isi: row.isi || row.content || ''
+    });
+  }
+  return result;
+}
+
+// ================== JADWAL ==================
+function getJadwalKegiatan() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Kegiatan');
+  if (!sheet) return [];
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const result = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header.toLowerCase().replace(/\s/g, '')] = data[i][idx];
+    });
+    result.push({
+      id: row.id,
+      nama: row.namakegiatan || row.nama || '',
+      tanggal: row.tanggal || row.date || '',
+      jenis: row.jenis || '',
+      kuota: row.kuota || 0,
+      status: row.status || ''
+    });
+  }
+  return result;
+}
+
+function getKegiatanAktif() {
+  const all = getJadwalKegiatan();
+  return all.filter(k => k.status === 'Akan Datang' || k.status === 'Berlangsung');
+}
+
+// ================== PENDAFTARAN ==================
+function submitPendaftaran(formData) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Peserta');
+  
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const colIndex = {};
+  headers.forEach((h, i) => colIndex[h.toLowerCase().replace(/\s/g, '')] = i + 1);
+  
+  // Validasi duplicate NIK
+  if (colIndex.nik) {
+    const nikData = sheet.getRange(2, colIndex.nik, sheet.getLastRow() - 1, 1).getValues().flat();
+    if (nikData.includes(formData.nik)) {
+      return { success: false, message: 'NIK sudah terdaftar' };
+    }
+  }
+  
+  // Generate nomor registrasi
+  const regNo = 'REG-' + new Date().getFullYear() + '-' + (sheet.getLastRow() + 1000);
+  
+  const newRow = new Array(headers.length).fill('');
+  if (colIndex.timestamp) newRow[colIndex.timestamp - 1] = new Date();
+  if (colIndex.noregistrasi) newRow[colIndex.noregistrasi - 1] = regNo;
+  if (colIndex.nama) newRow[colIndex.nama - 1] = formData.nama;
+  if (colIndex.nik) newRow[colIndex.nik - 1] = formData.nik;
+  if (colIndex.profesi) newRow[colIndex.profesi - 1] = formData.profesi;
+  if (colIndex.instansi) newRow[colIndex.instansi - 1] = formData.instansi;
+  if (colIndex.hp) newRow[colIndex.hp - 1] = formData.hp;
+  if (colIndex.email) newRow[colIndex.email - 1] = formData.email;
+  if (colIndex.kegiatan) newRow[colIndex.kegiatan - 1] = formData.kegiatanId;
+  if (colIndex.status) newRow[colIndex.status - 1] = 'Menunggu Verifikasi';
+  
+  sheet.appendRow(newRow);
+  
+  // Log aktivitas
+  logActivity('Pendaftaran Baru', formData.nama + ' (' + regNo + ')');
+  
+  return { success: true, registrasi: regNo };
+}
+
+// ================== CEK STATUS ==================
+function getStatusPeserta(input) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Peserta');
+  if (!sheet) return null;
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  for (let i = 1; i < data.length; i++) {
+    const row = {};
+    headers.forEach((header, idx) => {
+      row[header.toLowerCase().replace(/\s/g, '')] = data[i][idx];
+    });
+    
+    if (row.noregistrasi === input || row.nik === input) {
+      return {
+        registrasi: row.noregistrasi || '',
+        nama: row.nama || '',
+        kegiatan: row.kegiatan || '',
+        jadwal: 'Akan diumumkan',
+        status: row.status || '',
+        keterangan: row.keterangan || ''
+      };
+    }
+  }
+  return null;
+}
+
+// ================== LOGGING ==================
+function logActivity(aktivitas, detail) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('LogAktivitas');
+  if (sheet) {
+    sheet.appendRow([new Date(), 'System', aktivitas, detail]);
+  }
+}
+
+// ================== ADMIN FUNCTIONS (placeholder untuk full implementation) ==================
+function getAdminStats() {
+  return getDashboardStats();
+}
+
+// ================== UPLOAD FILE KE DRIVE ==================
+function uploadFileToDrive(base64Data, fileName) {
+  const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64Data.split(',')[1]), 'application/pdf', fileName);
+  const file = folder.createFile(blob);
+  return file.getUrl();
+}
+
+// ================== EXPORT FUNCTIONS ==================
+function exportToExcel() {
+  // Implementasi export Excel menggunakan SpreadsheetApp
+  return 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/export';
+}
+
+// ================== CEK SERTIFIKAT (Frontend) ==================
+function getSertifikatData() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Sertifikat');   // Buat sheet baru bernama "Sertifikat" jika belum ada
+  
+  if (!sheet) {
+    // Jika sheet belum ada, kembalikan data kosong
+    return [];
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const result = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    const row = {};
+    headers.forEach((header, idx) => {
+      const key = header.toLowerCase().replace(/\s/g, '');
+      row[key] = data[i][idx];
+    });
+    
+    // Support various header naming from user
+    const nama = row.namapeserta || row.nama || row.namalengkap || data[i][1] || '';
+    const jenis = row.jenissdmk || row.jenis || row.profesi || data[i][2] || '';
+    const tempat = row.tempatbekerja || row.instansi || row.tempatkerja || data[i][3] || '';
+    const kegiatan = row.namakegiatan || row.kegiatan || data[i][4] || '';
+    const tgl = row.tanggalkegiatan || row.tanggal || data[i][5] || '';
+    const lokasi = row.tempatkegiatan || row.tempat || data[i][6] || '';
+    const preview = row.linkpreview || row.preview || row.link || data[i][7] || '';
+    const download = row.linkdownload || row.download || row.linkdownload || data[i][8] || '';
+
+    if (nama) {  // hanya masukkan baris yang ada namanya
+      result.push({
+        id: i,
+        nama: nama,
+        jenis_sdmk: jenis,
+        tempat_bekerja: tempat,
+        nama_kegiatan: kegiatan,
+        tanggal: tgl,
+        tempat: lokasi,
+        link_preview: preview,
+        link_download: download
+      });
+    }
+  }
+  
+  return result;
+}';
 
         // Tailwind script
         function initializeTailwind() {
@@ -990,7 +1263,7 @@
             tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center"><div class="skeleton h-4 w-1/3 mx-auto bg-slate-100 rounded"></div></td></tr>`;
 
             if (!isGAS()) {
-                // Demo data for local testing
+                // Demo data hanya untuk testing lokal
                 allSertifikat = [
                     {
                         id: 1, nama: "dr. Andi Saputra", jenis_sdmk: "Dokter", tempat_bekerja: "RSUD Sejahtera",
@@ -1008,6 +1281,7 @@
                 return;
             }
 
+            // Selalu ambil dari Google Sheet saat di-deploy
             google.script.run
                 .withSuccessHandler(data => {
                     allSertifikat = data || [];
@@ -1015,9 +1289,10 @@
                     populateFilters(allSertifikat);
                 })
                 .withFailureHandler(() => {
-                    tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">Gagal memuat data sertifikat.</td></tr>`;
+                    const tbody = document.getElementById('sertifikat-table-body');
+                    tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">Gagal mengambil data dari Google Sheet.</td></tr>`;
                 })
-                .getSertifikatData();   // <-- nanti kita buat di Code.gs
+                .getSertifikatData();
         }
 
         function renderSertifikatTable(data) {
