@@ -522,11 +522,16 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyI8ip5H9xrfSIQEfxWwQAau37D3vG16K3hs2NYNlN048tsH-xl1yYD_DkXcfQHVvbO/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxK583Qc2h_4uJTfprk9gxVbQP5GmRigypE3rvKYJtulZEjq_bWUl7gISFCy3oHImCo/exec';
 
         // Tailwind script
         function initializeTailwind() {
             document.documentElement.style.setProperty('--accent', '#0F766E');
+        }
+
+        // Helper: cek apakah berjalan di lingkungan Google Apps Script
+        function isGAS() {
+            return typeof google !== 'undefined' && google.script;
         }
 
         // Show toast notification
@@ -579,6 +584,14 @@
 
         // Load initial stats
         async function loadDashboardStats() {
+            if (!isGAS()) {
+                // Mode lokal: tetap tampilkan angka demo
+                document.getElementById('stat-kegiatan').innerText = '124';
+                document.getElementById('stat-peserta').innerText = '3,872';
+                renderActivityChart();
+                return;
+            }
+
             google.script.run
                 .withSuccessHandler(data => {
                     const d = data || {};
@@ -653,6 +666,10 @@
             const container = document.getElementById('pengumuman-list');
             container.innerHTML = `<div class="col-span-full text-center py-8"><div class="skeleton h-6 w-1/2 mx-auto bg-slate-100 rounded"></div></div>`;
             
+            if (!isGAS()) {
+                container.innerHTML = `<div class="col-span-full text-center py-12 text-amber-600 text-sm">Buka melalui Web App URL.</div>`;
+                return;
+            }
             google.script.run
                 .withSuccessHandler(pengumuman => {
                     allPengumuman = pengumuman || [];
@@ -713,6 +730,11 @@
             const tbody = document.getElementById('jadwal-table-body');
             tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-8 text-center"><div class="skeleton h-4 w-2/3 mx-auto bg-slate-100 rounded"></div></td></tr>`;
             
+            if (!isGAS()) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-7 py-12 text-center text-amber-600 text-sm">Buka melalui Web App URL (bukan file lokal).</td></tr>`;
+                return;
+            }
+
             google.script.run
                 .withSuccessHandler(jadwal => {
                     allJadwal = jadwal || [];
@@ -765,6 +787,13 @@
             const select = document.getElementById('kegiatan');
             select.innerHTML = `<option value="">-- Pilih Kegiatan --</option>`;
             
+            if (!isGAS()) {
+                const opt = document.createElement('option');
+                opt.textContent = 'Buka via Web App URL';
+                select.appendChild(opt);
+                return;
+            }
+
             google.script.run
                 .withSuccessHandler(data => {
                     const list = data || [];
@@ -848,6 +877,11 @@
             resultContainer.innerHTML = `<div class="text-center py-6"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
             resultContainer.classList.remove('hidden');
             
+            if (!isGAS()) {
+                resultContainer.innerHTML = `<div class="text-center py-3 text-amber-600">Buka melalui Web App URL.</div>`;
+                return;
+            }
+
             google.script.run
                 .withSuccessHandler(data => {
                     if (!data) {
