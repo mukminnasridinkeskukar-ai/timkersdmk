@@ -421,16 +421,12 @@
                                 <input type="text" id="asal_institusi" required class="w-full border px-4 py-[13px] rounded-3xl text-sm">
                             </div>
                             
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-                                <div>
-                                    <label class="text-xs tracking-wider text-slate-500 font-medium block mb-1.5">TELPON / WA</label>
-                                    <input type="tel" id="telpon" required class="w-full border px-4 py-[13px] rounded-3xl text-sm">
-                                </div>
-                                <div>
-                                    <label class="text-xs tracking-wider text-slate-500 font-medium block mb-1.5">JUMLAH PESERTA</label>
-                                    <input type="number" id="jumlah_peserta" required class="w-full border px-4 py-[13px] rounded-3xl text-sm">
-                                </div>
-                            </div>
+                             <div class="mt-5">
+                                 <div>
+                                     <label class="text-xs tracking-wider text-slate-500 font-medium block mb-1.5">TELPON / WA</label>
+                                     <input type="tel" id="telpon" required class="w-full border px-4 py-[13px] rounded-3xl text-sm">
+                                 </div>
+                             </div>
                         </div>
 
                         <!-- Detail Kegiatan -->
@@ -665,7 +661,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = https://script.google.com/macros/s/AKfycbxfRkzpApTBVqg01I3z5Q_1sjV3zp0Mr1mu7O1mGq4XIp05b5_I1NCwmwqhmLXnsctT/exec'/**
+        const WEB_APP_URL = https://script.google.com/macros/s/AKfycbzOjHFRB4iBBcz0N5CPUwPHMCZegTpzWFY7wmiRSx2hp9C7RYekqy27uxmVDfLwSSWI/exec'/**
  * DEDIKASI - Google Apps Script Backend
  * Data Integrasi Kegiatan Pengabdian Masyarakat SDM Kesehatan
  * Production-ready Web App
@@ -950,6 +946,28 @@ function getSertifikatData() {
             return typeof google !== 'undefined' && google.script;
         }
 
+        // ================== NAVIGASI (didefinisikan paling awal agar aman) ==================
+        function navigateTo(section) {
+            try {
+                document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
+                const target = document.getElementById('section-' + section);
+                if (target) target.classList.remove('hidden');
+
+                document.querySelectorAll('[id^="nav-"]').forEach(el => el.classList.remove('nav-active'));
+                const navEl = document.getElementById('nav-' + section);
+                if (navEl) navEl.classList.add('nav-active');
+
+                // Panggil loader jika ada
+                if (section === 'pengumuman' && typeof loadPengumuman === 'function') loadPengumuman();
+                if (section === 'jadwal' && typeof loadJadwal === 'function') loadJadwal();
+                if (section === 'pendaftaran' && typeof loadKegiatanDropdown === 'function') loadKegiatanDropdown();
+                if (section === 'kontak' && typeof loadPIC === 'function') loadPIC();
+                if (section === 'cek-sertifikat' && typeof loadSertifikat === 'function') loadSertifikat();
+            } catch (e) {
+                console.error('navigateTo error:', e);
+            }
+        }
+
         // Show toast notification
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -973,31 +991,8 @@ function getSertifikatData() {
             }, 3800);
         }
 
-        // Navigation
+        // Navigation state
         let currentSection = 'dashboard';
-        
-        function navigateTo(section) {
-            // Hide all sections
-            document.querySelectorAll('[id^="section-"]').forEach(el => el.classList.add('hidden'));
-            
-            // Show target
-            const target = document.getElementById('section-' + section);
-            if (target) target.classList.remove('hidden');
-            
-            // Update nav active state
-            document.querySelectorAll('[id^="nav-"]').forEach(el => el.classList.remove('nav-active'));
-            const navEl = document.getElementById('nav-' + section);
-            if (navEl) navEl.classList.add('nav-active');
-            
-            currentSection = section;
-            
-            // Load data when needed
-            if (section === 'pengumuman') loadPengumuman();
-            if (section === 'jadwal') loadJadwal();
-            // Pendaftaran form tidak lagi memerlukan dropdown kegiatan
-            if (section === 'kontak') loadPIC();
-            if (section === 'cek-sertifikat') loadSertifikat();
-        }
 
         // Load initial stats
         async function loadDashboardStats() {
@@ -1200,41 +1195,6 @@ function getSertifikatData() {
         }
 
         // Pendaftaran
-        async function loadKegiatanDropdown() {
-            const select = document.getElementById('kegiatan');
-            select.innerHTML = `<option value="">-- Pilih Kegiatan --</option>`;
-            
-            if (!isGAS()) {
-                const opt = document.createElement('option');
-                opt.textContent = 'Buka via Web App URL';
-                select.appendChild(opt);
-                return;
-            }
-
-            google.script.run
-                .withSuccessHandler(data => {
-                    const list = data || [];
-                    list.forEach(k => {
-                        const opt = document.createElement('option');
-                        opt.value = k.id;
-                        opt.textContent = k.nama;
-                        select.appendChild(opt);
-                    });
-                    if (list.length === 0) {
-                        const opt = document.createElement('option');
-                        opt.textContent = 'Belum ada kegiatan aktif';
-                        opt.disabled = true;
-                        select.appendChild(opt);
-                    }
-                })
-                .withFailureHandler(() => {
-                    const opt = document.createElement('option');
-                    opt.textContent = 'Gagal memuat kegiatan';
-                    select.appendChild(opt);
-                })
-                .getKegiatanAktif();
-        }
-        
         function previewFile(input, previewId) {
             const preview = document.getElementById(previewId);
             if (input.files.length > 0) {
@@ -1267,7 +1227,7 @@ function getSertifikatData() {
                 tempat_kegiatan: document.getElementById('tempat_kegiatan').value,
                 tanggal_kegiatan: document.getElementById('tanggal_kegiatan').value,
                 waktu_pelaksanaan: document.getElementById('waktu_pelaksanaan').value,
-                jumlah_peserta: document.getElementById('jumlah_peserta').value || document.getElementById('jumlah_peserta_2').value,
+                jumlah_peserta: document.getElementById('jumlah_peserta_2').value,
                 
                 // File names (actual upload to Drive can be added later)
                 daftar_peserta_excel: (document.getElementById('daftar_peserta_excel').files[0] || {}).name || '',
@@ -1521,28 +1481,40 @@ function getSertifikatData() {
 
         // Initialize everything
         function initializeApp() {
-            initializeTailwind();
-            
-            // Load dashboard
-            loadDashboardStats();
-            navigateTo('dashboard');
-            
-            // Demo running text
-            const running = document.getElementById('running-text');
-            if (running) {
-                setInterval(() => {
-                    running.style.transition = 'none';
-                    running.style.marginLeft = '-100%';
-                    setTimeout(() => {
-                        running.style.transition = 'margin-left 25s linear';
-                        running.style.marginLeft = '0';
-                    }, 100);
-                }, 26000);
+            try {
+                initializeTailwind();
+                
+                // Load dashboard
+                loadDashboardStats();
+                navigateTo('dashboard');
+                
+                // Demo running text
+                const running = document.getElementById('running-text');
+                if (running) {
+                    setInterval(() => {
+                        try {
+                            running.style.transition = 'none';
+                            running.style.marginLeft = '-100%';
+                            setTimeout(() => {
+                                running.style.transition = 'margin-left 25s linear';
+                                running.style.marginLeft = '0';
+                            }, 100);
+                        } catch(e) {}
+                    }, 26000);
+                }
+                
+                console.log('%c[DEDIKASI] Platform initialized successfully', 'color:#64748b');
+            } catch (err) {
+                console.error('[DEDIKASI] Initialization error:', err);
+                // Fallback: still allow basic navigation even if some features fail
+                try { navigateTo('dashboard'); } catch(e) {}
             }
-            
-            // Keyboard shortcut hint
-            console.log('%c[DEDIKASI] Platform initialized successfully', 'color:#64748b');
         }
+        
+        // Global safety net
+        window.addEventListener('error', function(e) {
+            console.error('[DEDIKASI] Runtime error caught:', e.message);
+        });
         
         // Boot application
         window.onload = initializeApp;
