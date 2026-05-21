@@ -831,7 +831,7 @@
 
     <script>
         // ================== WEB APP URL (hanya diperlukan jika host HTML terpisah; jika pakai Web App GAS langsung, otomatis pakai integrasi native) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzT4y04yOmAHwuh-svhu9SsTfK-QWv2ShWexjbpV6CdPpJcZd5P7g4FFoWaaQMZQAtv/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyQH58mdikt27hStOZWtii5fTBZnrvhT3BYDWsJjQ-SWdoxBvDaRktjC_LzwuUTrIAh/exec";
 
         // ================== SMART HELPER: native google.script.run (fully integrated) + fetch fallback ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1080,10 +1080,12 @@
                 }
             } catch (err) {
                 console.error('loadPengumuman error:', err);
-                const msg = (err.message || '').toLowerCase().includes('cors') || (err.message || '').includes('Failed to fetch')
-                    ? 'CORS diblokir (halaman di domain custom). Buka dari URL Web App GAS.'
-                    : 'Gagal memuat data dari Google Sheet.';
-                container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">${msg}<br><span class="text-xs">Gunakan URL Web App resmi untuk integrasi penuh.</span></div>`;
+                const isCors = (err.message || '').toLowerCase().includes('cors') || (err + '').includes('Failed to fetch');
+                if (isCors) {
+                    showCORSIntegrationPrompt(container, 'pengumuman');
+                } else {
+                    container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">Gagal memuat data dari Google Sheet.</div>`;
+                }
             }
         }
         
@@ -1151,8 +1153,12 @@
                     renderJadwalTable(allJadwal);
                 }
             } catch (err) {
-                const msg = (err.message || '').toLowerCase().includes('cors') ? 'CORS error – buka via URL Web App GAS' : 'Gagal memuat data dari Google Sheet';
-                tbody.innerHTML = `<tr><td colspan="7" class="px-7 py-12 text-center text-rose-500">${msg}</td></tr>`;
+                const isCors = (err.message || '').toLowerCase().includes('cors') || (err + '').includes('Failed to fetch');
+                if (isCors) {
+                    showCORSIntegrationPrompt(tbody, 'jadwal kegiatan');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" class="px-7 py-12 text-center text-rose-500">Gagal memuat data dari Google Sheet.</td></tr>`;
+                }
             }
         }
         
@@ -1331,8 +1337,12 @@
                     </div>
                 `;
             } catch (err) {
-                const isCors = (err.message || '').toLowerCase().includes('cors');
-                resultContainer.innerHTML = `<div class="text-center py-3 text-rose-600">${isCors ? 'CORS error – buka via URL Web App GAS' : 'Gagal memuat status.'}</div>`;
+                const isCors = (err.message || '').toLowerCase().includes('cors') || (err + '').includes('Failed to fetch');
+                if (isCors) {
+                    showCORSIntegrationPrompt(resultContainer, 'status peserta');
+                } else {
+                    resultContainer.innerHTML = `<div class="text-center py-3 text-rose-600">Gagal memuat status.</div>`;
+                }
             }
         }
         
@@ -1433,8 +1443,12 @@
                 renderSertifikatTable(allSertifikat);
                 populateFilters(allSertifikat);
             } catch (err) {
-                const msg = (err.message || '').toLowerCase().includes('cors') ? 'CORS diblokir – pakai URL Web App GAS' : 'Gagal mengambil data dari Google Sheet';
-                tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">${msg}</td></tr>`;
+                const isCors = (err.message || '').toLowerCase().includes('cors') || (err + '').includes('Failed to fetch');
+                if (isCors) {
+                    showCORSIntegrationPrompt(tbody, 'data sertifikat');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">Gagal mengambil data dari Google Sheet.</td></tr>`;
+                }
             }
         }
 
@@ -1559,8 +1573,12 @@
                     container.appendChild(card);
                 });
             } catch (err) {
-                const msg = (err.message || '').toLowerCase().includes('cors') ? 'CORS error – buka dari URL Web App GAS resmi' : 'Gagal memuat data PIC dari Google Sheet';
-                container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">${msg}</div>`;
+                const isCors = (err.message || '').toLowerCase().includes('cors') || (err + '').includes('Failed to fetch');
+                if (isCors) {
+                    showCORSIntegrationPrompt(container, 'kontak PIC');
+                } else {
+                    container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">Gagal memuat data PIC dari Google Sheet.</div>`;
+                }
             }
         }
 
@@ -1618,8 +1636,12 @@
                 document.getElementById('admin-count').innerText = `${adminAllData.length} peserta terdaftar`;
                 renderAdminTable(adminAllData);
             } catch (err) {
-                const msg = (err.message || '').toLowerCase().includes('cors') ? 'CORS blocked – gunakan URL Web App GAS' : 'Gagal memuat data';
-                tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-10 text-center text-red-500">${msg}</td></tr>`;
+                const isCors = (err.message || '').toLowerCase().includes('cors') || (err + '').includes('Failed to fetch');
+                if (isCors) {
+                    showCORSIntegrationPrompt(tbody, 'data peserta admin');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-10 text-center text-red-500">Gagal memuat data.</td></tr>`;
+                }
             }
         }
 
@@ -1910,6 +1932,27 @@
                 <a href="${WEB_APP_URL}" target="_blank" style="color:#854d0e;text-decoration:underline;font-weight:600">${WEB_APP_URL}</a>
             `;
             document.body.prepend(banner);
+        }
+
+        function showCORSIntegrationPrompt(targetEl, sectionName = 'data') {
+            if (!targetEl) return;
+            const html = `
+                <div class="p-8 text-center bg-amber-50 border border-amber-200 rounded-3xl">
+                    <div class="text-amber-700 font-semibold mb-2">🔒 Gagal Mengambil ${sectionName} dari Google Sheet</div>
+                    <p class="text-sm text-amber-600 mb-4">Halaman ini di-hosting di domain eksternal sehingga terblokir CORS oleh Google.</p>
+                    <button onclick="window.open('${WEB_APP_URL}', '_blank');" 
+                            class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-3xl text-sm transition">
+                        BUKA APLIKASI RESMI — DATA TERINTEGRASI
+                    </button>
+                    <div class="mt-3 text-[11px] text-amber-500">Setelah dibuka dari URL Web App GAS, semua menu langsung ambil data asli dari spreadsheet.</div>
+                </div>
+            `;
+            // If target is a table body, wrap in a row so HTML is valid
+            if (targetEl.tagName === 'TBODY') {
+                targetEl.innerHTML = `<tr><td colspan="20" class="p-0">${html}</td></tr>`;
+            } else {
+                targetEl.innerHTML = html;
+            }
         }
 
         function initializeApp() {
