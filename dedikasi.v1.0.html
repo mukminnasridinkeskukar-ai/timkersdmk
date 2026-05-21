@@ -1093,30 +1093,38 @@
 
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGIRIM KE GOOGLE SHEET &amp; DRIVE...`;
 
-                // Selalu gunakan google.script.run (tanpa validasi URL Web App)
-                google.script.run
-                    .withSuccessHandler(function(result) {
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
+                // Smart submission: prefer google.script.run when available (GAS Web App), fallback to fetch otherwise
+                const submitPromise = (typeof google !== 'undefined' && google.script && google.script.run)
+                    ? new Promise((resolve, reject) => {
+                        google.script.run
+                          .withSuccessHandler(resolve)
+                          .withFailureHandler(reject)
+                          .submitPendaftaranWithFiles(payload);
+                      })
+                    : postToGAS({ action: 'submitPendaftaran', ...payload });
 
-                        if (result && result.success) {
-                            showToast('Pendaftaran berhasil! Nomor Registrasi: ' + result.registrasi);
-                            e.target.reset();
+                try {
+                    const result = await submitPromise;
 
-                            setTimeout(() => {
-                                alert(`Pendaftaran Berhasil!\n\nNomor Registrasi: ${result.registrasi}\n\nSemua data dan dokumen telah tersimpan otomatis ke Google Sheet & Drive.`);
-                            }, 600);
-                        } else {
-                            showToast((result && result.message) || 'Gagal mendaftar', 'error');
-                        }
-                    })
-                    .withFailureHandler(function(err) {
-                        btn.innerHTML = originalText;
-                        btn.disabled = false;
-                        console.error('google.script.run error:', err);
-                        showToast('Terjadi kesalahan saat mengirim data.', 'error');
-                    })
-                    .submitPendaftaranWithFiles(payload);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+
+                    if (result && result.success) {
+                        showToast('Pendaftaran berhasil! Nomor Registrasi: ' + result.registrasi);
+                        e.target.reset();
+
+                        setTimeout(() => {
+                            alert(`Pendaftaran Berhasil!\n\nNomor Registrasi: ${result.registrasi}\n\nSemua data dan dokumen telah tersimpan otomatis ke Google Sheet & Drive.`);
+                        }, 600);
+                    } else {
+                        showToast((result && result.message) || 'Gagal mendaftar', 'error');
+                    }
+                } catch (err) {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    console.error('Submit error:', err);
+                    showToast('Gagal mengirim data. Silakan coba lagi.', 'error');
+                }
 
             } catch (err) {
                 console.error('Submit error:', err);
