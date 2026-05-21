@@ -701,7 +701,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-bOWo2yYtnSd0--M-6H6pMI8k_UVnfdgye3-Wf8uA4hS8yoEhgr0dWJOeeaeKtXMr/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz4zG-2ixm8YCiPj5WOPTswNhS8V-a6fy5iIClFAtggxBfb45tzkAJDmKNP_jNum-jW/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1478,9 +1478,266 @@
         window.addEventListener('error', function(e) {
             console.error('[DEDIKASI] Runtime error caught:', e.message);
         });
-        
+
+        // ================== ADMIN PENGUMUMAN & PIC MANAGEMENT ==================
+
+        function showAdminPengumuman() {
+            document.getElementById('modal-admin-pengumuman').classList.remove('hidden');
+            document.getElementById('modal-admin-pengumuman').classList.add('flex');
+            loadAdminPengumumanTable();
+        }
+
+        function hideAdminPengumumanModal() {
+            document.getElementById('modal-admin-pengumuman').classList.add('hidden');
+            document.getElementById('modal-admin-pengumuman').classList.remove('flex');
+        }
+
+        async function loadAdminPengumumanTable() {
+            const tbody = document.getElementById('admin-pengumuman-list');
+            tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-emerald-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Memuat...</td></tr>`;
+
+            try {
+                const data = await fetchFromGAS('getAllPengumumanForAdmin');
+                tbody.innerHTML = '';
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400">Belum ada data pengumuman.</td></tr>`;
+                    return;
+                }
+
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-medium">${row.JUDUL || row.judul || '-'}</td>
+                        <td class="py-3 px-4 text-sm text-slate-600">${row.TANGGAL || row.tanggal || '-'}</td>
+                        <td class="py-3 px-4">
+                            <span class="px-3 py-0.5 text-xs rounded-full ${row.STATUS === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100'}">
+                                ${row.STATUS || 'Aktif'}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex gap-2">
+                                <button onclick="editPengumumanRow(${row._rowIndex})" class="text-xs px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-xl">Edit</button>
+                                <button onclick="deletePengumumanRow(${row._rowIndex})" class="text-xs px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-xl">Hapus</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-red-500">Gagal memuat data.</td></tr>`;
+            }
+        }
+
+        async function showAddPengumumanForm() {
+            const judul = prompt('Judul Pengumuman:');
+            if (!judul) return;
+            const tanggal = prompt('Tanggal (YYYY-MM-DD):', new Date().toISOString().slice(0,10));
+            const isi = prompt('Isi Pengumuman:') || '';
+
+            const res = await postToGAS({
+                action: 'createPengumuman',
+                newData: { JUDUL: judul, TANGGAL: tanggal, ISI: isi, STATUS: 'Aktif' }
+            });
+
+            if (res.success) {
+                showToast('Pengumuman berhasil ditambahkan');
+                loadAdminPengumumanTable();
+            } else {
+                showToast(res.message || 'Gagal menambah', 'error');
+            }
+        }
+
+        async function editPengumumanRow(rowIndex) {
+            const newJudul = prompt('Judul baru:');
+            if (!newJudul) return;
+
+            const res = await postToGAS({
+                action: 'updatePengumuman',
+                rowIndex: rowIndex,
+                updatedData: { JUDUL: newJudul }
+            });
+
+            if (res.success) {
+                showToast('Berhasil diperbarui');
+                loadAdminPengumumanTable();
+            }
+        }
+
+        async function deletePengumumanRow(rowIndex) {
+            if (!confirm('Yakin ingin menghapus pengumuman ini?')) return;
+
+            const res = await postToGAS({ action: 'deletePengumuman', rowIndex });
+            if (res.success) {
+                showToast('Pengumuman dihapus');
+                loadAdminPengumumanTable();
+            }
+        }
+
+        // ================== PIC MANAGEMENT ==================
+
+        function showAdminPIC() {
+            document.getElementById('modal-admin-pic').classList.remove('hidden');
+            document.getElementById('modal-admin-pic').classList.add('flex');
+            loadAdminPICTable();
+        }
+
+        function hideAdminPICModal() {
+            document.getElementById('modal-admin-pic').classList.add('hidden');
+            document.getElementById('modal-admin-pic').classList.remove('flex');
+        }
+
+        async function loadAdminPICTable() {
+            const tbody = document.getElementById('admin-pic-list');
+            tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-emerald-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Memuat...</td></tr>`;
+
+            try {
+                const data = await fetchFromGAS('getAllPICForAdmin');
+                tbody.innerHTML = '';
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400">Belum ada data PIC.</td></tr>`;
+                    return;
+                }
+
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="py-3 px-4 font-medium">${row.NAMA || row.nama || '-'}</td>
+                        <td class="py-3 px-4 text-sm text-slate-600">${row.JABATAN || row.jabatan || '-'}</td>
+                        <td class="py-3 px-4 text-emerald-600 text-sm">${row.NOMOR_HP || row.wa || '-'}</td>
+                        <td class="py-3 px-4">
+                            <div class="flex gap-2">
+                                <button onclick="editPICRow(${row._rowIndex})" class="text-xs px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-xl">Edit</button>
+                                <button onclick="deletePICRow(${row._rowIndex})" class="text-xs px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-xl">Hapus</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-red-500">Gagal memuat.</td></tr>`;
+            }
+        }
+
+        async function showAddPICForm() {
+            const nama = prompt('Nama PIC:');
+            if (!nama) return;
+            const jabatan = prompt('Jabatan:') || '';
+            const wa = prompt('Nomor WA:') || '';
+
+            const res = await postToGAS({
+                action: 'createPIC',
+                newData: { NAMA: nama, JABATAN: jabatan, NOMOR_HP: wa }
+            });
+
+            if (res.success) {
+                showToast('PIC berhasil ditambahkan');
+                loadAdminPICTable();
+            } else {
+                showToast(res.message || 'Gagal', 'error');
+            }
+        }
+
+        async function editPICRow(rowIndex) {
+            const newNama = prompt('Nama baru:');
+            if (!newNama) return;
+
+            await postToGAS({
+                action: 'updatePIC',
+                rowIndex,
+                updatedData: { NAMA: newNama }
+            });
+            loadAdminPICTable();
+        }
+
+        async function deletePICRow(rowIndex) {
+            if (!confirm('Hapus PIC ini?')) return;
+            await postToGAS({ action: 'deletePIC', rowIndex });
+            loadAdminPICTable();
+        }
+
+        // ================== ADMIN HOME (bisa dipanggil setelah login) ==================
+        function showAdminHome() {
+            // Untuk sementara kita buka pengumuman & PIC via tombol terpisah
+            alert("Admin Panel Siap!\n\nSilakan gunakan fungsi berikut:\n- showAdminPengumuman()\n- showAdminPIC()");
+        }
+
         // Boot application
         window.onload = initializeApp;
     </script>
-</body>
+
+    <!-- ================== ADMIN MANAGEMENT MODALS ================== -->
+
+    <!-- Modal Kelola Pengumuman -->
+    <div id="modal-admin-pengumuman" class="hidden fixed inset-0 bg-black/70 z-[200] flex items-center justify-center">
+        <div class="bg-white w-full max-w-5xl mx-4 rounded-3xl overflow-hidden shadow-2xl">
+            <!-- Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b bg-slate-50">
+                <div>
+                    <h3 class="text-xl font-semibold">Kelola Pengumuman</h3>
+                    <p class="text-sm text-slate-500">Data diambil langsung dari Google Sheet</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="showAddPengumumanForm()" 
+                            class="px-4 py-2 bg-emerald-600 text-white text-sm rounded-2xl font-medium flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Tambah Baru
+                    </button>
+                    <button onclick="hideAdminPengumumanModal()" 
+                            class="px-4 py-2 border text-sm rounded-2xl">Tutup</button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="p-6 max-h-[65vh] overflow-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs text-slate-500 border-b">
+                            <th class="py-3 px-4">Judul</th>
+                            <th class="py-3 px-4">Tanggal</th>
+                            <th class="py-3 px-4">Status</th>
+                            <th class="py-3 px-4 w-32">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-pengumuman-list" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Kelola PIC -->
+    <div id="modal-admin-pic" class="hidden fixed inset-0 bg-black/70 z-[200] flex items-center justify-center">
+        <div class="bg-white w-full max-w-4xl mx-4 rounded-3xl overflow-hidden shadow-2xl">
+            <div class="flex items-center justify-between px-6 py-4 border-b bg-slate-50">
+                <div>
+                    <h3 class="text-xl font-semibold">Kelola Kontak PIC</h3>
+                    <p class="text-sm text-slate-500">Data dari sheet KONTAK_PIC</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="showAddPICForm()" 
+                            class="px-4 py-2 bg-emerald-600 text-white text-sm rounded-2xl font-medium flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Tambah PIC
+                    </button>
+                    <button onclick="hideAdminPICModal()" 
+                            class="px-4 py-2 border text-sm rounded-2xl">Tutup</button>
+                </div>
+            </div>
+
+            <div class="p-6 max-h-[65vh] overflow-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs text-slate-500 border-b">
+                            <th class="py-3 px-4">Nama</th>
+                            <th class="py-3 px-4">Jabatan</th>
+                            <th class="py-3 px-4">WA</th>
+                            <th class="py-3 px-4 w-32">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-pic-list" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    </body>
 </html>
