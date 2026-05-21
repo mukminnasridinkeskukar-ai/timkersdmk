@@ -764,11 +764,15 @@
                             <div id="admin-count" class="text-sm text-emerald-600"></div>
                         </div>
                         <div class="flex gap-2">
-                            <input type="text" id="admin-search" placeholder="Cari nama / NIK / institusi..." 
+                            <button onclick="showCreatePesertaForm()" 
+                                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-3xl flex items-center gap-x-2">
+                                <i class="fa-solid fa-plus"></i> Tambah Peserta
+                            </button>
+                            <input type="text" id="admin-search" placeholder="Cari nama / institusi..." 
                                    onkeyup="filterAdminList()"
-                                   class="border border-slate-200 px-4 py-2 rounded-3xl text-sm w-72 focus:border-emerald-400 outline-none">
+                                   class="border border-slate-200 px-4 py-2 rounded-3xl text-sm w-64 focus:border-emerald-400 outline-none">
                             <button onclick="loadAdminData()" 
-                                    class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-3xl text-sm font-medium hover:bg-emerald-200">
+                                    class="px-3 py-2 bg-emerald-100 text-emerald-700 rounded-3xl text-sm font-medium hover:bg-emerald-200">
                                 <i class="fa-solid fa-sync-alt"></i>
                             </button>
                         </div>
@@ -803,7 +807,12 @@
                                 <i class="fa-solid fa-arrow-left"></i> Kembali ke Daftar
                             </button>
                         </div>
-                        <div id="admin-detail-reg" class="font-mono text-emerald-600 text-sm font-semibold"></div>
+                        <div class="flex gap-2 items-center">
+                            <div id="admin-detail-reg" class="font-mono text-emerald-600 text-sm font-semibold"></div>
+                            <div id="admin-detail-actions" class="flex gap-2">
+                                <!-- Buttons populated by JS (View / Edit mode) -->
+                            </div>
+                        </div>
                     </div>
 
                     <div class="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-3xl p-7">
@@ -822,7 +831,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzpbLG0VgDXuHD5haBUH8D4h--SC9kBisry_uNvoOXqnn1dqo8eUKaXcmiLnTrdpa_Q/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwv8scdvbZhyeUkXMsXIWCbSCOdvvLCBSPacDgR_jyWKtJ9tW8b3JjeJjlMHVtHphTo/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1486,21 +1495,21 @@
         }
 
         // Initialize everything
-        // ================== ADMIN PANEL FUNCTIONS ==================
+        // ================== ADMIN PANEL FUNCTIONS (with CRUD) ==================
         let adminAllData = [];
-        let adminPassword = 'admin123'; // Demo password
+        let adminPassword = 'admin123';
+        let currentAdminRow = null;     // currently viewed row
+        let isAdminEditing = false;
 
         function showAdminPanel() {
             const modal = document.getElementById('modal-admin');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
 
-            // Reset to login view
             document.getElementById('admin-login-view').classList.remove('hidden');
             document.getElementById('admin-list-view').classList.add('hidden');
             document.getElementById('admin-detail-view').classList.add('hidden');
 
-            // Focus password
             setTimeout(() => {
                 const pwd = document.getElementById('admin-password');
                 if (pwd) pwd.focus();
@@ -1511,6 +1520,8 @@
             const modal = document.getElementById('modal-admin');
             modal.classList.remove('flex');
             modal.classList.add('hidden');
+            isAdminEditing = false;
+            currentAdminRow = null;
         }
 
         function adminLogin() {
@@ -1537,7 +1548,7 @@
                 document.getElementById('admin-count').innerText = `${adminAllData.length} peserta terdaftar`;
                 renderAdminTable(adminAllData);
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-10 text-center text-red-500">Gagal memuat data. Pastikan halaman dibuka via Web App URL.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-10 text-center text-red-500">Gagal memuat data.</td></tr>`;
             }
         }
 
@@ -1575,7 +1586,7 @@
                     <td class="px-4 py-3">
                         <button onclick="event.stopImmediatePropagation(); showAdminDetail(adminAllData[${index}])" 
                                 class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-medium">
-                            Lihat Profil
+                            Lihat
                         </button>
                     </td>
                 `;
@@ -1586,30 +1597,43 @@
 
         function filterAdminList() {
             const term = document.getElementById('admin-search').value.toLowerCase().trim();
-            if (!term) {
-                renderAdminTable(adminAllData);
-                return;
-            }
-            const filtered = adminAllData.filter(row => {
-                const values = Object.values(row).join(' ').toLowerCase();
-                return values.includes(term);
-            });
+            const filtered = !term ? adminAllData : adminAllData.filter(row => 
+                Object.values(row).join(' ').toLowerCase().includes(term)
+            );
             renderAdminTable(filtered);
         }
 
+        // Show detail (View mode)
         function showAdminDetail(rowData) {
+            currentAdminRow = rowData;
+            isAdminEditing = false;
+
             document.getElementById('admin-list-view').classList.add('hidden');
             document.getElementById('admin-detail-view').classList.remove('hidden');
 
+            renderAdminDetailView(rowData);
+        }
+
+        function renderAdminDetailView(rowData) {
             const container = document.getElementById('admin-detail-content');
             container.innerHTML = '';
             document.getElementById('admin-detail-reg').innerText = rowData['No Registrasi'] || rowData.noregistrasi || '';
 
-            // Render all fields dynamically
-            Object.keys(rowData).forEach(key => {
-                if (key.startsWith('_')) return; // skip internal
+            const actions = document.getElementById('admin-detail-actions');
+            actions.innerHTML = `
+                <button onclick="enableAdminEdit()" 
+                        class="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-medium">
+                    <i class="fa-solid fa-edit mr-1"></i> Edit
+                </button>
+                <button onclick="deleteAdminRow()" 
+                        class="px-4 py-1.5 text-xs bg-red-500 hover:bg-red-600 text-white rounded-2xl font-medium">
+                    <i class="fa-solid fa-trash mr-1"></i> Hapus
+                </button>
+            `;
 
-                const value = rowData[key] || '-';
+            Object.keys(rowData).forEach(key => {
+                if (key.startsWith('_')) return;
+                const value = rowData[key] || '';
                 const div = document.createElement('div');
                 div.className = 'border-b border-emerald-100 pb-2';
                 div.innerHTML = `
@@ -1620,9 +1644,183 @@
             });
         }
 
+        // Switch to Edit mode
+        function enableAdminEdit() {
+            if (!currentAdminRow) return;
+            isAdminEditing = true;
+
+            const container = document.getElementById('admin-detail-content');
+            container.innerHTML = '';
+
+            const actions = document.getElementById('admin-detail-actions');
+            actions.innerHTML = `
+                <button onclick="saveAdminChanges()" 
+                        class="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-medium">
+                    Simpan Perubahan
+                </button>
+                <button onclick="cancelAdminEdit()" 
+                        class="px-4 py-1.5 text-xs border border-slate-300 hover:bg-slate-50 rounded-2xl font-medium">
+                    Batal
+                </button>
+            `;
+
+            Object.keys(currentAdminRow).forEach(key => {
+                if (key.startsWith('_')) return;
+
+                const value = currentAdminRow[key] || '';
+                const div = document.createElement('div');
+                div.className = 'border-b border-emerald-100 pb-2';
+                div.innerHTML = `
+                    <div class="text-xs font-semibold text-emerald-600 tracking-wider mb-1">${key}</div>
+                    <input type="text" value="${value}" data-key="${key}"
+                           class="w-full border border-emerald-200 px-3 py-2 rounded-2xl text-sm focus:border-emerald-400 outline-none">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function cancelAdminEdit() {
+            if (currentAdminRow) {
+                renderAdminDetailView(currentAdminRow);
+            }
+            isAdminEditing = false;
+        }
+
+        async function saveAdminChanges() {
+            if (!currentAdminRow || !currentAdminRow._rowIndex) {
+                showToast('Data row tidak valid', 'error');
+                return;
+            }
+
+            const container = document.getElementById('admin-detail-content');
+            const inputs = container.querySelectorAll('input[data-key]');
+            const updatedData = {};
+
+            inputs.forEach(input => {
+                const key = input.getAttribute('data-key');
+                updatedData[key] = input.value;
+            });
+
+            try {
+                const result = await fetchFromGAS('updatePesertaData', {
+                    rowIndex: currentAdminRow._rowIndex,
+                    updatedData: updatedData
+                });
+
+                if (result.success) {
+                    showToast('Data berhasil diperbarui');
+                    // Refresh data
+                    await loadAdminData();
+                    // Re-open the updated row
+                    const updatedRow = adminAllData.find(r => r._rowIndex === currentAdminRow._rowIndex);
+                    if (updatedRow) {
+                        currentAdminRow = updatedRow;
+                        renderAdminDetailView(updatedRow);
+                    }
+                    isAdminEditing = false;
+                } else {
+                    showToast(result.message || 'Gagal menyimpan', 'error');
+                }
+            } catch (err) {
+                showToast('Gagal menghubungi server', 'error');
+            }
+        }
+
+        async function deleteAdminRow() {
+            if (!currentAdminRow || !currentAdminRow._rowIndex) return;
+
+            if (!confirm('Yakin ingin menghapus data peserta ini?')) return;
+
+            try {
+                const result = await fetchFromGAS('deletePesertaData', {
+                    rowIndex: currentAdminRow._rowIndex
+                });
+
+                if (result.success) {
+                    showToast('Data berhasil dihapus');
+                    hideAdminPanel();
+                    setTimeout(() => {
+                        showAdminPanel(); // reopen to refresh list
+                    }, 600);
+                } else {
+                    showToast(result.message || 'Gagal menghapus', 'error');
+                }
+            } catch (err) {
+                showToast('Gagal menghubungi server', 'error');
+            }
+        }
+
+        // Create New Peserta
+        function showCreatePesertaForm() {
+            currentAdminRow = {};
+            isAdminEditing = true;
+
+            document.getElementById('admin-list-view').classList.add('hidden');
+            document.getElementById('admin-detail-view').classList.remove('hidden');
+
+            const container = document.getElementById('admin-detail-content');
+            container.innerHTML = '';
+            document.getElementById('admin-detail-reg').innerText = 'BARU';
+
+            const actions = document.getElementById('admin-detail-actions');
+            actions.innerHTML = `
+                <button onclick="saveNewPeserta()" 
+                        class="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-medium">
+                    Simpan Data Baru
+                </button>
+                <button onclick="cancelAdminEdit()" 
+                        class="px-4 py-1.5 text-xs border border-slate-300 hover:bg-slate-50 rounded-2xl font-medium">
+                    Batal
+                </button>
+            `;
+
+            // Show common fields for new entry (can be expanded)
+            const commonFields = ['Nama Pengusul', 'Asal Institusi/Organisasi/EO', 'Telpon', 'Nama Kegiatan', 'Tempat Kegiatan', 'Tanggal Kegiatan', 'Status'];
+            
+            commonFields.forEach(key => {
+                const div = document.createElement('div');
+                div.className = 'border-b border-emerald-100 pb-2';
+                div.innerHTML = `
+                    <div class="text-xs font-semibold text-emerald-600 tracking-wider mb-1">${key}</div>
+                    <input type="text" value="" data-key="${key}"
+                           class="w-full border border-emerald-200 px-3 py-2 rounded-2xl text-sm focus:border-emerald-400 outline-none">
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function saveNewPeserta() {
+            const container = document.getElementById('admin-detail-content');
+            const inputs = container.querySelectorAll('input[data-key]');
+            const newData = {};
+
+            inputs.forEach(input => {
+                const key = input.getAttribute('data-key');
+                if (input.value) newData[key] = input.value;
+            });
+
+            try {
+                const result = await fetchFromGAS('createPesertaData', { newData });
+
+                if (result.success) {
+                    showToast('Peserta baru berhasil ditambahkan');
+                    hideAdminPanel();
+                    setTimeout(() => {
+                        showAdminPanel();
+                    }, 600);
+                } else {
+                    showToast(result.message || 'Gagal menambah data', 'error');
+                }
+            } catch (err) {
+                showToast('Gagal menghubungi server', 'error');
+            }
+        }
+
         function showAdminList() {
             document.getElementById('admin-detail-view').classList.add('hidden');
             document.getElementById('admin-list-view').classList.remove('hidden');
+            isAdminEditing = false;
+            currentAdminRow = null;
         }
 
         function initializeApp() {
