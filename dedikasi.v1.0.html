@@ -701,7 +701,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz4zG-2ixm8YCiPj5WOPTswNhS8V-a6fy5iIClFAtggxBfb45tzkAJDmKNP_jNum-jW/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby-bOWo2yYtnSd0--M-6H6pMI8k_UVnfdgye3-Wf8uA4hS8yoEhgr0dWJOeeaeKtXMr/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -791,37 +791,43 @@
         // Navigation state
         let currentSection = 'dashboard';
 
-        // Load initial stats
+        // Load initial stats - FULLY DYNAMIC FROM GOOGLE SHEET
         async function loadDashboardStats() {
             try {
                 const data = await fetchFromGAS('getDashboardStats');
                 const d = data || {};
+                
                 document.getElementById('stat-kegiatan').innerText = d.kegiatan || '0';
                 document.getElementById('stat-peserta').innerText = d.peserta || '0';
+                if (document.getElementById('stat-dokumen')) 
+                    document.getElementById('stat-dokumen').innerText = d.dokumen || '0';
                 document.getElementById('stat-instansi').innerText = d.instansi || '0';
                 document.getElementById('stat-provinsi').innerText = d.provinsi || '0';
                 
-                renderActivityChart();
+                renderActivityChart(d.monthly || null);
                 renderLatestActivities(d.latest || []);
             } catch (err) {
-                // Fallback demo jika gagal fetch
-                document.getElementById('stat-kegiatan').innerText = '124';
-                document.getElementById('stat-peserta').innerText = '3,872';
-                renderActivityChart();
+                console.error('Dashboard load error:', err);
+                // Graceful empty state
+                document.getElementById('stat-kegiatan').innerText = '0';
+                document.getElementById('stat-peserta').innerText = '0';
             }
         }
 
-        function renderActivityChart() {
+        function renderActivityChart(monthlyData) {
             const ctx = document.getElementById('activityChart');
             if (!ctx) return;
+            
+            const labels = (monthlyData && monthlyData.labels) || ['Jan','Feb','Mar','Apr','Mei','Jun'];
+            const values = (monthlyData && monthlyData.data) || [0,0,0,0,0,0];
             
             new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'],
+                    labels: labels,
                     datasets: [{
-                        label: 'Kegiatan',
-                        data: [18, 29, 32, 41, 38, 47],
+                        label: 'Pendaftaran per Bulan',
+                        data: values,
                         borderColor: '#0F766E',
                         borderWidth: 3,
                         tension: 0.4,
@@ -840,11 +846,9 @@
             const container = document.getElementById('latest-activities');
             container.innerHTML = '';
             
-            if (!activities.length) {
-                activities = [
-                    {name: "Workshop Manajemen Kesehatan", date: "12 Feb 2026"},
-                    {name: "Pelatihan Digitalisasi RS", date: "10 Feb 2026"}
-                ];
+            if (!activities || activities.length === 0) {
+                container.innerHTML = `<div class="text-xs text-slate-400">Belum ada aktivitas terbaru.</div>`;
+                return;
             }
             
             activities.forEach(item => {
