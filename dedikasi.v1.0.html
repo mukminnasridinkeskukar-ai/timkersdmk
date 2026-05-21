@@ -160,7 +160,7 @@
                     </div>
                     <div>
                         <h1 class="text-3xl font-bold tracking-tighter">DEDIKASI</h1>
-                        <p class="text-emerald-100 text-xs -mt-1 tracking-[1.5px]">DINAS KESEHATAN KUTAI KARTANEGARA</p>
+                        <p class="text-emerald-100 text-xs -mt-1 tracking-[1.5px]">KEMENTERIAN KESEHATAN RI</p>
                     </div>
                 </div>
                 
@@ -661,7 +661,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz2P-VayxOjJQaR01zxCTMH3vVVYgigbxOc1O3gMx2D8JiB6Bk3gX90Zja7B1Guc8rk/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby8OhR5JattWJJRgjxLJtKcV056JzyCGWqxvggDlxT1LzkSfveLvSkk78O_YtTZO3Y2/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -679,6 +679,16 @@
             });
             if (!res.ok) throw new Error('Network error');
             return res.json();
+        }
+
+        // Helper: convert File ke base64 (untuk upload via URL)
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
         }
 
         // Tailwind script
@@ -943,52 +953,77 @@
             
             const btn = e.target.querySelector('button[type="submit"]');
             const originalText = btn.innerHTML;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MEMPROSES...`;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGUPLOAD BERKAS...`;
             btn.disabled = true;
-            
-            const formData = {
-                nik: document.getElementById('nik').value,
-                nama_pengusul: document.getElementById('nama_pengusul').value,
-                asal_institusi: document.getElementById('asal_institusi').value,
-                telpon: document.getElementById('telpon').value,
-                nama_kegiatan: document.getElementById('nama_kegiatan').value,
-                tempat_kegiatan: document.getElementById('tempat_kegiatan').value,
-                tanggal_kegiatan: document.getElementById('tanggal_kegiatan').value,
-                waktu_pelaksanaan: document.getElementById('waktu_pelaksanaan').value,
-                jumlah_peserta: document.getElementById('jumlah_peserta_2').value,
-                
-                // File names (actual upload to Drive can be added later)
-                daftar_peserta_excel: (document.getElementById('daftar_peserta_excel').files[0] || {}).name || '',
-                surat_tugas: (document.getElementById('surat_tugas').files[0] || {}).name || '',
-                dokumentasi_foto: Array.from(document.getElementById('dokumentasi_foto').files || []).map(f => f.name).join(', '),
-                dokumentasi_video: (document.getElementById('dokumentasi_video').files[0] || {}).name || '',
-                surat_pemberitahuan: (document.getElementById('surat_pemberitahuan').files[0] || {}).name || '',
-                daftar_hadir: (document.getElementById('daftar_hadir').files[0] || {}).name || '',
-                berita_acara: (document.getElementById('berita_acara').files[0] || {}).name || ''
-            };
-            
+
+            const namaPengusul = document.getElementById('nama_pengusul').value.trim();
+            const asalInstitusi = document.getElementById('asal_institusi').value.trim();
+
             try {
-                const result = await google.script.run.withSuccessHandler(res => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
+                // Baca semua file sebagai base64
+                const excelFile = document.getElementById('daftar_peserta_excel').files[0];
+                const suratTugasFile = document.getElementById('surat_tugas').files[0];
+                const fotoFiles = Array.from(document.getElementById('dokumentasi_foto').files || []);
+                const videoFile = document.getElementById('dokumentasi_video').files[0];
+                const suratPemberitahuanFile = document.getElementById('surat_pemberitahuan').files[0];
+                const daftarHadirFile = document.getElementById('daftar_hadir').files[0];
+                const beritaAcaraFile = document.getElementById('berita_acara').files[0];
+
+                const payload = {
+                    action: 'submitPendaftaran',
+                    nik: document.getElementById('nik').value,
+                    nama_pengusul: namaPengusul,
+                    asal_institusi: asalInstitusi,
+                    telpon: document.getElementById('telpon').value,
+                    nama_kegiatan: document.getElementById('nama_kegiatan').value,
+                    tempat_kegiatan: document.getElementById('tempat_kegiatan').value,
+                    tanggal_kegiatan: document.getElementById('tanggal_kegiatan').value,
+                    waktu_pelaksanaan: document.getElementById('waktu_pelaksanaan').value,
+                    jumlah_peserta: document.getElementById('jumlah_peserta_2').value,
                     
-                    if (res.success) {
-                        showToast('Pendaftaran berhasil! Nomor Registrasi: ' + res.registrasi);
-                        e.target.reset();
-                        
-                        // Show registration number
-                        setTimeout(() => {
-                            alert('Nomor Registrasi Anda: ' + res.registrasi + '\n\nSimpan nomor ini untuk pengecekan status.');
-                        }, 800);
-                    } else {
-                        showToast(res.message || 'Gagal mendaftar', 'error');
+                    // File data (base64)
+                    files: {
+                        daftar_peserta_excel: excelFile ? { name: excelFile.name, data: await fileToBase64(excelFile) } : null,
+                        surat_tugas: suratTugasFile ? { name: suratTugasFile.name, data: await fileToBase64(suratTugasFile) } : null,
+                        dokumentasi_foto: fotoFiles.length > 0 
+                            ? await Promise.all(fotoFiles.map(async f => ({ name: f.name, data: await fileToBase64(f) }))) 
+                            : [],
+                        dokumentasi_video: videoFile ? { name: videoFile.name, data: await fileToBase64(videoFile) } : null,
+                        surat_pemberitahuan: suratPemberitahuanFile ? { name: suratPemberitahuanFile.name, data: await fileToBase64(suratPemberitahuanFile) } : null,
+                        daftar_hadir: daftarHadirFile ? { name: daftarHadirFile.name, data: await fileToBase64(daftarHadirFile) } : null,
+                        berita_acara: beritaAcaraFile ? { name: beritaAcaraFile.name, data: await fileToBase64(beritaAcaraFile) } : null
                     }
-                }).submitPendaftaran(formData);
-            } catch(err) {
+                };
+
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGIRIM KE SERVER...`;
+
+                const res = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await res.json();
+
                 btn.innerHTML = originalText;
                 btn.disabled = false;
-                showToast('Pendaftaran berhasil (demo)', 'success');
-                e.target.reset();
+
+                if (result.success) {
+                    showToast('Pendaftaran berhasil! Nomor Registrasi: ' + result.registrasi);
+                    e.target.reset();
+                    
+                    setTimeout(() => {
+                        alert('Nomor Registrasi Anda: ' + result.registrasi + '\n\nSimpan nomor ini untuk pengecekan status.\n\nSemua berkas sudah tersimpan di Google Drive.');
+                    }, 600);
+                } else {
+                    showToast(result.message || 'Gagal mendaftar', 'error');
+                }
+
+            } catch (err) {
+                console.error('Submit error:', err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                showToast('Gagal mengirim data. Coba lagi atau hubungi admin.', 'error');
             }
         }
         
@@ -1150,32 +1185,41 @@
         // Kontak PIC
         async function loadPIC() {
             const container = document.getElementById('pic-list');
-            container.innerHTML = '';
+            container.innerHTML = `<div class="col-span-full text-center py-8"><div class="skeleton h-6 w-1/2 mx-auto bg-slate-100 rounded"></div></div>`;
             
-            const pics = [
-                {nama: "Ns. Mukmin Nasri, S.Kep", jabatan: "Ketua TIm Kerja SDM Kesehatan", wa: "6282130275800", email: "mukminnasri.dinkeskukar@gmail.com", foto: "https://i.pravatar.cc/64?img=28"},
-                {nama: "Sri Rezki Amelia, S.Kom", jabatan: "Staf Bidang SDK/ Pengelola Program", wa: "6281258890902", email: "amel87.sdmk@gmail.com", foto: "https://i.pravatar.cc/64?img=32"}
-            ];
-            
-            pics.forEach(pic => {
-                const card = document.createElement('div');
-                card.className = `bg-white border border-slate-200 p-5 rounded-3xl flex gap-4 items-start`;
-                card.innerHTML = `
-                    <img src="${pic.foto}" class="w-12 h-12 rounded-2xl object-cover ring-2 ring-offset-2 ring-emerald-100" alt="">
-                    <div class="flex-1 min-w-0">
-                        <div class="font-semibold">${pic.nama}</div>
-                        <div class="text-emerald-700 text-xs font-medium">${pic.jabatan}</div>
-                        
-                        <div class="flex items-center gap-2 mt-4">
-                            <a href="https://wa.me/${pic.wa}" target="_blank" class="px-4 py-1 text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-2xl flex items-center gap-x-1">
-                                <i class="fa-brands fa-whatsapp"></i> <span class="font-medium">Chat WA</span>
-                            </a>
-                            <a href="mailto:${pic.email}" class="text-xs px-4 py-1 border rounded-2xl">${pic.email}</a>
+            try {
+                const pics = await fetchFromGAS('getPIC');
+                
+                container.innerHTML = '';
+                
+                if (!pics || pics.length === 0) {
+                    container.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400">Belum ada data PIC.</div>`;
+                    return;
+                }
+                
+                pics.forEach(pic => {
+                    const foto = pic.foto || `https://i.pravatar.cc/64?img=${((pic.id || 1) % 70) + 1}`;
+                    const card = document.createElement('div');
+                    card.className = `bg-white border border-slate-200 p-5 rounded-3xl flex gap-4 items-start`;
+                    card.innerHTML = `
+                        <img src="${foto}" class="w-12 h-12 rounded-2xl object-cover ring-2 ring-offset-2 ring-emerald-100" alt="">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-semibold">${pic.nama}</div>
+                            <div class="text-emerald-700 text-xs font-medium">${pic.jabatan}</div>
+                            
+                            <div class="flex items-center gap-2 mt-4">
+                                ${pic.wa ? `<a href="https://wa.me/${pic.wa}" target="_blank" class="px-4 py-1 text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-2xl flex items-center gap-x-1">
+                                    <i class="fa-brands fa-whatsapp"></i> <span class="font-medium">Chat WA</span>
+                                </a>` : ''}
+                                ${pic.email ? `<a href="mailto:${pic.email}" class="text-xs px-4 py-1 border rounded-2xl">${pic.email}</a>` : ''}
+                            </div>
                         </div>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">Gagal memuat data PIC dari Google Sheet.</div>`;
+            }
         }
 
         // Initialize everything
