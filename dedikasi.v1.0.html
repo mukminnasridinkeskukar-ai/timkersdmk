@@ -698,7 +698,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxE3Iu9VbmP2DTsS_GLo_Yo7BAb3Q8TKgG_qKqCtiIrMJjkijAFZY61emxhY3oVJkPi/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwJTo4m1uYcQrRjNbG9u6wST6_5n4G6NQN37gejQ_M8uPFRO6GTOe_-WStN5yky1REk/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1130,11 +1130,86 @@
         }
         
         function downloadBukti(registrasi) {
-            showToast('Mengunduh bukti pendaftaran...');
-            // In real implementation, this would call google.script.run.downloadBukti(registrasi)
-            setTimeout(() => {
-                window.open('https://drive.google.com/file/d/demo/view', '_blank');
-            }, 800);
+            showToast('Membuat bukti pendaftaran...');
+
+            fetchFromGAS('getBuktiData', { registrasi })
+                .then(result => {
+                    if (!result.success || !result.data) {
+                        showToast(result.message || 'Data tidak ditemukan', 'error');
+                        return;
+                    }
+
+                    const d = result.data;
+                    const tanggalPengajuan = d.tanggalPengajuan ? new Date(d.tanggalPengajuan).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+
+                    const html = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <meta charset="UTF-8">
+                            <title>Bukti Pendaftaran - ${d.noRegistrasi}</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+                                .header { text-align: center; border-bottom: 3px solid #0F766E; padding-bottom: 15px; margin-bottom: 25px; }
+                                .header h1 { margin: 0; color: #0F766E; font-size: 22px; }
+                                .header p { margin: 4px 0 0; font-size: 13px; color: #555; }
+                                .title { text-align: center; font-size: 18px; font-weight: bold; margin: 20px 0; color: #0F766E; }
+                                .reg-box { background: #f8fafc; border: 2px dashed #0F766E; padding: 12px 20px; text-align: center; margin: 15px 0 25px; }
+                                .reg-box .label { font-size: 12px; color: #666; }
+                                .reg-box .number { font-size: 22px; font-weight: bold; color: #0F766E; letter-spacing: 1px; }
+                                table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                                td { padding: 8px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+                                td.label { width: 180px; font-weight: 600; color: #444; background: #f9fafb; }
+                                .footer { margin-top: 40px; font-size: 11px; color: #666; text-align: center; border-top: 1px solid #ddd; padding-top: 15px; }
+                                .print-btn { position: fixed; top: 20px; right: 20px; background: #0F766E; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+                                @media print { .print-btn { display: none; } }
+                            </style>
+                        </head>
+                        <body>
+                            <button onclick="window.print()" class="print-btn">🖨️ Cetak / Simpan PDF</button>
+
+                            <div class="header">
+                                <h1>DEDIKASI</h1>
+                                <p>Kementerian Kesehatan Republik Indonesia</p>
+                                <p style="font-size:11px;">Bukti Pengajuan Kegiatan Pengabdian Masyarakat SDM Kesehatan</p>
+                            </div>
+
+                            <div class="title">BUKTI PENDAFTARAN</div>
+
+                            <div class="reg-box">
+                                <div class="label">NOMOR REGISTRASI</div>
+                                <div class="number">${d.noRegistrasi}</div>
+                            </div>
+
+                            <table>
+                                <tr><td class="label">Nama Pengusul</td><td>${d.namaPengusul}</td></tr>
+                                <tr><td class="label">Asal Institusi</td><td>${d.asalInstitusi}</td></tr>
+                                <tr><td class="label">Nomor Telpon / WA</td><td>${d.telpon}</td></tr>
+                                <tr><td class="label">Nama Kegiatan</td><td><strong>${d.namaKegiatan}</strong></td></tr>
+                                <tr><td class="label">Tempat Kegiatan</td><td>${d.tempatKegiatan}</td></tr>
+                                <tr><td class="label">Tanggal Kegiatan</td><td>${d.tanggalKegiatan} ${d.waktuPelaksanaan ? '• ' + d.waktuPelaksanaan : ''}</td></tr>
+                                <tr><td class="label">Jumlah Peserta</td><td>${d.jumlahPeserta} orang</td></tr>
+                                <tr><td class="label">Tanggal Pengajuan</td><td>${tanggalPengajuan}</td></tr>
+                                <tr><td class="label">Status</td><td><strong style="color:#0F766E;">${d.status}</strong></td></tr>
+                            </table>
+
+                            <div class="footer">
+                                Dokumen ini dibuat secara otomatis oleh sistem DEDIKASI.<br>
+                                Tanggal cetak: ${new Date().toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}<br><br>
+                                <em>Simpan nomor registrasi ini untuk keperluan verifikasi.</em>
+                            </div>
+                        </body>
+                        </html>
+                    `;
+
+                    const win = window.open('', '_blank');
+                    win.document.write(html);
+                    win.document.close();
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast('Gagal membuat bukti pendaftaran', 'error');
+                });
         }
 
         // ==================== CEK SERTIFIKAT ====================
