@@ -701,7 +701,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby64op-LUrPHyHe3N6JhDfORFxyO2Oc-_vDJeFUO1vsd4VNwvOZI9jxTQZYjVk-CXWl/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUw022NAn5Ep8M1Q27xstee3YfspSleFUCCIn9-0fzkfOIgVzPpXsTqvQVmflh95Ro/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1266,13 +1266,22 @@
         }
 
         function getDriveDownloadUrl(url) {
-            if (!url) return '#';
-            // Convert Google Drive view links to direct download
-            const match = String(url).match(/drive\.google\.com.*(?:\/d\/|id=)([a-zA-Z0-9_-]{10,})/);
+            if (!url) return '';
+            const str = String(url).trim();
+            if (!str.startsWith('http')) return '';
+
+            // Convert various Google Drive formats to direct download
+            const match = str.match(/drive\.google\.com.*(?:\/d\/|id=|open\?id=)([a-zA-Z0-9_-]{10,})/i);
             if (match) {
                 return `https://drive.google.com/uc?export=download&id=${match[1]}`;
             }
-            return url;
+            return str;
+        }
+
+        function isValidUrl(str) {
+            if (!str) return false;
+            const s = String(str).trim();
+            return s.startsWith('http://') || s.startsWith('https://');
         }
 
         function renderSertifikatTable(data) {
@@ -1286,8 +1295,30 @@
 
             data.forEach((item, index) => {
                 const row = document.createElement('tr');
-                const previewUrl = item.link_preview || '#';
+                const previewUrl = isValidUrl(item.link_preview) ? item.link_preview : '';
                 const downloadUrl = getDriveDownloadUrl(item.link_download);
+
+                let actionsHtml = `<span class="text-xs text-slate-400">Link belum tersedia</span>`;
+
+                if (previewUrl || downloadUrl) {
+                    actionsHtml = `<div class="flex gap-2 justify-center">`;
+                    if (previewUrl) {
+                        actionsHtml += `
+                            <a href="${previewUrl}" target="_blank" rel="noopener noreferrer"
+                               class="px-3 py-1.5 text-xs bg-white border border-emerald-700 hover:bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-1">
+                                <i class="fa-solid fa-eye text-xs"></i> <span>Preview</span>
+                            </a>`;
+                    }
+                    if (downloadUrl) {
+                        actionsHtml += `
+                            <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer"
+                               class="px-3 py-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl flex items-center gap-1">
+                                <i class="fa-solid fa-download text-xs"></i> <span>Download</span>
+                            </a>`;
+                    }
+                    actionsHtml += `</div>`;
+                }
+
                 row.innerHTML = `
                     <td class="px-5 py-4 text-slate-500">${index + 1}</td>
                     <td class="px-5 py-4 font-medium">${item.nama}</td>
@@ -1296,17 +1327,8 @@
                     <td class="px-5 py-4">${item.nama_kegiatan}</td>
                     <td class="px-5 py-4 text-sm">${item.tanggal}</td>
                     <td class="px-5 py-4 text-sm text-slate-600">${item.tempat}</td>
-                    <td class="px-5 py-4">
-                        <div class="flex gap-2 justify-center">
-                            <a href="${previewUrl}" target="_blank" rel="noopener"
-                               class="px-3 py-1.5 text-xs bg-white border border-emerald-700 hover:bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-1">
-                                <i class="fa-solid fa-eye text-xs"></i> <span>Preview</span>
-                            </a>
-                            <a href="${downloadUrl}" target="_blank" rel="noopener"
-                               class="px-3 py-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded-2xl flex items-center gap-1">
-                                <i class="fa-solid fa-download text-xs"></i> <span>Download</span>
-                            </a>
-                        </div>
+                    <td class="px-5 py-4 text-center">
+                        ${actionsHtml}
                     </td>
                 `;
                 tbody.appendChild(row);
