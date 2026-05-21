@@ -587,7 +587,7 @@
                                  <i class="fa-solid fa-arrow-right"></i>
                              </button>
                              <p class="text-center text-xs text-slate-400 mt-3">
-                                 Saat dibuka melalui Portal Resmi, data + dokumen akan langsung masuk ke Google Sheet &amp; Drive.
+                                  Data dan dokumen langsung tersimpan ke Google Sheet &amp; Drive (bekerja dari domain manapun).
                              </p>
                          </div>
                      </form>
@@ -831,7 +831,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycby1U86AU_32528iMtaNcCdRHCJ2RnOvuEmzGlYh9ZmZ8PqiRVSk7D0yqqEdf7v_XCOq/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr4uMyLJK1bF5E0_BoLpD8j4hFRQhgiuVTmN2CEVYAVoBYQVbdhEzJXIwemMIw63J8/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -845,6 +845,21 @@
             });
             const res = await fetch(url.toString(), { 
                 method: 'GET',
+                redirect: 'follow'
+            });
+            if (!res.ok) throw new Error('Network error');
+            return res.json();
+        }
+
+        // ================== POST HELPER (untuk submit pendaftaran & admin mutations) ==================
+        async function postToGAS(body) {
+            if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
+                throw new Error('WEB_APP_URL belum diisi');
+            }
+            const res = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
                 redirect: 'follow'
             });
             if (!res.ok) throw new Error('Network error');
@@ -1187,14 +1202,8 @@
 
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGIRIM KE GOOGLE SHEET & DRIVE...`;
 
-                // Langsung kirim via fetch ke Web App URL (data + link dokumen akan masuk ke Sheet + Drive)
-                const res = await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await res.json();
+                // Kirim via helper (data + link dokumen akan masuk ke Sheet + Drive)
+                const result = await postToGAS(payload);
 
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -1698,7 +1707,8 @@
             });
 
             try {
-                const result = await fetchFromGAS('updatePesertaData', {
+                const result = await postToGAS({
+                    action: 'updatePesertaData',
                     rowIndex: currentAdminRow._rowIndex,
                     updatedData: updatedData
                 });
@@ -1728,7 +1738,8 @@
             if (!confirm('Yakin ingin menghapus data peserta ini?')) return;
 
             try {
-                const result = await fetchFromGAS('deletePesertaData', {
+                const result = await postToGAS({
+                    action: 'deletePesertaData',
                     rowIndex: currentAdminRow._rowIndex
                 });
 
@@ -1796,7 +1807,7 @@
             });
 
             try {
-                const result = await fetchFromGAS('createPesertaData', { newData });
+                const result = await postToGAS({ action: 'createPesertaData', newData });
 
                 if (result.success) {
                     showToast('Peserta baru berhasil ditambahkan');
