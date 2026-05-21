@@ -830,11 +830,37 @@
     <div id="toast-container" class="fixed bottom-6 right-6 z-[200]"></div>
 
     <script>
-        // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwr4uMyLJK1bF5E0_BoLpD8j4hFRQhgiuVTmN2CEVYAVoBYQVbdhEzJXIwemMIw63J8/exec";
+        // ================== WEB APP URL (hanya diperlukan jika host HTML terpisah; jika pakai Web App GAS langsung, otomatis pakai integrasi native) ==================
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxHVyDkwS99aMv9kYR8mg9LtdGThFbiWsd-CUn4hdBBf7Qj4D6qOqvUtpV6vMtMwAmi/exec";
 
-        // ================== FETCH HELPER (pakai GAS URL) ==================
+        // ================== SMART HELPER: native google.script.run (fully integrated) + fetch fallback ==================
         async function fetchFromGAS(action, params = {}) {
+            const isInGAS = typeof google !== 'undefined' && google.script && google.script.run;
+            if (isInGAS) {
+                return new Promise((resolve, reject) => {
+                    const run = google.script.run
+                        .withSuccessHandler((result) => {
+                            if (result && typeof result === 'object' && result.error) {
+                                reject(new Error(result.error));
+                            } else {
+                                resolve(result);
+                            }
+                        })
+                        .withFailureHandler((err) => reject(new Error(err ? err.toString() : 'Server error')));
+                    switch (action) {
+                        case 'getPengumuman': run.getPengumuman(); break;
+                        case 'getJadwalKegiatan': run.getJadwalKegiatan(); break;
+                        case 'getDashboardStats': run.getDashboardStats(); break;
+                        case 'getSertifikatData': run.getSertifikatData(); break;
+                        case 'getPIC': run.getPIC(); break;
+                        case 'getAllPesertaForAdmin': run.getAllPesertaForAdmin(); break;
+                        case 'getStatusPeserta': run.getStatusPeserta(params.input || ''); break;
+                        case 'getBuktiData': run.getBuktiData(params.registrasi || ''); break;
+                        default: reject(new Error('Unknown action: ' + action));
+                    }
+                });
+            }
+            // Fallback for externally hosted index.html (cross-origin)
             if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
                 throw new Error('WEB_APP_URL belum diisi');
             }
@@ -848,11 +874,40 @@
                 redirect: 'follow'
             });
             if (!res.ok) throw new Error('Network error');
-            return res.json();
+            const json = await res.json();
+            if (json && json.error) throw new Error(json.error);
+            return json;
         }
 
-        // ================== POST HELPER (untuk submit pendaftaran & admin mutations) ==================
+        // ================== SMART POST: native google.script.run + fetch fallback ==================
         async function postToGAS(body) {
+            const isInGAS = typeof google !== 'undefined' && google.script && google.script.run;
+            if (isInGAS) {
+                return new Promise((resolve, reject) => {
+                    const run = google.script.run
+                        .withSuccessHandler((result) => {
+                            if (result && typeof result === 'object' && result.error) {
+                                reject(new Error(result.error));
+                            } else {
+                                resolve(result);
+                            }
+                        })
+                        .withFailureHandler((err) => reject(new Error(err ? err.toString() : 'Server error')));
+                    const action = body.action || 'submitPendaftaran';
+                    if (action === 'submitPendaftaran') {
+                        run.handlePendaftaranSubmission(body);
+                    } else if (action === 'updatePesertaData') {
+                        run.updatePesertaData(body.rowIndex, body.updatedData);
+                    } else if (action === 'deletePesertaData') {
+                        run.deletePesertaData(body.rowIndex);
+                    } else if (action === 'createPesertaData') {
+                        run.createPesertaData(body.newData);
+                    } else {
+                        reject(new Error('Unknown post action: ' + action));
+                    }
+                });
+            }
+            // Fallback fetch
             if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
                 throw new Error('WEB_APP_URL belum diisi');
             }
@@ -863,7 +918,9 @@
                 redirect: 'follow'
             });
             if (!res.ok) throw new Error('Network error');
-            return res.json();
+            const json = await res.json();
+            if (json && json.error) throw new Error(json.error);
+            return json;
         }
 
         // Helper: convert File ke base64 (untuk upload via URL)
