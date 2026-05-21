@@ -703,7 +703,7 @@
         // ================== WEB APP URL ==================
         // Update ini hanya diperlukan jika kamu host HTML di domain custom.
         // Jika membuka langsung dari URL Web App GAS, WEB_APP_URL kurang penting.
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxTxuBcK4PWD7pkd7OUjrj3QELBB2vAmOAkgL1NQXLEU2VmHWUCGnpYEVexzuTNfZVa/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOS15KE_kS03-3FGXgEOFPZeXGkta1HiC47_72U8v5uGPyhjIASmVM5mJ5lTKHUcUP/exec";
 
         // ================== POST HELPER (dual mode) ==================
         async function postToGAS(body) {
@@ -797,6 +797,52 @@
                         case 'getBuktiData': run.getBuktiData(params.registrasi || ''); break;
                         default: reject(new Error('Unknown action: ' + action));
                     }
+                });
+            }
+
+            // On custom domain (GitHub Pages), avoid fetch to prevent CORS errors in console.
+            // Data loading will be empty. Full functionality requires opening from the GAS Web App URL.
+            const onCustomDomain = !location.hostname.includes('script.google.com') && !location.hostname.includes('localhost');
+            if (onCustomDomain) {
+                // Return safe empty defaults based on action type
+                if (action.startsWith('getAll') || action === 'getPengumuman' || action === 'getJadwalKegiatan' || action === 'getSertifikatData' || action === 'getPIC') {
+                    return [];
+                }
+                if (action === 'getDashboardStats') {
+                    return { kegiatan: 0, peserta: 0, dokumen: 0, instansi: 0, provinsi: 0, latest: [], monthly: {labels: [], data: []} };
+                }
+                return null;
+            }
+
+            // Fallback: fetch (only when not on custom domain or in development)
+            if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
+                throw new Error('WEB_APP_URL belum diisi');
+            }
+
+            try {
+                const url = new URL(WEB_APP_URL);
+                url.searchParams.set('action', action);
+                Object.entries(params).forEach(([k, v]) => {
+                    if (v !== undefined && v !== null) url.searchParams.set(k, v);
+                });
+
+                const res = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+                if (!res.ok) throw new Error('Network error');
+
+                const json = await res.json();
+                if (json && json.error) throw new Error(json.error);
+                return json;
+            } catch (err) {
+                // Silent fail for custom domain scenario (no banner per request)
+                if (action.startsWith('getAll') || action === 'getPengumuman' || action === 'getJadwalKegiatan' || action === 'getSertifikatData' || action === 'getPIC') {
+                    return [];
+                }
+                if (action === 'getDashboardStats') {
+                    return { kegiatan: 0, peserta: 0, dokumen: 0, instansi: 0, provinsi: 0, latest: [], monthly: {labels: [], data: []} };
+                }
+                return null;
+            }
+        }
                 });
             }
 
