@@ -147,6 +147,21 @@
         .enterprise-header {
             background: linear-gradient(to right, #0F766E, #134E4B);
         }
+
+        @keyframes adminPop {
+            from {
+                transform: scale(0.85) translateY(40px);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-admin {
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+        }
     </style>
 </head>
 <body class="bg-slate-50">
@@ -220,6 +235,15 @@
                         <span>Kontak PIC</span>
                     </a>
                 </nav>
+
+                <!-- ADMIN PANEL - Bottom of Sidebar -->
+                <div class="mt-auto pt-4 border-t border-slate-100 mx-4">
+                    <a onclick="showAdminPanel()" 
+                       class="flex items-center gap-x-3 px-4 py-3 text-emerald-700 hover:text-emerald-800 font-semibold text-sm cursor-pointer rounded-3xl hover:bg-emerald-50 transition-all">
+                        <i class="fa-solid fa-shield-halved w-5"></i>
+                        <span>Panel Admin</span>
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -680,12 +704,125 @@
         </div>
     </div>
 
+    <!-- MODAL PANEL ADMIN - Bright Animated Lightbox -->
+    <div id="modal-admin" onclick="if (event.target.id === 'modal-admin') hideAdminPanel()" 
+         class="hidden fixed inset-0 bg-black/80 z-[110] flex items-center justify-center p-4">
+        
+        <div onclick="event.stopImmediatePropagation()" 
+             class="bg-white w-full max-w-5xl mx-auto rounded-3xl shadow-2xl overflow-hidden modal-admin"
+             style="animation: adminPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);">
+            
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 px-8 py-5 text-white flex items-center justify-between">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-shield-halved text-2xl"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-2xl tracking-tight">Panel Admin</div>
+                        <div class="text-emerald-100 text-sm -mt-1">DEDIKASI • Data Peserta</div>
+                    </div>
+                </div>
+                <button onclick="hideAdminPanel()" 
+                        class="text-white/80 hover:text-white text-3xl leading-none transition-colors">×</button>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-8" id="admin-content">
+
+                <!-- LOGIN VIEW -->
+                <div id="admin-login-view">
+                    <div class="max-w-sm mx-auto text-center">
+                        <div class="mb-6">
+                            <i class="fa-solid fa-lock text-5xl text-emerald-500 mb-4"></i>
+                            <h3 class="text-2xl font-bold text-slate-800">Masuk Admin</h3>
+                            <p class="text-slate-500 mt-1 text-sm">Masukkan password untuk mengakses data peserta</p>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <input type="password" id="admin-password" placeholder="Password Admin" 
+                                   class="w-full border-2 border-emerald-200 focus:border-emerald-500 px-5 py-3.5 rounded-3xl text-sm outline-none transition-all"
+                                   onkeyup="if (event.key === 'Enter') adminLogin()">
+                            
+                            <button onclick="adminLogin()" 
+                                    class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-3xl transition-all active:scale-[0.985]">
+                                MASUK KE PANEL
+                            </button>
+                        </div>
+                        
+                        <div class="mt-4 text-xs text-slate-400">
+                            Demo password: <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded">admin123</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LIST VIEW -->
+                <div id="admin-list-view" class="hidden">
+                    <div class="flex justify-between items-center mb-5">
+                        <div>
+                            <div class="font-semibold text-xl text-slate-800">Daftar Peserta</div>
+                            <div id="admin-count" class="text-sm text-emerald-600"></div>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="admin-search" placeholder="Cari nama / NIK / institusi..." 
+                                   onkeyup="filterAdminList()"
+                                   class="border border-slate-200 px-4 py-2 rounded-3xl text-sm w-72 focus:border-emerald-400 outline-none">
+                            <button onclick="loadAdminData()" 
+                                    class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-3xl text-sm font-medium hover:bg-emerald-200">
+                                <i class="fa-solid fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-auto max-h-[60vh] border border-slate-100 rounded-3xl">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-50 sticky top-0">
+                                <tr class="text-emerald-700">
+                                    <th class="px-5 py-3 text-left font-medium">No Reg</th>
+                                    <th class="px-5 py-3 text-left font-medium">Nama Pengusul</th>
+                                    <th class="px-5 py-3 text-left font-medium">Institusi</th>
+                                    <th class="px-5 py-3 text-left font-medium">Kegiatan</th>
+                                    <th class="px-5 py-3 text-left font-medium">Tanggal</th>
+                                    <th class="px-5 py-3 text-center font-medium">Status</th>
+                                    <th class="px-4 py-3"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-table-body" class="divide-y text-slate-700">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- DETAIL VIEW -->
+                <div id="admin-detail-view" class="hidden">
+                    <div class="flex items-center justify-between mb-5">
+                        <div>
+                            <button onclick="showAdminList()" 
+                                    class="text-sm flex items-center gap-x-2 text-emerald-600 hover:text-emerald-700 font-medium">
+                                <i class="fa-solid fa-arrow-left"></i> Kembali ke Daftar
+                            </button>
+                        </div>
+                        <div id="admin-detail-reg" class="font-mono text-emerald-600 text-sm font-semibold"></div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-3xl p-7">
+                        <div id="admin-detail-content" class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 text-sm">
+                            <!-- Dynamic fields populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST CONTAINER -->
     <div id="toast-container" class="fixed bottom-6 right-6 z-[200]"></div>
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxbkwDgikqCcpnhgWlU6wXM0qk9fPpq9Anp8Q5Nw4OcY_kY-Lvi2C3DDj58lJPG8hjh/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzpbLG0VgDXuHD5haBUH8D4h--SC9kBisry_uNvoOXqnn1dqo8eUKaXcmiLnTrdpa_Q/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1349,6 +1486,145 @@
         }
 
         // Initialize everything
+        // ================== ADMIN PANEL FUNCTIONS ==================
+        let adminAllData = [];
+        let adminPassword = 'admin123'; // Demo password
+
+        function showAdminPanel() {
+            const modal = document.getElementById('modal-admin');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // Reset to login view
+            document.getElementById('admin-login-view').classList.remove('hidden');
+            document.getElementById('admin-list-view').classList.add('hidden');
+            document.getElementById('admin-detail-view').classList.add('hidden');
+
+            // Focus password
+            setTimeout(() => {
+                const pwd = document.getElementById('admin-password');
+                if (pwd) pwd.focus();
+            }, 300);
+        }
+
+        function hideAdminPanel() {
+            const modal = document.getElementById('modal-admin');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+
+        function adminLogin() {
+            const pwdInput = document.getElementById('admin-password').value;
+            if (pwdInput === adminPassword) {
+                document.getElementById('admin-login-view').classList.add('hidden');
+                document.getElementById('admin-list-view').classList.remove('hidden');
+                loadAdminData();
+            } else {
+                showToast('Password salah', 'error');
+                const pwd = document.getElementById('admin-password');
+                pwd.classList.add('border-red-400');
+                setTimeout(() => pwd.classList.remove('border-red-400'), 800);
+            }
+        }
+
+        async function loadAdminData() {
+            const tbody = document.getElementById('admin-table-body');
+            tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-10 text-center text-emerald-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Memuat data...</td></tr>`;
+
+            try {
+                const result = await fetchFromGAS('getAllPesertaForAdmin');
+                adminAllData = result || [];
+                document.getElementById('admin-count').innerText = `${adminAllData.length} peserta terdaftar`;
+                renderAdminTable(adminAllData);
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-10 text-center text-red-500">Gagal memuat data. Pastikan halaman dibuka via Web App URL.</td></tr>`;
+            }
+        }
+
+        function renderAdminTable(data) {
+            const tbody = document.getElementById('admin-table-body');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="px-5 py-10 text-center text-slate-400">Tidak ada data peserta.</td></tr>`;
+                return;
+            }
+
+            data.forEach((row, index) => {
+                const noReg = row['No Registrasi'] || row['Nomor Registrasi'] || row.noregistrasi || '';
+                const nama = row['Nama Pengusul'] || row.namapengusul || '';
+                const institusi = row['Asal Institusi/Organisasi/EO'] || row.asalinstitusiorganisasieo || '';
+                const kegiatan = row['Nama Kegiatan'] || row.namakegiatan || '';
+                const tanggal = row['Tanggal Kegiatan'] || row.tanggalkegiatan || '';
+                const status = row['Status'] || row.status || 'Menunggu';
+
+                const statusColor = status.includes('Disetujui') ? 'bg-emerald-100 text-emerald-700' : 
+                                    status.includes('Verifikasi') ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-emerald-50 cursor-pointer transition-colors';
+                tr.innerHTML = `
+                    <td class="px-5 py-3 font-medium text-emerald-700">${noReg}</td>
+                    <td class="px-5 py-3 font-medium">${nama}</td>
+                    <td class="px-5 py-3 text-slate-600">${institusi}</td>
+                    <td class="px-5 py-3">${kegiatan}</td>
+                    <td class="px-5 py-3 text-sm">${tanggal}</td>
+                    <td class="px-5 py-3">
+                        <span class="px-3 py-1 text-xs font-medium rounded-2xl ${statusColor}">${status}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <button onclick="event.stopImmediatePropagation(); showAdminDetail(adminAllData[${index}])" 
+                                class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-medium">
+                            Lihat Profil
+                        </button>
+                    </td>
+                `;
+                tr.onclick = () => showAdminDetail(adminAllData[index]);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterAdminList() {
+            const term = document.getElementById('admin-search').value.toLowerCase().trim();
+            if (!term) {
+                renderAdminTable(adminAllData);
+                return;
+            }
+            const filtered = adminAllData.filter(row => {
+                const values = Object.values(row).join(' ').toLowerCase();
+                return values.includes(term);
+            });
+            renderAdminTable(filtered);
+        }
+
+        function showAdminDetail(rowData) {
+            document.getElementById('admin-list-view').classList.add('hidden');
+            document.getElementById('admin-detail-view').classList.remove('hidden');
+
+            const container = document.getElementById('admin-detail-content');
+            container.innerHTML = '';
+            document.getElementById('admin-detail-reg').innerText = rowData['No Registrasi'] || rowData.noregistrasi || '';
+
+            // Render all fields dynamically
+            Object.keys(rowData).forEach(key => {
+                if (key.startsWith('_')) return; // skip internal
+
+                const value = rowData[key] || '-';
+                const div = document.createElement('div');
+                div.className = 'border-b border-emerald-100 pb-2';
+                div.innerHTML = `
+                    <div class="text-xs font-semibold text-emerald-600 tracking-wider">${key}</div>
+                    <div class="text-slate-800 mt-0.5 break-words">${value}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function showAdminList() {
+            document.getElementById('admin-detail-view').classList.add('hidden');
+            document.getElementById('admin-list-view').classList.remove('hidden');
+        }
+
         function initializeApp() {
             try {
                 initializeTailwind();
