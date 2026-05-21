@@ -170,11 +170,11 @@
                         <span class="font-medium">Portal Resmi</span>
                     </div>
                     
-                    <button onclick="showAdminLogin()" 
-                            class="flex items-center gap-x-2 bg-white text-[#0F766E] hover:bg-emerald-50 px-6 py-2.5 rounded-3xl font-semibold text-sm transition-all active:scale-95">
-                        <i class="fa-solid fa-user-shield"></i>
-                        <span class="hidden md:inline">Admin Panel</span>
-                    </button>
+<button onclick="showAdminAccess()" 
+        class="flex items-center gap-x-2 bg-white text-[#0F766E] hover:bg-emerald-50 px-6 py-2.5 rounded-3xl font-semibold text-sm transition-all active:scale-95">
+    <i class="fa-solid fa-user-shield"></i>
+    <span class="hidden md:inline">Admin Panel</span>
+</button>
                 </div>
             </div>
         </div>
@@ -701,7 +701,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz4zG-2ixm8YCiPj5WOPTswNhS8V-a6fy5iIClFAtggxBfb45tzkAJDmKNP_jNum-jW/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzstTEmKLVKe7-G64xweHGZQT-vMk7q7WXGu4aUqDRUW68qFBA9YcysHa0hENCgzmDr/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1657,10 +1657,60 @@
             loadAdminPICTable();
         }
 
-        // ================== ADMIN HOME (bisa dipanggil setelah login) ==================
-        function showAdminHome() {
-            // Untuk sementara kita buka pengumuman & PIC via tombol terpisah
-            alert("Admin Panel Siap!\n\nSilakan gunakan fungsi berikut:\n- showAdminPengumuman()\n- showAdminPIC()");
+        // ================== NEW USER-FRIENDLY ADMIN ACCESS FLOW ==================
+
+        function showAdminAccess() {
+            const modal = document.getElementById('modal-admin-access');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // Show login view by default
+            document.getElementById('admin-access-login').classList.remove('hidden');
+            document.getElementById('admin-access-menu').classList.add('hidden');
+
+            setTimeout(() => {
+                const pwd = document.getElementById('admin-access-password');
+                if (pwd) pwd.focus();
+            }, 300);
+        }
+
+        function hideAdminAccess() {
+            const modal = document.getElementById('modal-admin-access');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function verifyAdminAccess() {
+            const pwd = document.getElementById('admin-access-password').value;
+            const correctPassword = 'admin123'; // Ganti sesuai kebutuhan
+
+            if (pwd === correctPassword) {
+                // Show menu instead of direct panel
+                document.getElementById('admin-access-login').classList.add('hidden');
+                document.getElementById('admin-access-menu').classList.remove('hidden');
+                document.getElementById('admin-access-password').value = '';
+            } else {
+                alert('Password salah!');
+                document.getElementById('admin-access-password').value = '';
+            }
+        }
+
+        function goToAdminSection(section) {
+            hideAdminAccess(); // close the access modal
+
+            if (section === 'peserta') {
+                // Existing Peserta admin (jika ada)
+                if (typeof showAdminPanel === 'function') {
+                    showAdminPanel();
+                } else {
+                    alert('Fitur Kelola Peserta sedang dalam pengembangan. Gunakan fungsi loadAdminData() jika tersedia.');
+                    // Bisa dihubungkan ke fungsi lama di sini
+                }
+            } else if (section === 'pengumuman') {
+                showAdminPengumuman();
+            } else if (section === 'pic') {
+                showAdminPIC();
+            }
         }
 
         // Boot application
@@ -1735,6 +1785,71 @@
                     </thead>
                     <tbody id="admin-pic-list" class="divide-y"></tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Access / Home (User-friendly menu after login) -->
+    <div id="modal-admin-access" class="hidden fixed inset-0 bg-black/70 z-[210] flex items-center justify-center">
+        <div class="bg-white w-full max-w-md mx-4 rounded-3xl shadow-2xl overflow-hidden">
+            <!-- Login View -->
+            <div id="admin-access-login">
+                <div class="px-6 py-5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white">
+                    <h3 class="text-xl font-semibold">Admin Panel</h3>
+                    <p class="text-emerald-100 text-sm">DEDIKASI - Dinas Kesehatan</p>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="text-xs font-medium text-slate-500 block mb-1">Password Admin</label>
+                        <input type="password" id="admin-access-password" 
+                               class="w-full border px-4 py-3 rounded-2xl text-sm" placeholder="Masukkan password">
+                    </div>
+                    <button onclick="verifyAdminAccess()" 
+                            class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-2xl font-semibold text-sm">
+                        Masuk ke Admin Panel
+                    </button>
+                    <button onclick="hideAdminAccess()" 
+                            class="w-full text-sm text-slate-500">Batal</button>
+                </div>
+            </div>
+
+            <!-- Admin Menu View (3 options) -->
+            <div id="admin-access-menu" class="hidden">
+                <div class="px-6 py-5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white">
+                    <h3 class="text-xl font-semibold">Admin Panel</h3>
+                    <p class="text-emerald-100 text-sm">Pilih menu yang ingin dikelola</p>
+                </div>
+                <div class="p-6 space-y-3">
+                    <button onclick="goToAdminSection('peserta')" 
+                            class="w-full flex items-center gap-4 px-5 py-4 bg-white border hover:border-emerald-300 rounded-2xl text-left transition">
+                        <i class="fa-solid fa-users text-2xl text-emerald-600 w-8"></i>
+                        <div>
+                            <div class="font-semibold">Kelola Peserta</div>
+                            <div class="text-xs text-slate-500">Data pendaftaran & verifikasi</div>
+                        </div>
+                    </button>
+
+                    <button onclick="goToAdminSection('pengumuman')" 
+                            class="w-full flex items-center gap-4 px-5 py-4 bg-white border hover:border-emerald-300 rounded-2xl text-left transition">
+                        <i class="fa-solid fa-bullhorn text-2xl text-emerald-600 w-8"></i>
+                        <div>
+                            <div class="font-semibold">Kelola Pengumuman</div>
+                            <div class="text-xs text-slate-500">Tambah, edit, hapus pengumuman</div>
+                        </div>
+                    </button>
+
+                    <button onclick="goToAdminSection('pic')" 
+                            class="w-full flex items-center gap-4 px-5 py-4 bg-white border hover:border-emerald-300 rounded-2xl text-left transition">
+                        <i class="fa-solid fa-address-book text-2xl text-emerald-600 w-8"></i>
+                        <div>
+                            <div class="font-semibold">Kelola Kontak PIC</div>
+                            <div class="text-xs text-slate-500">Data narahubung & kontak</div>
+                        </div>
+                    </button>
+
+                    <button onclick="hideAdminAccess()" 
+                            class="w-full mt-2 text-sm text-slate-500 py-2">Keluar</button>
+                </div>
             </div>
         </div>
     </div>
