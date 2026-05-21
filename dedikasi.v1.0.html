@@ -703,7 +703,7 @@
         // ================== WEB APP URL ==================
         // Update ini hanya diperlukan jika kamu host HTML di domain custom.
         // Jika membuka langsung dari URL Web App GAS, WEB_APP_URL kurang penting.
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOS15KE_kS03-3FGXgEOFPZeXGkta1HiC47_72U8v5uGPyhjIASmVM5mJ5lTKHUcUP/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw_UTNe5CzTwA-T49jzbztEEbdky6r4ZZu_3XE07AIfNkzi0v-0cJ2YfyZdHpCNOQ44/exec";
 
         // ================== POST HELPER (dual mode) ==================
         async function postToGAS(body) {
@@ -800,11 +800,8 @@
                 });
             }
 
-            // On custom domain (GitHub Pages), avoid fetch to prevent CORS errors in console.
-            // Data loading will be empty. Full functionality requires opening from the GAS Web App URL.
-            const onCustomDomain = !location.hostname.includes('script.google.com') && !location.hostname.includes('localhost');
-            if (onCustomDomain) {
-                // Return safe empty defaults based on action type
+            // WEB_APP_URL guard — silent fallback if URL not configured
+            if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
                 if (action.startsWith('getAll') || action === 'getPengumuman' || action === 'getJadwalKegiatan' || action === 'getSertifikatData' || action === 'getPIC') {
                     return [];
                 }
@@ -814,11 +811,7 @@
                 return null;
             }
 
-            // Fallback: fetch (only when not on custom domain or in development)
-            if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
-                throw new Error('WEB_APP_URL belum diisi');
-            }
-
+            // Try fetch (works from any domain when CORS headers are set on the GAS endpoint)
             try {
                 const url = new URL(WEB_APP_URL);
                 url.searchParams.set('action', action);
@@ -833,7 +826,7 @@
                 if (json && json.error) throw new Error(json.error);
                 return json;
             } catch (err) {
-                // Silent fail for custom domain scenario (no banner per request)
+                // Silent safe fallback on fetch failure
                 if (action.startsWith('getAll') || action === 'getPengumuman' || action === 'getJadwalKegiatan' || action === 'getSertifikatData' || action === 'getPIC') {
                     return [];
                 }
