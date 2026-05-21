@@ -703,10 +703,75 @@
         // ================== WEB APP URL ==================
         // Update ini hanya diperlukan jika kamu host HTML di domain custom.
         // Jika membuka langsung dari URL Web App GAS, WEB_APP_URL kurang penting.
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxP62dfiltFKUFxkplBRnkBqhq54DQEBt6kUWSyQj7uQlXqEyikAZvytx6RK7jT4EaR/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyz8Sh0vy04hdg5rpyuYU2OtXh4xrsVc98DLHSO7JhbBKkHNchSqrmm8lZpoBrbUdCT/exec";
+
+        // ================== POST HELPER (dual mode) ==================
+        async function postToGAS(body) {
+            const isInGAS = typeof google !== 'undefined' && google.script && google.script.run;
+
+            if (isInGAS) {
+                return new Promise((resolve, reject) => {
+                    const run = google.script.run
+                        .withSuccessHandler((result) => {
+                            if (result && result.error) reject(new Error(result.error));
+                            else resolve(result);
+                        })
+                        .withFailureHandler((err) => reject(new Error(err ? err.toString() : 'Server error')));
+
+                    const action = body.action || 'submitPendaftaran';
+
+                    if (action === 'submitPendaftaran') {
+                        run.submitPendaftaranWithFiles(body);
+                    } else if (action === 'updatePesertaData') {
+                        run.updatePesertaData(body.rowIndex, body.updatedData);
+                    } else if (action === 'deletePesertaData') {
+                        run.deletePesertaData(body.rowIndex);
+                    } else if (action === 'createPesertaData') {
+                        run.createPesertaData(body.newData);
+                    } else if (action === 'createPengumuman') {
+                        run.createPengumuman(body.newData);
+                    } else if (action === 'updatePengumuman') {
+                        run.updatePengumuman(body.rowIndex, body.updatedData);
+                    } else if (action === 'deletePengumuman') {
+                        run.deletePengumuman(body.rowIndex);
+                    } else if (action === 'createPIC') {
+                        run.createPIC(body.newData);
+                    } else if (action === 'updatePIC') {
+                        run.updatePIC(body.rowIndex, body.updatedData);
+                    } else if (action === 'deletePIC') {
+                        run.deletePIC(body.rowIndex);
+                    } else {
+                        reject(new Error('Unknown post action: ' + action));
+                    }
+                });
+            }
+
+            // Fallback fetch (external hosting)
+            if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
+                throw new Error('WEB_APP_URL belum diisi');
+            }
+
+            const res = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                redirect: 'follow'
+            });
+
+            if (!res.ok) throw new Error('Network error');
+            const json = await res.json();
+            if (json && json.error) throw new Error(json.error);
+            return json;
+        }
+
+        // No banner or notification on data failure (per user request)
+        function showDataLoadError(container, message = '') {
+            if (!container) return;
+            container.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400 text-sm">Data tidak tersedia.</div>`;
+        }
 
         // ================== SMART DATA FETCHER ==================
-        // Prioritas: google.script.run (jika HTML diserve dari GAS) → fallback fetch (jika dari custom domain)
+        // Prefers google.script.run when available, otherwise uses fetch
         async function fetchFromGAS(action, params = {}) {
             const isInGAS = typeof google !== 'undefined' && google.script && google.script.run;
 
@@ -735,7 +800,7 @@
                 });
             }
 
-            // Fallback: fetch (hanya untuk custom domain / hosting eksternal)
+            // Fallback: fetch (when running outside GAS context)
             if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
                 throw new Error('WEB_APP_URL belum diisi');
             }
@@ -754,11 +819,7 @@
                 if (json && json.error) throw new Error(json.error);
                 return json;
             } catch (err) {
-                // Beri pesan yang lebih jelas
-                if (err.message.includes('Failed to fetch') || err.message.includes('Network')) {
-                    throw new Error('Gagal terhubung ke server (CORS / jaringan). Buka via URL Web App GAS untuk hasil terbaik.');
-                }
-                throw err;
+                throw new Error('Data fetch failed');
             }
         }
 
@@ -925,10 +986,7 @@
                 }
             } catch (err) {
                 console.error('loadPengumuman error:', err);
-                const msg = err.message.includes('CORS') || err.message.includes('terhubung') 
-                    ? 'Gagal memuat karena CORS / custom domain.<br><span class="text-xs">Buka via URL Web App GAS untuk hasil terbaik.</span>'
-                    : 'Gagal memuat data dari Google Sheet.';
-                container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">${msg}</div>`;
+                showDataLoadError(container, 'Gagal memuat Pengumuman');
             }
         }
         
@@ -996,10 +1054,7 @@
                     renderJadwalTable(allJadwal);
                 }
             } catch (err) {
-                const msg = (err.message || '').includes('CORS') || (err.message || '').includes('terhubung')
-                    ? 'CORS / custom domain — buka via URL Web App GAS'
-                    : 'Gagal memuat data dari Google Sheet';
-                tbody.innerHTML = `<tr><td colspan="7" class="px-7 py-12 text-center text-rose-500">${msg}</td></tr>`;
+                showDataLoadError(tbody, 'Gagal memuat Jadwal Kegiatan');
             }
         }
         
@@ -1093,7 +1148,7 @@
             });
         }
 
-        // Fungsi baru untuk opsi A: Buka Portal Resmi (menghindari CORS dari domain custom)
+        // Opens the official GAS Web App (optional helper)
         function openOfficialPendaftaran() {
             if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
                 showToast('WEB_APP_URL belum diatur dengan benar', 'error');
@@ -1174,7 +1229,7 @@
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                     console.error('Submit error:', err);
-                    showToast('Gagal mengirim data. Silakan coba lagi.', 'error');
+                    showToast('Gagal mengirim. Buka versi resmi untuk hasil terbaik.', 'error');
                 }
 
             } catch (err) {
@@ -1326,10 +1381,7 @@
                 renderSertifikatTable(allSertifikat);
                 populateFilters(allSertifikat);
             } catch (err) {
-                const msg = (err.message || '').includes('CORS') || (err.message || '').includes('terhubung')
-                    ? 'CORS error — disarankan buka via URL Web App GAS'
-                    : 'Gagal mengambil data dari Google Sheet';
-                tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">${msg}</td></tr>`;
+                showDataLoadError(tbody, 'Gagal memuat Data Sertifikat');
             }
         }
 
@@ -1488,7 +1540,7 @@
                     container.appendChild(card);
                 });
             } catch (err) {
-                container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">Gagal memuat data PIC dari Google Sheet.</div>`;
+                showDataLoadError(container, 'Gagal memuat Kontak PIC');
             }
         }
 
