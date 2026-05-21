@@ -700,25 +700,66 @@
     <div id="toast-container" class="fixed bottom-6 right-6 z-[200]"></div>
 
     <script>
-        // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzstTEmKLVKe7-G64xweHGZQT-vMk7q7WXGu4aUqDRUW68qFBA9YcysHa0hENCgzmDr/exec";
+        // ================== WEB APP URL ==================
+        // Update ini hanya diperlukan jika kamu host HTML di domain custom.
+        // Jika membuka langsung dari URL Web App GAS, WEB_APP_URL kurang penting.
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxP62dfiltFKUFxkplBRnkBqhq54DQEBt6kUWSyQj7uQlXqEyikAZvytx6RK7jT4EaR/exec";
 
-        // ================== FETCH HELPER (pakai GAS URL) ==================
+        // ================== SMART DATA FETCHER ==================
+        // Prioritas: google.script.run (jika HTML diserve dari GAS) → fallback fetch (jika dari custom domain)
         async function fetchFromGAS(action, params = {}) {
+            const isInGAS = typeof google !== 'undefined' && google.script && google.script.run;
+
+            if (isInGAS) {
+                return new Promise((resolve, reject) => {
+                    const run = google.script.run
+                        .withSuccessHandler((result) => {
+                            if (result && result.error) reject(new Error(result.error));
+                            else resolve(result);
+                        })
+                        .withFailureHandler((err) => reject(new Error(err ? err.toString() : 'Server error')));
+
+                    switch (action) {
+                        case 'getPengumuman': run.getPengumuman(); break;
+                        case 'getJadwalKegiatan': run.getJadwalKegiatan(); break;
+                        case 'getDashboardStats': run.getDashboardStats(); break;
+                        case 'getSertifikatData': run.getSertifikatData(); break;
+                        case 'getPIC': run.getPIC(); break;
+                        case 'getAllPesertaForAdmin': run.getAllPesertaForAdmin(); break;
+                        case 'getAllPengumumanForAdmin': run.getAllPengumumanForAdmin(); break;
+                        case 'getAllPICForAdmin': run.getAllPICForAdmin(); break;
+                        case 'getStatusPeserta': run.getStatusPeserta(params.input || ''); break;
+                        case 'getBuktiData': run.getBuktiData(params.registrasi || ''); break;
+                        default: reject(new Error('Unknown action: ' + action));
+                    }
+                });
+            }
+
+            // Fallback: fetch (hanya untuk custom domain / hosting eksternal)
             if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
                 throw new Error('WEB_APP_URL belum diisi');
             }
-            const url = new URL(WEB_APP_URL);
-            url.searchParams.set('action', action);
-            Object.entries(params).forEach(([k, v]) => {
-                if (v !== undefined && v !== null) url.searchParams.set(k, v);
-            });
-            const res = await fetch(url.toString(), { 
-                method: 'GET',
-                redirect: 'follow'
-            });
-            if (!res.ok) throw new Error('Network error');
-            return res.json();
+
+            try {
+                const url = new URL(WEB_APP_URL);
+                url.searchParams.set('action', action);
+                Object.entries(params).forEach(([k, v]) => {
+                    if (v !== undefined && v !== null) url.searchParams.set(k, v);
+                });
+
+                const res = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+                if (!res.ok) throw new Error('Network error');
+
+                const json = await res.json();
+                if (json && json.error) throw new Error(json.error);
+                return json;
+            } catch (err) {
+                // Beri pesan yang lebih jelas
+                if (err.message.includes('Failed to fetch') || err.message.includes('Network')) {
+                    throw new Error('Gagal terhubung ke server (CORS / jaringan). Buka via URL Web App GAS untuk hasil terbaik.');
+                }
+                throw err;
+            }
         }
 
         // Helper: convert File ke base64 (untuk upload via URL)
@@ -884,7 +925,10 @@
                 }
             } catch (err) {
                 console.error('loadPengumuman error:', err);
-                container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">Gagal memuat data dari Google Sheet.<br><span class="text-xs">Pastikan WEB_APP_URL di index.html sudah benar dan script sudah di-deploy.</span></div>`;
+                const msg = err.message.includes('CORS') || err.message.includes('terhubung') 
+                    ? 'Gagal memuat karena CORS / custom domain.<br><span class="text-xs">Buka via URL Web App GAS untuk hasil terbaik.</span>'
+                    : 'Gagal memuat data dari Google Sheet.';
+                container.innerHTML = `<div class="col-span-full text-center py-12 text-rose-500">${msg}</div>`;
             }
         }
         
@@ -952,7 +996,10 @@
                     renderJadwalTable(allJadwal);
                 }
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="7" class="px-7 py-12 text-center text-rose-500">Gagal memuat data dari Google Sheet.</td></tr>`;
+                const msg = (err.message || '').includes('CORS') || (err.message || '').includes('terhubung')
+                    ? 'CORS / custom domain — buka via URL Web App GAS'
+                    : 'Gagal memuat data dari Google Sheet';
+                tbody.innerHTML = `<tr><td colspan="7" class="px-7 py-12 text-center text-rose-500">${msg}</td></tr>`;
             }
         }
         
@@ -1049,7 +1096,7 @@
         // Fungsi baru untuk opsi A: Buka Portal Resmi (menghindari CORS dari domain custom)
         function openOfficialPendaftaran() {
             if (!WEB_APP_URL || WEB_APP_URL.includes('YOUR_WEB_APP_URL')) {
-                showToast('WEB_APP_URL belum diatur di index.html', 'error');
+                showToast('WEB_APP_URL belum diatur dengan benar', 'error');
                 return;
             }
             window.open(WEB_APP_URL, '_blank');
@@ -1279,7 +1326,10 @@
                 renderSertifikatTable(allSertifikat);
                 populateFilters(allSertifikat);
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">Gagal mengambil data dari Google Sheet.</td></tr>`;
+                const msg = (err.message || '').includes('CORS') || (err.message || '').includes('terhubung')
+                    ? 'CORS error — disarankan buka via URL Web App GAS'
+                    : 'Gagal mengambil data dari Google Sheet';
+                tbody.innerHTML = `<tr><td colspan="8" class="px-5 py-10 text-center text-rose-500">${msg}</td></tr>`;
             }
         }
 
