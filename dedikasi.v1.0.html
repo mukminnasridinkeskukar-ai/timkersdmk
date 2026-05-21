@@ -831,7 +831,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwv8scdvbZhyeUkXMsXIWCbSCOdvvLCBSPacDgR_jyWKtJ9tW8b3JjeJjlMHVtHphTo/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwzynuU1CutiyLRC07BveC72Wn_omK-mMM8MC55q7oj2gXCs1pBdVZL_iaCBY0tq351/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1143,34 +1143,36 @@
 
             const btn = e.target.querySelector('button[type="submit"]');
             const originalText = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGUPLOAD BERKAS...`;
+            btn.disabled = true;
 
-            // Jika halaman dibuka via Web App URL (bukan domain custom), gunakan google.script.run (paling lancar)
-            if (isGAS()) {
-                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGUPLOAD BERKAS...`;
-                btn.disabled = true;
+            const namaPengusul = document.getElementById('nama_pengusul').value.trim();
+            const asalInstitusi = document.getElementById('asal_institusi').value.trim();
 
-                try {
-                    const excelFile = document.getElementById('daftar_peserta_excel').files[0];
-                    const suratTugasFile = document.getElementById('surat_tugas').files[0];
-                    const fotoFiles = Array.from(document.getElementById('dokumentasi_foto').files || []);
-                    const videoFile = document.getElementById('dokumentasi_video').files[0];
-                    const suratPemberitahuanFile = document.getElementById('surat_pemberitahuan').files[0];
-                    const daftarHadirFile = document.getElementById('daftar_hadir').files[0];
-                    const beritaAcaraFile = document.getElementById('berita_acara').files[0];
+            try {
+                // Baca semua file sebagai base64
+                const excelFile = document.getElementById('daftar_peserta_excel').files[0];
+                const suratTugasFile = document.getElementById('surat_tugas').files[0];
+                const fotoFiles = Array.from(document.getElementById('dokumentasi_foto').files || []);
+                const videoFile = document.getElementById('dokumentasi_video').files[0];
+                const suratPemberitahuanFile = document.getElementById('surat_pemberitahuan').files[0];
+                const daftarHadirFile = document.getElementById('daftar_hadir').files[0];
+                const beritaAcaraFile = document.getElementById('berita_acara').files[0];
 
-                    // Siapkan payload yang dikirim ke server function
-                    const payload = {
-                        nik: document.getElementById('nik').value,
-                        nama_pengusul: document.getElementById('nama_pengusul').value.trim(),
-                        asal_institusi: document.getElementById('asal_institusi').value.trim(),
-                        telpon: document.getElementById('telpon').value,
-                        nama_kegiatan: document.getElementById('nama_kegiatan').value,
-                        tempat_kegiatan: document.getElementById('tempat_kegiatan').value,
-                        tanggal_kegiatan: document.getElementById('tanggal_kegiatan').value,
-                        waktu_pelaksanaan: document.getElementById('waktu_pelaksanaan').value,
-                        jumlah_peserta: document.getElementById('jumlah_peserta_2').value,
+                const payload = {
+                    action: 'submitPendaftaran',
+                    nik: document.getElementById('nik').value,
+                    nama_pengusul: namaPengusul,
+                    asal_institusi: asalInstitusi,
+                    telpon: document.getElementById('telpon').value,
+                    nama_kegiatan: document.getElementById('nama_kegiatan').value,
+                    tempat_kegiatan: document.getElementById('tempat_kegiatan').value,
+                    tanggal_kegiatan: document.getElementById('tanggal_kegiatan').value,
+                    waktu_pelaksanaan: document.getElementById('waktu_pelaksanaan').value,
+                    jumlah_peserta: document.getElementById('jumlah_peserta_2').value,
 
-                        // File dalam bentuk base64 (nama + data)
+                    // File data (base64) - dikirim langsung ke GAS via fetch
+                    files: {
                         daftar_peserta_excel: excelFile ? { name: excelFile.name, data: await fileToBase64(excelFile) } : null,
                         surat_tugas: suratTugasFile ? { name: suratTugasFile.name, data: await fileToBase64(suratTugasFile) } : null,
                         dokumentasi_foto: fotoFiles.length > 0 
@@ -1180,47 +1182,41 @@
                         surat_pemberitahuan: suratPemberitahuanFile ? { name: suratPemberitahuanFile.name, data: await fileToBase64(suratPemberitahuanFile) } : null,
                         daftar_hadir: daftarHadirFile ? { name: daftarHadirFile.name, data: await fileToBase64(daftarHadirFile) } : null,
                         berita_acara: beritaAcaraFile ? { name: beritaAcaraFile.name, data: await fileToBase64(beritaAcaraFile) } : null
-                    };
+                    }
+                };
 
-                    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGIRIM KE GOOGLE SHEET & DRIVE...`;
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGIRIM KE GOOGLE SHEET & DRIVE...`;
 
-                    // Panggil fungsi server yang sudah kita buat (paling stabil saat dibuka via Web App)
-                    google.script.run
-                        .withSuccessHandler(res => {
-                            btn.innerHTML = originalText;
-                            btn.disabled = false;
+                // Langsung kirim via fetch ke Web App URL (data + link dokumen akan masuk ke Sheet + Drive)
+                const res = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-                            if (res.success) {
-                                showToast('Pendaftaran berhasil! Nomor Registrasi: ' + res.registrasi);
-                                e.target.reset();
+                const result = await res.json();
 
-                                setTimeout(() => {
-                                    alert('Nomor Registrasi Anda: ' + res.registrasi + 
-                                          '\n\nSimpan nomor ini untuk pengecekan status.\n\n' +
-                                          'Semua berkas sudah tersimpan di Google Drive.');
-                                }, 500);
-                            } else {
-                                showToast(res.message || 'Gagal mendaftar', 'error');
-                            }
-                        })
-                        .withFailureHandler(err => {
-                            btn.innerHTML = originalText;
-                            btn.disabled = false;
-                            showToast('Gagal menghubungi server. Coba refresh halaman.', 'error');
-                            console.error('google.script.run error:', err);
-                        })
-                        .submitPendaftaranWithFiles(payload);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
 
-                } catch (err) {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    showToast('Terjadi kesalahan saat membaca file.', 'error');
-                    console.error(err);
+                if (result.success) {
+                    showToast('Pendaftaran berhasil! Nomor Registrasi: ' + result.registrasi);
+                    e.target.reset();
+
+                    setTimeout(() => {
+                        alert('Nomor Registrasi Anda: ' + result.registrasi + 
+                              '\n\nSimpan nomor ini untuk pengecekan status.\n\n' +
+                              'Semua berkas sudah tersimpan di Google Drive.');
+                    }, 600);
+                } else {
+                    showToast(result.message || 'Gagal mendaftar', 'error');
                 }
 
-            } else {
-                // Jika dibuka dari domain custom → arahkan ke Portal Resmi (hindari CORS)
-                openOfficialPendaftaran();
+            } catch (err) {
+                console.error('Submit error:', err);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                showToast('Gagal mengirim. Pastikan kamu membuka halaman ini via URL Web App GAS (bukan domain custom).', 'error');
             }
         }
         
