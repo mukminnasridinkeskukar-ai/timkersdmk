@@ -701,7 +701,7 @@
 
     <script>
         // ================== WEB APP URL (ganti setelah deploy) ==================
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyUw022NAn5Ep8M1Q27xstee3YfspSleFUCCIn9-0fzkfOIgVzPpXsTqvQVmflh95Ro/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz4zG-2ixm8YCiPj5WOPTswNhS8V-a6fy5iIClFAtggxBfb45tzkAJDmKNP_jNum-jW/exec";
 
         // ================== FETCH HELPER (pakai GAS URL) ==================
         async function fetchFromGAS(action, params = {}) {
@@ -1069,7 +1069,6 @@
                 const beritaAcaraFile = document.getElementById('berita_acara').files[0];
 
                 const payload = {
-                    action: 'submitPendaftaran',
                     nik: document.getElementById('nik').value.trim(),
                     nama_pengusul: document.getElementById('nama_pengusul').value.trim(),
                     asal_institusi: document.getElementById('asal_institusi').value.trim(),
@@ -1080,43 +1079,50 @@
                     waktu_pelaksanaan: document.getElementById('waktu_pelaksanaan').value.trim(),
                     jumlah_peserta: document.getElementById('jumlah_peserta').value,
 
-                    // Link dokumentasi (baru)
+                    // Link dokumentasi
                     link_dokumentasi_foto: document.getElementById('link_dokumentasi_foto').value.trim(),
                     link_dokumentasi_video: document.getElementById('link_dokumentasi_video').value.trim(),
 
-                    // Files
-                    files: {
-                        daftar_peserta_excel: excelFile ? { name: excelFile.name, data: await fileToBase64(excelFile) } : null,
-                        surat_tugas: suratTugasFile ? { name: suratTugasFile.name, data: await fileToBase64(suratTugasFile) } : null,
-                        surat_pemberitahuan: suratPemberitahuanFile ? { name: suratPemberitahuanFile.name, data: await fileToBase64(suratPemberitahuanFile) } : null,
-                        daftar_hadir: daftarHadirFile ? { name: daftarHadirFile.name, data: await fileToBase64(daftarHadirFile) } : null,
-                        berita_acara: beritaAcaraFile ? { name: beritaAcaraFile.name, data: await fileToBase64(beritaAcaraFile) } : null
-                    }
+                    // Files (base64)
+                    daftar_peserta_excel: excelFile ? { name: excelFile.name, data: await fileToBase64(excelFile) } : null,
+                    surat_tugas: suratTugasFile ? { name: suratTugasFile.name, data: await fileToBase64(suratTugasFile) } : null,
+                    surat_pemberitahuan: suratPemberitahuanFile ? { name: suratPemberitahuanFile.name, data: await fileToBase64(suratPemberitahuanFile) } : null,
+                    daftar_hadir: daftarHadirFile ? { name: daftarHadirFile.name, data: await fileToBase64(daftarHadirFile) } : null,
+                    berita_acara: beritaAcaraFile ? { name: beritaAcaraFile.name, data: await fileToBase64(beritaAcaraFile) } : null
                 };
 
                 btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> MENGIRIM KE GOOGLE SHEET &amp; DRIVE...`;
 
-                const result = await postToGAS(payload);
+                // Selalu gunakan google.script.run (tanpa validasi URL Web App)
+                google.script.run
+                    .withSuccessHandler(function(result) {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
 
-                btn.innerHTML = originalText;
-                btn.disabled = false;
+                        if (result && result.success) {
+                            showToast('Pendaftaran berhasil! Nomor Registrasi: ' + result.registrasi);
+                            e.target.reset();
 
-                if (result.success) {
-                    showToast('Pendaftaran berhasil! Nomor Registrasi: ' + result.registrasi);
-                    e.target.reset();
-
-                    setTimeout(() => {
-                        alert(`Pendaftaran Berhasil!\n\nNomor Registrasi: ${result.registrasi}\n\nSemua data dan dokumen telah tersimpan otomatis ke Google Sheet & Drive.`);
-                    }, 600);
-                } else {
-                    showToast(result.message || 'Gagal mendaftar', 'error');
-                }
+                            setTimeout(() => {
+                                alert(`Pendaftaran Berhasil!\n\nNomor Registrasi: ${result.registrasi}\n\nSemua data dan dokumen telah tersimpan otomatis ke Google Sheet & Drive.`);
+                            }, 600);
+                        } else {
+                            showToast((result && result.message) || 'Gagal mendaftar', 'error');
+                        }
+                    })
+                    .withFailureHandler(function(err) {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        console.error('google.script.run error:', err);
+                        showToast('Terjadi kesalahan saat mengirim data.', 'error');
+                    })
+                    .submitPendaftaranWithFiles(payload);
 
             } catch (err) {
                 console.error('Submit error:', err);
                 btn.innerHTML = originalText;
                 btn.disabled = false;
-                showToast('Gagal mengirim. Pastikan kamu membuka halaman ini via URL Web App GAS.', 'error');
+                showToast('Gagal membaca data formulir.', 'error');
             }
         }
         
