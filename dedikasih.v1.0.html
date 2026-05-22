@@ -1030,8 +1030,9 @@
 
     <script>
         // ==================== CONFIG ====================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx-vmqoxKooZAUqsSPpvz5aVPavT6Npesc2stUuJUPwnp2qhW12hqwj5Eb6XUQI3nN6/exec';
-        
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxZBmeAsVupmLwdqHA3lghokMOhCiOFYm8Hpxn1uJNTOT57QuDbQ-YYpOU7A-HEitBZ/exec"; // PASTE YOUR SCRIPT URL HERE
+        const APP_VERSION = "v1.0.0";
+
         let currentSection = 'dashboard';
         let kegiatanChart = null;
         let currentUser = null;
@@ -1115,24 +1116,27 @@
         }
         
         // ==================== API CALLS ====================
-        async function apiCall(method, params = {}) {
-            const url = new URL(WEB_APP_URL);
-            url.searchParams.set('method', method);
-            
+        async function fetchApi(method, params = {}) {
+            const url = new URL(SCRIPT_URL);
+            url.searchParams.append('method', method);
+            for (const key in params) {
+                url.searchParams.append(key, params[key]);
+            }
+
             try {
-                const response = await fetch(url.toString(), {
-                    method: 'GET'
-                });
-                
-                if (!response.ok) throw new Error('Network error');
-                
-                const data = await response.json();
-                return data;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.message || 'API returned an error');
+                }
+                return result.data;
             } catch (error) {
-                console.error('API Error:', error);
-                showToast('Gagal menghubungi server. Menggunakan data demo.', 'error');
-                // Return demo data on failure
-                return getDemoData(method);
+                console.error(`Error fetching ${method}:`, error);
+                showToast(`Gagal memuat data: ${method}. Cek konsol.`, "error");
+                return null;
             }
         }
         
@@ -1197,20 +1201,21 @@
         let chartInstance = null;
         
         async function loadDashboardData() {
-            const res = await apiCall('getDashboard');
-            
-            if (res && res.stats) {
-                document.getElementById('stat-kegiatan').textContent = res.stats.kegiatan.toLocaleString();
-                document.getElementById('stat-peserta').textContent = res.stats.peserta.toLocaleString();
-                document.getElementById('stat-sertifikat').textContent = res.stats.sertifikat.toLocaleString();
-                document.getElementById('stat-aktif').textContent = res.stats.aktif;
+            console.log("Loading dashboard data...");
+            const data = await fetchApi('getDashboard');
+            if (data && data.stats) {
+                document.getElementById('stat-kegiatan').textContent = data.stats.kegiatan;
+                document.getElementById('stat-peserta').textContent = data.stats.peserta;
+                document.getElementById('stat-sertifikat').textContent = data.stats.sertifikat;
+                document.getElementById('stat-aktif').textContent = data.stats.aktif;
+                console.log("Dashboard stats loaded:", data.stats);
             }
-            
+
             // Recent activity
             const recentEl = document.getElementById('recent-activity');
             recentEl.innerHTML = '';
             
-            const activities = res.recent || [
+            const activities = data.recent || [
                 {type:'peserta', text:'Ahmad Fauzi terdaftar di Pelatihan', time:'Baru saja'},
                 {type:'sertifikat', text:'12 sertifikat diterbitkan', time:'Kemarin'}
             ];
@@ -1229,8 +1234,7 @@
                 `;
                 recentEl.appendChild(div);
             });
-            
-            // Load chart
+
             loadChartData();
         }
         
@@ -1290,11 +1294,11 @@
         const itemsPerPage = 6;
         
         async function loadPengumuman() {
+            console.log("Loading announcements...");
             const container = document.getElementById('pengumuman-container');
             container.innerHTML = `<div class="col-span-full py-8 text-center"><div class="skeleton h-40 w-full rounded-3xl"></div></div>`;
             
-            const res = await apiCall('getPengumuman');
-            allPengumuman = res.data || [];
+            allPengumuman = await fetchApi('getPengumuman') || [];
             
             renderPengumuman();
         }
@@ -1358,7 +1362,7 @@
             emptyState.classList.add('hidden');
             noDataState.classList.add('hidden');
 
-            const res = await apiCall('getSertifikat');
+            const res = await apiCall('getSertifikatLengkap');
             allSertifikat = res.data || [];
 
             if (allSertifikat.length === 0) {
@@ -1372,11 +1376,11 @@
         }
 
         function populateSertifikatFilters(data) {
-            const profesiSet = new Set();
+            // Profesi Kesehatan is not yet in the Sertifikat or Peserta sheets.
+            // Once 'Profesi Kesehatan' is added as a column, populate profesi options from:
+            //   data.map(item => item.profesiKesehatan).filter(Boolean)
             const kegiatanSet = new Set();
-
             data.forEach(item => {
-                // profesi from peserta sheet join would go here; using placehold
                 kegiatanSet.add(String(item.namaKegiatan || '').trim());
             });
 
@@ -1395,14 +1399,6 @@
                     kegiatanSelect.innerHTML += `<option value="${k}">${k}</option>`;
                 }
             });
-            // For demo / disconnected mode, supply demo profesi options:
-            // When backend adds the 'Profesi Kesehatan' column to the sheet, replace this block
-            // with data extracted from the sheet (e.g. from a Peserta join).
-            const demoProfesi = ['Dokter', 'Bidan', 'Perawat', 'Tenaga Kesehatan Masyarakat', 'Fisioterapis', 'Apoteker'];
-            demoProfesi.forEach(p => {
-                profesiSelect.innerHTML += `<option value="${p}">${p}</option>`;
-            });
-            // Note: profesiSet is populated from sheet column 'Profesi Kesehatan' once available
 
             profesiSelect.value = currentProfesi;
             kegiatanSelect.value = currentKegiatan;
@@ -1433,13 +1429,16 @@
 
                 const no = index + 1;
                 const namaPeserta = item.namaPeserta || '-';
-                const profesi = item.profesi || '-';
+                const profesi = item.profesiKesehatan || '(belum diisi)';
                 const tempatBekerja = item.tempatBekerja || '-';
                 const namaKegiatan = item.namaKegiatan || '-';
-                const tanggal = item.tanggal ? new Date(item.tanggal).toLocaleDateString('id-ID') : '-';
+                const tanggal = item.tanggalKegiatan
+                  ? (typeof item.tanggalKegiatan === 'string'
+                       ? new Date(item.tanggalKegiatan).toLocaleDateString('id-ID')
+                       : new Date(item.tanggalKegiatan).toLocaleDateString('id-ID'))
+                  : '-';
                 const tempatKegiatan = item.tempatKegiatan || '-';
                 const link = item.link || '';
-                const nomorSertifikat = item.nomorSertifikat || '';
 
                 // Download button: opens the link in a new tab, falls back to toast
                 const urlOrAction = link
@@ -1472,9 +1471,9 @@
                     String(item.namaPeserta || '').toLowerCase().includes(keyword) ||
                     String(item.tempatBekerja || '').toLowerCase().includes(keyword);
 
-                // Profesi filter
+                // Profesi filter (joined column)
                 const matchProfesi = profesiFilter
-                    ? String(item.profesi || '').trim() === profesiFilter
+                    ? String(item.profesiKesehatan || '').trim() === profesiFilter
                     : true;
 
                 // Kegiatan filter
@@ -1513,11 +1512,11 @@
         let allSertifikat = [];
         
         async function loadJadwal() {
+            console.log("Loading schedule...");
             const tbody = document.getElementById('jadwal-tbody');
             tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center"><div class="skeleton h-8 w-3/4 mx-auto rounded"></div></td></tr>`;
             
-            const res = await apiCall('getJadwal');
-            allJadwal = res.data || [];
+            allJadwal = await fetchApi('getJadwal') || [];
             
             renderJadwalTable(allJadwal);
         }
@@ -1593,12 +1592,10 @@
             resultDiv.innerHTML = `<div class="skeleton h-28 rounded-3xl w-full"></div>`;
             resultDiv.classList.remove('hidden');
             
-            const res = await apiCall('getPeserta');
-            const peserta = (res.data || []).find(p => 
-                p.nik === input || p.nomorRegistrasi === input || p.nama?.toLowerCase() === input.toLowerCase()
-            );
-            
-            if (peserta) {
+            console.log(`Searching participants for "${input}"...);
+            const peserta = await fetchApi('getPeserta', { q: input });
+
+            if (peserta) { // Assuming API returns single object or null
                 resultDiv.innerHTML = `
                     <div class="border rounded-3xl p-5 bg-emerald-50">
                         <div class="flex justify-between items-start">
@@ -1723,11 +1720,11 @@
         
         // ==================== PIC ====================
         async function loadPIC() {
+            console.log("Loading contacts...");
             const container = document.getElementById('pic-container');
             container.innerHTML = `<div class="col-span-full"><div class="skeleton h-20 rounded-3xl"></div></div>`;
             
-            const res = await apiCall('getPIC');
-            const pics = res.data || [];
+            const pics = await fetchApi('getPIC') || [];
             
             container.innerHTML = '';
             
