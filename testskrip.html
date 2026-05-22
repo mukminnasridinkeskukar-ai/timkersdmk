@@ -545,14 +545,18 @@
                     <input type="text" id="asal-institusi" class="input-modern w-full px-4 py-3 rounded-2xl text-sm border border-slate-700">
                   </div>
 
-                  <div>
-                    <label class="block text-xs font-semibold tracking-wider text-slate-400 mb-1.5">NOMOR TELEPON <span class="text-red-400">*</span></label>
-                    <input type="tel" id="telpon" class="input-modern w-full px-4 py-3 rounded-2xl text-sm border border-slate-700">
-                  </div>
-                  <div>
-                    <label class="block text-xs font-semibold tracking-wider text-slate-400 mb-1.5">NAMA KEGIATAN <span class="text-red-400">*</span></label>
-                    <input type="text" id="nama-kegiatan" class="input-modern w-full px-4 py-3 rounded-2xl text-sm border border-slate-700">
-                  </div>
+                   <div>
+                     <label class="block text-xs font-semibold tracking-wider text-slate-400 mb-1.5">NOMOR TELEPON <span class="text-red-400">*</span></label>
+                     <input type="tel" id="telpon" class="input-modern w-full px-4 py-3 rounded-2xl text-sm border border-slate-700">
+                   </div>
+                   <div>
+                     <label class="block text-xs font-semibold tracking-wider text-slate-400 mb-1.5">EMAIL PENGUSUL <span class="text-red-400">*</span></label>
+                     <input type="email" id="email-pengusul" placeholder="nama@email.com" class="input-modern w-full px-4 py-3 rounded-2xl text-sm border border-slate-700">
+                   </div>
+                   <div>
+                     <label class="block text-xs font-semibold tracking-wider text-slate-400 mb-1.5">NAMA KEGIATAN <span class="text-red-400">*</span></label>
+                     <input type="text" id="nama-kegiatan" class="input-modern w-full px-4 py-3 rounded-2xl text-sm border border-slate-700">
+                   </div>
 
                   <div>
                     <label class="block text-xs font-semibold tracking-wider text-slate-400 mb-1.5">TEMPAT KEGIATAN <span class="text-red-400">*</span></label>
@@ -1221,6 +1225,7 @@
         namaPengusul: document.getElementById('nama-pengusul').value.trim(),
         asalInstitusi: document.getElementById('asal-institusi').value.trim(),
         telpon: document.getElementById('telpon').value.trim(),
+        email: document.getElementById('email-pengusul').value.trim(),
         namaKegiatan: document.getElementById('nama-kegiatan').value.trim(),
         tempatKegiatan: document.getElementById('tempat-kegiatan').value.trim(),
         tanggalKegiatan: document.getElementById('tanggal-kegiatan').value,
@@ -1241,8 +1246,8 @@
         resetSubmitButton(btn, originalText);
         return;
       }
-      if (!formData.namaPengusul || !formData.asalInstitusi || !formData.telpon || !formData.namaKegiatan) {
-        showToast('Mohon lengkapi semua field wajib', true);
+      if (!formData.namaPengusul || !formData.asalInstitusi || !formData.telpon || !formData.email || !formData.namaKegiatan) {
+        showToast('Mohon lengkapi semua field wajib termasuk Email', true);
         resetSubmitButton(btn, originalText);
         return;
       }
@@ -1517,7 +1522,7 @@
             <td class="px-5 py-3 text-xs">${row.namaKegiatan}</td>
             <td class="px-5 py-3"><span class="badge ${row.status.includes('Menunggu') ? 'bg-amber-400/10 text-amber-400' : 'bg-emerald-400/10 text-emerald-400'}">${row.status}</span></td>
             <td class="px-5 py-3">
-              <button onclick="adminUpdateStatus('${row.nomorRegistrasi}', '${row.status}', '${row.catatan}')" class="text-cyan-400 hover:text-cyan-300 mr-3"><i class="fa-solid fa-edit"></i></button>
+              <button onclick="adminUpdateStatus('${row.nomorRegistrasi}', '${row.status}', '${row.catatan}', '${row.email}', '${row.namaPengusul}', '${row.namaKegiatan}')" class="text-cyan-400 hover:text-cyan-300 mr-3"><i class="fa-solid fa-edit"></i></button>
               <button onclick="adminDeleteRow('FORMULIR', ${row.rowIndex})" class="text-red-400 hover:text-red-300"><i class="fa-solid fa-trash"></i></button>
             </td>
           </tr>`;
@@ -1525,39 +1530,74 @@
         
         html += `</tbody></table></div>`;
         container.innerHTML = html;
-      }).getAllFormulir();
+      }).getAllFormulirAdmin();
     }
 
-    function adminUpdateStatus(nomor, currentStatus, currentCatatan) {
+    function adminUpdateStatus(nomor, currentStatus, currentCatatan, email = '', namaPengusul = '', namaKegiatan = '') {
+      const hasEmail = email && email.trim() !== '';
+      
       const content = `
         <div>
-          <div class="font-semibold mb-4">Update Status — ${nomor}</div>
-          <select id="new-status" class="input-modern w-full px-4 py-3 rounded-2xl mb-3 border border-slate-700">
+          <div class="font-semibold mb-1 text-lg">Update Status Usulan</div>
+          <div class="text-xs text-slate-400 mb-4 font-mono">${nomor}</div>
+          
+          <div class="mb-4">
+            <div class="text-xs font-semibold text-slate-400 mb-1">PENGUSUL</div>
+            <div class="text-white font-medium">${namaPengusul || '-'}</div>
+            ${namaKegiatan ? `<div class="text-xs text-cyan-400 mt-0.5">${namaKegiatan}</div>` : ''}
+          </div>
+
+          <div class="mb-4">
+            <div class="text-xs font-semibold text-slate-400 mb-1">EMAIL PENERIMA NOTIFIKASI</div>
+            <div class="px-4 py-2 bg-slate-800 rounded-2xl text-sm ${hasEmail ? 'text-emerald-300' : 'text-red-400'}">
+              ${hasEmail ? email : 'Email tidak tersedia — tidak bisa kirim notifikasi'}
+            </div>
+          </div>
+
+          <select id="new-status" class="input-modern w-full px-4 py-3 rounded-2xl mb-3 border border-slate-700 text-sm">
             <option ${currentStatus.includes('Menunggu') ? 'selected' : ''}>Menunggu Verifikasi</option>
             <option ${currentStatus.includes('Disetujui') ? 'selected' : ''}>Disetujui</option>
             <option ${currentStatus.includes('Ditolak') ? 'selected' : ''}>Ditolak</option>
             <option ${currentStatus.includes('Revisi') ? 'selected' : ''}>Perlu Revisi</option>
           </select>
-          <textarea id="catatan-admin" class="input-modern w-full px-4 py-3 rounded-3xl border border-slate-700 h-28" placeholder="Catatan untuk pengusul...">${currentCatatan || ''}</textarea>
-          
-          <div class="flex gap-3 mt-4">
-            <button onclick="saveAdminStatus('${nomor}'); closeModal()" class="flex-1 py-3 bg-emerald-500 text-white rounded-3xl font-semibold">Simpan Perubahan</button>
-            <button onclick="closeModal()" class="flex-1 py-3 border border-slate-600 rounded-3xl">Batal</button>
+
+          <textarea id="catatan-admin" class="input-modern w-full px-4 py-3 rounded-3xl border border-slate-700 h-24 text-sm" placeholder="Catatan admin untuk pengusul...">${currentCatatan || ''}</textarea>
+
+          <div class="mt-4 flex items-center gap-x-2">
+            <input type="checkbox" id="send-email" ${hasEmail ? 'checked' : 'disabled'} class="w-4 h-4 accent-cyan-400">
+            <label for="send-email" class="text-sm ${hasEmail ? 'text-white' : 'text-slate-500'}">Kirim notifikasi email otomatis ke pengusul</label>
+          </div>
+
+          <div class="flex gap-3 mt-5">
+            <button onclick="saveAdminStatusWithEmail('${nomor}', '${email}', '${namaPengusul}', '${namaKegiatan}'); closeModal()" 
+                    class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-cyan-400 text-white rounded-3xl font-semibold text-sm">
+              SIMPAN &amp; ${hasEmail ? 'KIRIM EMAIL' : 'UPDATE'}
+            </button>
+            <button onclick="closeModal()" class="flex-1 py-3 border border-slate-600 hover:bg-slate-800 rounded-3xl text-sm">Batal</button>
           </div>
         </div>
       `;
       showModal(content);
     }
 
-    function saveAdminStatus(nomor) {
+    function saveAdminStatusWithEmail(nomor, email, namaPengusul, namaKegiatan) {
       const status = document.getElementById('new-status').value;
-      const catatan = document.getElementById('catatan-admin').value;
-      
+      const catatan = document.getElementById('catatan-admin').value || '';
+      const sendEmail = document.getElementById('send-email') ? document.getElementById('send-email').checked : false;
+
       google.script.run.withSuccessHandler(function(res) {
         showToast(res.message);
         closeModal();
         showAdminTab('formulir');
-      }).updateStatus(nomor, status, catatan);
+      }).updateStatusWithNotification(
+        nomor, 
+        status, 
+        catatan, 
+        sendEmail, 
+        email, 
+        namaPengusul, 
+        namaKegiatan
+      );
     }
 
     function adminDeleteRow(sheetName, rowIndex) {
