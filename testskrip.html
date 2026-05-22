@@ -349,6 +349,12 @@
         <div class="hidden lg:flex items-center justify-between border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg px-8 py-4">
           <div id="page-title" class="font-display text-2xl font-semibold tracking-tighter">Dashboard</div>
           
+          <!-- DEV MODE BANNER (hanya muncul saat dibuka lokal) -->
+          <div id="dev-banner" class="hidden items-center gap-x-2 text-[10px] font-bold tracking-wider px-3 py-1 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/30">
+            <i class="fa-solid fa-flask"></i>
+            <span>LOCAL PREVIEW MODE — Data Palsu</span>
+          </div>
+          
           <div class="flex items-center gap-x-3">
             <button onclick="refreshCurrentPage()" 
                     class="flex items-center gap-x-2 px-4 py-2 text-sm font-medium hover:bg-slate-800 rounded-3xl border border-slate-700 hover:border-slate-600">
@@ -810,6 +816,83 @@
     const SERTIFIKAT_PER_PAGE = 10;
 
     // ============================================
+    // DEV MODE DETECTION + GOOGLE SCRIPT MOCK
+    // (Agar file bisa dibuka langsung di browser tanpa error "google is not defined")
+    // ============================================
+    const IS_GAS_ENVIRONMENT = typeof google !== 'undefined' && !!google.script && !!google.script.run;
+
+    // Mock data lengkap untuk local testing / preview
+    const MOCK = {
+      dashboard: {
+        totalUsulan: 47,
+        totalPengumuman: 8,
+        totalJadwal: 12,
+        totalSertifikat: 189,
+        aktivitasTerbaru: [
+          { nomorRegistrasi: "DDK-20260522-007", namaKegiatan: "Pemeriksaan Kesehatan Lansia", namaPengusul: "Puskesmas Sejahtera", tanggal: "22 Mei 2026" },
+          { nomorRegistrasi: "DDK-20260521-004", namaKegiatan: "Edukasi Gizi Ibu Hamil", namaPengusul: "Dinkes Kab. Bogor", tanggal: "21 Mei 2026" }
+        ],
+        pengumumanTerbaru: [
+          { judul: "Perubahan Jadwal Kegiatan Mei 2026", isi: "Perhatian! Beberapa jadwal kegiatan di akhir bulan mengalami pergeseran.", tanggal: "20 Mei 2026" },
+          { judul: "Batas Akhir Pengumpulan Usulan", isi: "Batas akhir penerimaan usulan periode Juni adalah tanggal 25 Mei.", tanggal: "18 Mei 2026" }
+        ]
+      },
+      pengumuman: [
+        { judul: "Perubahan Jadwal Kegiatan Mei 2026", isi: "Dikarenakan agenda nasional, beberapa kegiatan pada minggu ke-4 Mei 2026 mengalami pergeseran jadwal. Silakan cek menu Jadwal Kegiatan untuk informasi terbaru.", tanggal: "20 Mei 2026" },
+        { judul: "Batas Akhir Pengumpulan Usulan", isi: "Batas akhir penerimaan usulan kegiatan periode Juni adalah 25 Mei 2026 pukul 23.59 WIB.", tanggal: "18 Mei 2026" }
+      ],
+      jadwal: [
+        { namaKegiatan: "Pemeriksaan Kesehatan Lansia", tempat: "Puskesmas Sejahtera", tanggal: "2026-05-28", jam: "08.00 - 12.00", pic: "dr. Siti Rahayu" },
+        { namaKegiatan: "Edukasi Gizi untuk Ibu Hamil", tempat: "Balai Desa Sukamaju", tanggal: "2026-05-30", jam: "09.00 - 11.30", pic: "Nurul Aulia, S.Kep" }
+      ],
+      sertifikat: [
+        { no: "001", namaPeserta: "Andi Pratama", profesi: "Dokter Umum", tempatBekerja: "Puskesmas Ciledug", namaKegiatan: "Pemeriksaan Kesehatan Lansia", tanggalKegiatan: "15 Mei 2026", tempatKegiatan: "Puskesmas Sejahtera", downloadLink: "https://drive.google.com/file/d/1abc123" },
+        { no: "002", namaPeserta: "Sari Dewi", profesi: "Perawat", tempatBekerja: "RSUD Kota", namaKegiatan: "Edukasi Gizi Ibu Hamil", tanggalKegiatan: "12 Mei 2026", tempatKegiatan: "Balai Desa", downloadLink: "https://drive.google.com/file/d/1def456" }
+      ],
+      formulir: [
+        { rowIndex: 2, nomorRegistrasi: "DDK-20260522-007", namaPengusul: "Puskesmas Sejahtera", namaKegiatan: "Pemeriksaan Kesehatan Lansia", status: "Menunggu Verifikasi", catatan: "", email: "puskesmas.sejahtera@email.com" },
+        { rowIndex: 3, nomorRegistrasi: "DDK-20260520-003", namaPengusul: "Dinkes Kabupaten Bogor", namaKegiatan: "Edukasi Gizi Ibu Hamil", status: "Disetujui", catatan: "Dokumen lengkap", email: "dinkes.bogor@kemenkes.go.id" }
+      ]
+    };
+
+    // Buat mock google.script.run jika tidak ada (untuk local testing)
+    if (!IS_GAS_ENVIRONMENT) {
+      window.google = {
+        script: {
+          run: {
+            withSuccessHandler: function (callback) {
+              return {
+                getDashboardData: () => setTimeout(() => callback({ success: true, data: MOCK.dashboard }), 280),
+                getPengumuman: () => setTimeout(() => callback({ success: true, data: MOCK.pengumuman }), 250),
+                getJadwal: () => setTimeout(() => callback({ success: true, data: MOCK.jadwal }), 250),
+                getSertifikat: () => setTimeout(() => callback({ success: true, data: MOCK.sertifikat }), 250),
+                saveForm: (data) => setTimeout(() => callback({ 
+                  success: true, 
+                  message: "Data berhasil disimpan (MODE LOCAL)", 
+                  nomorRegistrasi: "DDK-DEV-" + Date.now().toString().slice(-6) 
+                }), 900),
+                cekStatus: (term) => setTimeout(() => {
+                  const found = MOCK.formulir.find(f => f.nomorRegistrasi === term || f.nik === term);
+                  callback({ success: true, data: found || null });
+                }, 400),
+                adminLogin: (u, p) => setTimeout(() => callback({ success: u === "admin" && p === "dedikasi123" }), 400),
+                getAllFormulirAdmin: () => setTimeout(() => callback({ success: true, data: MOCK.formulir }), 300),
+                updateStatusWithNotification: (nomor, status, catatan, sendEmail, email, nama, kegiatan) => 
+                  setTimeout(() => callback({ success: true, message: `Status ${status} berhasil disimpan (mock email ${sendEmail ? "dikirim" : "tidak dikirim"})` }), 600),
+                deleteData: () => setTimeout(() => callback({ success: true, message: "Data dihapus (mock)" }), 200),
+                addPengumuman: () => setTimeout(() => callback({ success: true, message: "Pengumuman ditambahkan (mock)" }), 300),
+                deletePengumuman: () => setTimeout(() => callback({ success: true }), 200),
+              };
+            }
+          }
+        }
+      };
+
+      // Banner DEV MODE
+      console.log('%c[DEDIKASIH v1.0] ⚠️ Berjalan dalam MODE LOCAL PREVIEW (google.script.run dimock)', 'color:#f59e0b; font-weight:bold');
+    }
+
+    // ============================================
     // INITIALIZATION
     // ============================================
     function init() {
@@ -838,6 +921,13 @@
         
         // Set default nav active
         document.getElementById('nav-dashboard').classList.add('active', 'nav-active');
+
+        // Tampilkan banner dev mode jika tidak di dalam Google Apps Script
+        if (!IS_GAS_ENVIRONMENT) {
+          const banner = document.getElementById('dev-banner');
+          if (banner) banner.classList.remove('hidden');
+          banner.classList.add('flex');
+        }
       }, 1400);
 
       // Auto dark mode
