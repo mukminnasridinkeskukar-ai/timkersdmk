@@ -716,24 +716,68 @@
 
             <!-- CEK SERTIFIKAT -->
             <div id="sertifikat" class="section">
-                <div class="max-w-xl mx-auto">
-                    <div class="text-center mb-8">
+                <div class="mb-6">
+                    <div class="text-center mb-6">
                         <h2 class="text-4xl font-display font-bold tracking-tighter">Cek &amp; Unduh Sertifikat</h2>
-                        <p class="mt-2 text-slate-500">Masukkan Nomor Sertifikat atau Nama Lengkap</p>
+                        <p class="mt-2 text-slate-500">Lihat dan unduh sertifikat kegiatan pengabdian masyarakat</p>
                     </div>
-                    
-                    <div class="glass p-8 rounded-3xl border">
-                        <div class="flex gap-3">
-                            <input id="sertifikat-input" type="text" placeholder="Nomor Sertifikat / Nama Peserta" 
-                                   class="flex-1 border px-5 py-4 rounded-3xl text-base focus:outline-none focus:border-[#0f766e]">
-                            <button onclick="cekSertifikat()" 
-                                    class="px-8 bg-[#0f766e] hover:bg-[#0c5f59] transition-colors text-white font-bold rounded-3xl ripple">
-                                <span class="hidden sm:inline">VERIFIKASI</span>
-                                <i class="fas fa-search sm:hidden"></i>
-                            </button>
+
+                    <!-- Toolbar: Search + Filters -->
+                    <div class="glass rounded-3xl border border-slate-100 dark:border-slate-700 p-4 flex flex-col md:flex-row gap-3 items-start md:items-center mb-4">
+                        <div class="flex-1 relative w-full md:w-auto">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input id="sert-search" type="text" placeholder="Cari Nama Peserta atau Tempat Bekerja..." 
+                                   onkeyup="filterSertifikat()"
+                                   class="w-full md:w-80 pl-11 pr-4 py-3 text-sm rounded-3xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 focus:outline-none focus:border-[#0f766e]">
                         </div>
-                        
-                        <div id="sertifikat-result" class="mt-6 hidden"></div>
+
+                        <div class="flex flex-wrap gap-3">
+                            <select id="filter-profesi" onchange="filterSertifikat()"
+                                    class="py-3 px-5 text-sm border rounded-3xl bg-white dark:bg-slate-800 focus:outline-none focus:border-[#0f766e] min-w-48">
+                                <option value="">Semua Profesi Kesehatan</option>
+                            </select>
+
+                            <select id="filter-kegiatan" onchange="filterSertifikat()"
+                                    class="py-3 px-5 text-sm border rounded-3xl bg-white dark:bg-slate-800 focus:outline-none focus:border-[#0f766e] min-w-52">
+                                <option value="">Semua Nama Kegiatan</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="glass rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full modern-table data-table text-sm">
+                                <thead>
+                                    <tr>
+                                        <th class="w-12 text-center">No</th>
+                                        <th>Nama Peserta</th>
+                                        <th>Profesi Kesehatan</th>
+                                        <th>Tempat Bekerja</th>
+                                        <th>Nama Kegiatan</th>
+                                        <th>Tanggal Kegiatan</th>
+                                        <th>Tempat Kegiatan</th>
+                                        <th class="w-40 text-center">Download Sertifikat</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="sertifikat-tbody" class="divide-y divide-slate-100 dark:divide-slate-700">
+                                    <tr id="sertifikat-loading">
+                                        <td colspan="8" class="text-center py-12">
+                                            <i class="fas fa-spinner fa-spin text-[#0f766e] text-3xl"></i>
+                                            <p class="mt-3 text-slate-400 font-medium">Memuat data sertifikat...</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="sertifikat-empty" class="hidden p-12 text-center">
+                            <i class="fas fa-certificate text-5xl text-slate-300 mb-4"></i>
+                            <p class="font-semibold text-slate-400">Tidak ada sertifikat ditemukan</p>
+                        </div>
+                        <div id="sertifikat-no-data" class="hidden p-12 text-center">
+                            <i class="fas fa-database text-5xl text-slate-300 mb-4"></i>
+                            <p class="font-semibold text-slate-400">Belum ada data sertifikat</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -983,7 +1027,7 @@
 
     <script>
         // ==================== CONFIG ====================
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzmGsA2eaC-Pgpqbz8UOxcwKSFSVaga1DUoKE4FUF5RQQOobp2OJh-nx-wilFlXu7ba/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz1mb17HYc6rgjJLpyzHCb8NyrJow8OzwIQzxd5uNwi-8hDgpfQsR-Cx4_zwsrdpv4P/exec';
         
         let currentSection = 'dashboard';
         let kegiatanChart = null;
@@ -1034,6 +1078,7 @@
             if (section === 'dashboard') loadDashboardData();
             if (section === 'pengumuman') loadPengumuman();
             if (section === 'jadwal') loadJadwal();
+            if (section === 'sertifikat') loadSertifikatTable();
             if (section === 'kontak') loadPIC();
             if (section === 'formulir') {
                 setTimeout(setFormulirTimestamp, 150);
@@ -1292,6 +1337,154 @@
             pengumumanPage = 1;
             renderPengumuman(filtered);
         }
+
+        // ==================== SERTIFIKAT TABLE ====================
+        async function loadSertifikatTable() {
+            const tbody = document.getElementById('sertifikat-tbody');
+            const emptyState = document.getElementById('sertifikat-empty');
+            const noDataState = document.getElementById('sertifikat-no-data');
+
+            tbody.innerHTML = `
+                <tr id="sertifikat-loading">
+                    <td colspan="8" class="text-center py-12">
+                        <i class="fas fa-spinner fa-spin text-[#0f766e] text-3xl"></i>
+                        <p class="mt-3 text-slate-400 font-medium">Memuat data sertifikat...</p>
+                    </td>
+                </tr>
+            `;
+            emptyState.classList.add('hidden');
+            noDataState.classList.add('hidden');
+
+            const res = await apiCall('getSertifikat');
+            allSertifikat = res.data || [];
+
+            if (allSertifikat.length === 0) {
+                noDataState.classList.remove('hidden');
+                tbody.innerHTML = '';
+                return;
+            }
+
+            populateSertifikatFilters(allSertifikat);
+            renderSertifikatTable(allSertifikat);
+        }
+
+        function populateSertifikatFilters(data) {
+            const profesiSet = new Set();
+            const kegiatanSet = new Set();
+
+            data.forEach(item => {
+                // profesi from peserta sheet join would go here; using placehold
+                kegiatanSet.add(String(item.namaKegiatan || '').trim());
+            });
+
+            // Clear and repopulate
+            const profesiSelect = document.getElementById('filter-profesi');
+            const kegiatanSelect = document.getElementById('filter-kegiatan');
+
+            const currentProfesi = profesiSelect.value;
+            const currentKegiatan = kegiatanSelect.value;
+
+            profesiSelect.innerHTML = `<option value="">Semua Profesi Kesehatan</option>`;
+            kegiatanSelect.innerHTML = `<option value="">Semua Nama Kegiatan</option>`;
+
+            kegiatanSet.forEach(k => {
+                if (k) {
+                    kegiatanSelect.innerHTML += `<option value="${k}">${k}</option>`;
+                }
+            });
+            // For demo / disconnected mode, supply demo profesi options:
+            // When backend adds the 'Profesi Kesehatan' column to the sheet, replace this block
+            // with data extracted from the sheet (e.g. from a Peserta join).
+            const demoProfesi = ['Dokter', 'Bidan', 'Perawat', 'Tenaga Kesehatan Masyarakat', 'Fisioterapis', 'Apoteker'];
+            demoProfesi.forEach(p => {
+                profesiSelect.innerHTML += `<option value="${p}">${p}</option>`;
+            });
+            // Note: profesiSet is populated from sheet column 'Profesi Kesehatan' once available
+
+            profesiSelect.value = currentProfesi;
+            kegiatanSelect.value = currentKegiatan;
+        }
+
+        function renderSertifikatTable(data) {
+            const tbody = document.getElementById('sertifikat-tbody');
+            const loadingRow = document.getElementById('sertifikat-loading');
+            if (loadingRow) loadingRow.remove();
+
+            const emptyState = document.getElementById('sertifikat-empty');
+
+            if (data.length === 0) {
+                emptyState.classList.remove('hidden');
+                tbody.innerHTML = '';
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            const tbodyInner = tbody;
+            // Remove any existing rows (not the loading placeholder which we already removed)
+            tbodyInner.querySelectorAll('tr:not(#sertifikat-loading)').forEach(r => r.remove());
+
+            data.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-[#0f766e]/5 transition-colors text-center last:border-b-0';
+
+                const no = index + 1;
+                const namaPeserta = item.namaPeserta || '-';
+                const profesi = item.profesi || '-';
+                const tempatBekerja = item.tempatBekerja || '-';
+                const namaKegiatan = item.namaKegiatan || '-';
+                const tanggal = item.tanggal ? new Date(item.tanggal).toLocaleDateString('id-ID') : '-';
+                const tempatKegiatan = item.tempatKegiatan || '-';
+                const link = item.link || '';
+                const nomorSertifikat = item.nomorSertifikat || '';
+
+                // Download button: opens the link in a new tab, falls back to toast
+                const urlOrAction = link
+                  ? `<a href="${link}" target="_blank" class="inline-flex items-center gap-x-1.5 px-4 py-2 bg-gradient-to-r from-[#0f766e] to-teal-600 text-white text-xs font-bold rounded-2xl hover:brightness-110 transition-all"><i class="fas fa-download"></i> Download</a>`
+                  : `<button onclick="showToast('Link sertifikat belum tersedia', 'warning')" class="inline-flex items-center gap-x-1.5 px-4 py-2 bg-slate-300 text-slate-600 text-xs font-bold rounded-2xl cursor-not-allowed" disabled><i class="fas fa-download"></i> Download</button>`;
+
+                row.innerHTML = `
+                    <td class="text-center text-slate-500">${no}</td>
+                    <td class="text-left font-medium">${namaPeserta}</td>
+                    <td class="text-left">${profesi}</td>
+                    <td class="text-center">${tempatBekerja}</td>
+                    <td class="text-left">${namaKegiatan}</td>
+                    <td class="text-center text-slate-500">${tanggal}</td>
+                    <td class="text-center">${tempatKegiatan}</td>
+                    <td class="text-center">${urlOrAction}</td>
+                `;
+
+                tbodyInner.appendChild(row);
+            });
+        }
+
+        function filterSertifikat() {
+            const keyword = (document.getElementById('sert-search')?.value || '').toLowerCase();
+            const profesiFilter = document.getElementById('filter-profesi')?.value || '';
+            const kegiatanFilter = document.getElementById('filter-kegiatan')?.value || '';
+
+            let filtered = allSertifikat.filter(item => {
+                // Search keyword: Nama Peserta or Tempat Bekerja
+                const matchKeyword =
+                    String(item.namaPeserta || '').toLowerCase().includes(keyword) ||
+                    String(item.tempatBekerja || '').toLowerCase().includes(keyword);
+
+                // Profesi filter
+                const matchProfesi = profesiFilter
+                    ? String(item.profesi || '').trim() === profesiFilter
+                    : true;
+
+                // Kegiatan filter
+                const matchKegiatan = kegiatanFilter
+                    ? String(item.namaKegiatan || '').trim() === kegiatanFilter
+                    : true;
+
+                return matchKeyword && matchProfesi && matchKegiatan;
+            });
+
+            renderSertifikatTable(filtered);
+        }
+
         
         function renderPengumumanPagination(total) {
             const pagEl = document.getElementById('pengumuman-pagination');
@@ -1314,6 +1507,7 @@
         
         // ==================== JADWAL ====================
         let allJadwal = [];
+        let allSertifikat = [];
         
         async function loadJadwal() {
             const tbody = document.getElementById('jadwal-tbody');
@@ -1424,75 +1618,11 @@
             }
         }
         
-        async function cekSertifikat() {
-            const input = document.getElementById('sertifikat-input').value.trim().toLowerCase();
-            const resultDiv = document.getElementById('sertifikat-result');
-            
-            if (!input) return;
-            
-            resultDiv.innerHTML = `<div class="skeleton h-40 w-full rounded-3xl"></div>`;
-            resultDiv.classList.remove('hidden');
-            
-            const res = await apiCall('getSertifikat');
-            const sert = (res.data || []).find(s => 
-                s.nomorSertifikat?.toLowerCase() === input || 
-                s.namaPeserta?.toLowerCase().includes(input)
-            );
-            
-            if (sert) {
-                resultDiv.innerHTML = `
-                    <div class="bg-white border rounded-3xl p-5">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <div class="uppercase text-xs tracking-widest font-bold text-emerald-700">Terverifikasi</div>
-                                <div class="font-semibold">${sert.namaPeserta}</div>
-                                <div class="text-xs text-slate-500">${sert.namaKegiatan}</div>
-                            </div>
-                            <div>
-                                <i class="fas fa-check-circle text-3xl text-emerald-500"></i>
-                            </div>
-                        </div>
-                        
-                        <div class="my-4 text-xs font-mono bg-slate-100 p-2 rounded-xl">No. Sertifikat: ${sert.nomorSertifikat}</div>
-                        
-                        <div class="flex gap-3">
-                            <button onclick="downloadSertifikat('${sert.nomorSertifikat}')" class="flex-1 py-3 bg-gradient-to-r from-[#0f766e] to-teal-700 text-white text-sm font-bold rounded-3xl ripple">
-                                <i class="fas fa-download mr-2"></i> UNDUH PDF
-                            </button>
-                            <button onclick="verifyQR('${sert.nomorSertifikat}')" class="flex-1 py-3 border text-sm font-bold rounded-3xl">
-                                <i class="fas fa-qrcode mr-2"></i> QR VERIFIKASI
-                            </button>
-                        </div>
-                        
-                        <div class="text-center text-xs text-slate-400 mt-3">Diterbitkan: ${sert.tanggal}</div>
-                    </div>
-                `;
-            } else {
-                resultDiv.innerHTML = `<div class="p-4 text-sm border border-dashed rounded-3xl text-center">Sertifikat tidak ditemukan di database.</div>`;
-            }
-        }
-        
+        // ==================== SERTIFIKAT DOWNLOAD ====================
+        // Backward-compatible: download link is handled directly in the table row.
+        // This stub is kept for any external calls that may still reference it.
         function downloadSertifikat(nomor) {
-            showToast(`Mengunduh sertifikat ${nomor}...`, 'success');
-            // In real: window.open to the PDF url from sheet
-            setTimeout(() => {
-                window.open(`https://drive.google.com/file/d/DEMO_SERTIFIKAT_${nomor}/view`, '_blank');
-            }, 800);
-        }
-        
-        function verifyQR(nomor) {
-            const modal = document.createElement('div');
-            modal.className = `fixed inset-0 z-[150] bg-black/70 flex items-center justify-center`;
-            modal.innerHTML = `
-                <div class="bg-white max-w-xs w-full mx-4 rounded-3xl p-8 text-center">
-                    <i class="fas fa-qrcode text-7xl text-[#0f766e] mb-4"></i>
-                    <div class="font-bold">Verifikasi Sertifikat</div>
-                    <div class="font-mono text-xs bg-slate-100 p-3 my-4 rounded-xl">${nomor}</div>
-                    <div class="text-xs text-emerald-600">✓ Sertifikat ini valid dan terdaftar di sistem DEDIKASI</div>
-                    <button onclick="this.closest('.fixed').remove()" class="mt-6 w-full py-3 border text-sm font-semibold rounded-3xl">Tutup</button>
-                </div>
-            `;
-            document.body.appendChild(modal);
+            showToast(`Link sertifikat ${nomor} ditampilkan di tabel`, 'info');
         }
 
         // ==================== FORMULIR PENGAJUAN KEGIATAN (REVISI) ====================
