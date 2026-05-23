@@ -1084,7 +1084,10 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -0.6px; }
 
 <script>
 // ========== CORE LOGIC — UNCHANGED ==========
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx0JhyRuN5pyZw-ZYSud58lkyPVAM_O1To9b3I6Bfzy-e2NDxYckE1M5403BhjKsYCp/exec";
+// ======================================================
+// SIMANTRI v3.0 API — Anti-CORS POST Endpoint
+// ======================================================
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwpuhRRdswnlVvG5IItGjAVYPgmG2bRFjfnRKEjkGXO860LPGEUCVuGbHFletKRzIWi/exec"; // ← GANTI DENGAN URL DEPLOYMENT v3.0 ANDA
 let DEMO_MODE = true;
 
 const demoData = {
@@ -1096,26 +1099,61 @@ const demoData = {
   login: { success: true, user: { username: "admin", role: "admin", nama: "Administrator" } }
 };
 
-async function callGAS(action, payload = {}) {
+// ======================================================
+// API WRAPPER v3.0 — Anti-CORS + Robust Error Handling
+// ======================================================
+async function api(action, payload = {}) {
   if (DEMO_MODE) {
-    await new Promise(r => setTimeout(r, 280));
+    await new Promise(r => setTimeout(r, 250));
     if (demoData[action]) return demoData[action];
-    return { error: 'Action tidak tersedia di demo' };
+    return { success: false, error: 'Demo mode - action tidak tersedia' };
   }
-  const url = new URL(WEB_APP_URL);
-  url.searchParams.set("action", action);
-  Object.keys(payload).forEach(key => {
-    if (payload[key] !== undefined && payload[key] !== null) url.searchParams.set(key, payload[key]);
-  });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 detik timeout
+
   try {
-    const res = await fetch(url.toString(), { method: "GET", redirect: "follow", mode: "cors" });
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    return await res.json();
+    const res = await fetch(WEB_APP_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify({
+        action: action,
+        ...payload
+      }),
+      redirect: 'follow',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} - ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    return data;
+
   } catch (error) {
-    console.error("callGAS Error:", error);
-    if (DEMO_MODE && demoData[action]) return demoData[action];
-    throw error;
+    clearTimeout(timeoutId);
+    console.error(`[SIMANTRI API] Error pada action "${action}":`, error);
+
+    // Fallback ke demo jika gagal
+    if (DEMO_MODE && demoData[action]) {
+      return demoData[action];
+    }
+
+    return {
+      success: false,
+      error: error.name === 'AbortError' ? 'Request timeout (15s)' : error.message
+    };
   }
+}
+
+// Alias lama untuk backward compatibility
+async function callGAS(action, payload = {}) {
+  return api(action, payload);
 }
 
 let currentUser = null;
@@ -1173,7 +1211,18 @@ function animateCounter(id, target) {
 
 async function refreshDashboard() {
   try {
-    const data = await callGAS('getDashboardData');
+    const data = await api('getDashboardData');
+    
+    if (!data || data.success === false) {
+      console.warn('Gagal mengambil data dashboard, menggunakan fallback');
+      // fallback data
+      animateCounter('total-sdmk', 1247);
+      animateCounter('total-sip', 986);
+      animateCounter('total-mandiri', 312);
+      animateCounter('total-fasyankes', 184);
+      return;
+    }
+
     animateCounter('total-sdmk', data.totalSDMK || 1247);
     animateCounter('total-sip', data.totalSIP || 986);
     animateCounter('total-mandiri', data.totalMandiri || 312);
@@ -1200,7 +1249,10 @@ async function refreshDashboard() {
 async function loadInformasi() {
   const container = document.getElementById('info-container');
   container.innerHTML = '<div class="glass">Memuat informasi...</div>';
-  const data = await callGAS('getInformasi');
+  
+  const response = await api('getInformasi');
+  const data = response.data || response || [];
+  
   container.innerHTML = '';
   data.forEach(item => {
     const card = document.createElement('div');
@@ -1229,7 +1281,8 @@ document.getElementById('detail-modal').onclick = function(e) { if (e.target ===
 async function loadProfil() {
   const tbody = document.getElementById('profil-tbody');
   tbody.innerHTML = '';
-  const data = await callGAS('getProfil');
+  const response = await api('getProfil');
+  const data = response.data || response || [];
   const profesiSet = new Set();
   data.forEach(p => { if (p.jenisTenaga) profesiSet.add(p.jenisTenaga); });
   const profesiSelect = document.getElementById('filter-profesi');
@@ -1303,12 +1356,14 @@ async function submitVerval(e) {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
   btn.disabled = true;
   try {
-    await callGAS('saveVerval', data);
+    const res = await api('saveVerval', data);
+    if (res.success === false) throw new Error(res.error || 'Gagal menyimpan');
+    
     Swal.fire({icon:'success', title:'Data Tersimpan!', text:'Data verval berhasil dikirim ke sistem nasional.', timer:2400});
     form.reset();
     showToast('Data berhasil disimpan ke Google Sheet');
   } catch(err) {
-    Swal.fire({icon:'error', title:'Gagal', text:'Terjadi kesalahan saat menyimpan.'});
+    Swal.fire({icon:'error', title:'Gagal', text: err.message || 'Terjadi kesalahan saat menyimpan.'});
   } finally {
     btn.innerHTML = originalText;
     btn.disabled = false;
@@ -1323,7 +1378,8 @@ async function cekIzinPraktik() {
   const resultDiv = document.getElementById('cek-result');
   resultDiv.style.display = 'block';
   resultDiv.innerHTML = '<div class="glass">Mencari data di database nasional...</div>';
-  const data = await callGAS('cekIzin', { nik });
+  const res = await api('cekIzin', { nik });
+  const data = res.data || res;
   if (!data || !data.nama) {
     resultDiv.innerHTML = `<div class="glass" style="text-align:center; padding:40px;"><i class="fas fa-search fa-3x" style="opacity:0.3"></i><h3 style="margin-top:16px;">Data tidak ditemukan</h3></div>`;
     return;
@@ -1355,7 +1411,7 @@ async function loginAdmin(e) {
     }
     return;
   }
-  const res = await callGAS('login', { username, password });
+  const res = await api('login', { username, password });
   if (res.success) {
     currentUser = res.user;
     document.getElementById('login-modal').style.display = 'none';
@@ -1377,11 +1433,18 @@ function logout() {
 
 async function loadAdminDashboard() {
   try {
-    const [verval, profil, sheetsData] = await Promise.all([
-      callGAS('getVerval'), callGAS('getProfil'), callGAS('getAllSheetsData')
+    const [vervalRes, profilRes, sheetsRes] = await Promise.all([
+      api('getVerval'),
+      api('getProfil'),
+      api('getAllSheetsData')
     ]);
-    document.getElementById('admin-total-verval').innerHTML = verval.length;
-    document.getElementById('admin-total-profil').innerHTML = profil.length;
+
+    const verval = vervalRes.data || vervalRes || [];
+    const profil = profilRes.data || profilRes || [];
+    const sheetsData = sheetsRes.data || sheetsRes || {};
+
+    document.getElementById('admin-total-verval').innerHTML = Array.isArray(verval) ? verval.length : 0;
+    document.getElementById('admin-total-profil').innerHTML = Array.isArray(profil) ? profil.length : 0;
     const sheetsContainer = document.getElementById('admin-sheets-container');
     if (sheetsContainer && sheetsData) {
       let html = '<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-top:24px;">';
@@ -1397,7 +1460,8 @@ async function loadAdminDashboard() {
 async function loadAdminVerval() {
   const tbody = document.getElementById('admin-verval-tbody');
   tbody.innerHTML = '';
-  const data = await callGAS('getVerval');
+  const res = await api('getVerval');
+  const data = res.data || res || [];
   data.forEach(row => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1411,13 +1475,19 @@ async function loadAdminVerval() {
 
 async function deleteVerval(nik) {
   if (!confirm('Hapus data ini?')) return;
-  try { await callGAS('deleteVerval', { nik }); showToast('Data berhasil dihapus'); loadAdminVerval(); } catch(e) { showToast('Gagal menghapus data'); }
+  try {
+    const res = await api('deleteVerval', { nik });
+    if (res.success === false) throw new Error(res.error);
+    showToast('Data berhasil dihapus');
+    loadAdminVerval();
+  } catch(e) { showToast('Gagal menghapus data'); }
 }
 
 async function loadAdminProfil() {
   const tbody = document.getElementById('admin-profil-tbody');
   tbody.innerHTML = '';
-  const data = await callGAS('getProfil');
+  const res = await api('getProfil');
+  const data = res.data || res || [];
   data.forEach(p => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1439,7 +1509,7 @@ function showToast(msg) {
 
 function deleteProfil(nama) {
   if (confirm('Hapus data profil ini?')) {
-    callGAS('deleteProfil', { nama }).then(() => { showToast('Data berhasil dihapus'); loadAdminProfil(); }).catch(() => showToast('Gagal menghapus data'));
+    api('deleteProfil', { nama }).then(() => { showToast('Data berhasil dihapus'); loadAdminProfil(); }).catch(() => showToast('Gagal menghapus data'));
   }
 }
 
