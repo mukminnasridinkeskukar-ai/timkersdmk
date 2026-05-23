@@ -340,7 +340,7 @@ tr:hover { background:#F8FAFC; }
 
 <script>
 // ==================== CONFIG ====================
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxhHtY5bwKmnWHUzptV1BNPP1_cN6JMJduG585DR_xCxxQ_BUktU1lu02Hl1RuBw-ID/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzI-KUjh_-7Zp2kwvMfwD8TPaIu53fcPikyDYQqQFtzzdvpZEhrtFe9iOI6yWClnlu8/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
 const USE_GAS = GAS_WEB_APP_URL && GAS_WEB_APP_URL.length > 20;
 
 // ==================== GLOBAL STATE ====================
@@ -1685,9 +1685,6 @@ function renderProfil(container) {
         <option value="">Semua Status STR</option>
         <option>Aktif</option><option>Expired</option>
       </select>
-      <button onclick="exportProfilCSV()" class="btn btn-sm btn-outline"><i class="fas fa-file-csv"></i> Export CSV</button>
-      <button onclick="exportProfilPDF()" class="btn btn-sm btn-outline"><i class="fas fa-file-pdf"></i> Export PDF</button>
-      
       ${isAdmin ? `
         <button onclick="showAddProfilModal()" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Tambah</button>
       ` : ''}
@@ -1695,24 +1692,19 @@ function renderProfil(container) {
       <button onclick="refreshProfilData()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i> Refresh</button>
     </div>
     <div class="table-wrapper">
-      <table id="profil-table">
+      <table id="profil-table" style="min-width: 1100px;">
         <thead>
           <tr>
-            <th onclick="sortTable(this, 'profil-table', 0)">No</th>
+            <th onclick="sortTable(this, 'profil-table', 0)" style="width:50px;">No</th>
             <th onclick="sortTable(this, 'profil-table', 1)">Kode Unit</th>
             <th onclick="sortTable(this, 'profil-table', 2)">Nama Unit</th>
-            <th onclick="sortTable(this, 'profil-table', 3)">NIK</th>
-            <th onclick="sortTable(this, 'profil-table', 4)">Nama Lengkap</th>
-            <th onclick="sortTable(this, 'profil-table', 5)">JK</th>
-            <th onclick="sortTable(this, 'profil-table', 6)">Jenis Tenaga</th>
-            <th onclick="sortTable(this, 'profil-table', 7)">Status Pegawai</th>
-            <th onclick="sortTable(this, 'profil-table', 8)">No. STR</th>
-            <th onclick="sortTable(this, 'profil-table', 9)">Status STR</th>
-            <th onclick="sortTable(this, 'profil-table', 10)">No. SIP</th>
-            <th onclick="sortTable(this, 'profil-table', 11)">Tgl Terbit</th>
-            <th onclick="sortTable(this, 'profil-table', 12)">Tgl Berakhir</th>
-            <th>Keterangan</th>
-            <th style="width:90px;">Aksi</th>
+            <th onclick="sortTable(this, 'profil-table', 3)">Nama Lengkap</th>
+            <th onclick="sortTable(this, 'profil-table', 4)">Jenis Tenaga</th>
+            <th onclick="sortTable(this, 'profil-table', 5)">Status Pegawai</th>
+            <th onclick="sortTable(this, 'profil-table', 6)">Status STR</th>
+            <th onclick="sortTable(this, 'profil-table', 7)">Tgl Berakhir SIP</th>
+            <th onclick="sortTable(this, 'profil-table', 8)">Keterangan</th>
+            <th style="width:70px;">Aksi</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -1805,11 +1797,22 @@ function renderProfilTable(filteredData = null) {
     });
   }
 
-  // Sort
+  // Sort (mapped to reduced visible columns)
   data.sort((a, b) => {
-    const keys = ['no','kode_unit','nama_unit','nik','nama_lengkap','jenis_kelamin','jenis_tenaga','status_pegawai','nomor_str','status_str','nomor_sip','tgl_terbit_sip','tgl_berakhir_sip','keterangan'];
-    let va = a[keys[profilSortCol]] || a[keys[profilSortCol]?.replace(/ /g,'_')] || '';
-    let vb = b[keys[profilSortCol]] || b[keys[profilSortCol]?.replace(/ /g,'_')] || '';
+    const colKeyMap = {
+      0: 'no',
+      1: 'kode_unit',
+      2: 'nama_unit',
+      3: 'nama_lengkap',
+      4: 'jenis_tenaga',
+      5: 'status_pegawai',
+      6: 'status_str',
+      7: 'tgl_berakhir_sip',
+      8: 'keterangan'
+    };
+    const key = colKeyMap[profilSortCol] || 'no';
+    let va = a[key] || a[key.replace(/_/g, ' ')] || a['Nama ' + key.split('_').pop()] || '';
+    let vb = b[key] || b[key.replace(/_/g, ' ')] || b['Nama ' + key.split('_').pop()] || '';
     return (va > vb ? 1 : -1) * profilSortDir;
   });
 
@@ -1819,43 +1822,51 @@ function renderProfilTable(filteredData = null) {
   const start = (profilPage - 1) * PROFIL_PER_PAGE;
   const pageData = data.slice(start, start + PROFIL_PER_PAGE);
 
+  // Define which columns to display (in order)
+  const visibleCols = [
+    { key: 'no', label: 'No' },
+    { key: 'kode_unit', alt: 'Kode Unit' },
+    { key: 'nama_unit', alt: 'Nama Unit' },
+    { key: 'nama_lengkap', alt: 'Nama Lengkap' },
+    { key: 'jenis_tenaga', alt: 'Jenis Tenaga' },
+    { key: 'status_pegawai', alt: 'Status Pegawai' },
+    { key: 'status_str', alt: 'Status STR' },
+    { key: 'tgl_berakhir_sip', alt: 'Tgl Berakhir SIP' },
+    { key: 'keterangan', alt: 'Keterangan' }
+  ];
+
   tbody.innerHTML = pageData.map((row) => {
     const isExpired = new Date(row.tgl_berakhir_sip || row['Tgl Berakhir SIP'] || '2099-01-01') <= new Date();
-    const namaUnit = row.nama_unit || row['Nama Unit'] || '';
-    const kodeUnit = row.kode_unit || row['Kode Unit'] || '';
-    const nik = row.nik || '';
-    const nama = row.nama_lengkap || row['Nama Lengkap'] || '';
-    const jk = row.jenis_kelamin || row['Jenis Kelamin'] || '';
-    const jenisTenaga = row.jenis_tenaga || row['Jenis Tenaga'] || '';
-    const statusPegawai = row.status_pegawai || row['Status Pegawai'] || '';
-    const nomorStr = row.nomor_str || row['Nomor STR'] || '';
     const statusStr = row.status_str || row['Status STR'] || '';
-    const nomorSip = row.nomor_sip || row['Nomor SIP'] || '';
-    const tglTerbit = row.tgl_terbit_sip || row['Tgl Terbit SIP'] || '';
-    const tglBerakhir = row.tgl_berakhir_sip || row['Tgl Berakhir SIP'] || '';
-    const ket = row.keterangan || row['Keterangan'] || '';
+    const nik = row.nik || row.NIK || '';
+
+    // Helper to get value with fallback
+    const getVal = (k, alt) => row[k] || row[alt] || '';
 
     return `
       <tr>
-        <td>${row.no || ''}</td>
-        <td><span class="pill">${kodeUnit}</span></td>
-        <td>${escapeHtml(namaUnit)}</td>
-        <td><strong>${nik}</strong></td>
-        <td><strong>${escapeHtml(nama)}</strong></td>
-        <td>${jk === 'Laki-laki' ? 'L' : (jk ? 'P' : '')}</td>
-        <td>${escapeHtml(jenisTenaga)}</td>
-        <td>${escapeHtml(statusPegawai)}</td>
-        <td style="font-family:monospace;font-size:12px;">${nomorStr}</td>
-        <td><span class="badge ${isExpired ? 'badge-danger' : 'badge-success'}">${isExpired ? 'Expired' : statusStr}</span></td>
-        <td style="font-family:monospace;font-size:12px;">${nomorSip}</td>
-        <td>${formatDate(tglTerbit)}</td>
-        <td>${formatDate(tglBerakhir)}</td>
-        <td style="max-width:160px;font-size:12px;">${escapeHtml(ket)}</td>
+        <td style="text-align:center;">${row.no || ''}</td>
+        <td><span class="pill" title="${getVal('kode_unit', 'Kode Unit')}">${getVal('kode_unit', 'Kode Unit')}</span></td>
+        <td title="${getVal('nama_unit', 'Nama Unit')}">${escapeHtml(getVal('nama_unit', 'Nama Unit'))}</td>
+        <td title="${getVal('nama_lengkap', 'Nama Lengkap')}"><strong>${escapeHtml(getVal('nama_lengkap', 'Nama Lengkap'))}</strong></td>
+        <td title="${getVal('jenis_tenaga', 'Jenis Tenaga')}">${escapeHtml(getVal('jenis_tenaga', 'Jenis Tenaga'))}</td>
+        <td title="${getVal('status_pegawai', 'Status Pegawai')}">${escapeHtml(getVal('status_pegawai', 'Status Pegawai'))}</td>
+        <td>
+          <span class="badge ${isExpired ? 'badge-danger' : 'badge-success'}" title="${statusStr}">
+            ${isExpired ? 'Expired' : statusStr}
+          </span>
+        </td>
+        <td title="${formatDate(getVal('tgl_berakhir_sip', 'Tgl Berakhir SIP'))}">
+          ${formatDate(getVal('tgl_berakhir_sip', 'Tgl Berakhir SIP'))}
+        </td>
+        <td style="max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${getVal('keterangan', 'Keterangan')}">
+          ${escapeHtml(getVal('keterangan', 'Keterangan'))}
+        </td>
         <td>
           ${isAdmin ? `
-            <button onclick="editProfilRow('${nik}')" class="btn btn-sm btn-outline" style="padding:4px 8px;margin-right:4px;"><i class="fas fa-edit"></i></button>
-            <button onclick="deleteProfilRow('${nik}')" class="btn btn-sm btn-danger" style="padding:4px 8px;"><i class="fas fa-trash"></i></button>
-          ` : '<span style="color:#94A3B8;font-size:11px;">View only</span>'}
+            <button onclick="editProfilRow('${nik}')" class="btn btn-sm btn-outline" style="padding:3px 7px;margin-right:3px;" title="Edit"><i class="fas fa-edit"></i></button>
+            <button onclick="deleteProfilRow('${nik}')" class="btn btn-sm btn-danger" style="padding:3px 7px;" title="Hapus"><i class="fas fa-trash"></i></button>
+          ` : '<span style="color:#94A3B8;font-size:11px;">View</span>'}
         </td>
       </tr>
     `;
@@ -2199,15 +2210,15 @@ function renderAdmin(container) {
         </div>
         <div class="form-group">
           <label>Username</label>
-          <input id="admin-user" type="text" value="admin" placeholder="admin">
+          <input id="admin-user" type="text" placeholder="Masukkan username dari sheet Users">
         </div>
         <div class="form-group">
           <label>Password</label>
-          <input id="admin-pass" type="password" value="admin123" placeholder="••••••">
+          <input id="admin-pass" type="password" placeholder="Masukkan password">
         </div>
         <button onclick="doAdminLogin()" class="btn btn-primary btn-glow" style="width:100%;margin-top:8px;">Login ke Panel Admin</button>
         <div style="margin-top:16px;font-size:12px;color:#64748B;text-align:center;">
-          Demo: admin / admin123 &nbsp;•&nbsp; operator / operator123
+          Login menggunakan akun yang terdaftar di sheet <strong>users</strong> pada Google Sheet
         </div>
       </div>
     `;
