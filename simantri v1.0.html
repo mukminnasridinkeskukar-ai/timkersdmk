@@ -1176,10 +1176,28 @@
         let isSubmitting = false;
         let DATA_CACHE = {}; // Simple local cache for API responses (Local Cache requirement)
 
+        // ========================================================
+        // 🔧 MANUAL CONFIGURATION - TEMPATKAN WEB APP URL DI SINI
+        // ========================================================
+        // CARA PENGGUNAAN:
+        // 1. Deploy Web App → Copy URL yang dihasilkan
+        // 2. Paste URL di bawah ini (untuk development / testing)
+        // 3. Setelah deploy final, KOSONGKAN saja (akan di-inject otomatis)
+        //
+        // Contoh:
+        // const MANUAL_WEB_APP_URL = "https://script.google.com/macros/s/1aBcD123.../exec";
+        const MANUAL_WEB_APP_URL = "";   // ← TEMPATKAN URL WEB APP DI SINI
+        // ========================================================
+
         // API Helper - uses ContentService JSON (anti-CORS)
         async function callAPI(action, payload = {}, method = 'POST') {
+            // Prioritas URL: 1. Manual (jika diisi) → 2. Injected dari server → 3. Error
+            if (MANUAL_WEB_APP_URL && MANUAL_WEB_APP_URL.trim() !== "") {
+                APP_CONFIG.webAppUrl = MANUAL_WEB_APP_URL.trim();
+            }
+
             if (!APP_CONFIG.webAppUrl) {
-                throw new Error('Web App URL belum tersedia. Refresh halaman.');
+                throw new Error('Web App URL belum diatur. Isi MANUAL_WEB_APP_URL di bagian atas script (baris ~1189) atau deploy Web App terlebih dahulu.');
             }
             
             const cacheKey = `${action}:${JSON.stringify(payload)}`;
@@ -2553,23 +2571,25 @@
 
         // ==================== INITIALIZATION ====================
         async function initializeApp() {
-            // Get config injected from server
-            // In real usage, the template provides APP_CONFIG
             try {
-                // Fallback if not injected properly
-                if (typeof APP_CONFIG === 'undefined' || !APP_CONFIG.webAppUrl) {
-                    APP_CONFIG = {
-                        name: 'SIMANTRI',
-                        version: '1.0.0',
-                        webAppUrl: window.location.href.split('?')[0], // works if served from same
-                        sessionTimeout: 120,
-                        currentYear: new Date().getFullYear()
-                    };
+                // Gunakan MANUAL_WEB_APP_URL jika diisi (prioritas tertinggi)
+                if (MANUAL_WEB_APP_URL && MANUAL_WEB_APP_URL.trim() !== "") {
+                    APP_CONFIG.webAppUrl = MANUAL_WEB_APP_URL.trim();
                 }
-                
-                // Try to fetch public stats to verify backend
+
+                // Jika masih kosong, coba gunakan yang di-inject dari Code.gs
+                if (!APP_CONFIG.webAppUrl && typeof window.APP_CONFIG !== 'undefined' && window.APP_CONFIG.webAppUrl) {
+                    APP_CONFIG = window.APP_CONFIG;
+                }
+
+                // Jika tetap kosong, fallback ke URL halaman saat ini (berguna saat testing)
+                if (!APP_CONFIG.webAppUrl) {
+                    APP_CONFIG.webAppUrl = window.location.href.split('?')[0];
+                }
+
+                // Verifikasi koneksi ke backend
                 await callAPI('getPublicStats', {}, 'GET').catch(() => {});
-                
+
             } catch (e) {
                 console.warn('Initial API check skipped');
             }
