@@ -810,48 +810,151 @@
     const SERTIFIKAT_PER_PAGE = 10;
 
     // ============================================
-    // PRODUCTION MODE - HANYA GOOGLE APPS SCRIPT + GOOGLE SHEET
-    // Semua data 100% bersumber dari Google Spreadsheet
-    // Spreadsheet ID: 1aiq3M431akKbwcAzf62WkMyoUsCF1q8Q5UnbVTRqjP4
+    // HYBRID MODE - SUPPORT DIRECT BROWSER + WEB APP
+    // Bisa dibuka langsung di browser (file://) 
+    // Data diambil dari Google Sheet publik: 1aiq3M431akKbwcAzf62WkMyoUsCF1q8Q5UnbVTRqjP4
     // ============================================
-    if (typeof google === 'undefined' || !google.script || !google.script.run) {
-      // Tampilkan pesan jika dibuka langsung di browser
-      document.body.innerHTML = `
-        <div style="min-height:100vh;background:#0f172a;color:#e2e8f0;font-family:'Inter',system-ui;display:flex;align-items:center;justify-content:center;padding:20px;">
-          <div style="max-width:520px;text-align:center;">
-            <div style="width:90px;height:90px;margin:0 auto 20px;background:linear-gradient(135deg,#0A66C2,#22D3EE);border-radius:24px;display:flex;align-items:center;justify-content:center;">
-              <i class="fa-solid fa-hand-holding-heart" style="font-size:48px;color:white;"></i>
-            </div>
-            <h1 style="font-size:32px;margin:0 0 8px;font-weight:700;letter-spacing:-1.5px;color:#67e8f9;">DEDIKASIH v1.0</h1>
-            <p style="color:#94a3b8;font-size:15px;line-height:1.6;margin-bottom:24px;">
-              Platform ini <strong>hanya dapat dijalankan</strong> melalui Google Apps Script Web App.<br>
-              Semua data diambil secara realtime dari Google Spreadsheet.
-            </p>
-            <div style="background:#1e2937;border:1px solid #334155;border-radius:16px;padding:16px 20px;font-size:13px;color:#cbd5e1;">
-              Silakan buka URL Web App yang sudah kamu <strong>Deploy</strong>.<br>
-              Jangan buka file index.html secara langsung.
-            </div>
-            <div style="margin-top:32px;font-size:12px;opacity:0.5;">© 2026 DEDIKASIH • Kemenkes</div>
-          </div>
-        </div>
-      `;
-      throw new Error("DEDIKASIH v1.0 hanya boleh diakses melalui Web App deployment");
+    const IS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+    const PUBLIC_SHEET_ID = "1aiq3M431akKbwcAzf62WkMyoUsCF1q8Q5UnbVTRqjP4";
+
+    // ============================================
+    // WEB APP URL - GANTI DENGAN URL HASIL DEPLOY KAMU
+    // ============================================
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwTyJUlbiF0bZXjwbbkoVGSd_s59Ze0Xhw-gpJ4wbTw2455A5_ge0yUhjhuTT344GsP/exec";
+
+    let publicData = {
+      formulir: [],
+      pengumuman: [],
+      jadwal: [],
+      sertifikat: []
+    };
+
+    // ============================================
+    // FETCH REAL DATA FROM PUBLIC GOOGLE SHEET (untuk buka langsung di browser)
+    // ============================================
+    async function fetchPublicSheet(sheetName) {
+      const url = `https://docs.google.com/spreadsheets/d/${PUBLIC_SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+      
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        
+        // Google returns weird JSONP-like response, need to clean it
+        const jsonText = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+        const data = JSON.parse(jsonText);
+        
+        if (!data.table || !data.table.rows) return [];
+        
+        return data.table.rows.map(row => {
+          return row.c.map(cell => cell ? cell.v : '');
+        });
+      } catch (err) {
+        console.warn(`Gagal mengambil sheet ${sheetName}:`, err);
+        return [];
+      }
+    }
+
+    async function loadPublicData() {
+      const [formulirRaw, pengumumanRaw, jadwalRaw, sertifikatRaw] = await Promise.all([
+        fetchPublicSheet('FORMULIR'),
+        fetchPublicSheet('PENGUMUMAN'),
+        fetchPublicSheet('JADWAL'),
+        fetchPublicSheet('SERTIFIKAT')
+      ]);
+
+      // Parse FORMULIR (sesuai struktur yang kita pakai)
+      publicData.formulir = formulirRaw.map((row, idx) => ({
+        rowIndex: idx + 2,
+        timestamp: row[0] || '',
+        nomorRegistrasi: row[1] || '',
+        nik: row[2] || '',
+        namaPengusul: row[3] || '',
+        asalInstitusi: row[4] || '',
+        telpon: row[5] || '',
+        email: row[20] || row[6] || '',   // Email biasanya di kolom akhir
+        namaKegiatan: row[6] || '',
+        tempatKegiatan: row[7] || '',
+        tanggalKegiatan: row[8] || '',
+        status: row[18] || 'Menunggu Verifikasi',
+        catatan: row[19] || ''
+      }));
+
+      publicData.pengumuman = pengumumanRaw.map(r => ({
+        judul: r[0] || '',
+        isi: r[1] || '',
+        tanggal: r[2] || ''
+      }));
+
+      publicData.jadwal = jadwalRaw.map(r => ({
+        namaKegiatan: r[0] || '',
+        tempat: r[1] || '',
+        tanggal: r[2] || '',
+        jam: r[3] || '',
+        pic: r[4] || ''
+      }));
+
+      publicData.sertifikat = sertifikatRaw.map(r => ({
+        no: r[0] || '',
+        namaPeserta: r[1] || '',
+        profesi: r[2] || '',
+        tempatBekerja: r[3] || '',
+        namaKegiatan: r[4] || '',
+        tanggalKegiatan: r[5] || '',
+        tempatKegiatan: r[6] || '',
+        downloadLink: r[7] || ''
+      }));
+
+      console.log('%c[DEDIKASIH] Data berhasil dimuat dari Google Sheet publik', 'color:#22c55e');
+    }
+
+    // ============================================
+    // BACKEND CALLER - Hybrid (GAS atau Web App URL)
+    // ============================================
+    function callBackend(functionName, ...args) {
+      return new Promise((resolve) => {
+        if (IS_GAS) {
+          // Mode di dalam Google Apps Script
+          google.script.run
+            .withSuccessHandler(resolve)
+            [functionName](...args);
+        } else {
+          // Mode buka langsung di browser → panggil Web App via fetch
+          if (!WEB_APP_URL || WEB_APP_URL.includes('PASTE_YOUR')) {
+            resolve({ success: false, message: 'WEB_APP_URL belum diisi di index.html' });
+            return;
+          }
+
+          fetch(WEB_APP_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ function: functionName, args: args })
+          })
+          .then(r => r.json())
+          .then(resolve)
+          .catch(err => resolve({ success: false, message: err.message }));
+        }
+      });
     }
 
     // ============================================
     // INITIALIZATION
     // ============================================
-    function init() {
+    async function init() {
       // Tailwind script config
       document.documentElement.classList.add('dark');
 
       // Set initial timestamp in form
       setInitialTimestamp();
 
-      // Load dashboard data immediately
+      if (!IS_GAS) {
+        // Mode browser langsung → load data dari Google Sheet publik
+        await loadPublicData();
+      }
+
+      // Load dashboard data
       loadDashboard();
 
-      // Auto load some data
+      // Auto load pengumuman
       setTimeout(() => {
         loadPengumuman(true);
       }, 800);
@@ -993,26 +1096,17 @@
     // DASHBOARD
     // ============================================
     function loadDashboard() {
-      google.script.run.withSuccessHandler(function(res) {
+      callBackend('getDashboardData').then(res => {
         if (!res.success) return showToast(res.message || 'Gagal memuat data', true);
-
         const d = res.data;
-        
-        // Animate numbers
         animateNumber('stat-usulan', d.totalUsulan || 0);
         animateNumber('stat-kegiatan', d.totalJadwal || 0);
         animateNumber('stat-sertifikat', d.totalSertifikat || 0);
         animateNumber('stat-pengumuman', d.totalPengumuman || 0);
-
-        // Recent activity
         renderRecentActivity(d.aktivitasTerbaru || []);
-
-        // Running text
         renderRunningText(d.pengumumanTerbaru || []);
-
-        // Chart
         renderTrendChart();
-      }).getDashboardData();
+      });
     }
 
     function animateNumber(id, target) {
@@ -1115,22 +1209,19 @@
     // ============================================
     function loadPengumuman(silent = false) {
       if (!silent) showSkeleton('#pengumuman-list', 4);
-      
-      google.script.run.withSuccessHandler(function(res) {
+
+      callBackend('getPengumuman').then(res => {
         if (!res.success) {
           showToast(res.message || 'Gagal memuat pengumuman', true);
           return;
         }
-        
         const container = document.getElementById('pengumuman-list');
         container.innerHTML = '';
-        
-        if (!res.data.length) {
+        if (!res.data || !res.data.length) {
           container.innerHTML = `<div class="col-span-2 text-center py-12 text-slate-400">Belum ada pengumuman</div>`;
           return;
         }
-
-        res.data.forEach((p, idx) => {
+        res.data.forEach(p => {
           const card = document.createElement('div');
           card.className = `glass-card rounded-3xl p-6 cursor-pointer border border-slate-700/60 hover:border-cyan-500/40`;
           card.innerHTML = `
@@ -1138,12 +1229,12 @@
               <div class="text-cyan-400 text-xs font-semibold">${p.tanggal || 'Tanpa Tanggal'}</div>
             </div>
             <div class="font-semibold text-lg leading-tight">${p.judul}</div>
-            <div class="text-slate-300 text-sm mt-3 line-clamp-3">${p.isi.substring(0, 160)}...</div>
+            <div class="text-slate-300 text-sm mt-3 line-clamp-3">${p.isi ? p.isi.substring(0, 160) : ''}...</div>
           `;
           card.onclick = () => showPengumumanModal(p);
           container.appendChild(card);
         });
-      }).getPengumuman();
+      });
     }
 
     function showPengumumanModal(p) {
@@ -1165,13 +1256,11 @@
     // ============================================
     function loadJadwal() {
       showSkeleton('#jadwal-list', 3);
-      
-      google.script.run.withSuccessHandler(function(res) {
+      callBackend('getJadwal').then(res => {
         if (!res.success) return showToast(res.message, true);
-        
-        renderJadwalList(res.data);
-        renderMiniCalendar(res.data);
-      }).getJadwal();
+        renderJadwalList(res.data || []);
+        renderMiniCalendar(res.data || []);
+      });
     }
 
     function renderJadwalList(data) {
@@ -1281,13 +1370,11 @@
         return;
       }
 
-      google.script.run.withSuccessHandler(function(res) {
+      callBackend('saveForm', formData).then(res => {
         resetSubmitButton(btn, originalText);
         if (res.success) {
           showToast('Usulan berhasil dikirim! Nomor Registrasi: ' + res.nomorRegistrasi);
           resetForm();
-          
-          // Show success modal with nomor registrasi
           showModal(`
             <div class="text-center">
               <i class="fa-solid fa-check-circle text-6xl text-emerald-400"></i>
@@ -1300,7 +1387,7 @@
         } else {
           showToast(res.message || 'Gagal mengirim formulir', true);
         }
-      }).saveForm(formData);
+      });
     }
 
     function resetSubmitButton(btn, original) {
@@ -1328,17 +1415,14 @@
       resultBox.classList.remove('hidden');
       resultBox.innerHTML = `<div class="glass-card p-6 rounded-3xl"><div class="skeleton h-4 w-2/3 mb-3 rounded"></div><div class="skeleton h-3 w-1/2 rounded"></div></div>`;
 
-      google.script.run.withSuccessHandler(function(res) {
+      callBackend('cekStatus', search).then(res => {
         if (!res.success || !res.data) {
-          resultBox.innerHTML = `
-            <div class="glass-card p-8 rounded-3xl text-center border border-red-900/40">
-              <i class="fa-solid fa-exclamation-circle text-4xl text-red-400"></i>
-              <div class="mt-3 font-semibold">Data tidak ditemukan</div>
-              <div class="text-xs text-slate-400 mt-1">Periksa kembali nomor registrasi atau NIK Anda</div>
-            </div>`;
+          resultBox.innerHTML = `<div class="glass-card p-8 rounded-3xl text-center border border-red-900/40">
+            <i class="fa-solid fa-exclamation-circle text-4xl text-red-400"></i>
+            <div class="mt-3 font-semibold">Data tidak ditemukan</div>
+          </div>`;
           return;
         }
-
         const d = res.data;
         resultBox.innerHTML = `
           <div class="glass-card rounded-3xl p-7 border border-emerald-400/20">
@@ -1349,17 +1433,15 @@
               </div>
               <div class="px-4 py-1 text-xs font-bold self-start bg-emerald-400/10 text-emerald-400 rounded-2xl">${d.nomorRegistrasi}</div>
             </div>
-            
             <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
               <div><span class="text-slate-400">Nama Pengusul</span><br><span class="font-medium">${d.namaPengusul}</span></div>
               <div><span class="text-slate-400">Nama Kegiatan</span><br><span class="font-medium">${d.namaKegiatan}</span></div>
               <div><span class="text-slate-400">Tanggal Kegiatan</span><br><span class="font-medium">${d.tanggalKegiatan}</span></div>
               <div><span class="text-slate-400">NIK</span><br><span class="font-mono font-medium">${d.nik}</span></div>
             </div>
-            
             ${d.catatanAdmin ? `<div class="mt-5 pt-4 border-t border-white/10"><span class="text-xs text-slate-400">CATATAN ADMIN</span><div class="text-sm mt-1">${d.catatanAdmin}</div></div>` : ''}
           </div>`;
-      }).cekStatus(search);
+      });
     }
 
     // ============================================
@@ -1367,13 +1449,12 @@
     // ============================================
     function loadSertifikat() {
       showSkeleton('#sertifikat-tbody', 6);
-      
-      google.script.run.withSuccessHandler(function(res) {
+      callBackend('getSertifikat').then(res => {
         if (!res.success) return showToast(res.message, true);
         sertifikatData = res.data || [];
         currentSertifikatPage = 1;
         renderSertifikatTable();
-      }).getSertifikat();
+      });
     }
 
     function filterSertifikat() {
@@ -1494,7 +1575,7 @@
       const u = document.getElementById('admin-username').value;
       const p = document.getElementById('admin-password').value;
       
-      google.script.run.withSuccessHandler(function(res) {
+      callBackend('adminLogin', u, p).then(res => {
         if (res.success) {
           isAdminLogged = true;
           document.getElementById('admin-login-box').classList.add('hidden');
@@ -1505,7 +1586,7 @@
         } else {
           showToast(res.message || 'Login gagal', true);
         }
-      }).adminLogin(u, p);
+      });
     }
 
     function adminLogout() {
@@ -1536,7 +1617,7 @@
     }
 
     function loadAdminFormulir(container) {
-      google.script.run.withSuccessHandler(function(res) {
+      callBackend('getAllFormulirAdmin').then(res => {
         if (!res.success) return;
         
         let html = `<div class="glass-card rounded-3xl overflow-hidden border border-slate-700/60">`;
@@ -1544,7 +1625,7 @@
           <th class="px-5 py-3 text-left">No. Reg</th><th class="px-5 py-3 text-left">Pengusul</th><th class="px-5 py-3">Kegiatan</th>
           <th class="px-5 py-3">Status</th><th class="px-5 py-3 w-40">Aksi</th></tr></thead><tbody>`;
         
-        res.data.forEach(row => {
+        (res.data || []).forEach(row => {
           html += `<tr class="border-t border-slate-700/50">
             <td class="px-5 py-3 font-mono text-xs">${row.nomorRegistrasi}</td>
             <td class="px-5 py-3">${row.namaPengusul}</td>
@@ -1559,7 +1640,8 @@
         
         html += `</tbody></table></div>`;
         container.innerHTML = html;
-      }).getAllFormulirAdmin();
+      });
+    }
     }
 
     function adminUpdateStatus(nomor, currentStatus, currentCatatan, email = '', namaPengusul = '', namaKegiatan = '') {
@@ -1614,19 +1696,11 @@
       const catatan = document.getElementById('catatan-admin').value || '';
       const sendEmail = document.getElementById('send-email') ? document.getElementById('send-email').checked : false;
 
-      google.script.run.withSuccessHandler(function(res) {
+      callBackend('updateStatusWithNotification', nomor, status, catatan, sendEmail, email, namaPengusul, namaKegiatan).then(res => {
         showToast(res.message);
         closeModal();
         showAdminTab('formulir');
-      }).updateStatusWithNotification(
-        nomor, 
-        status, 
-        catatan, 
-        sendEmail, 
-        email, 
-        namaPengusul, 
-        namaKegiatan
-      );
+      });
     }
 
     function adminDeleteRow(sheetName, rowIndex) {
