@@ -340,7 +340,7 @@ tr:hover { background:#F8FAFC; }
 
 <script>
 // ==================== CONFIG ====================
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzNbWOkUMXW7Tqvydv9pbyMX-hwFcKpwggy05csMSV4YFxMKDuImLme6sA0hxmCYCqt/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzgDr6QaOeEgWKPBH0E04-e4_fxWFE-aoXF8zF2ZzIu8ANWhgKtG7K0DRg-EKxw3qoa/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
 const USE_GAS = GAS_WEB_APP_URL && GAS_WEB_APP_URL.length > 20;
 
 // ==================== GLOBAL STATE ====================
@@ -979,184 +979,579 @@ function deletePengumuman(id) {
 }
 
 // ==================== VERVAL IZIN PRAKTIK ====================
+// ==================== NEW COMPREHENSIVE VERVAL IZIN PRAKTIK (27 FIELDS) ====================
 function renderVerval(container) {
   container.innerHTML = `
-    <div class="card" style="padding:26px;max-width:860px;margin:0 auto;">
-      <div style="margin-bottom:18px;">
-        <div style="font-size:18px;font-weight:700;">Formulir Verval Izin Praktik</div>
-        <div style="color:#64748B;font-size:13px;">Isi data dengan lengkap dan benar. Data akan diverifikasi oleh tim SDMK.</div>
+    <div style="max-width:1100px;margin:0 auto;">
+      <div class="card" style="padding:28px 32px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div>
+            <div style="font-size:22px;font-weight:800;color:#0A66C2;">Formulir Verval Izin Praktik</div>
+            <div style="color:#64748B;font-size:13px;">Sistem Verifikasi & Validasi Tenaga Medis & Kesehatan • SatuSehat SDMK</div>
+          </div>
+          <div class="pill" style="background:#DBEAFE;color:#0A66C2;font-weight:700;">27 Field • Enterprise</div>
+        </div>
+
+        <!-- AUTO SAVE INDICATOR -->
+        <div id="draft-status" style="font-size:12px;color:#16A34A;margin-bottom:12px;display:none;">
+          <i class="fas fa-save"></i> Draft tersimpan otomatis
+        </div>
+
+        <form id="verval-form" onsubmit="submitVervalForm(event)">
+          <div class="verval-grid">
+
+            <!-- 1. Timestamp (auto) -->
+            <div class="verval-field">
+              <label>Timestamp <span style="color:#DC2626">*</span></label>
+              <input type="text" id="v-timestamp" value="${new Date().toLocaleString('id-ID')}" readonly class="readonly">
+            </div>
+
+            <!-- 2. NIK + Auto Search -->
+            <div class="verval-field">
+              <label>NIK (16 digit) <span style="color:#DC2626">*</span></label>
+              <div style="display:flex;gap:8px;">
+                <input type="text" id="v-nik" maxlength="16" pattern="[0-9]{16}" placeholder="3275xxxxxxxxxxxx" required 
+                       oninput="validateVervalNIK(this)" onblur="searchVervalByNik()">
+                <button type="button" onclick="searchVervalByNik()" class="btn btn-sm btn-cyan" style="white-space:nowrap;">
+                  <i class="fas fa-search"></i> Cari
+                </button>
+              </div>
+              <small id="nik-status" style="color:#16A34A;font-size:11px;"></small>
+            </div>
+
+            <!-- 3. Nama Lengkap -->
+            <div class="verval-field">
+              <label>Nama Lengkap <span style="color:#DC2626">*</span></label>
+              <input type="text" id="v-nama" placeholder="dr. Nama Lengkap, Sp.XX" required>
+            </div>
+
+            <!-- 4. Jenis Kelamin -->
+            <div class="verval-field">
+              <label>Jenis Kelamin <span style="color:#DC2626">*</span></label>
+              <select id="v-jk" required>
+                <option value="">-- Pilih --</option>
+                <option value="Laki-laki">Laki-laki</option>
+                <option value="Perempuan">Perempuan</option>
+              </select>
+            </div>
+
+            <!-- 5-6. Tempat & Tanggal Lahir -->
+            <div class="verval-field">
+              <label>Tempat Lahir</label>
+              <input type="text" id="v-tempat-lahir">
+            </div>
+            <div class="verval-field">
+              <label>Tanggal Lahir</label>
+              <input type="date" id="v-tgl-lahir">
+            </div>
+
+            <!-- 7. Alamat KTP -->
+            <div class="verval-field" style="grid-column:1 / -1;">
+              <label>Alamat Sesuai KTP</label>
+              <textarea id="v-alamat-ktp" rows="2" placeholder="Jl. ... RT/RW ..."></textarea>
+            </div>
+
+            <!-- 8-9. Nomor STR + Status STR -->
+            <div class="verval-field">
+              <label>Nomor STR <span style="color:#DC2626">*</span></label>
+              <input type="text" id="v-nomor-str" required>
+            </div>
+            <div class="verval-field">
+              <label>Status STR</label>
+              <select id="v-status-str">
+                <option>Aktif</option>
+                <option>Tidak Aktif</option>
+                <option>Expired</option>
+              </select>
+            </div>
+
+            <!-- 10-11. Status SIP + Nomor SIP -->
+            <div class="verval-field">
+              <label>Status SIP</label>
+              <select id="v-status-sip">
+                <option>Aktif</option>
+                <option>Proses</option>
+                <option>Expired</option>
+                <option>Tidak Ada</option>
+              </select>
+            </div>
+            <div class="verval-field">
+              <label>Nomor SIP</label>
+              <input type="text" id="v-nomor-sip">
+            </div>
+
+            <!-- 12. Masa Berlaku SIP -->
+            <div class="verval-field">
+              <label>Masa Berlaku SIP</label>
+              <input type="date" id="v-masa-sip">
+            </div>
+
+            <!-- 13-14. Unit Kerja -->
+            <div class="verval-field">
+              <label>Unit Kerja / Fasyankes <span style="color:#DC2626">*</span></label>
+              <input type="text" id="v-unit-kerja" required>
+            </div>
+            <div class="verval-field" style="grid-column:1 / -1;">
+              <label>Alamat Unit Kerja</label>
+              <textarea id="v-alamat-unit" rows="2"></textarea>
+            </div>
+
+            <!-- 15. Desa/Kelurahan -->
+            <div class="verval-field">
+              <label>Desa / Kelurahan Unit Kerja</label>
+              <input type="text" id="v-desa">
+            </div>
+
+            <!-- 16. Status SatuSehat -->
+            <div class="verval-field">
+              <label>Status Unit Praktik di SatuSehat SDMK</label>
+              <select id="v-satu-sehat">
+                <option>Sudah</option>
+                <option>Belum</option>
+              </select>
+            </div>
+
+            <!-- 17-22. SOP & SDMK checkboxes as modern selects -->
+            <div class="verval-field">
+              <label>SOP Pelayanan</label>
+              <select id="v-sop-pelayanan"><option>Ada</option><option>Tidak Ada</option></select>
+            </div>
+            <div class="verval-field">
+              <label>SOP Profesi</label>
+              <select id="v-sop-profesi"><option>Ada</option><option>Tidak Ada</option></select>
+            </div>
+            <div class="verval-field">
+              <label>SOP Etika</label>
+              <select id="v-sop-etika"><option>Ada</option><option>Tidak Ada</option></select>
+            </div>
+            <div class="verval-field">
+              <label>SDMK Named</label>
+              <select id="v-sdmk-named"><option>Ada</option><option>Tidak Ada</option></select>
+            </div>
+            <div class="verval-field">
+              <label>SDMK Nakes</label>
+              <select id="v-sdmk-nakes"><option>Ada</option><option>Tidak Ada</option></select>
+            </div>
+            <div class="verval-field">
+              <label>SDMK Admin</label>
+              <select id="v-sdmk-admin"><option>Ada</option><option>Tidak Ada</option></select>
+            </div>
+
+            <!-- 23. Jam Operasional -->
+            <div class="verval-field">
+              <label>Jam Operasional / Praktik</label>
+              <input type="text" id="v-jam" placeholder="Senin-Jumat 08.00-16.00">
+            </div>
+
+            <!-- 24. Catatan Rekomendasi -->
+            <div class="verval-field" style="grid-column:1 / -1;">
+              <label>Catatan Rekomendasi</label>
+              <textarea id="v-catatan" rows="3" placeholder="Catatan verifikator..."></textarea>
+            </div>
+
+            <!-- 25-26. Duplicate readonly fields -->
+            <div class="verval-field">
+              <label>Nomor STR (Duplicate)</label>
+              <input type="text" id="v-str-duplicate" class="readonly" readonly>
+            </div>
+            <div class="verval-field">
+              <label>Nomor SIP (Duplicate)</label>
+              <input type="text" id="v-sip-duplicate" class="readonly" readonly>
+            </div>
+
+            <!-- 27. Pendidikan Sesuai STR -->
+            <div class="verval-field" style="grid-column:1 / -1;">
+              <label>Pendidikan Sesuai STR</label>
+              <input type="text" id="v-pendidikan-str" placeholder="S1 Kedokteran / D3 Keperawatan / dst">
+            </div>
+          </div>
+
+          <!-- ACTION BUTTONS -->
+          <div class="verval-actions">
+            <button type="button" onclick="showVervalPreview()" class="btn btn-outline">
+              <i class="fas fa-eye"></i> Preview Data
+            </button>
+            <button type="submit" class="btn btn-primary btn-glow" style="flex:2;">
+              <i class="fas fa-paper-plane"></i> SUBMIT KE GOOGLE SHEET
+            </button>
+            <button type="button" onclick="resetVervalFormNew()" class="btn btn-outline">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+          </div>
+        </form>
       </div>
-      
-      <form id="verval-form" onsubmit="submitVerval(event)">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Tanggal Pengajuan</label>
-            <input type="date" id="v-tgl" value="${new Date().toISOString().split('T')[0]}" required>
-          </div>
-          <div class="form-group">
-            <label>Nama Lengkap + Gelar</label>
-            <input type="text" id="v-nama" placeholder="dr. Nama Lengkap, Sp.XX" required>
-          </div>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label>NIK (16 digit)</label>
-            <input type="text" id="v-nik" maxlength="16" pattern="[0-9]{16}" placeholder="3275xxxxxxxxxxxx" required oninput="validateNIK(this)">
-          </div>
-          <div class="form-group">
-            <label>Jenis Kelamin</label>
-            <select id="v-jk" required>
-              <option value="">-- Pilih --</option>
-              <option>Laki-laki</option>
-              <option>Perempuan</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label>Pendidikan Terakhir</label>
-            <select id="v-pendidikan" required>
-              <option value="">-- Pilih --</option>
-              <option>S1</option><option>S2</option><option>S3</option>
-              <option>D3</option><option>D4</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Profesi / Jabatan</label>
-            <select id="v-profesi" required>
-              <option value="">-- Pilih --</option>
-              <option>Dokter</option><option>Dokter Gigi</option><option>Dokter Spesialis</option>
-              <option>Perawat</option><option>Bidan</option><option>Apoteker</option>
-              <option>Tenaga Kesehatan Lainnya</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label>Jenis Izin</label>
-            <select id="v-jenis-izin" required>
-              <option>SIP</option><option>SIK</option><option>SIPB</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Jenis Usulan</label>
-            <select id="v-jenis-usulan" required>
-              <option>Baru</option><option>Perpanjang</option><option>Mutasi</option>
-            </select>
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label>Tempat Kerja / Fasyankes</label>
-          <input type="text" id="v-tempat" placeholder="Nama RS / Puskesmas / Klinik" required>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label>Nomor Telepon / WA</label>
-            <input type="tel" id="v-telp" placeholder="0812xxxxxxx" required oninput="validateTelp(this)">
-          </div>
-          <div class="form-group">
-            <label>Upload Foto (opsional)</label>
-            <input type="file" id="v-foto" accept="image/*" onchange="previewFoto(this)">
-            <div id="foto-preview" style="margin-top:8px;"></div>
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label>Keterangan Tambahan</label>
-          <textarea id="v-ket" rows="3" placeholder="Keterangan atau catatan khusus..."></textarea>
-        </div>
-        
-        <div style="margin-top:22px;display:flex;gap:12px;">
-          <button type="submit" class="btn btn-primary btn-glow" style="flex:1;">
-            <i class="fas fa-paper-plane"></i> Kirim Pengajuan
-          </button>
-          <button type="button" onclick="resetVervalForm()" class="btn btn-outline">Reset</button>
-        </div>
-      </form>
+
+      <div style="margin-top:16px;font-size:12px;color:#64748B;text-align:center;">
+        Data akan tersimpan ke sheet <strong>verval_izin_praktik</strong> • Auto-save draft aktif
+      </div>
     </div>
   `;
+
+  // Attach auto-save + duplicate listeners
+  setTimeout(() => {
+    attachVervalListeners();
+    loadVervalDraft();
+  }, 50);
 }
 
-function validateNIK(input) {
+// Auto save draft + duplicate fields + NIK validation
+function attachVervalListeners() {
+  const form = document.getElementById('verval-form');
+  if (!form) return;
+
+  // Auto save every 2 seconds
+  form.addEventListener('input', () => {
+    clearTimeout(window.vervalDraftTimer);
+    window.vervalDraftTimer = setTimeout(saveVervalDraft, 1800);
+  });
+
+  // Duplicate STR & SIP
+  const strMain = document.getElementById('v-nomor-str');
+  const sipMain = document.getElementById('v-nomor-sip');
+  const strDup = document.getElementById('v-str-duplicate');
+  const sipDup = document.getElementById('v-sip-duplicate');
+
+  if (strMain && strDup) strMain.addEventListener('input', () => strDup.value = strMain.value);
+  if (sipMain && sipDup) sipMain.addEventListener('input', () => sipDup.value = sipMain.value);
+}
+
+function validateVervalNIK(input) {
   input.value = input.value.replace(/[^0-9]/g, '');
-  if (input.value.length === 16) input.style.borderColor = '#16A34A';
-  else input.style.borderColor = '';
-}
-
-function validateTelp(input) {
-  if (!input.value.startsWith('08') && !input.value.startsWith('+62')) {
-    input.style.borderColor = '#DC2626';
-  } else {
+  const status = document.getElementById('nik-status');
+  if (input.value.length === 16) {
     input.style.borderColor = '#16A34A';
+    if (status) status.textContent = 'Format NIK valid ✓';
+  } else {
+    input.style.borderColor = '';
+    if (status) status.textContent = '';
   }
 }
 
-let currentFotoBase64 = '';
+// Auto search previous verval by NIK (GET only)
+async function searchVervalByNik() {
+  const nik = document.getElementById('v-nik').value.trim();
+  if (!nik || nik.length !== 16) return;
 
-function previewFoto(input) {
-  const preview = document.getElementById('foto-preview');
-  preview.innerHTML = '';
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      currentFotoBase64 = e.target.result;
-      preview.innerHTML = `<img src="${currentFotoBase64}" style="max-width:110px;max-height:110px;border-radius:10px;border:2px solid #E2E8F0;">`;
-    };
-    reader.readAsDataURL(input.files[0]);
+  const res = await apiCall('getVervalByNik', { nik }, 'GET');
+  if (res.success && res.latest) {
+    const d = res.latest;
+    // Populate fields (map from sheet headers)
+    document.getElementById('v-nama').value = d['Nama Lengkap'] || d.nama_lengkap || '';
+    document.getElementById('v-jk').value = d['Jenis Kelamin'] || d.jenis_kelamin || '';
+    document.getElementById('v-tempat-lahir').value = d['Tempat Lahir'] || '';
+    document.getElementById('v-tgl-lahir').value = d['Tanggal Lahir'] || '';
+    document.getElementById('v-alamat-ktp').value = d['Alamat Sesuai KTP'] || '';
+    document.getElementById('v-nomor-str').value = d['Nomor STR'] || '';
+    document.getElementById('v-status-str').value = d['Status STR'] || 'Aktif';
+    document.getElementById('v-status-sip').value = d['Status SIP'] || 'Aktif';
+    document.getElementById('v-nomor-sip').value = d['Nomor SIP'] || '';
+    document.getElementById('v-masa-sip').value = d['Masa Berlaku SIP'] || '';
+    document.getElementById('v-unit-kerja').value = d['Unit Kerja'] || '';
+    document.getElementById('v-alamat-unit').value = d['Alamat Unit Kerja'] || '';
+    document.getElementById('v-desa').value = d['Desa Kelurahan Unit Kerja'] || '';
+    document.getElementById('v-satu-sehat').value = d['Status Unit Praktik di SatuSehat SDMK'] || 'Sudah';
+    document.getElementById('v-sop-pelayanan').value = d['SOP Pelayanan'] || 'Ada';
+    document.getElementById('v-sop-profesi').value = d['SOP Profesi'] || 'Ada';
+    document.getElementById('v-sop-etika').value = d['SOP Etika'] || 'Ada';
+    document.getElementById('v-sdmk-named').value = d['SDMK Named'] || 'Ada';
+    document.getElementById('v-sdmk-nakes').value = d['SDMK Nakes'] || 'Ada';
+    document.getElementById('v-sdmk-admin').value = d['SDMK Admin'] || 'Ada';
+    document.getElementById('v-jam').value = d['Jam Operasional Praktik'] || '';
+    document.getElementById('v-catatan').value = d['Catatan Rekomendasi'] || '';
+    document.getElementById('v-pendidikan-str').value = d['Pendidikan Sesuai STR'] || '';
+
+    // duplicates
+    document.getElementById('v-str-duplicate').value = d['Nomor STR'] || '';
+    document.getElementById('v-sip-duplicate').value = d['Nomor SIP'] || '';
+
+    showToast('Data sebelumnya ditemukan & diisi otomatis', 'success');
+    document.getElementById('nik-status').textContent = 'Data lama ditemukan ✓';
+  } else {
+    document.getElementById('nik-status').textContent = 'NIK baru — siap diisi';
   }
 }
 
-function resetVervalForm() {
-  document.getElementById('verval-form').reset();
-  document.getElementById('foto-preview').innerHTML = '';
-  currentFotoBase64 = '';
+function saveVervalDraft() {
+  const form = document.getElementById('verval-form');
+  if (!form) return;
+  const data = {};
+  form.querySelectorAll('input,select,textarea').forEach(el => {
+    if (el.id) data[el.id] = el.value;
+  });
+  localStorage.setItem('simantri_verval_draft', JSON.stringify(data));
+  const status = document.getElementById('draft-status');
+  if (status) {
+    status.style.display = 'block';
+    setTimeout(() => { if (status) status.style.display = 'none'; }, 1200);
+  }
 }
 
-async function submitVerval(e) {
-  e.preventDefault();
-  const btns = e.target.querySelectorAll('button');
-  btns.forEach(b => b.disabled = true);
-  
-  const payload = {
-    tgl_usulan: document.getElementById('v-tgl').value,
-    nik: document.getElementById('v-nik').value,
-    nama_dan_gelar: document.getElementById('v-nama').value,
-    jenis_kelamin: document.getElementById('v-jk').value,
-    pendidikan: document.getElementById('v-pendidikan').value,
-    profesi: document.getElementById('v-profesi').value,
-    jenis_izin: document.getElementById('v-jenis-izin').value,
-    kategori_usulan: 'Baru/Perpanjang',
-    jenis_usulan: document.getElementById('v-jenis-usulan').value,
-    tempat_kerja: document.getElementById('v-tempat').value,
-    nomor_telpon: document.getElementById('v-telp').value,
-    link_foto: currentFotoBase64 || '',
-    keterangan: document.getElementById('v-ket').value
-  };
-  
-  // Basic validation
-  if (payload.nik.length !== 16) {
-    showToast('NIK harus 16 digit', 'error');
-    btns.forEach(b => b.disabled = false);
+function loadVervalDraft() {
+  const saved = localStorage.getItem('simantri_verval_draft');
+  if (!saved) return;
+  try {
+    const data = JSON.parse(saved);
+    Object.keys(data).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = data[id];
+    });
+    document.getElementById('draft-status').style.display = 'block';
+  } catch (e) {}
+}
+
+function resetVervalFormNew() {
+  if (!confirm('Reset seluruh form? Draft akan hilang.')) return;
+  localStorage.removeItem('simantri_verval_draft');
+  location.reload(); // simplest reliable reset
+}
+
+async function showVervalPreview() {
+  const form = document.getElementById('verval-form');
+  if (!form) return;
+
+  const data = collectVervalData();
+  if (!data.nik || data.nik.length !== 16) {
+    showToast('NIK 16 digit wajib diisi sebelum preview', 'error');
     return;
   }
-  
-  const res = await apiCall('addIzin', payload);
-  
+
+  const html = `
+    <div style="font-size:13px;line-height:1.6;">
+      <strong>NIK:</strong> ${data.nik}<br>
+      <strong>Nama:</strong> ${data.nama_lengkap}<br>
+      <strong>Unit Kerja:</strong> ${data.unit_kerja}<br>
+      <strong>Status SIP:</strong> ${data.status_sip} — ${data.nomor_sip || '-'}<br>
+      <strong>SatuSehat:</strong> ${data.status_satu_sehat} | SOP: ${data.sop_pelayanan} / ${data.sop_profesi} / ${data.sop_etika}<br>
+      <strong>Jam Praktik:</strong> ${data.jam_operasional || '-'}
+    </div>
+  `;
+  const footer = `
+    <button onclick="closeModal()" class="btn btn-outline">Tutup</button>
+    <button onclick="closeModal(); submitVervalForm(null, true)" class="btn btn-primary">Ya, Submit Sekarang</button>
+  `;
+  showModal('Preview Data Verval', html, null, footer);
+}
+
+function collectVervalData() {
+  return {
+    timestamp: document.getElementById('v-timestamp')?.value || new Date().toLocaleString('id-ID'),
+    nik: document.getElementById('v-nik')?.value || '',
+    nama_lengkap: document.getElementById('v-nama')?.value || '',
+    jenis_kelamin: document.getElementById('v-jk')?.value || '',
+    tempat_lahir: document.getElementById('v-tempat-lahir')?.value || '',
+    tanggal_lahir: document.getElementById('v-tgl-lahir')?.value || '',
+    alamat_ktp: document.getElementById('v-alamat-ktp')?.value || '',
+    nomor_str: document.getElementById('v-nomor-str')?.value || '',
+    status_str: document.getElementById('v-status-str')?.value || '',
+    status_sip: document.getElementById('v-status-sip')?.value || '',
+    nomor_sip: document.getElementById('v-nomor-sip')?.value || '',
+    masa_berlaku_sip: document.getElementById('v-masa-sip')?.value || '',
+    unit_kerja: document.getElementById('v-unit-kerja')?.value || '',
+    alamat_unit: document.getElementById('v-alamat-unit')?.value || '',
+    desa_kelurahan: document.getElementById('v-desa')?.value || '',
+    status_satu_sehat: document.getElementById('v-satu-sehat')?.value || '',
+    sop_pelayanan: document.getElementById('v-sop-pelayanan')?.value || '',
+    sop_profesi: document.getElementById('v-sop-profesi')?.value || '',
+    sop_etika: document.getElementById('v-sop-etika')?.value || '',
+    sdmk_named: document.getElementById('v-sdmk-named')?.value || '',
+    sdmk_nakes: document.getElementById('v-sdmk-nakes')?.value || '',
+    sdmk_admin: document.getElementById('v-sdmk-admin')?.value || '',
+    jam_operasional: document.getElementById('v-jam')?.value || '',
+    catatan_rekomendasi: document.getElementById('v-catatan')?.value || '',
+    pendidikan_str: document.getElementById('v-pendidikan-str')?.value || ''
+  };
+}
+
+async function submitVervalForm(e, fromPreview = false) {
+  if (e) e.preventDefault();
+
+  const data = collectVervalData();
+
+  // Validation
+  if (!data.nik || data.nik.length !== 16) { showToast('NIK harus 16 digit', 'error'); return; }
+  if (!data.nama_lengkap || !data.unit_kerja) { showToast('Nama Lengkap dan Unit Kerja wajib', 'error'); return; }
+
+  const btns = document.querySelectorAll('#verval-form button');
+  btns.forEach(b => b.disabled = true);
+
+  // Use GET with all params (per user requirement to avoid CORS)
+  const res = await apiCall('submitVerval', data, 'GET');
+
   btns.forEach(b => b.disabled = false);
-  
+
   if (res.success) {
-    showToast('Pengajuan berhasil dikirim! Nomor tiket: ' + (res.id || ''), 'success');
-    resetVervalForm();
-    // Auto refresh izin data
-    navigateTo('cek');
+    localStorage.removeItem('simantri_verval_draft');
+    showToast('Data Verval berhasil dikirim ke Google Sheet!', 'success');
+
+    // Show success modal with QR + PDF buttons
+    showVervalSuccessModal(data, res.timestamp || new Date().toLocaleString('id-ID'));
   } else {
-    showToast(res.error || 'Gagal mengirim', 'error');
+    showToast(res.error || 'Gagal submit', 'error');
   }
+}
+
+function showVervalSuccessModal(data, timestamp) {
+  const verifyCode = `SIMANTRI-VERVAL-${data.nik}-${Date.now()}`;
+  const body = `
+    <div style="text-align:center;">
+      <i class="fas fa-check-circle" style="font-size:52px;color:#16A34A;margin-bottom:12px;"></i>
+      <div style="font-weight:700;font-size:18px;margin-bottom:8px;">Verval Berhasil Disimpan</div>
+      <div style="color:#64748B;font-size:13px;">${timestamp}</div>
+      
+      <div style="margin:18px auto;width:160px;height:160px;background:white;padding:10px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1);" id="qr-verval"></div>
+      
+      <div style="font-family:monospace;font-size:12px;background:#F1F5F9;padding:6px;border-radius:6px;">${verifyCode}</div>
+    </div>
+  `;
+  const footer = `
+    <button onclick="closeModal()" class="btn btn-outline">Tutup</button>
+    <button onclick="generateVervalQR('${verifyCode}');" class="btn btn-cyan">Generate QR</button>
+    <button onclick="downloadVervalBuktiPDF('${data.nik}', '${verifyCode}')" class="btn btn-primary">Download PDF Bukti</button>
+  `;
+  showModal('Berhasil Tersimpan', body, null, footer);
+}
+
+function generateVervalQR(code) {
+  const container = document.getElementById('qr-verval');
+  if (!container || !window.QRCode) return;
+  container.innerHTML = '';
+  new QRCode(container, { text: code, width: 140, height: 140, colorDark: "#0A66C2" });
+}
+
+function downloadVervalBuktiPDF(nik, code) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text('BUKTI VERVAL IZIN PRAKTIK', 20, 20);
+  doc.setFontSize(11);
+  doc.text(`NIK: ${nik}`, 20, 32);
+  doc.text(`Kode Verifikasi: ${code}`, 20, 40);
+  doc.text(`Tanggal: ${new Date().toLocaleString('id-ID')}`, 20, 48);
+  doc.text('Status: TERVERIFIKASI • SIMANTRI', 20, 56);
+  doc.save(`bukti_verval_${nik}.pdf`);
+  closeModal();
+}
+
+// ==================== ADMIN VERVAL MANAGEMENT ====================
+let adminVervalData = [];
+
+async function loadAdminVervalTable() {
+  const tbody = document.querySelector('#admin-verval-table tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#94A3B8;">Memuat data...</td></tr>`;
+
+  const res = await apiCall('getAllVerval', {}, 'GET');
+  adminVervalData = res.success ? (res.data || []) : [];
+
+  renderAdminVervalTable(adminVervalData);
+}
+
+function renderAdminVervalTable(data) {
+  const tbody = document.querySelector('#admin-verval-table tbody');
+  if (!tbody) return;
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:20px;color:#64748B;">Belum ada data verval.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map((row, idx) => {
+    const nik = row.NIK || row.nik || '';
+    const nama = row['Nama Lengkap'] || row.nama_lengkap || '-';
+    const unit = row['Unit Kerja'] || row.unit_kerja || '-';
+    const status = row['Status SIP'] || row.status_sip || '-';
+    const str = row['Nomor STR'] || row.nomor_str || '-';
+    const sip = row['Nomor SIP'] || row.nomor_sip || '-';
+    const ts = row.Timestamp || row.timestamp || '-';
+
+    return `
+      <tr>
+        <td style="font-size:12px;">${ts}</td>
+        <td><strong>${nik}</strong></td>
+        <td>${escapeHtml(nama)}</td>
+        <td>${escapeHtml(unit)}</td>
+        <td><span class="badge ${status === 'Aktif' ? 'badge-success' : 'badge-warning'}">${status}</span></td>
+        <td style="font-family:monospace;font-size:11px;">${str}</td>
+        <td style="font-family:monospace;font-size:11px;">${sip}</td>
+        <td>
+          <button onclick="viewVervalDetail(${idx})" class="btn btn-sm btn-outline" style="padding:2px 6px;">Detail</button>
+          <button onclick="deleteAdminVerval(${idx})" class="btn btn-sm btn-danger" style="padding:2px 6px;">Hapus</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterAdminVerval() {
+  const q = (document.getElementById('admin-verval-search')?.value || '').toLowerCase();
+  const statusF = document.getElementById('admin-verval-filter')?.value || '';
+
+  const filtered = adminVervalData.filter(r => {
+    const matchSearch = !q || 
+      String(r.NIK || r.nik || '').toLowerCase().includes(q) ||
+      String(r['Nama Lengkap'] || r.nama_lengkap || '').toLowerCase().includes(q) ||
+      String(r['Unit Kerja'] || r.unit_kerja || '').toLowerCase().includes(q);
+    
+    const matchStatus = !statusF || (r['Status SIP'] || r.status_sip) === statusF;
+    return matchSearch && matchStatus;
+  });
+
+  renderAdminVervalTable(filtered);
+}
+
+function viewVervalDetail(idx) {
+  const row = adminVervalData[idx];
+  if (!row) return;
+
+  const html = Object.keys(row).map(k => 
+    `<div style="margin-bottom:4px;"><strong>${k}:</strong> ${row[k] || '-'}</div>`
+  ).join('');
+
+  showModal('Detail Data Verval', `<div style="max-height:420px;overflow:auto;font-size:13px;">${html}</div>`, null, 
+    `<button onclick="closeModal()" class="btn btn-primary">Tutup</button>`);
+}
+
+async function deleteAdminVerval(idx) {
+  const row = adminVervalData[idx];
+  if (!row || !confirm('Hapus data verval ini?')) return;
+
+  const nik = row.NIK || row.nik;
+  const res = await apiCall('deleteVerval', { nik, _row: row._row }, 'GET'); // using GET for safety
+
+  if (res.success) {
+    showToast('Data verval dihapus');
+    loadAdminVervalTable();
+  }
+}
+
+function exportVervalCSV() {
+  if (!adminVervalData.length) { showToast('Tidak ada data', 'warning'); return; }
+  let csv = 'Timestamp,NIK,Nama,Unit Kerja,Status SIP\n';
+  adminVervalData.forEach(r => {
+    csv += `"${r.Timestamp || ''}","${r.NIK || ''}","${r['Nama Lengkap'] || ''}","${r['Unit Kerja'] || ''}","${r['Status SIP'] || ''}"\n`;
+  });
+  downloadFile(csv, 'verval_izin_praktik.csv', 'text/csv');
+}
+
+function exportVervalPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.text('Data Verval Izin Praktik - SIMANTRI', 14, 18);
+  adminVervalData.forEach((r, i) => {
+    if (i > 35) return; // limit
+    doc.text(`${i+1}. ${r.NIK} - ${r['Nama Lengkap'] || ''} (${r['Status SIP']})`, 14, 28 + i*8);
+  });
+  doc.save('verval_data.pdf');
+}
+
+// Helper download
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ==================== PROFIL SDMK ====================
@@ -1677,7 +2072,45 @@ function renderAdmin(container) {
       </div>
       <button onclick="showAddUserModal()" class="btn btn-sm btn-primary" style="margin-top:10px;">+ Tambah User Baru</button>
     </div>
+
+    <!-- NEW: DATA VERVAL SECTION -->
+    <div style="margin-top:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-weight:700;font-size:16px;">Data Verval Izin Praktik</div>
+        <div>
+          <button onclick="loadAdminVervalTable()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i> Refresh</button>
+          <button onclick="exportVervalCSV()" class="btn btn-sm btn-outline"><i class="fas fa-file-csv"></i> Export CSV</button>
+          <button onclick="exportVervalPDF()" class="btn btn-sm btn-outline"><i class="fas fa-file-pdf"></i> Export PDF</button>
+        </div>
+      </div>
+
+      <div class="flex" style="margin-bottom:10px;gap:8px;">
+        <input id="admin-verval-search" onkeyup="filterAdminVerval()" placeholder="Cari NIK / Nama / Unit..." style="padding:8px 12px;border-radius:8px;border:1px solid #E2E8F0;flex:1;">
+        <select id="admin-verval-filter" onchange="filterAdminVerval()" style="padding:8px 12px;border-radius:8px;border:1px solid #E2E8F0;">
+          <option value="">Semua Status SIP</option>
+          <option>Aktif</option><option>Proses</option><option>Expired</option><option>Tidak Ada</option>
+        </select>
+      </div>
+
+      <div class="table-wrapper" style="max-height:380px;overflow:auto;">
+        <table id="admin-verval-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th><th>NIK</th><th>Nama</th><th>Unit Kerja</th><th>Status SIP</th><th>STR</th><th>SIP</th><th style="width:110px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   `;
+
+  // Auto load verval data when admin panel opens
+  setTimeout(() => {
+    if (document.getElementById('admin-verval-table')) {
+      loadAdminVervalTable();
+    }
+  }, 300);
 }
 
 function doAdminLogin() {
