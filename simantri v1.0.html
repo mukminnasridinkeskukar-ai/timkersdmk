@@ -1,143 +1,1772 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMANTRI • Tim Kerja SDMK</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); }
-        .glass { background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.6); }
-        .btn-glow { background: linear-gradient(135deg, #06b6d4, #0ea5e9); color: white; box-shadow: 0 0 15px rgba(6,182,212,0.4); transition: all 0.3s; }
-        .btn-glow:hover { transform: translateY(-2px); box-shadow: 0 0 25px rgba(6,182,212,0.6); }
-        .waterfall-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: linear-gradient(transparent, rgba(6,182,212,0.06) 20%, transparent); animation: waterfall 12s linear infinite; }
-        @keyframes waterfall { 0% { background-position: 0 -300px; } 100% { background-position: 0 800px; } }
-        .nav-item.active { background: #e0f2fe; color: #0e7490; font-weight: 600; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIMANTRI • Enterprise Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root {
+  --blue: #0A66C2;
+  --blue-dark: #084B8A;
+  --cyan: #00B4D8;
+  --cyan-light: #90E0EF;
+  --white: #FFFFFF;
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-600: #475569;
+  --gray-800: #1E293B;
+  --shadow: 0 10px 30px -15px rgba(0, 0, 0, 0.25);
+  --glow-blue: 0 0 0 3px rgba(10, 102, 194, 0.3), 0 0 20px rgba(0, 180, 216, 0.4);
+  --glow-cyan: 0 0 0 3px rgba(0, 180, 216, 0.35), 0 0 25px rgba(0, 180, 216, 0.5);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: linear-gradient(135deg, #F8FAFC 0%, #E0F2FE 100%); color: var(--gray-800); overflow-x:hidden; }
+.app { display: flex; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 260px; background: linear-gradient(180deg, #0A66C2 0%, #084B8A 100%);
+  color: white; position: fixed; top:0; left:0; bottom:0; z-index: 1000;
+  box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+  display: flex; flex-direction: column;
+}
+.sidebar .logo {
+  padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.15);
+  display: flex; align-items: center; gap: 12px;
+}
+.sidebar .logo i { font-size: 28px; color: var(--cyan-light); }
+.sidebar .logo span { font-size: 22px; font-weight: 700; letter-spacing: -.5px; }
+.sidebar .nav { padding: 16px 12px; flex: 1; overflow-y: auto; }
+.sidebar .nav-item {
+  display: flex; align-items: center; gap: 12px; padding: 13px 18px; margin: 4px 0;
+  border-radius: 12px; color: rgba(255,255,255,0.85); text-decoration: none;
+  font-weight: 500; transition: all .2s cubic-bezier(0.4,0,0.2,1);
+  cursor: pointer; position: relative;
+}
+.sidebar .nav-item:hover { background: rgba(255,255,255,0.12); color: white; transform: translateX(4px); }
+.sidebar .nav-item.active { background: rgba(255,255,255,0.2); color: white; font-weight: 600; }
+.sidebar .nav-item.active::before { content:''; position:absolute; left:0; top:50%; transform:translateY(-50%); width:4px; height:22px; background: var(--cyan); border-radius:0 4px 4px 0; }
+.sidebar .nav-item i { width:22px; text-align:center; font-size:17px; }
+.sidebar .nav-footer { padding:16px; border-top:1px solid rgba(255,255,255,0.15); font-size:12px; opacity:.7; text-align:center; }
+
+/* HEADER GLASS */
+.header {
+  height: 72px; background: rgba(255,255,255,0.75); backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255,255,255,0.4);
+  position: sticky; top:0; z-index:900; display:flex; align-items:center;
+  padding: 0 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.header .header-left { display:flex; align-items:center; gap:16px; }
+.header .header-left h1 { font-size:21px; font-weight:700; color: var(--gray-800); }
+.header .header-right { margin-left:auto; display:flex; align-items:center; gap:14px; }
+.user-info { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.6); padding:6px 14px; border-radius:999px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.user-info .avatar { width:34px; height:34px; background:linear-gradient(135deg,var(--blue),var(--cyan)); border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:13px; }
+.status-badge { font-size:11px; padding:2px 9px; border-radius:999px; background:#DCFCE7; color:#166534; font-weight:600; }
+
+/* MAIN CONTENT */
+.main { flex:1; margin-left:260px; min-height:100vh; display:flex; flex-direction:column; }
+.content-area { flex:1; padding:28px; overflow-y:auto; }
+
+/* CARDS & GLOW */
+.card {
+  background:white; border-radius:18px; box-shadow: var(--shadow);
+  transition: transform .25s cubic-bezier(0.4,0,0.2,1), box-shadow .25s;
+  border:1px solid var(--gray-100);
+}
+.card:hover { transform: translateY(-4px); box-shadow: 0 20px 45px -15px rgba(0,0,0,0.15), var(--glow-blue); }
+.stat-card { padding:22px; position:relative; overflow:hidden; }
+.stat-card .icon { width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:24px; margin-bottom:14px; }
+.stat-card .value { font-size:32px; font-weight:800; line-height:1; color:var(--gray-800); }
+.stat-card .label { font-size:13px; color:var(--gray-600); margin-top:4px; font-weight:500; }
+.stat-card .change { font-size:12px; margin-top:6px; display:inline-flex; align-items:center; gap:4px; }
+.glow-cyan { box-shadow: var(--glow-cyan); }
+.glow-blue { box-shadow: var(--glow-blue); }
+
+/* BUTTONS - LIGHTBOX GLOW THICK + ANIM */
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding:11px 22px; border-radius:12px; font-weight:600; font-size:14px;
+  border:none; cursor:pointer; transition:all .2s cubic-bezier(0.4,0.0,0.2,1);
+  text-decoration:none; position:relative; overflow:hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1), 0 0 0 3px rgba(10,102,194,0.15);
+}
+.btn-primary { background: linear-gradient(135deg, var(--blue), #0A66C2); color:white; }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(10,102,194,0.35), var(--glow-blue); }
+.btn-cyan { background: linear-gradient(135deg, var(--cyan), #00A3C4); color:white; }
+.btn-cyan:hover { box-shadow:0 8px 25px rgba(0,180,216,0.4), var(--glow-cyan); transform:translateY(-2px); }
+.btn-outline { background:white; color:var(--gray-700); border:1px solid var(--gray-200); box-shadow:none; }
+.btn-outline:hover { background:var(--gray-50); border-color:var(--gray-300); }
+.btn-danger { background:linear-gradient(135deg,#DC2626,#B91C1C); color:white; }
+.btn-sm { padding:7px 14px; font-size:12.5px; border-radius:9px; }
+.btn-glow { animation: btnGlow 2s ease-in-out infinite; }
+@keyframes btnGlow { 0%,100%{ box-shadow:0 4px 15px rgba(0,0,0,0.1),0 0 0 3px rgba(10,102,194,0.15); } 50%{ box-shadow:0 4px 15px rgba(0,0,0,0.1),0 0 0 6px rgba(10,102,194,0.25), var(--glow-blue); } }
+.btn:active { transform:scale(0.97); }
+
+/* FORM */
+.form-group { margin-bottom:16px; }
+.form-group label { display:block; font-size:13px; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
+.form-group input, .form-group select, .form-group textarea {
+  width:100%; padding:11px 14px; border:1px solid var(--gray-200); border-radius:10px;
+  font-size:14px; transition:all .2s; background:white;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(10,102,194,0.1);
+}
+.form-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px; }
+
+/* TABLE MODERN */
+.table-wrapper { overflow-x:auto; border-radius:14px; border:1px solid var(--gray-100); background:white; }
+table { width:100%; border-collapse:collapse; font-size:13.5px; }
+th { background:var(--gray-50); padding:14px 16px; text-align:left; font-weight:700; color:var(--gray-700); border-bottom:2px solid var(--gray-200); white-space:nowrap; cursor:pointer; user-select:none; }
+th:hover { background:var(--gray-100); }
+td { padding:12px 16px; border-bottom:1px solid var(--gray-100); vertical-align:middle; }
+tr:hover { background:#F8FAFC; }
+.badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; }
+.badge-success { background:#DCFCE7; color:#166534; }
+.badge-danger { background:#FEE2E2; color:#991B1B; }
+.badge-warning { background:#FEF3C7; color:#92400E; }
+.badge-info { background:#DBEAFE; color:#1E40AF; }
+.badge-cyan { background:#CFFAFE; color:#155E75; }
+
+/* SEARCH & FILTER */
+.search-box { position:relative; width:100%; max-width:340px; }
+.search-box input { width:100%; padding:11px 16px 11px 44px; border:1px solid var(--gray-200); border-radius:999px; font-size:14px; background:white; }
+.search-box i { position:absolute; left:17px; top:50%; transform:translateY(-50%); color:#94A3B8; }
+
+/* MODAL */
+.modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:2000; display:none; align-items:center; justify-content:center; }
+.modal { background:white; border-radius:20px; width:100%; max-width:620px; margin:20px; box-shadow:0 25px 60px -15px rgba(0,0,0,0.4); animation:modalPop .2s ease; overflow:hidden; }
+@keyframes modalPop { from { transform:scale(.92); opacity:0; } to { transform:scale(1); opacity:1; } }
+.modal-header { padding:18px 24px; border-bottom:1px solid var(--gray-100); display:flex; justify-content:space-between; align-items:center; }
+.modal-body { padding:24px; max-height:68vh; overflow-y:auto; }
+.modal-footer { padding:16px 24px; background:var(--gray-50); display:flex; gap:10px; justify-content:flex-end; }
+
+/* TOAST */
+.toast-container { position:fixed; bottom:24px; right:24px; z-index:3000; display:flex; flex-direction:column; gap:10px; }
+.toast { min-width:280px; background:white; border-radius:14px; box-shadow:0 15px 35px -10px rgba(0,0,0,0.25),0 0 0 1px var(--gray-200); padding:14px 18px; display:flex; align-items:center; gap:12px; animation:toastIn .25s ease; border-left:5px solid var(--blue); }
+.toast.success { border-left-color:#16A34A; } .toast.error { border-left-color:#DC2626; } .toast.warning { border-left-color:#D97706; }
+.toast .icon { font-size:18px; } .toast .msg { flex:1; font-size:14px; font-weight:500; }
+
+/* LOADING & SKELETON */
+.loading-overlay { position:fixed; inset:0; background:rgba(248,250,252,0.96); z-index:9999; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+.loading-overlay .spinner { width:68px; height:68px; border:5px solid #E0F2FE; border-top-color:var(--blue); border-radius:50%; animation:spin 1s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.skeleton { background:linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%); background-size:200% 100%; animation:skeleton 1.5s infinite; border-radius:8px; }
+@keyframes skeleton { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* UTILITIES */
+.page-title { font-size:26px; font-weight:800; margin-bottom:6px; color:var(--gray-800); }
+.section { margin-bottom:28px; }
+.flex { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.grid-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:18px; margin-bottom:26px; }
+.pill { background:var(--gray-100); padding:2px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+.hidden { display:none !important; }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .sidebar { width:72px; }
+  .sidebar .logo span, .sidebar .nav-item span { display:none; }
+  .main { margin-left:72px; }
+  .content-area { padding:16px; }
+}
+@media (max-width: 640px) {
+  .header { padding:0 16px; }
+  .sidebar { transform:translateX(-100%); transition:.3s; }
+  .sidebar.open { transform:translateX(0); }
+  .main { margin-left:0; }
+}
+</style>
 </head>
 <body>
-    <div class="waterfall-bg"></div>
 
-    <header class="sticky top-0 z-50 glass border-b border-sky-200">
-        <div class="max-w-screen-2xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-cyan-500 to-sky-600 rounded-2xl flex items-center justify-center">
-                    <i class="fas fa-hospital-user text-white text-2xl"></i>
-                </div>
-                <div>
-                    <span class="font-bold text-2xl text-sky-800">SIMANTRI</span>
-                    <span class="text-xs text-sky-500 block -mt-1">Tim Kerja SDMK</span>
-                </div>
-            </div>
-            <div id="user-info" class="hidden items-center gap-3">
-                <div class="text-right">
-                    <div id="user-name" class="font-semibold text-sky-800"></div>
-                    <div id="user-role" class="text-xs text-sky-500"></div>
-                </div>
-                <button onclick="logout()" class="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-2xl">Keluar</button>
-            </div>
+<!-- PREMIUM LOADING SCREEN -->
+<div id="loading-screen" class="loading-overlay">
+  <div style="text-align:center;">
+    <div style="display:inline-flex; align-items:center; gap:14px; margin-bottom:20px;">
+      <i class="fas fa-hospital-user" style="font-size:52px; color:#0A66C2;"></i>
+      <div>
+        <div style="font-size:32px; font-weight:800; background:linear-gradient(90deg,#0A66C2,#00B4D8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">SIMANTRI</div>
+        <div style="font-size:13px; color:#64748B; letter-spacing:1.5px; font-weight:600;">KEMENTERIAN KESEHATAN • ENTERPRISE</div>
+      </div>
+    </div>
+    <div class="spinner" style="margin:0 auto 18px;"></div>
+    <div style="color:#475569; font-weight:600; font-size:15px;">Memuat Dashboard Premium...</div>
+    <div style="margin-top:8px; font-size:11px; color:#94A3B8;">Sistem Informasi Manajemen Praktik Tenaga Medis</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <i class="fas fa-hospital-user"></i>
+      <span>SIMANTRI</span>
+    </div>
+    <div class="nav">
+      <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
+      </div>
+      <div class="nav-item" data-page="pengumuman" onclick="navigateTo('pengumuman')">
+        <i class="fas fa-bullhorn"></i><span>Pengumuman</span>
+      </div>
+      <div class="nav-item" data-page="verval" onclick="navigateTo('verval')">
+        <i class="fas fa-file-medical"></i><span>Verval Izin Praktik</span>
+      </div>
+      <div class="nav-item" data-page="profil" onclick="navigateTo('profil')">
+        <i class="fas fa-users"></i><span>Profil SDMK</span>
+      </div>
+      <div class="nav-item" data-page="cek" onclick="navigateTo('cek')">
+        <i class="fas fa-search"></i><span>Cek Izin Praktik</span>
+      </div>
+      <div class="nav-item" data-page="admin" onclick="navigateTo('admin')">
+        <i class="fas fa-cog"></i><span>Panel Admin</span>
+      </div>
+    </div>
+    <div class="nav-footer">
+      <div onclick="logout()" style="cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+        <i class="fas fa-sign-out-alt"></i> <span style="font-size:12px;">Logout</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- HEADER GLASS -->
+    <header class="header">
+      <div class="header-left">
+        <button onclick="toggleMobileSidebar()" class="btn btn-outline btn-sm" style="padding:8px 11px; display:none;" id="mobile-menu-btn">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div>
+          <span id="page-title" class="page-title">Dashboard</span>
+          <div id="page-subtitle" style="font-size:12px; color:#64748B; font-weight:500;"></div>
         </div>
+      </div>
+      <div class="header-right">
+        <div id="connection-badge" class="pill" style="background:#FEF3C7;color:#854D0E;font-size:11px;padding:3px 9px;">
+          <i class="fas fa-wifi"></i> <span id="conn-text">DEMO MODE</span>
+        </div>
+        <div class="user-info">
+          <div class="avatar" id="user-avatar">AD</div>
+          <div>
+            <div id="user-name" style="font-weight:700;font-size:13px;">Administrator</div>
+            <div id="user-role" style="font-size:10px;color:#64748B;">Admin</div>
+          </div>
+        </div>
+        <button onclick="logout()" class="btn btn-outline btn-sm"><i class="fas fa-sign-out-alt"></i> <span style="display:none;">Keluar</span></button>
+      </div>
     </header>
 
-    <div class="max-w-screen-2xl mx-auto flex">
-        <!-- Sidebar -->
-        <div class="w-64 border-r border-sky-200 bg-white/70 p-4 hidden lg:block">
-            <div class="space-y-1 text-sm">
-                <div onclick="navigateTo('dashboard')" class="nav-item active flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer"><i class="fas fa-tachometer-alt w-5"></i> Dashboard</div>
-                <div onclick="navigateTo('pengumuman')" class="nav-item flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer"><i class="fas fa-bullhorn w-5"></i> Pengumuman</div>
-                <div onclick="navigateTo('verval')" class="nav-item flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer"><i class="fas fa-file-medical w-5"></i> Verval Izin</div>
-                <div onclick="navigateTo('profil')" class="nav-item flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer"><i class="fas fa-users w-5"></i> Profil SDMK</div>
-                <div onclick="navigateTo('cek-izin')" class="nav-item flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer"><i class="fas fa-search w-5"></i> Cek Izin</div>
-                <div class="border-t my-2"></div>
-                <div onclick="navigateTo('admin-panel')" class="nav-item hidden items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer" id="admin-link"><i class="fas fa-shield-alt w-5"></i> Panel Admin</div>
-            </div>
-        </div>
+    <!-- CONTENT -->
+    <div id="content" class="content-area"></div>
+  </div>
+</div>
 
-        <main class="flex-1 p-6">
-            <!-- DASHBOARD -->
-            <div id="section-dashboard" class="section">
-                <h1 class="text-3xl font-bold text-sky-800 mb-6">Dashboard SIMANTRI</h1>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <div class="glass p-6 rounded-3xl"><div class="text-sky-500 text-sm">Total SDMK</div><div id="stat-sdmk" class="text-4xl font-bold text-sky-800">1.284</div></div>
-                    <div class="glass p-6 rounded-3xl"><div class="text-sky-500 text-sm">Izin Aktif</div><div class="text-4xl font-bold text-emerald-600">892</div></div>
-                    <div class="glass p-6 rounded-3xl"><div class="text-sky-500 text-sm">SIP Aktif</div><div class="text-4xl font-bold text-sky-700">1.105</div></div>
-                    <div class="glass p-6 rounded-3xl"><div class="text-sky-500 text-sm">STR Aktif</div><div class="text-4xl font-bold text-amber-600">967</div></div>
-                </div>
-                <div class="mt-8 glass p-6 rounded-3xl">
-                    <canvas id="chart" height="80"></canvas>
-                </div>
-            </div>
+<!-- TOAST CONTAINER -->
+<div id="toast-container" class="toast-container"></div>
 
-            <!-- Other sections (simplified for clarity - full version would have all CRUD) -->
-            <div id="section-pengumuman" class="section hidden">
-                <h2 class="text-2xl font-bold mb-4">Pengumuman</h2>
-                <div class="glass p-6 rounded-3xl">Fitur CRUD Pengumuman siap digunakan (lihat versi lengkap sebelumnya untuk detail).</div>
-            </div>
+<!-- MODAL CONTAINER -->
+<div id="modal-backdrop" class="modal-backdrop" onclick="if (event.target.id === 'modal-backdrop') closeModal()">
+  <div class="modal" onclick="event.stopImmediatePropagation()">
+    <div class="modal-header">
+      <div id="modal-title" style="font-weight:700;font-size:18px;"></div>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748B;">&times;</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+    <div id="modal-footer" class="modal-footer"></div>
+  </div>
+</div>
 
-            <!-- Add similar sections for verval, profil, cek-izin, admin-panel as needed -->
+<script>
+// ==================== CONFIG ====================
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyFQKDs8cz2yAHFutlQvtTxlJ2Ymx7DWSgtK5DtecpRj60gbsEcekN4y4nk4Z92WHc-/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
+const USE_GAS = GAS_WEB_APP_URL && GAS_WEB_APP_URL.length > 20;
 
-        </main>
+// ==================== GLOBAL STATE ====================
+let currentUser = null;
+let currentPage = 'dashboard';
+let charts = {};
+let dataStore = {
+  profil: [],
+  izin: [],
+  pengumuman: [],
+  users: [],
+  logs: []
+};
+
+// ==================== UTILITIES ====================
+function showLoading(show = true) {
+  const el = document.getElementById('loading-screen');
+  el.style.display = show ? 'flex' : 'none';
+}
+
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+  toast.innerHTML = `
+    <i class="fas ${icon} icon" style="color:${type==='success'?'#16A34A':type==='error'?'#DC2626':'#D97706'}"></i>
+    <div class="msg">${message}</div>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;font-size:18px;color:#94A3B8;cursor:pointer;">&times;</button>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 4800);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function generateId(prefix = 'ID') {
+  return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+// ==================== LOCALSTORAGE PERSISTENCE ====================
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem('simantri_data');
+    if (saved) {
+      dataStore = JSON.parse(saved);
+    } else {
+      // Seed demo data
+      seedDemoData();
+    }
+  } catch (e) {
+    seedDemoData();
+  }
+}
+
+function saveToStorage() {
+  try {
+    localStorage.setItem('simantri_data', JSON.stringify(dataStore));
+  } catch (e) {}
+}
+
+function seedDemoData() {
+  dataStore.profil = [
+    { no:1, kode_unit:'FK-001', nama_unit:'RSUD Dr. Soetomo', nik:'3275012345678901', nama_lengkap:'dr. Andi Wijaya, Sp.PD', jenis_kelamin:'Laki-laki', jenis_tenaga:'Dokter', status_pegawai:'PNS', nomor_str:'STR.12345.2023', status_str:'Aktif', nomor_sip:'SIP/2024/001234', tgl_terbit_sip:'2024-01-15', tgl_berakhir_sip:'2027-01-15', keterangan:'Spesialis Penyakit Dalam' },
+    { no:2, kode_unit:'FK-002', nama_unit:'Puskesmas Sukamaju', nik:'3275023456789012', nama_lengkap:'Ns. Siti Rahayu, S.Kep', jenis_kelamin:'Perempuan', jenis_tenaga:'Perawat', status_pegawai:'PPPK', nomor_str:'STR.23456.2022', status_str:'Aktif', nomor_sip:'SIP/2024/005678', tgl_terbit_sip:'2024-03-01', tgl_berakhir_sip:'2026-03-01', keterangan:'' },
+    { no:3, kode_unit:'FK-001', nama_unit:'RSUD Dr. Soetomo', nik:'3275034567890123', nama_lengkap:'drg. Budi Santoso', jenis_kelamin:'Laki-laki', jenis_tenaga:'Dokter Gigi', status_pegawai:'Kontrak', nomor_str:'STR.34567.2021', status_str:'Aktif', nomor_sip:'SIP/2023/009012', tgl_terbit_sip:'2023-06-20', tgl_berakhir_sip:'2025-06-20', keterangan:'Pelayanan Gigi & Mulut' },
+    { no:4, kode_unit:'FK-003', nama_unit:'Klinik Pratama Sehat', nik:'3275045678901234', nama_lengkap:'Bdn. Rina Marlina, S.Tr.Keb', jenis_kelamin:'Perempuan', jenis_tenaga:'Bidan', status_pegawai:'PNS', nomor_str:'STR.45678.2023', status_str:'Aktif', nomor_sip:'SIP/2024/012345', tgl_terbit_sip:'2024-02-10', tgl_berakhir_sip:'2027-02-10', keterangan:'' },
+    { no:5, kode_unit:'FK-002', nama_unit:'Puskesmas Sukamaju', nik:'3275056789012345', nama_lengkap:'Apt. Hendra Kusuma, S.Farm', jenis_kelamin:'Laki-laki', jenis_tenaga:'Apoteker', status_pegawai:'PPPK', nomor_str:'STR.56789.2020', status_str:'Aktif', nomor_sip:'SIP/2024/015678', tgl_terbit_sip:'2024-04-05', tgl_berakhir_sip:'2026-04-05', keterangan:'Kepala Instalasi Farmasi' }
+  ];
+  dataStore.izin = [
+    { id:'IZIN-abc123', tgl_usulan:'2025-01-10', bulan:'Januari', nik:'3275012345678901', nama_dan_gelar:'dr. Andi Wijaya, Sp.PD', jenis_kelamin:'Laki-laki', pendidikan:'S2', profesi:'Dokter Spesialis', jenis_izin:'SIP', kategori_usulan:'Perpanjangan', jenis_usulan:'Perpanjang', tempat_kerja:'RSUD Dr. Soetomo', rekomendasi:'Disetujui', tgl_proses_sdmk:'2025-01-12', tgl_selesai_proses:'2025-01-18', lama_hari_penyelesaian:6, nomor_telpon:'081234567890', nomor_sip:'SIP/2025/001234', link_foto:'', url:'https://simantri.id/verify/abc123', keterangan:'Perpanjangan rutin' },
+    { id:'IZIN-def456', tgl_usulan:'2025-02-03', bulan:'Februari', nik:'3275023456789012', nama_dan_gelar:'Ns. Siti Rahayu, S.Kep', jenis_kelamin:'Perempuan', pendidikan:'S1', profesi:'Perawat', jenis_izin:'SIP', kategori_usulan:'Baru', jenis_usulan:'Baru', tempat_kerja:'Puskesmas Sukamaju', rekomendasi:'Disetujui', tgl_proses_sdmk:'2025-02-04', tgl_selesai_proses:'2025-02-10', lama_hari_penyelesaian:6, nomor_telpon:'082345678901', nomor_sip:'SIP/2025/005678', link_foto:'', url:'https://simantri.id/verify/def456', keterangan:'' }
+  ];
+  dataStore.pengumuman = [
+    { id:'PENG-001', tanggal:'2025-05-01', judul:'Pembaruan Sistem SIMANTRI v1.2', isi:'Mulai 1 Juni 2025 seluruh pengajuan izin praktik wajib menggunakan formulir digital baru. Silakan update data profil SDMK Anda sebelum tanggal tersebut.', is_penting:1, created_by:'admin' },
+    { id:'PENG-002', tanggal:'2025-04-20', judul:'Jadwal Verval Triwulan II', isi:'Verval izin praktik periode April-Juni akan dilaksanakan secara bertahap. Mohon persiapkan dokumen pendukung.', is_penting:0, created_by:'admin' },
+    { id:'PENG-003', tanggal:'2025-05-15', judul:'Pengumuman Penting: Maintenance Server', isi:'Pada tanggal 25 Mei 2025 pukul 22.00-02.00 WIB akan dilakukan maintenance server. Sistem tidak dapat diakses sementara.', is_penting:1, created_by:'admin' }
+  ];
+  dataStore.users = [
+    { username:'admin', password:'admin123', role:'admin', full_name:'Administrator SIMANTRI' },
+    { username:'operator', password:'operator123', role:'operator', full_name:'Operator Verval' }
+  ];
+  dataStore.logs = [];
+  saveToStorage();
+}
+
+// ==================== API LAYER (GAS + LOCAL FALLBACK) ====================
+async function apiCall(action, payload = {}, method = 'POST') {
+  if (!USE_GAS) {
+    // LOCAL MOCK MODE - fully functional
+    return mockApi(action, payload);
+  }
+  // REAL GAS
+  try {
+    const url = `${GAS_WEB_APP_URL}?action=${encodeURIComponent(action)}`;
+    const options = {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: method === 'POST' ? JSON.stringify({ action, ...payload }) : undefined
+    };
+    const res = await fetchWithRetry(url, options, 2);
+    const json = await res.json();
+    return json;
+  } catch (err) {
+    console.error('API Error, fallback to local:', err);
+    showToast('Koneksi ke server gagal, menggunakan data lokal', 'warning');
+    return mockApi(action, payload);
+  }
+}
+
+async function fetchWithRetry(url, options, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res;
+    } catch (e) {
+      if (i === retries) throw e;
+      await new Promise(r => setTimeout(r, 800 * (i + 1)));
+    }
+  }
+}
+
+// Mock API that mirrors Code.gs logic
+function mockApi(action, payload) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      let result = { success: false, error: 'Unknown action' };
+      switch (action) {
+        case 'ping':
+          result = { success: true, message: 'Local Demo OK' };
+          break;
+        case 'getPengumuman':
+          result = { success: true, data: dataStore.pengumuman, count: dataStore.pengumuman.length };
+          break;
+        case 'addPengumuman':
+          const newP = { id: generateId('PENG'), tanggal: payload.tanggal || new Date().toISOString().split('T')[0], judul: payload.judul, isi: payload.isi, is_penting: payload.is_penting ? 1 : 0, created_by: currentUser?.username || 'demo' };
+          dataStore.pengumuman.unshift(newP);
+          saveToStorage();
+          result = { success: true, message: 'Pengumuman ditambahkan', id: newP.id };
+          break;
+        case 'deletePengumuman':
+          dataStore.pengumuman = dataStore.pengumuman.filter(p => p.id !== payload.id);
+          saveToStorage();
+          result = { success: true, message: 'Dihapus' };
+          break;
+        case 'getProfil':
+          result = { success: true, data: dataStore.profil, count: dataStore.profil.length };
+          break;
+        case 'addProfil':
+          const newProf = { ...payload, no: dataStore.profil.length + 1 };
+          dataStore.profil.push(newProf);
+          saveToStorage();
+          result = { success: true, message: 'Profil SDMK ditambahkan' };
+          break;
+        case 'updateProfil':
+          const idxP = dataStore.profil.findIndex(p => p.nik === payload.nik);
+          if (idxP > -1) { dataStore.profil[idxP] = { ...dataStore.profil[idxP], ...payload }; saveToStorage(); }
+          result = { success: true, message: 'Diupdate' };
+          break;
+        case 'deleteProfil':
+          dataStore.profil = dataStore.profil.filter(p => p.nik !== payload.nik);
+          saveToStorage();
+          result = { success: true };
+          break;
+        case 'getIzin':
+          result = { success: true, data: dataStore.izin, count: dataStore.izin.length };
+          break;
+        case 'addIzin':
+          const newIzin = { id: generateId('IZIN'), ...payload, tgl_usulan: payload.tgl_usulan || new Date().toISOString().split('T')[0] };
+          dataStore.izin.unshift(newIzin);
+          saveToStorage();
+          result = { success: true, message: 'Pengajuan berhasil disimpan', id: newIzin.id };
+          break;
+        case 'searchByNik':
+          const matches = dataStore.izin.filter(i => i.nik === payload.nik);
+          result = { success: true, data: matches, count: matches.length };
+          break;
+        case 'getUsers':
+          result = { success: true, data: dataStore.users };
+          break;
+        case 'login':
+          const userFound = dataStore.users.find(u => u.username === payload.username && u.password === payload.password);
+          if (userFound) {
+            result = { success: true, token: 'demo-' + Date.now(), user: { username: userFound.username, role: userFound.role, full_name: userFound.full_name } };
+          } else {
+            result = { success: false, error: 'Username atau password salah' };
+          }
+          break;
+        default:
+          result = { success: true, data: [], message: 'Action simulated in demo mode' };
+      }
+      resolve(result);
+    }, 120); // simulate network
+  });
+}
+
+// ==================== AUTH ====================
+function checkSession() {
+  const sess = localStorage.getItem('simantri_session');
+  if (sess) {
+    try {
+      const s = JSON.parse(sess);
+      if (new Date(s.expires) > new Date()) {
+        currentUser = s.user;
+        updateUserUI();
+        return true;
+      }
+    } catch (e) {}
+  }
+  return false;
+}
+
+function updateUserUI() {
+  if (!currentUser) return;
+  document.getElementById('user-name').textContent = currentUser.full_name || currentUser.username;
+  document.getElementById('user-role').textContent = currentUser.role === 'admin' ? 'Administrator' : 'Operator';
+  document.getElementById('user-avatar').textContent = (currentUser.full_name || currentUser.username).split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+}
+
+function login(username, password) {
+  return apiCall('login', { username, password }).then(res => {
+    if (res.success) {
+      currentUser = res.user;
+      const session = { user: currentUser, token: res.token, expires: res.expires || new Date(Date.now() + 8*3600*1000).toISOString() };
+      localStorage.setItem('simantri_session', JSON.stringify(session));
+      updateUserUI();
+      showToast(`Selamat datang, ${currentUser.full_name || currentUser.username}!`);
+      return true;
+    } else {
+      showToast(res.error || 'Login gagal', 'error');
+      return false;
+    }
+  });
+}
+
+function logout() {
+  localStorage.removeItem('simantri_session');
+  currentUser = null;
+  document.getElementById('user-name').textContent = 'Guest';
+  document.getElementById('user-role').textContent = 'Silakan login';
+  document.getElementById('user-avatar').textContent = 'GU';
+  navigateTo('dashboard');
+  showToast('Anda telah logout');
+}
+
+// ==================== NAVIGATION ====================
+function navigateTo(page) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (navEl) navEl.classList.add('active');
+  
+  currentPage = page;
+  document.getElementById('page-title').textContent = getPageTitle(page);
+  document.getElementById('page-subtitle').textContent = getPageSubtitle(page);
+  
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  
+  // Destroy old charts
+  Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
+  charts = {};
+  
+  switch(page) {
+    case 'dashboard': renderDashboard(content); break;
+    case 'pengumuman': renderPengumuman(content); break;
+    case 'verval': renderVerval(content); break;
+    case 'profil': renderProfil(content); break;
+    case 'cek': renderCekIzin(content); break;
+    case 'admin': renderAdmin(content); break;
+    default: renderDashboard(content);
+  }
+  
+  // Close mobile sidebar
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+function getPageTitle(page) {
+  const titles = { dashboard:'Dashboard', pengumuman:'Pengumuman', verval:'Verval Izin Praktik', profil:'Profil SDMK', cek:'Cek Izin Praktik', admin:'Panel Admin' };
+  return titles[page] || 'SIMANTRI';
+}
+function getPageSubtitle(page) {
+  const subs = { dashboard:'Ringkasan kinerja & statistik real-time', pengumuman:'Informasi resmi & pengumuman penting', verval:'Formulir pengajuan & perpanjangan izin praktik', profil:'Data lengkap Sumber Daya Manusia Kesehatan', cek:'Verifikasi status izin praktik berdasarkan NIK', admin:'Manajemen data & konfigurasi sistem' };
+  return subs[page] || '';
+}
+
+function toggleMobileSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ==================== DASHBOARD ====================
+function renderDashboard(container) {
+  const totalSDMK = dataStore.profil.length;
+  const totalSIPAktif = dataStore.profil.filter(p => p.status_str === 'Aktif' && new Date(p.tgl_berakhir_sip) > new Date()).length;
+  const totalSIPExpired = dataStore.profil.filter(p => new Date(p.tgl_berakhir_sip) <= new Date()).length;
+  const totalPengajuan = dataStore.izin.length;
+  const totalVerval = dataStore.izin.filter(i => i.rekomendasi === 'Disetujui').length;
+  
+  container.innerHTML = `
+    <div class="grid-stats">
+      <div class="card stat-card glow-blue">
+        <div class="icon" style="background:#DBEAFE;color:#0A66C2;"><i class="fas fa-users"></i></div>
+        <div class="value" id="stat-sdmk">0</div>
+        <div class="label">Total SDMK Terdaftar</div>
+      </div>
+      <div class="card stat-card glow-cyan">
+        <div class="icon" style="background:#CFFAFE;color:#00B4D8;"><i class="fas fa-id-card"></i></div>
+        <div class="value" id="stat-sip-aktif">0</div>
+        <div class="label">SIP Aktif</div>
+      </div>
+      <div class="card stat-card">
+        <div class="icon" style="background:#FEE2E2;color:#DC2626;"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="value" id="stat-sip-expired">0</div>
+        <div class="label">SIP Expired / Akan Berakhir</div>
+      </div>
+      <div class="card stat-card">
+        <div class="icon" style="background:#FEF3C7;color:#D97706;"><i class="fas fa-file-alt"></i></div>
+        <div class="value" id="stat-pengajuan">0</div>
+        <div class="label">Total Pengajuan Izin</div>
+      </div>
+      <div class="card stat-card">
+        <div class="icon" style="background:#DCFCE7;color:#16A34A;"><i class="fas fa-check-double"></i></div>
+        <div class="value" id="stat-verval">0</div>
+        <div class="label">Verval Selesai</div>
+      </div>
+      <div class="card stat-card">
+        <div class="icon" style="background:#E0E7FF;color:#6366F1;"><i class="fas fa-chart-line"></i></div>
+        <div class="value">${Math.round((totalSIPAktif / Math.max(totalSDMK,1)) * 100)}%</div>
+        <div class="label">Tingkat Kepatuhan SIP</div>
+      </div>
     </div>
 
-    <script>
-        // ==================== CONFIGURATION - CUSTOM DOMAIN ====================
-        // Untuk https://timkersdmk.mukminnasri.com/
-        const MANUAL_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx1PQ7Uk3KqU0n6fYnvAslF_iOMzJVJWqWvq7SlizM20cVWGioCU5AWHZx7UOhn_R6B/exec"; 
-        // Ganti dengan URL Web App kamu setelah deploy
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:22px;">
+      <div class="card" style="padding:22px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div style="font-weight:700;font-size:16px;">Statistik Jenis Tenaga Kesehatan</div>
+          <div class="pill">Live</div>
+        </div>
+        <canvas id="chart-jenis" height="110"></canvas>
+      </div>
+      <div class="card" style="padding:22px;">
+        <div style="font-weight:700;font-size:16px;margin-bottom:14px;">Status STR</div>
+        <canvas id="chart-str" height="110"></canvas>
+      </div>
+    </div>
 
-        let APP_CONFIG = { webAppUrl: MANUAL_WEB_APP_URL };
-        let CURRENT_SESSION = null;
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:22px;">
+      <div class="card" style="padding:22px;">
+        <div style="font-weight:700;font-size:16px;margin-bottom:14px;">SIP Aktif vs Expired</div>
+        <canvas id="chart-sip" height="100"></canvas>
+      </div>
+      <div class="card" style="padding:22px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-weight:700;font-size:16px;">Aktivitas Terkini</div>
+          <button onclick="navigateTo('admin')" class="btn btn-sm btn-outline">Lihat Log</button>
+        </div>
+        <div id="recent-activity" style="max-height:210px;overflow:auto;font-size:13px;"></div>
+      </div>
+    </div>
 
-        async function callAPI(action, payload = {}) {
-            if (!APP_CONFIG.webAppUrl || APP_CONFIG.webAppUrl.includes("YOUR_DEPLOYED_ID_HERE")) {
-                Swal.fire('Error', 'Web App URL belum diatur. Silakan deploy dan isi MANUAL_WEB_APP_URL di atas.', 'error');
-                return;
-            }
+    <div style="margin-top:26px;">
+      <div style="font-weight:700;font-size:16px;margin-bottom:12px;">Quick Access</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="navigateTo('verval')" class="btn btn-primary btn-glow"><i class="fas fa-plus"></i> Ajukan Verval Baru</button>
+        <button onclick="navigateTo('profil')" class="btn btn-cyan"><i class="fas fa-search"></i> Cari Profil SDMK</button>
+        <button onclick="navigateTo('cek')" class="btn btn-outline"><i class="fas fa-qrcode"></i> Verifikasi Izin</button>
+        <button onclick="navigateTo('pengumuman')" class="btn btn-outline"><i class="fas fa-bullhorn"></i> Lihat Pengumuman</button>
+      </div>
+    </div>
+  `;
 
-            const body = { action, ...payload, sessionToken: CURRENT_SESSION ? CURRENT_SESSION.token : '' };
+  // Animate counters
+  animateCounter('stat-sdmk', totalSDMK);
+  animateCounter('stat-sip-aktif', totalSIPAktif);
+  animateCounter('stat-sip-expired', totalSIPExpired);
+  animateCounter('stat-pengajuan', totalPengajuan);
+  animateCounter('stat-verval', totalVerval);
 
-            const res = await fetch(APP_CONFIG.webAppUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
+  // Charts
+  setTimeout(() => initDashboardCharts(), 80);
+  
+  // Recent activity
+  renderRecentActivity();
+}
 
-            const json = await res.json();
-            if (!json.success) throw new Error(json.error || 'Terjadi kesalahan');
-            return json.data;
-        }
+function animateCounter(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let current = 0;
+  const step = Math.max(1, Math.floor(target / 28));
+  const timer = setInterval(() => {
+    current += step;
+    if (current >= target) { el.textContent = target; clearInterval(timer); }
+    else el.textContent = current;
+  }, 45);
+}
 
-        function navigateTo(section) {
-            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
-            const target = document.getElementById('section-' + section);
-            if (target) target.classList.remove('hidden');
-        }
+function initDashboardCharts() {
+  // Jenis Tenaga
+  const jenisCount = {};
+  dataStore.profil.forEach(p => { jenisCount[p.jenis_tenaga] = (jenisCount[p.jenis_tenaga] || 0) + 1; });
+  const ctx1 = document.getElementById('chart-jenis');
+  if (ctx1) {
+    charts.jenis = new Chart(ctx1, {
+      type: 'bar',
+      data: { labels: Object.keys(jenisCount), datasets: [{ label: 'Jumlah', data: Object.values(jenisCount), backgroundColor: ['#0A66C2','#00B4D8','#6366F1','#16A34A','#D97706'] }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+    });
+  }
+  
+  // STR Status
+  const strCount = { Aktif:0, Expired:0 };
+  dataStore.profil.forEach(p => {
+    const isActive = p.status_str === 'Aktif' && new Date(p.tgl_berakhir_sip) > new Date();
+    strCount[isActive ? 'Aktif' : 'Expired']++;
+  });
+  const ctx2 = document.getElementById('chart-str');
+  if (ctx2) {
+    charts.str = new Chart(ctx2, {
+      type: 'doughnut',
+      data: { labels:['Aktif','Expired'], datasets:[{ data:[strCount.Aktif,strCount.Expired], backgroundColor:['#16A34A','#DC2626'] }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}} }
+    });
+  }
+  
+  // SIP Aktif/Expired
+  const ctx3 = document.getElementById('chart-sip');
+  const sipAktif = dataStore.profil.filter(p => p.status_str === 'Aktif' && new Date(p.tgl_berakhir_sip) > new Date()).length;
+  const sipExp = dataStore.profil.filter(p => new Date(p.tgl_berakhir_sip) <= new Date()).length;
+  if (ctx3) {
+    charts.sip = new Chart(ctx3, {
+      type: 'pie',
+      data: { labels:['SIP Aktif','SIP Expired'], datasets:[{ data:[sipAktif, sipExp], backgroundColor:['#0A66C2','#F87171'] }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}} }
+    });
+  }
+}
 
-        async function logout() {
-            CURRENT_SESSION = null;
-            localStorage.removeItem('simantri_session');
-            location.reload();
-        }
+function renderRecentActivity() {
+  const container = document.getElementById('recent-activity');
+  if (!container) return;
+  const activities = [
+    'dr. Andi Wijaya mengajukan perpanjangan SIP',
+    'Operator menyetujui 3 pengajuan baru',
+    'Pengumuman "Maintenance Server" dipublikasikan',
+    'Profil 2 SDMK baru diverifikasi',
+    'Sistem melakukan sinkronisasi data harian'
+  ];
+  container.innerHTML = activities.map((a, i) => `
+    <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #F1F5F9;">
+      <i class="fas fa-history" style="margin-top:3px;color:#64748B;"></i>
+      <div style="font-size:12.5px;line-height:1.4;">${a} <span style="color:#94A3B8;font-size:11px;">• ${i+1}j lalu</span></div>
+    </div>
+  `).join('');
+}
 
-        window.onload = function() {
-            // Auto load dashboard
-            document.getElementById('section-dashboard').classList.remove('hidden');
+// ==================== PENGUMUMAN ====================
+function renderPengumuman(container) {
+  container.innerHTML = `
+    <div class="flex" style="margin-bottom:18px;gap:12px;flex-wrap:wrap;">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input id="search-pengumuman" type="text" placeholder="Cari pengumuman..." onkeyup="filterPengumuman()">
+      </div>
+      <button onclick="showAddPengumumanModal()" class="btn btn-primary btn-glow"><i class="fas fa-plus"></i> Tambah Pengumuman</button>
+    </div>
+    <div id="pengumuman-list"></div>
+  `;
+  loadPengumumanList();
+}
+
+function loadPengumumanList(filtered = null) {
+  const listEl = document.getElementById('pengumuman-list');
+  if (!listEl) return;
+  const items = filtered || dataStore.pengumuman;
+  
+  if (items.length === 0) {
+    listEl.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#64748B;">Belum ada pengumuman.</div>';
+    return;
+  }
+  
+  listEl.innerHTML = items.map(p => `
+    <div class="card" style="margin-bottom:14px;padding:20px;">
+      <div style="display:flex;gap:14px;align-items:flex-start;">
+        <div style="flex-shrink:0;width:52px;height:52px;border-radius:12px;background:${p.is_penting?'#FEE2E2':'#DBEAFE'};display:flex;align-items:center;justify-content:center;">
+          <i class="fas ${p.is_penting?'fa-exclamation-triangle':'fa-bullhorn'}" style="font-size:24px;color:${p.is_penting?'#DC2626':'#0A66C2'}"></i>
+        </div>
+        <div style="flex:1;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div style="font-weight:700;font-size:16px;">${escapeHtml(p.judul)}</div>
+            ${p.is_penting ? '<span class="badge badge-danger">PENTING</span>' : ''}
+          </div>
+          <div style="color:#64748B;font-size:12px;margin:4px 0 10px;">${formatDate(p.tanggal)} • Oleh ${p.created_by}</div>
+          <div style="line-height:1.55;color:#334155;">${escapeHtml(p.isi)}</div>
+          <div style="margin-top:14px;display:flex;gap:8px;">
+            <button onclick="editPengumuman('${p.id}')" class="btn btn-sm btn-outline"><i class="fas fa-edit"></i> Edit</button>
+            <button onclick="deletePengumuman('${p.id}')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i> Hapus</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterPengumuman() {
+  const q = document.getElementById('search-pengumuman').value.toLowerCase();
+  const filtered = dataStore.pengumuman.filter(p => p.judul.toLowerCase().includes(q) || p.isi.toLowerCase().includes(q));
+  loadPengumumanList(filtered);
+}
+
+function showAddPengumumanModal(editItem = null) {
+  const isEdit = !!editItem;
+  const modalBody = `
+    <div class="form-group">
+      <label>Judul Pengumuman</label>
+      <input id="p-judul" value="${isEdit ? escapeHtml(editItem.judul) : ''}" placeholder="Judul singkat">
+    </div>
+    <div class="form-group">
+      <label>Isi Pengumuman</label>
+      <textarea id="p-isi" rows="5" placeholder="Tulis isi lengkap...">${isEdit ? escapeHtml(editItem.isi) : ''}</textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Tanggal</label>
+        <input id="p-tanggal" type="date" value="${isEdit ? editItem.tanggal : new Date().toISOString().split('T')[0]}">
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input id="p-penting" type="checkbox" ${isEdit && editItem.is_penting ? 'checked' : ''} style="width:18px;height:18px;"> 
+          <span style="font-weight:600;">Tandai sebagai PENTING</span>
+        </label>
+      </div>
+    </div>
+  `;
+  const footer = `
+    <button onclick="closeModal()" class="btn btn-outline">Batal</button>
+    <button onclick="savePengumuman(${isEdit ? `'${editItem.id}'` : 'null'})" class="btn btn-primary">${isEdit ? 'Simpan Perubahan' : 'Publikasikan'}</button>
+  `;
+  showModal(isEdit ? 'Edit Pengumuman' : 'Tambah Pengumuman Baru', modalBody, null, footer);
+}
+
+function savePengumuman(editId = null) {
+  const judul = document.getElementById('p-judul').value.trim();
+  const isi = document.getElementById('p-isi').value.trim();
+  const tanggal = document.getElementById('p-tanggal').value;
+  const isPenting = document.getElementById('p-penting').checked;
+  
+  if (!judul || !isi) { showToast('Judul dan isi wajib diisi', 'error'); return; }
+  
+  if (editId) {
+    const idx = dataStore.pengumuman.findIndex(p => p.id === editId);
+    if (idx > -1) {
+      dataStore.pengumuman[idx].judul = judul;
+      dataStore.pengumuman[idx].isi = isi;
+      dataStore.pengumuman[idx].tanggal = tanggal;
+      dataStore.pengumuman[idx].is_penting = isPenting ? 1 : 0;
+    }
+  } else {
+    dataStore.pengumuman.unshift({
+      id: generateId('PENG'), tanggal, judul, isi, is_penting: isPenting ? 1 : 0, created_by: currentUser?.username || 'demo'
+    });
+  }
+  saveToStorage();
+  closeModal();
+  loadPengumumanList();
+  showToast(editId ? 'Pengumuman diperbarui' : 'Pengumuman berhasil dipublikasikan');
+}
+
+function editPengumuman(id) {
+  const item = dataStore.pengumuman.find(p => p.id === id);
+  if (item) showAddPengumumanModal(item);
+}
+
+function deletePengumuman(id) {
+  if (!confirm('Hapus pengumuman ini?')) return;
+  dataStore.pengumuman = dataStore.pengumuman.filter(p => p.id !== id);
+  saveToStorage();
+  loadPengumumanList();
+  showToast('Pengumuman dihapus');
+}
+
+// ==================== VERVAL IZIN PRAKTIK ====================
+function renderVerval(container) {
+  container.innerHTML = `
+    <div class="card" style="padding:26px;max-width:860px;margin:0 auto;">
+      <div style="margin-bottom:18px;">
+        <div style="font-size:18px;font-weight:700;">Formulir Verval Izin Praktik</div>
+        <div style="color:#64748B;font-size:13px;">Isi data dengan lengkap dan benar. Data akan diverifikasi oleh tim SDMK.</div>
+      </div>
+      
+      <form id="verval-form" onsubmit="submitVerval(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Tanggal Pengajuan</label>
+            <input type="date" id="v-tgl" value="${new Date().toISOString().split('T')[0]}" required>
+          </div>
+          <div class="form-group">
+            <label>Nama Lengkap + Gelar</label>
+            <input type="text" id="v-nama" placeholder="dr. Nama Lengkap, Sp.XX" required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>NIK (16 digit)</label>
+            <input type="text" id="v-nik" maxlength="16" pattern="[0-9]{16}" placeholder="3275xxxxxxxxxxxx" required oninput="validateNIK(this)">
+          </div>
+          <div class="form-group">
+            <label>Jenis Kelamin</label>
+            <select id="v-jk" required>
+              <option value="">-- Pilih --</option>
+              <option>Laki-laki</option>
+              <option>Perempuan</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Pendidikan Terakhir</label>
+            <select id="v-pendidikan" required>
+              <option value="">-- Pilih --</option>
+              <option>S1</option><option>S2</option><option>S3</option>
+              <option>D3</option><option>D4</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Profesi / Jabatan</label>
+            <select id="v-profesi" required>
+              <option value="">-- Pilih --</option>
+              <option>Dokter</option><option>Dokter Gigi</option><option>Dokter Spesialis</option>
+              <option>Perawat</option><option>Bidan</option><option>Apoteker</option>
+              <option>Tenaga Kesehatan Lainnya</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Jenis Izin</label>
+            <select id="v-jenis-izin" required>
+              <option>SIP</option><option>SIK</option><option>SIPB</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Jenis Usulan</label>
+            <select id="v-jenis-usulan" required>
+              <option>Baru</option><option>Perpanjang</option><option>Mutasi</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Tempat Kerja / Fasyankes</label>
+          <input type="text" id="v-tempat" placeholder="Nama RS / Puskesmas / Klinik" required>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nomor Telepon / WA</label>
+            <input type="tel" id="v-telp" placeholder="0812xxxxxxx" required oninput="validateTelp(this)">
+          </div>
+          <div class="form-group">
+            <label>Upload Foto (opsional)</label>
+            <input type="file" id="v-foto" accept="image/*" onchange="previewFoto(this)">
+            <div id="foto-preview" style="margin-top:8px;"></div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Keterangan Tambahan</label>
+          <textarea id="v-ket" rows="3" placeholder="Keterangan atau catatan khusus..."></textarea>
+        </div>
+        
+        <div style="margin-top:22px;display:flex;gap:12px;">
+          <button type="submit" class="btn btn-primary btn-glow" style="flex:1;">
+            <i class="fas fa-paper-plane"></i> Kirim Pengajuan
+          </button>
+          <button type="button" onclick="resetVervalForm()" class="btn btn-outline">Reset</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function validateNIK(input) {
+  input.value = input.value.replace(/[^0-9]/g, '');
+  if (input.value.length === 16) input.style.borderColor = '#16A34A';
+  else input.style.borderColor = '';
+}
+
+function validateTelp(input) {
+  if (!input.value.startsWith('08') && !input.value.startsWith('+62')) {
+    input.style.borderColor = '#DC2626';
+  } else {
+    input.style.borderColor = '#16A34A';
+  }
+}
+
+let currentFotoBase64 = '';
+
+function previewFoto(input) {
+  const preview = document.getElementById('foto-preview');
+  preview.innerHTML = '';
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      currentFotoBase64 = e.target.result;
+      preview.innerHTML = `<img src="${currentFotoBase64}" style="max-width:110px;max-height:110px;border-radius:10px;border:2px solid #E2E8F0;">`;
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function resetVervalForm() {
+  document.getElementById('verval-form').reset();
+  document.getElementById('foto-preview').innerHTML = '';
+  currentFotoBase64 = '';
+}
+
+async function submitVerval(e) {
+  e.preventDefault();
+  const btns = e.target.querySelectorAll('button');
+  btns.forEach(b => b.disabled = true);
+  
+  const payload = {
+    tgl_usulan: document.getElementById('v-tgl').value,
+    nik: document.getElementById('v-nik').value,
+    nama_dan_gelar: document.getElementById('v-nama').value,
+    jenis_kelamin: document.getElementById('v-jk').value,
+    pendidikan: document.getElementById('v-pendidikan').value,
+    profesi: document.getElementById('v-profesi').value,
+    jenis_izin: document.getElementById('v-jenis-izin').value,
+    kategori_usulan: 'Baru/Perpanjang',
+    jenis_usulan: document.getElementById('v-jenis-usulan').value,
+    tempat_kerja: document.getElementById('v-tempat').value,
+    nomor_telpon: document.getElementById('v-telp').value,
+    link_foto: currentFotoBase64 || '',
+    keterangan: document.getElementById('v-ket').value
+  };
+  
+  // Basic validation
+  if (payload.nik.length !== 16) {
+    showToast('NIK harus 16 digit', 'error');
+    btns.forEach(b => b.disabled = false);
+    return;
+  }
+  
+  const res = await apiCall('addIzin', payload);
+  
+  btns.forEach(b => b.disabled = false);
+  
+  if (res.success) {
+    showToast('Pengajuan berhasil dikirim! Nomor tiket: ' + (res.id || ''), 'success');
+    resetVervalForm();
+    // Auto refresh izin data
+    navigateTo('cek');
+  } else {
+    showToast(res.error || 'Gagal mengirim', 'error');
+  }
+}
+
+// ==================== PROFIL SDMK ====================
+function renderProfil(container) {
+  container.innerHTML = `
+    <div class="flex" style="margin-bottom:16px;gap:10px;flex-wrap:wrap;">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input id="search-profil" placeholder="Cari nama, NIK, unit..." onkeyup="filterProfilTable()">
+      </div>
+      <select id="filter-unit" onchange="filterProfilTable()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
+        <option value="">Semua Unit</option>
+      </select>
+      <select id="filter-jenis" onchange="filterProfilTable()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
+        <option value="">Semua Jenis Tenaga</option>
+      </select>
+      <select id="filter-str" onchange="filterProfilTable()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
+        <option value="">Semua Status STR</option>
+        <option>Aktif</option><option>Expired</option>
+      </select>
+      <button onclick="exportProfilCSV()" class="btn btn-sm btn-outline"><i class="fas fa-file-csv"></i> Export CSV</button>
+      <button onclick="exportProfilPDF()" class="btn btn-sm btn-outline"><i class="fas fa-file-pdf"></i> Export PDF</button>
+      <button onclick="showAddProfilModal()" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Tambah</button>
+    </div>
+    <div class="table-wrapper">
+      <table id="profil-table">
+        <thead>
+          <tr>
+            <th onclick="sortTable(this, 'profil-table', 0)">No</th>
+            <th onclick="sortTable(this, 'profil-table', 1)">Kode Unit</th>
+            <th onclick="sortTable(this, 'profil-table', 2)">Nama Unit</th>
+            <th onclick="sortTable(this, 'profil-table', 3)">NIK</th>
+            <th onclick="sortTable(this, 'profil-table', 4)">Nama Lengkap</th>
+            <th onclick="sortTable(this, 'profil-table', 5)">JK</th>
+            <th onclick="sortTable(this, 'profil-table', 6)">Jenis Tenaga</th>
+            <th onclick="sortTable(this, 'profil-table', 7)">Status Pegawai</th>
+            <th onclick="sortTable(this, 'profil-table', 8)">No. STR</th>
+            <th onclick="sortTable(this, 'profil-table', 9)">Status STR</th>
+            <th onclick="sortTable(this, 'profil-table', 10)">No. SIP</th>
+            <th onclick="sortTable(this, 'profil-table', 11)">Tgl Terbit</th>
+            <th onclick="sortTable(this, 'profil-table', 12)">Tgl Berakhir</th>
+            <th>Keterangan</th>
+            <th style="width:90px;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;font-size:12px;color:#64748B;display:flex;justify-content:space-between;align-items:center;">
+      <div id="profil-count"></div>
+      <div id="profil-pagination"></div>
+    </div>
+  `;
+  
+  populateProfilFilters();
+  renderProfilTable();
+}
+
+let profilSortCol = 0;
+let profilSortDir = 1;
+let profilPage = 1;
+const PROFIL_PER_PAGE = 8;
+
+function populateProfilFilters() {
+  const units = [...new Set(dataStore.profil.map(p => p.nama_unit))];
+  const jenis = [...new Set(dataStore.profil.map(p => p.jenis_tenaga))];
+  
+  const unitSel = document.getElementById('filter-unit');
+  unitSel.innerHTML = '<option value="">Semua Unit</option>' + units.map(u => `<option>${u}</option>`).join('');
+  
+  const jenisSel = document.getElementById('filter-jenis');
+  jenisSel.innerHTML = '<option value="">Semua Jenis Tenaga</option>' + jenis.map(j => `<option>${j}</option>`).join('');
+}
+
+function renderProfilTable(filteredData = null) {
+  const tbody = document.querySelector('#profil-table tbody');
+  const countEl = document.getElementById('profil-count');
+  if (!tbody) return;
+  
+  let data = filteredData || dataStore.profil;
+  
+  // Apply filters
+  const unitF = document.getElementById('filter-unit')?.value || '';
+  const jenisF = document.getElementById('filter-jenis')?.value || '';
+  const strF = document.getElementById('filter-str')?.value || '';
+  
+  if (unitF) data = data.filter(d => d.nama_unit === unitF);
+  if (jenisF) data = data.filter(d => d.jenis_tenaga === jenisF);
+  if (strF) {
+    data = data.filter(d => {
+      const active = d.status_str === 'Aktif' && new Date(d.tgl_berakhir_sip) > new Date();
+      return strF === 'Aktif' ? active : !active;
+    });
+  }
+  
+  // Sort
+  data.sort((a, b) => {
+    const keys = ['no','kode_unit','nama_unit','nik','nama_lengkap','jenis_kelamin','jenis_tenaga','status_pegawai','nomor_str','status_str','nomor_sip','tgl_terbit_sip','tgl_berakhir_sip','keterangan'];
+    let va = a[keys[profilSortCol]] || '';
+    let vb = b[keys[profilSortCol]] || '';
+    return (va > vb ? 1 : -1) * profilSortDir;
+  });
+  
+  // Pagination
+  const totalPages = Math.ceil(data.length / PROFIL_PER_PAGE) || 1;
+  if (profilPage > totalPages) profilPage = totalPages;
+  const start = (profilPage - 1) * PROFIL_PER_PAGE;
+  const pageData = data.slice(start, start + PROFIL_PER_PAGE);
+  
+  tbody.innerHTML = pageData.map((row, idx) => {
+    const isExpired = new Date(row.tgl_berakhir_sip) <= new Date();
+    return `
+      <tr>
+        <td>${row.no}</td>
+        <td><span class="pill">${row.kode_unit}</span></td>
+        <td>${escapeHtml(row.nama_unit)}</td>
+        <td><strong>${row.nik}</strong></td>
+        <td><strong>${escapeHtml(row.nama_lengkap)}</strong></td>
+        <td>${row.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</td>
+        <td>${escapeHtml(row.jenis_tenaga)}</td>
+        <td>${escapeHtml(row.status_pegawai)}</td>
+        <td style="font-family:monospace;font-size:12px;">${row.nomor_str}</td>
+        <td><span class="badge ${isExpired ? 'badge-danger' : 'badge-success'}">${isExpired ? 'Expired' : 'Aktif'}</span></td>
+        <td style="font-family:monospace;font-size:12px;">${row.nomor_sip}</td>
+        <td>${formatDate(row.tgl_terbit_sip)}</td>
+        <td>${formatDate(row.tgl_berakhir_sip)}</td>
+        <td style="max-width:160px;font-size:12px;">${escapeHtml(row.keterangan)}</td>
+        <td>
+          <button onclick="editProfilRow('${row.nik}')" class="btn btn-sm btn-outline" style="padding:4px 8px;margin-right:4px;"><i class="fas fa-edit"></i></button>
+          <button onclick="deleteProfilRow('${row.nik}')" class="btn btn-sm btn-danger" style="padding:4px 8px;"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+  
+  countEl.textContent = `Menampilkan ${pageData.length} dari ${data.length} data`;
+  
+  // Pagination controls
+  const pagEl = document.getElementById('profil-pagination');
+  pagEl.innerHTML = `
+    <button onclick="changeProfilPage(-1)" class="btn btn-sm btn-outline" ${profilPage===1?'disabled':''}>‹</button>
+    <span style="margin:0 10px;">Hal ${profilPage} / ${totalPages}</span>
+    <button onclick="changeProfilPage(1)" class="btn btn-sm btn-outline" ${profilPage===totalPages?'disabled':''}>›</button>
+  `;
+}
+
+function changeProfilPage(delta) {
+  profilPage += delta;
+  renderProfilTable();
+}
+
+function filterProfilTable() {
+  profilPage = 1;
+  renderProfilTable();
+}
+
+function sortTable(th, tableId, col) {
+  if (profilSortCol === col) profilSortDir = -profilSortDir;
+  else { profilSortCol = col; profilSortDir = 1; }
+  renderProfilTable();
+}
+
+function showAddProfilModal(editData = null) {
+  const isEdit = !!editData;
+  const body = `
+    <div class="form-row">
+      <div class="form-group"><label>Kode Unit</label><input id="pr-kode" value="${isEdit?editData.kode_unit:''}"></div>
+      <div class="form-group"><label>Nama Unit</label><input id="pr-unit" value="${isEdit?editData.nama_unit:''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>NIK</label><input id="pr-nik" value="${isEdit?editData.nik:''}" ${isEdit?'readonly':''}></div>
+      <div class="form-group"><label>Nama Lengkap</label><input id="pr-nama" value="${isEdit?editData.nama_lengkap:''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Jenis Kelamin</label><select id="pr-jk"><option>Laki-laki</option><option>Perempuan</option></select></div>
+      <div class="form-group"><label>Jenis Tenaga</label><input id="pr-jenis" value="${isEdit?editData.jenis_tenaga:''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Status Pegawai</label><input id="pr-status" value="${isEdit?editData.status_pegawai:''}"></div>
+      <div class="form-group"><label>No STR</label><input id="pr-str" value="${isEdit?editData.nomor_str:''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Status STR</label><select id="pr-status-str"><option>Aktif</option><option>Expired</option></select></div>
+      <div class="form-group"><label>No SIP</label><input id="pr-sip" value="${isEdit?editData.nomor_sip:''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Tgl Terbit SIP</label><input type="date" id="pr-terbit" value="${isEdit?editData.tgl_terbit_sip:''}"></div>
+      <div class="form-group"><label>Tgl Berakhir SIP</label><input type="date" id="pr-berakhir" value="${isEdit?editData.tgl_berakhir_sip:''}"></div>
+    </div>
+    <div class="form-group"><label>Keterangan</label><textarea id="pr-ket" rows="2">${isEdit?editData.keterangan:''}</textarea></div>
+  `;
+  const footer = `<button onclick="closeModal()" class="btn btn-outline">Batal</button>
+                  <button onclick="saveProfil(${isEdit ? `'${editData.nik}'` : 'null'})" class="btn btn-primary">${isEdit?'Simpan':'Tambah SDMK'}</button>`;
+  showModal(isEdit ? 'Edit Profil SDMK' : 'Tambah Profil SDMK Baru', body, null, footer);
+  
+  if (isEdit) {
+    setTimeout(() => {
+      document.getElementById('pr-jk').value = editData.jenis_kelamin;
+      document.getElementById('pr-status-str').value = editData.status_str;
+    }, 50);
+  }
+}
+
+async function saveProfil(editNik) {
+  const payload = {
+    kode_unit: document.getElementById('pr-kode').value,
+    nama_unit: document.getElementById('pr-unit').value,
+    nik: document.getElementById('pr-nik').value,
+    nama_lengkap: document.getElementById('pr-nama').value,
+    jenis_kelamin: document.getElementById('pr-jk').value,
+    jenis_tenaga: document.getElementById('pr-jenis').value,
+    status_pegawai: document.getElementById('pr-status').value,
+    nomor_str: document.getElementById('pr-str').value,
+    status_str: document.getElementById('pr-status-str').value,
+    nomor_sip: document.getElementById('pr-sip').value,
+    tgl_terbit_sip: document.getElementById('pr-terbit').value,
+    tgl_berakhir_sip: document.getElementById('pr-berakhir').value,
+    keterangan: document.getElementById('pr-ket').value
+  };
+  
+  if (!payload.nik || payload.nik.length !== 16) { showToast('NIK 16 digit wajib', 'error'); return; }
+  
+  let res;
+  if (editNik) {
+    res = await apiCall('updateProfil', { ...payload, nik: editNik });
+  } else {
+    res = await apiCall('addProfil', payload);
+  }
+  
+  closeModal();
+  if (res.success) {
+    showToast('Data berhasil disimpan');
+    // Refresh table
+    renderProfil(document.getElementById('content'));
+  }
+}
+
+function editProfilRow(nik) {
+  const row = dataStore.profil.find(p => p.nik === nik);
+  if (row) showAddProfilModal(row);
+}
+
+function deleteProfilRow(nik) {
+  if (!confirm('Hapus data SDMK ini?')) return;
+  dataStore.profil = dataStore.profil.filter(p => p.nik !== nik);
+  saveToStorage();
+  renderProfil(document.getElementById('content'));
+}
+
+function exportProfilCSV() {
+  let csv = 'No,Kode Unit,Nama Unit,NIK,Nama Lengkap,Jenis Kelamin,Jenis Tenaga,Status Pegawai,No STR,Status STR,No SIP,Tgl Terbit,Tgl Berakhir,Keterangan\n';
+  dataStore.profil.forEach(r => {
+    csv += `${r.no},${r.kode_unit},"${r.nama_unit}",${r.nik},"${r.nama_lengkap}",${r.jenis_kelamin},${r.jenis_tenaga},${r.status_pegawai},${r.nomor_str},${r.status_str},${r.nomor_sip},${r.tgl_terbit_sip},${r.tgl_berakhir_sip},"${r.keterangan}"\n`;
+  });
+  downloadFile(csv, 'profil_sdmk.csv', 'text/csv');
+  showToast('Export CSV berhasil');
+}
+
+function exportProfilPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text('SIMANTRI - Data Profil SDMK', 14, 18);
+  doc.setFontSize(10);
+  doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')}`, 14, 25);
+  
+  let y = 35;
+  dataStore.profil.forEach((r, i) => {
+    if (y > 270) { doc.addPage(); y = 20; }
+    doc.text(`${i+1}. ${r.nama_lengkap} | ${r.nik} | ${r.nomor_sip} | ${r.tgl_berakhir_sip}`, 14, y);
+    y += 8;
+  });
+  doc.save('profil_sdmk.pdf');
+  showToast('PDF berhasil dibuat');
+}
+
+// ==================== CEK IZIN PRAKTIK ====================
+function renderCekIzin(container) {
+  container.innerHTML = `
+    <div class="card" style="max-width:780px;margin:0 auto;padding:26px;">
+      <div style="margin-bottom:16px;">
+        <div style="font-size:17px;font-weight:700;">Cek Status Izin Praktik</div>
+        <div style="color:#64748B;font-size:13px;">Masukkan NIK untuk melihat riwayat dan status izin</div>
+      </div>
+      
+      <div style="display:flex;gap:10px;">
+        <div class="search-box" style="flex:1;max-width:none;">
+          <i class="fas fa-id-card"></i>
+          <input id="cek-nik" type="text" maxlength="16" placeholder="Masukkan NIK 16 digit..." style="padding-left:48px;">
+        </div>
+        <button onclick="performCekIzin()" class="btn btn-primary btn-glow"><i class="fas fa-search"></i> Cek Sekarang</button>
+      </div>
+      
+      <div id="cek-result" style="margin-top:24px;"></div>
+    </div>
+  `;
+  
+  // Allow enter key
+  setTimeout(() => {
+    const input = document.getElementById('cek-nik');
+    if (input) input.addEventListener('keyup', e => { if (e.key === 'Enter') performCekIzin(); });
+  }, 100);
+}
+
+async function performCekIzin() {
+  const nik = document.getElementById('cek-nik').value.trim();
+  const resultDiv = document.getElementById('cek-result');
+  if (!nik || nik.length !== 16) {
+    resultDiv.innerHTML = `<div class="card" style="padding:18px;color:#DC2626;">NIK harus 16 digit angka.</div>`;
+    return;
+  }
+  
+  resultDiv.innerHTML = `<div class="skeleton" style="height:180px;border-radius:14px;"></div>`;
+  
+  const res = await apiCall('searchByNik', { nik });
+  
+  if (!res.success || !res.data || res.data.length === 0) {
+    resultDiv.innerHTML = `
+      <div class="card" style="padding:22px;text-align:center;">
+        <i class="fas fa-search" style="font-size:42px;color:#CBD5E1;margin-bottom:12px;"></i>
+        <div style="font-weight:600;">Data tidak ditemukan</div>
+        <div style="color:#64748B;font-size:13px;margin-top:6px;">NIK ${nik} belum memiliki riwayat pengajuan izin praktik.</div>
+      </div>`;
+    return;
+  }
+  
+  let html = `<div style="margin-bottom:10px;font-weight:600;">Ditemukan ${res.count} riwayat untuk NIK ${nik}</div>`;
+  
+  res.data.forEach(item => {
+    const isActive = item.nomor_sip && new Date(item.tgl_selesai_proses || '2099-01-01') > new Date();
+    html += `
+      <div class="card" style="margin-bottom:14px;padding:18px;">
+        <div style="display:flex;gap:16px;align-items:center;">
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:700;">${escapeHtml(item.nama_dan_gelar)}</div>
+            <div style="font-size:12px;color:#64748B;">${item.profesi} • ${item.tempat_kerja}</div>
             
-            // Demo chart
-            new Chart(document.getElementById('chart'), {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
-                    datasets: [{ label: 'Pengajuan', data: [45, 62, 58, 81, 73], borderColor: '#06b6d4', tension: 0.4 }]
-                }
-            });
+            <div style="margin:10px 0;">
+              <span class="badge ${isActive ? 'badge-success' : 'badge-danger'}">${isActive ? 'AKTIF' : 'EXPIRED / SELESAI'}</span>
+              <span class="badge badge-cyan" style="margin-left:6px;">${item.jenis_izin}</span>
+            </div>
             
-            // Show admin link if logged in (demo)
-            console.log('%c[SIMANTRI] Platform siap untuk domain https://timkersdmk.mukminnasri.com/', 'color:#06b6d4');
-        };
-    </script>
+            <div style="font-size:12.5px;line-height:1.5;">
+              No. SIP: <strong>${item.nomor_sip || '-'}</strong><br>
+              Tanggal Selesai: ${formatDate(item.tgl_selesai_proses)}<br>
+              Lama Proses: ${item.lama_hari_penyelesaian || '-'} hari<br>
+              Telp: ${item.nomor_telpon}
+            </div>
+          </div>
+          
+          <div style="text-align:center;min-width:120px;">
+            ${item.link_foto ? `<img src="${item.link_foto}" style="width:92px;height:92px;object-fit:cover;border-radius:10px;border:3px solid #E0F2FE;margin-bottom:8px;">` : 
+              `<div style="width:92px;height:92px;background:#F1F5F9;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#94A3B8;"><i class="fas fa-user fa-2x"></i></div>`}
+            <button onclick="showQRVerification('${item.id}', '${nik}', '${item.nomor_sip}')" class="btn btn-sm btn-cyan" style="width:100%;margin-top:4px;">
+              <i class="fas fa-qrcode"></i> Verifikasi QR
+            </button>
+          </div>
+        </div>
+        
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="printCekResult('${item.id}')" class="btn btn-sm btn-outline"><i class="fas fa-print"></i> Cetak</button>
+          <button onclick="downloadCekPDF('${item.id}')" class="btn btn-sm btn-outline"><i class="fas fa-file-pdf"></i> Download PDF</button>
+        </div>
+      </div>
+    `;
+  });
+  
+  resultDiv.innerHTML = html;
+}
+
+function showQRVerification(id, nik, sip) {
+  const verifyCode = `SIMANTRI-VERIFY-${nik}-${sip || 'NA'}-${id}`;
+  const body = `
+    <div style="text-align:center;">
+      <div id="qr-container" style="margin:0 auto 16px;width:180px;height:180px;background:white;padding:12px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1);"></div>
+      <div style="font-family:monospace;font-size:13px;background:#F1F5F9;padding:8px 12px;border-radius:8px;">${verifyCode}</div>
+      <div style="margin-top:16px;font-size:13px;color:#475569;">Scan kode QR ini untuk verifikasi keaslian dokumen izin praktik.</div>
+    </div>
+  `;
+  showModal('Verifikasi Dokumen Izin', body, null, `<button onclick="closeModal()" class="btn btn-primary">Tutup</button>`);
+  
+  setTimeout(() => {
+    const qrDiv = document.getElementById('qr-container');
+    if (qrDiv && window.QRCode) {
+      new QRCode(qrDiv, { text: verifyCode, width: 156, height: 156, colorDark: "#0A66C2", colorLight: "#ffffff" });
+    }
+  }, 120);
+}
+
+function printCekResult(id) {
+  const item = dataStore.izin.find(i => i.id === id);
+  if (!item) return;
+  const printWin = window.open('', '_blank');
+  printWin.document.write(`
+    <html><head><title>Cetak Verifikasi Izin - SIMANTRI</title>
+    <style>body{font-family:Arial;padding:30px;} .header{text-align:center;margin-bottom:30px;} table{width:100%;border-collapse:collapse;} td,th{padding:8px;border:1px solid #ddd;}</style>
+    </head><body>
+    <div class="header"><h2>SISTEM INFORMASI MANAJEMEN PRAKTIK<br>TENAGA MEDIS & KESEHATAN</h2><p>Hasil Verifikasi Izin Praktik</p></div>
+    <table>
+      <tr><td>NIK</td><td>${item.nik}</td></tr>
+      <tr><td>Nama</td><td>${item.nama_dan_gelar}</td></tr>
+      <tr><td>No. SIP</td><td>${item.nomor_sip}</td></tr>
+      <tr><td>Status</td><td>${new Date(item.tgl_selesai_proses) > new Date() ? 'AKTIF' : 'EXPIRED'}</td></tr>
+    </table>
+    <p style="margin-top:30px;font-size:12px;color:#666;">Dicetak dari SIMANTRI pada ${new Date().toLocaleString('id-ID')}</p>
+    </body></html>
+  `);
+  printWin.document.close();
+  printWin.print();
+}
+
+function downloadCekPDF(id) {
+  const item = dataStore.izin.find(i => i.id === id);
+  if (!item) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFontSize(16); doc.text('SIMANTRI - Bukti Verifikasi Izin Praktik', 14, 20);
+  doc.setFontSize(11);
+  doc.text(`NIK: ${item.nik}`, 14, 34);
+  doc.text(`Nama: ${item.nama_dan_gelar}`, 14, 42);
+  doc.text(`No SIP: ${item.nomor_sip}`, 14, 50);
+  doc.text(`Status: ${new Date(item.tgl_selesai_proses || 0) > new Date() ? 'AKTIF' : 'EXPIRED'}`, 14, 58);
+  doc.text(`Verifikasi Code: SIMANTRI-VERIFY-${item.nik}-${item.nomor_sip}-${item.id}`, 14, 74);
+  doc.save(`verifikasi_izin_${item.nik}.pdf`);
+}
+
+// ==================== PANEL ADMIN ====================
+function renderAdmin(container) {
+  if (!currentUser || currentUser.role !== 'admin') {
+    // Show login form
+    container.innerHTML = `
+      <div class="card" style="max-width:420px;margin:40px auto;padding:32px 28px;">
+        <div style="text-align:center;margin-bottom:22px;">
+          <i class="fas fa-shield-alt" style="font-size:42px;color:#0A66C2;"></i>
+          <div style="font-weight:700;font-size:19px;margin-top:12px;">Login Panel Admin</div>
+          <div style="color:#64748B;font-size:13px;">Akses terbatas untuk Administrator & Operator</div>
+        </div>
+        <div class="form-group">
+          <label>Username</label>
+          <input id="admin-user" type="text" value="admin" placeholder="admin">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input id="admin-pass" type="password" value="admin123" placeholder="••••••">
+        </div>
+        <button onclick="doAdminLogin()" class="btn btn-primary btn-glow" style="width:100%;margin-top:8px;">Login ke Panel Admin</button>
+        <div style="margin-top:16px;font-size:12px;color:#64748B;text-align:center;">
+          Demo: admin / admin123 &nbsp;•&nbsp; operator / operator123
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  // Admin dashboard
+  container.innerHTML = `
+    <div style="margin-bottom:18px;display:flex;align-items:center;gap:12px;">
+      <div style="background:#DCFCE7;color:#166534;padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;">LOGGED IN AS ${currentUser.role.toUpperCase()}</div>
+      <button onclick="logout()" class="btn btn-sm btn-danger">Logout Admin</button>
+    </div>
+    
+    <div class="card" style="padding:20px;margin-bottom:22px;">
+      <div style="font-weight:700;margin-bottom:12px;">Statistik Cepat</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;">
+        <div><span style="font-size:28px;font-weight:800;">${dataStore.profil.length}</span><div style="font-size:12px;color:#64748B;">SDMK</div></div>
+        <div><span style="font-size:28px;font-weight:800;">${dataStore.izin.length}</span><div style="font-size:12px;color:#64748B;">Izin Praktik</div></div>
+        <div><span style="font-size:28px;font-weight:800;">${dataStore.pengumuman.length}</span><div style="font-size:12px;color:#64748B;">Pengumuman</div></div>
+      </div>
+    </div>
+    
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;">
+      <!-- Pengumuman CRUD -->
+      <div class="card" style="padding:18px;">
+        <div style="font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;">Kelola Pengumuman <button onclick="showAddPengumumanModal()" class="btn btn-sm btn-primary">+ Baru</button></div>
+        <div style="max-height:220px;overflow:auto;">
+          ${dataStore.pengumuman.map(p => `
+            <div style="padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+              <div>${escapeHtml(p.judul)} ${p.is_penting ? '<span class="badge badge-danger">P</span>' : ''}</div>
+              <div>
+                <button onclick="editPengumuman('${p.id}')" class="btn btn-sm btn-outline" style="padding:2px 7px;">E</button>
+                <button onclick="deletePengumuman('${p.id}')" class="btn btn-sm btn-danger" style="padding:2px 7px;">X</button>
+              </div>
+            </div>
+          `).join('') || '<div style="color:#94A3B8;font-size:12px;">Kosong</div>'}
+        </div>
+      </div>
+      
+      <!-- Quick Links -->
+      <div class="card" style="padding:18px;">
+        <div style="font-weight:700;margin-bottom:12px;">Manajemen Data</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button onclick="navigateTo('profil');" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-users"></i> Kelola Profil SDMK</button>
+          <button onclick="navigateTo('cek');" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-search"></i> Kelola Data Izin Praktik</button>
+          <button onclick="showImportModal()" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-file-import"></i> Import Data CSV</button>
+          <button onclick="exportAllData()" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-file-export"></i> Export Semua Data (JSON)</button>
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-top:22px;">
+      <div style="font-weight:700;margin-bottom:10px;">Manajemen User</div>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Username</th><th>Role</th><th>Nama Lengkap</th><th style="width:120px;">Aksi</th></tr></thead>
+          <tbody>
+            ${dataStore.users.map(u => `
+              <tr>
+                <td><strong>${u.username}</strong></td>
+                <td><span class="badge badge-info">${u.role}</span></td>
+                <td>${escapeHtml(u.full_name)}</td>
+                <td>
+                  <button onclick="deleteUser('${u.username}')" class="btn btn-sm btn-danger">Hapus</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <button onclick="showAddUserModal()" class="btn btn-sm btn-primary" style="margin-top:10px;">+ Tambah User Baru</button>
+    </div>
+  `;
+}
+
+function doAdminLogin() {
+  const user = document.getElementById('admin-user').value.trim();
+  const pass = document.getElementById('admin-pass').value;
+  
+  login(user, pass).then(ok => {
+    if (ok) {
+      // Re-render admin page
+      const content = document.getElementById('content');
+      renderAdmin(content);
+    }
+  });
+}
+
+function showAddUserModal() {
+  const body = `
+    <div class="form-group"><label>Username</label><input id="new-username"></div>
+    <div class="form-group"><label>Password</label><input id="new-password" type="password"></div>
+    <div class="form-group"><label>Role</label><select id="new-role"><option value="operator">operator</option><option value="admin">admin</option></select></div>
+    <div class="form-group"><label>Nama Lengkap</label><input id="new-fullname"></div>
+  `;
+  const footer = `<button onclick="closeModal()" class="btn btn-outline">Batal</button>
+                  <button onclick="saveNewUser()" class="btn btn-primary">Simpan User</button>`;
+  showModal('Tambah User Baru', body, null, footer);
+}
+
+function saveNewUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  const role = document.getElementById('new-role').value;
+  const full = document.getElementById('new-fullname').value.trim();
+  
+  if (!username || !password) { showToast('Username & password wajib', 'error'); return; }
+  
+  dataStore.users.push({ username, password, role, full_name: full });
+  saveToStorage();
+  closeModal();
+  showToast('User baru ditambahkan');
+  navigateTo('admin');
+}
+
+function deleteUser(username) {
+  if (username === 'admin') { showToast('Tidak bisa hapus admin utama', 'error'); return; }
+  if (!confirm('Hapus user ' + username + '?')) return;
+  dataStore.users = dataStore.users.filter(u => u.username !== username);
+  saveToStorage();
+  navigateTo('admin');
+}
+
+function showImportModal() {
+  const body = `
+    <div style="margin-bottom:14px;">Pilih file CSV untuk import ke tabel tertentu.</div>
+    <div class="form-group">
+      <label>Target Tabel</label>
+      <select id="import-target">
+        <option value="profil">profil_sdmk</option>
+        <option value="izin">izin_praktik</option>
+        <option value="pengumuman">pengumuman</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>File CSV</label>
+      <input type="file" id="import-file" accept=".csv">
+    </div>
+    <div style="font-size:12px;color:#64748B;">Pastikan baris pertama adalah header yang sesuai.</div>
+  `;
+  const footer = `<button onclick="closeModal()" class="btn btn-outline">Batal</button>
+                  <button onclick="doImportCSV()" class="btn btn-primary">Import Sekarang</button>`;
+  showModal('Import Data dari CSV', body, null, footer);
+}
+
+function doImportCSV() {
+  const fileInput = document.getElementById('import-file');
+  const target = document.getElementById('import-target').value;
+  if (!fileInput.files.length) { showToast('Pilih file CSV', 'error'); return; }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) { showToast('CSV kosong', 'error'); return; }
+    
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,''));
+    const rows = lines.slice(1).map(line => {
+      const vals = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/); // basic CSV
+      const obj = {};
+      headers.forEach((h,i) => obj[h] = (vals[i] || '').replace(/"/g,'').trim());
+      return obj;
+    });
+    
+    if (target === 'profil') dataStore.profil.push(...rows.map(r => ({...r, no: dataStore.profil.length+1})));
+    else if (target === 'izin') dataStore.izin.unshift(...rows);
+    else if (target === 'pengumuman') dataStore.pengumuman.unshift(...rows);
+    
+    saveToStorage();
+    closeModal();
+    showToast(`${rows.length} baris berhasil diimport ke ${target}`);
+    navigateTo(target === 'profil' ? 'profil' : target === 'izin' ? 'cek' : 'pengumuman');
+  };
+  reader.readAsText(fileInput.files[0]);
+}
+
+function exportAllData() {
+  const blob = new Blob([JSON.stringify(dataStore, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `simantri_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup JSON berhasil diunduh');
+}
+
+// ==================== MODAL SYSTEM ====================
+function showModal(title, bodyHTML, onConfirm = null, footerHTML = '') {
+  document.getElementById('modal-title').innerHTML = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('modal-footer').innerHTML = footerHTML || (onConfirm ? 
+    `<button onclick="closeModal()" class="btn btn-outline">Batal</button>
+     <button onclick="onConfirm();closeModal()" class="btn btn-primary">Konfirmasi</button>` : '');
+  document.getElementById('modal-backdrop').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal-backdrop').style.display = 'none';
+}
+
+// ==================== INIT ====================
+function initApp() {
+  showLoading(true);
+  
+  loadFromStorage();
+  
+  // Check session
+  checkSession();
+  
+  // Connection badge
+  const badge = document.getElementById('connection-badge');
+  const connText = document.getElementById('conn-text');
+  if (USE_GAS) {
+    badge.style.background = '#DCFCE7';
+    badge.style.color = '#166534';
+    connText.innerHTML = 'TERHUBUNG';
+    badge.title = 'Data tersinkron dengan Google Sheet';
+  } else {
+    connText.innerHTML = 'DEMO MODE';
+  }
+  
+  // Initial navigation
+  setTimeout(() => {
+    showLoading(false);
+    navigateTo('dashboard');
+    
+    // Warm up ping
+    if (USE_GAS) apiCall('ping').catch(() => {});
+    
+    // Keyboard shortcut hint
+    document.addEventListener('keydown', e => {
+      if (e.key === '/' && document.activeElement.tagName === 'BODY') {
+        e.preventDefault();
+        const search = document.getElementById('search-profil') || document.getElementById('search-pengumuman');
+        if (search) search.focus();
+      }
+    });
+    
+    // Show welcome toast once
+    if (!localStorage.getItem('simantri_welcomed')) {
+      setTimeout(() => {
+        showToast('Selamat datang di SIMANTRI Enterprise Dashboard!');
+        localStorage.setItem('simantri_welcomed', '1');
+      }, 1600);
+    }
+  }, 850);
+  
+  // Make mobile menu button visible on small screens
+  if (window.innerWidth < 900) {
+    document.getElementById('mobile-menu-btn').style.display = 'block';
+  }
+  
+  // Global error handler
+  window.onerror = function(msg) {
+    console.error('SIMANTRI Error:', msg);
+  };
+}
+
+// Boot
+document.addEventListener('DOMContentLoaded', initApp);
+
+// Expose for console debug
+window.SIMANTRI = { dataStore, navigateTo, apiCall };
+</script>
 </body>
 </html>
