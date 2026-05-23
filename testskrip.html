@@ -1096,6 +1096,26 @@
     // DASHBOARD
     // ============================================
     function loadDashboard() {
+      if (!IS_GAS) {
+        // Ambil data langsung dari Google Sheet publik (bypass CORS)
+        const d = publicData;
+        animateNumber('stat-usulan', d.formulir.length);
+        animateNumber('stat-kegiatan', d.jadwal.length);
+        animateNumber('stat-sertifikat', d.sertifikat.length);
+        animateNumber('stat-pengumuman', d.pengumuman.length);
+
+        const recent = d.formulir.slice(0, 5).map(f => ({
+          nomorRegistrasi: f.nomorRegistrasi,
+          namaKegiatan: f.namaKegiatan,
+          namaPengusul: f.namaPengusul,
+          tanggal: f.tanggalKegiatan
+        }));
+        renderRecentActivity(recent);
+        renderRunningText(d.pengumuman.slice(0, 3));
+        renderTrendChart();
+        return;
+      }
+
       callBackend('getDashboardData').then(res => {
         if (!res.success) return showToast(res.message || 'Gagal memuat data', true);
         const d = res.data;
@@ -1210,6 +1230,29 @@
     function loadPengumuman(silent = false) {
       if (!silent) showSkeleton('#pengumuman-list', 4);
 
+      if (!IS_GAS) {
+        const container = document.getElementById('pengumuman-list');
+        container.innerHTML = '';
+        if (!publicData.pengumuman.length) {
+          container.innerHTML = `<div class="col-span-2 text-center py-12 text-slate-400">Belum ada pengumuman</div>`;
+          return;
+        }
+        publicData.pengumuman.forEach(p => {
+          const card = document.createElement('div');
+          card.className = `glass-card rounded-3xl p-6 cursor-pointer border border-slate-700/60 hover:border-cyan-500/40`;
+          card.innerHTML = `
+            <div class="flex justify-between mb-3">
+              <div class="text-cyan-400 text-xs font-semibold">${p.tanggal || 'Tanpa Tanggal'}</div>
+            </div>
+            <div class="font-semibold text-lg leading-tight">${p.judul}</div>
+            <div class="text-slate-300 text-sm mt-3 line-clamp-3">${p.isi ? p.isi.substring(0, 160) : ''}...</div>
+          `;
+          card.onclick = () => showPengumumanModal(p);
+          container.appendChild(card);
+        });
+        return;
+      }
+
       callBackend('getPengumuman').then(res => {
         if (!res.success) {
           showToast(res.message || 'Gagal memuat pengumuman', true);
@@ -1229,7 +1272,7 @@
               <div class="text-cyan-400 text-xs font-semibold">${p.tanggal || 'Tanpa Tanggal'}</div>
             </div>
             <div class="font-semibold text-lg leading-tight">${p.judul}</div>
-            <div class="text-slate-300 text-sm mt-3 line-clamp-3">${p.isi ? p.isi.substring(0, 160) : ''}...</div>
+            <div class="text-slate-300 text-sm mt-3 line-clamp-3">${p.isi.substring(0, 160)}...</div>
           `;
           card.onclick = () => showPengumumanModal(p);
           container.appendChild(card);
@@ -1256,6 +1299,13 @@
     // ============================================
     function loadJadwal() {
       showSkeleton('#jadwal-list', 3);
+
+      if (!IS_GAS) {
+        renderJadwalList(publicData.jadwal);
+        renderMiniCalendar(publicData.jadwal);
+        return;
+      }
+
       callBackend('getJadwal').then(res => {
         if (!res.success) return showToast(res.message, true);
         renderJadwalList(res.data || []);
@@ -1415,6 +1465,36 @@
       resultBox.classList.remove('hidden');
       resultBox.innerHTML = `<div class="glass-card p-6 rounded-3xl"><div class="skeleton h-4 w-2/3 mb-3 rounded"></div><div class="skeleton h-3 w-1/2 rounded"></div></div>`;
 
+      if (!IS_GAS) {
+        const found = publicData.formulir.find(f => 
+          f.nomorRegistrasi.toLowerCase() === search.toLowerCase() || f.nik === search
+        );
+        if (!found) {
+          resultBox.innerHTML = `<div class="glass-card p-8 rounded-3xl text-center border border-red-900/40">
+            <i class="fa-solid fa-exclamation-circle text-4xl text-red-400"></i>
+            <div class="mt-3 font-semibold">Data tidak ditemukan</div>
+          </div>`;
+          return;
+        }
+        resultBox.innerHTML = `
+          <div class="glass-card rounded-3xl p-7 border border-emerald-400/20">
+            <div class="flex justify-between">
+              <div>
+                <div class="text-xs text-emerald-400 font-semibold">STATUS VERIFIKASI</div>
+                <div class="text-2xl font-semibold mt-0.5">${found.status}</div>
+              </div>
+              <div class="px-4 py-1 text-xs font-bold self-start bg-emerald-400/10 text-emerald-400 rounded-2xl">${found.nomorRegistrasi}</div>
+            </div>
+            <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
+              <div><span class="text-slate-400">Nama Pengusul</span><br><span class="font-medium">${found.namaPengusul}</span></div>
+              <div><span class="text-slate-400">Nama Kegiatan</span><br><span class="font-medium">${found.namaKegiatan}</span></div>
+              <div><span class="text-slate-400">Tanggal Kegiatan</span><br><span class="font-medium">${found.tanggalKegiatan}</span></div>
+              <div><span class="text-slate-400">NIK</span><br><span class="font-mono font-medium">${found.nik}</span></div>
+            </div>
+          </div>`;
+        return;
+      }
+
       callBackend('cekStatus', search).then(res => {
         if (!res.success || !res.data) {
           resultBox.innerHTML = `<div class="glass-card p-8 rounded-3xl text-center border border-red-900/40">
@@ -1449,6 +1529,14 @@
     // ============================================
     function loadSertifikat() {
       showSkeleton('#sertifikat-tbody', 6);
+
+      if (!IS_GAS) {
+        sertifikatData = publicData.sertifikat || [];
+        currentSertifikatPage = 1;
+        renderSertifikatTable();
+        return;
+      }
+
       callBackend('getSertifikat').then(res => {
         if (!res.success) return showToast(res.message, true);
         sertifikatData = res.data || [];
