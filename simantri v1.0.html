@@ -180,6 +180,61 @@ tr:hover { background:#F8FAFC; }
   .sidebar.open { transform:translateX(0); }
   .main { margin-left:0; }
 }
+
+/* ========== NEW VERVAL FORM PREMIUM STYLES ========== */
+.verval-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px 16px;
+}
+@media (max-width: 768px) {
+  .verval-grid { grid-template-columns: 1fr; }
+}
+.verval-field {
+  position: relative;
+}
+.verval-field label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 5px;
+}
+.verval-field input,
+.verval-field select,
+.verval-field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 12px;
+  font-size: 14.5px;
+  background: rgba(255,255,255,0.95);
+  transition: all .2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.verval-field input:focus,
+.verval-field select:focus,
+.verval-field textarea:focus {
+  border-color: #0A66C2;
+  box-shadow: 0 0 0 4px rgba(10,102,194,0.15), var(--glow-blue);
+  outline: none;
+  background: white;
+}
+.verval-field .readonly {
+  background: #F1F5F9 !important;
+  color: #475569;
+  cursor: not-allowed;
+}
+.verval-actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.verval-actions .btn {
+  flex: 1;
+  min-width: 140px;
+}
 </style>
 </head>
 <body>
@@ -285,7 +340,7 @@ tr:hover { background:#F8FAFC; }
 
 <script>
 // ==================== CONFIG ====================
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyFQKDs8cz2yAHFutlQvtTxlJ2Ymx7DWSgtK5DtecpRj60gbsEcekN4y4nk4Z92WHc-/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzNbWOkUMXW7Tqvydv9pbyMX-hwFcKpwggy05csMSV4YFxMKDuImLme6sA0hxmCYCqt/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
 const USE_GAS = GAS_WEB_APP_URL && GAS_WEB_APP_URL.length > 20;
 
 // ==================== GLOBAL STATE ====================
@@ -379,29 +434,57 @@ function seedDemoData() {
     { username:'operator', password:'operator123', role:'operator', full_name:'Operator Verval' }
   ];
   dataStore.logs = [];
+  dataStore.verval = [];   // NEW comprehensive verval data
   saveToStorage();
 }
 
 // ==================== API LAYER (GAS + LOCAL FALLBACK) ====================
+// Read-only actions that work reliably with GET (avoids CORS preflight)
+const READ_ACTIONS = new Set([
+  'ping', 'health', 'getPengumuman', 'getProfil', 'getIzin', 
+  'searchByNik', 'searchProfil', 'getUsers', 'getLogs'
+]);
+
 async function apiCall(action, payload = {}, method = 'POST') {
   if (!USE_GAS) {
-    // LOCAL MOCK MODE - fully functional
     return mockApi(action, payload);
   }
-  // REAL GAS
+
   try {
-    const url = `${GAS_WEB_APP_URL}?action=${encodeURIComponent(action)}`;
+    const isRead = READ_ACTIONS.has(action);
+    const finalMethod = isRead ? 'GET' : method;
+
+    const url = new URL(GAS_WEB_APP_URL);
+    url.searchParams.set('action', action);
+
     const options = {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: method === 'POST' ? JSON.stringify({ action, ...payload }) : undefined
+      method: finalMethod,
+      mode: 'cors',
+      redirect: 'follow',
+      credentials: 'omit'
     };
-    const res = await fetchWithRetry(url, options, 2);
-    const json = await res.json();
-    return json;
+
+    if (finalMethod === 'GET') {
+      // Append all payload as query params — this is the most CORS-friendly way for GAS
+      Object.keys(payload).forEach(key => {
+        if (payload[key] !== undefined && payload[key] !== null) {
+          url.searchParams.set(key, payload[key]);
+        }
+      });
+    } else {
+      // For writes: use text/plain to reduce preflight problems with GAS Web Apps
+      options.headers = {
+        'Content-Type': 'text/plain;charset=utf-8'
+      };
+      options.body = JSON.stringify({ action, ...payload });
+    }
+
+    const res = await fetchWithRetry(url.toString(), options, 3);
+    return await res.json();
+
   } catch (err) {
-    console.error('API Error, fallback to local:', err);
-    showToast('Koneksi ke server gagal, menggunakan data lokal', 'warning');
+    console.error('API Error (CORS / network), falling back to local demo data:', err);
+    showToast('Tidak dapat terhubung ke Google Apps Script (CORS). Menggunakan data lokal.', 'warning');
     return mockApi(action, payload);
   }
 }
@@ -473,6 +556,24 @@ function mockApi(action, payload) {
         case 'searchByNik':
           const matches = dataStore.izin.filter(i => i.nik === payload.nik);
           result = { success: true, data: matches, count: matches.length };
+          break;
+
+        // NEW VERVAL comprehensive form
+        case 'submitVerval':
+          const newVerval = { 
+            Timestamp: new Date().toLocaleString('id-ID'), 
+            ...payload 
+          };
+          dataStore.verval.unshift(newVerval);
+          saveToStorage();
+          result = { success: true, message: 'Data Verval berhasil disimpan (demo)', timestamp: newVerval.Timestamp };
+          break;
+        case 'getVervalByNik':
+          const vMatches = dataStore.verval.filter(v => String(v.NIK || v.nik) === String(payload.nik));
+          result = { success: true, data: vMatches, count: vMatches.length, latest: vMatches[0] || null };
+          break;
+        case 'getAllVerval':
+          result = { success: true, data: dataStore.verval, count: dataStore.verval.length };
           break;
         case 'getUsers':
           result = { success: true, data: dataStore.users };
@@ -1370,7 +1471,7 @@ async function performCekIzin() {
   
   resultDiv.innerHTML = `<div class="skeleton" style="height:180px;border-radius:14px;"></div>`;
   
-  const res = await apiCall('searchByNik', { nik });
+  const res = await apiCall('searchByNik', { nik }, 'GET');
   
   if (!res.success || !res.data || res.data.length === 0) {
     resultDiv.innerHTML = `
