@@ -340,13 +340,14 @@ tr:hover { background:#F8FAFC; }
 
 <script>
 // ==================== CONFIG ====================
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzgDr6QaOeEgWKPBH0E04-e4_fxWFE-aoXF8zF2ZzIu8ANWhgKtG7K0DRg-EKxw3qoa/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby758bqCaa40rsiljr7-vL8723z5oyo6gXrd_pAF32jDP6iycHk0DC3LrfopCn_Y1kJ/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
 const USE_GAS = GAS_WEB_APP_URL && GAS_WEB_APP_URL.length > 20;
 
 // ==================== GLOBAL STATE ====================
 let currentUser = null;
 let currentPage = 'dashboard';
 let charts = {};
+let pengumumanData = [];          // ← live data for Pengumuman menu (from GAS or local)
 let dataStore = {
   profil: [],
   izin: [],
@@ -853,58 +854,128 @@ function renderRecentActivity() {
   `).join('');
 }
 
-// ==================== PENGUMUMAN ====================
+// ==================== PENGUMUMAN (View Only for regular users, CRUD for Admin) ====================
 function renderPengumuman(container) {
+  const isAdmin = currentUser && currentUser.role === 'admin';
+
   container.innerHTML = `
-    <div class="flex" style="margin-bottom:18px;gap:12px;flex-wrap:wrap;">
+    <div class="flex" style="margin-bottom:18px;gap:12px;flex-wrap:wrap;align-items:center;">
       <div class="search-box">
         <i class="fas fa-search"></i>
         <input id="search-pengumuman" type="text" placeholder="Cari pengumuman..." onkeyup="filterPengumuman()">
       </div>
-      <button onclick="showAddPengumumanModal()" class="btn btn-primary btn-glow"><i class="fas fa-plus"></i> Tambah Pengumuman</button>
+      
+      ${isAdmin ? `
+        <button onclick="showAddPengumumanModal()" class="btn btn-primary btn-glow">
+          <i class="fas fa-plus"></i> Tambah Pengumuman
+        </button>
+      ` : ''}
+      
+      <button onclick="refreshPengumuman()" class="btn btn-sm btn-outline">
+        <i class="fas fa-sync-alt"></i> Refresh
+      </button>
+      
+      <div style="margin-left:auto;font-size:12px;color:#64748B;">
+        ${USE_GAS ? 'Data dari Google Sheet' : 'Mode Demo'}
+      </div>
     </div>
     <div id="pengumuman-list"></div>
   `;
-  loadPengumumanList();
+  
+  loadPengumumanData();
+}
+
+// Fetch pengumuman (from GAS or local)
+async function loadPengumumanData() {
+  const listEl = document.getElementById('pengumuman-list');
+  if (!listEl) return;
+
+  listEl.innerHTML = `<div class="card" style="padding:30px;text-align:center;color:#64748B;">
+    <i class="fas fa-spinner fa-spin"></i> Memuat pengumuman...
+  </div>`;
+
+  let items = [];
+
+  if (USE_GAS) {
+    try {
+      const res = await apiCall('getPengumuman', {}, 'GET');
+      if (res.success && Array.isArray(res.data)) {
+        items = res.data;
+        pengumumanData = items;
+      } else {
+        items = dataStore.pengumuman || [];
+      }
+    } catch (e) {
+      items = dataStore.pengumuman || [];
+      showToast('Gagal mengambil data dari Google Sheet, menggunakan data lokal', 'warning');
+    }
+  } else {
+    items = dataStore.pengumuman || [];
+    pengumumanData = items;
+  }
+
+  loadPengumumanList(items);
 }
 
 function loadPengumumanList(filtered = null) {
   const listEl = document.getElementById('pengumuman-list');
   if (!listEl) return;
-  const items = filtered || dataStore.pengumuman;
-  
-  if (items.length === 0) {
+
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  const items = filtered || pengumumanData;
+
+  if (!items || items.length === 0) {
     listEl.innerHTML = '<div class="card" style="padding:40px;text-align:center;color:#64748B;">Belum ada pengumuman.</div>';
     return;
   }
-  
-  listEl.innerHTML = items.map(p => `
+
+  listEl.innerHTML = items.map(p => {
+    const id = p.id || p.ID || '';
+    const isPenting = p.is_penting == 1 || p.is_penting === true || p.is_penting === '1';
+
+    return `
     <div class="card" style="margin-bottom:14px;padding:20px;">
       <div style="display:flex;gap:14px;align-items:flex-start;">
-        <div style="flex-shrink:0;width:52px;height:52px;border-radius:12px;background:${p.is_penting?'#FEE2E2':'#DBEAFE'};display:flex;align-items:center;justify-content:center;">
-          <i class="fas ${p.is_penting?'fa-exclamation-triangle':'fa-bullhorn'}" style="font-size:24px;color:${p.is_penting?'#DC2626':'#0A66C2'}"></i>
+        <div style="flex-shrink:0;width:52px;height:52px;border-radius:12px;background:${isPenting?'#FEE2E2':'#DBEAFE'};display:flex;align-items:center;justify-content:center;">
+          <i class="fas ${isPenting?'fa-exclamation-triangle':'fa-bullhorn'}" style="font-size:24px;color:${isPenting?'#DC2626':'#0A66C2'}"></i>
         </div>
         <div style="flex:1;">
           <div style="display:flex;gap:8px;align-items:center;">
-            <div style="font-weight:700;font-size:16px;">${escapeHtml(p.judul)}</div>
-            ${p.is_penting ? '<span class="badge badge-danger">PENTING</span>' : ''}
+            <div style="font-weight:700;font-size:16px;">${escapeHtml(p.judul || p.Judul || '')}</div>
+            ${isPenting ? '<span class="badge badge-danger">PENTING</span>' : ''}
           </div>
-          <div style="color:#64748B;font-size:12px;margin:4px 0 10px;">${formatDate(p.tanggal)} • Oleh ${p.created_by}</div>
-          <div style="line-height:1.55;color:#334155;">${escapeHtml(p.isi)}</div>
+          <div style="color:#64748B;font-size:12px;margin:4px 0 10px;">
+            ${formatDate(p.tanggal || p.Tanggal)} • Oleh ${p.created_by || p.Created_by || 'Admin'}
+          </div>
+          <div style="line-height:1.55;color:#334155;">${escapeHtml(p.isi || p.Isi || '')}</div>
+          
+          ${isAdmin ? `
           <div style="margin-top:14px;display:flex;gap:8px;">
-            <button onclick="editPengumuman('${p.id}')" class="btn btn-sm btn-outline"><i class="fas fa-edit"></i> Edit</button>
-            <button onclick="deletePengumuman('${p.id}')" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i> Hapus</button>
-          </div>
+            <button onclick="editPengumuman('${id}')" class="btn btn-sm btn-outline">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button onclick="deletePengumuman('${id}')" class="btn btn-sm btn-danger">
+              <i class="fas fa-trash"></i> Hapus
+            </button>
+          </div>` : ''}
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function filterPengumuman() {
-  const q = document.getElementById('search-pengumuman').value.toLowerCase();
-  const filtered = dataStore.pengumuman.filter(p => p.judul.toLowerCase().includes(q) || p.isi.toLowerCase().includes(q));
+  const q = (document.getElementById('search-pengumuman')?.value || '').toLowerCase();
+  const filtered = pengumumanData.filter(p => {
+    const judul = (p.judul || p.Judul || '').toLowerCase();
+    const isi = (p.isi || p.Isi || '').toLowerCase();
+    return judul.includes(q) || isi.includes(q);
+  });
   loadPengumumanList(filtered);
+}
+
+function refreshPengumuman() {
+  loadPengumumanData();
 }
 
 function showAddPengumumanModal(editItem = null) {
@@ -946,36 +1017,75 @@ function savePengumuman(editId = null) {
   
   if (!judul || !isi) { showToast('Judul dan isi wajib diisi', 'error'); return; }
   
-  if (editId) {
-    const idx = dataStore.pengumuman.findIndex(p => p.id === editId);
-    if (idx > -1) {
-      dataStore.pengumuman[idx].judul = judul;
-      dataStore.pengumuman[idx].isi = isi;
-      dataStore.pengumuman[idx].tanggal = tanggal;
-      dataStore.pengumuman[idx].is_penting = isPenting ? 1 : 0;
-    }
-  } else {
-    dataStore.pengumuman.unshift({
-      id: generateId('PENG'), tanggal, judul, isi, is_penting: isPenting ? 1 : 0, created_by: currentUser?.username || 'demo'
-    });
-  }
-  saveToStorage();
+  const payload = {
+    judul, isi, tanggal,
+    is_penting: isPenting ? 1 : 0,
+    created_by: currentUser?.username || 'admin'
+  };
+
   closeModal();
-  loadPengumumanList();
-  showToast(editId ? 'Pengumuman diperbarui' : 'Pengumuman berhasil dipublikasikan');
+
+  if (USE_GAS) {
+    const action = editId ? 'updatePengumuman' : 'addPengumuman';
+    if (editId) payload.id = editId;
+
+    apiCall(action, payload).then(res => {
+      if (res.success) {
+        showToast(editId ? 'Pengumuman diperbarui di Google Sheet' : 'Pengumuman berhasil dipublikasikan');
+        refreshPengumuman();
+      } else {
+        showToast(res.error || 'Gagal menyimpan ke Google Sheet', 'error');
+      }
+    });
+  } else {
+    // Local demo mode
+    if (editId) {
+      const idx = dataStore.pengumuman.findIndex(p => p.id === editId);
+      if (idx > -1) {
+        dataStore.pengumuman[idx].judul = judul;
+        dataStore.pengumuman[idx].isi = isi;
+        dataStore.pengumuman[idx].tanggal = tanggal;
+        dataStore.pengumuman[idx].is_penting = isPenting ? 1 : 0;
+      }
+    } else {
+      dataStore.pengumuman.unshift({
+        id: generateId('PENG'), tanggal, judul, isi, is_penting: isPenting ? 1 : 0, created_by: currentUser?.username || 'demo'
+      });
+    }
+    saveToStorage();
+    pengumumanData = [...dataStore.pengumuman];
+    loadPengumumanList();
+    showToast(editId ? 'Pengumuman diperbarui' : 'Pengumuman berhasil dipublikasikan');
+  }
 }
 
 function editPengumuman(id) {
-  const item = dataStore.pengumuman.find(p => p.id === id);
+  let item = pengumumanData.find(p => (p.id || p.ID) === id);
+  if (!item && !USE_GAS) {
+    item = dataStore.pengumuman.find(p => p.id === id);
+  }
   if (item) showAddPengumumanModal(item);
 }
 
 function deletePengumuman(id) {
   if (!confirm('Hapus pengumuman ini?')) return;
-  dataStore.pengumuman = dataStore.pengumuman.filter(p => p.id !== id);
-  saveToStorage();
-  loadPengumumanList();
-  showToast('Pengumuman dihapus');
+
+  if (USE_GAS) {
+    apiCall('deletePengumuman', { id }).then(res => {
+      if (res.success) {
+        showToast('Pengumuman dihapus dari Google Sheet');
+        refreshPengumuman();
+      } else {
+        showToast(res.error || 'Gagal hapus', 'error');
+      }
+    });
+  } else {
+    dataStore.pengumuman = dataStore.pengumuman.filter(p => p.id !== id);
+    pengumumanData = dataStore.pengumuman.filter(p => (p.id || p.ID) !== id);
+    saveToStorage();
+    loadPengumumanList();
+    showToast('Pengumuman dihapus');
+  }
 }
 
 // ==================== VERVAL IZIN PRAKTIK ====================
