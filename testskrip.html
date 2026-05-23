@@ -347,7 +347,14 @@
         
         <!-- TOP HEADER -->
         <div class="hidden lg:flex items-center justify-between border-b border-slate-800 bg-slate-900/80 backdrop-blur-lg px-8 py-4">
-          <div id="page-title" class="font-display text-2xl font-semibold tracking-tighter">Dashboard</div>
+          <div class="flex items-center gap-x-3">
+            <div id="page-title" class="font-display text-2xl font-semibold tracking-tighter">Dashboard</div>
+            <!-- LOCAL PREVIEW INDICATOR -->
+            <div id="preview-badge" class="hidden px-3 py-1 text-[10px] font-bold tracking-wider rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 items-center gap-x-1.5">
+              <i class="fa-solid fa-laptop-code text-xs"></i>
+              <span>LOCAL BROWSER PREVIEW</span>
+            </div>
+          </div>
           
           <div class="flex items-center gap-x-3">
             <button onclick="refreshCurrentPage()" 
@@ -810,31 +817,145 @@
     const SERTIFIKAT_PER_PAGE = 10;
 
     // ============================================
-    // STRICT: HANYA GOOGLE APPS SCRIPT + GOOGLE SHEET
-    // Tidak ada data MOCK / dummy sama sekali.
-    // Aplikasi 100% mengambil data dari Spreadsheet via google.script.run
+    // LOCAL BROWSER + GOOGLE APPS SCRIPT SUPPORT
+    // Bisa dibuka langsung di browser (file://) ATAU via Web App
     // ============================================
-    if (typeof google === 'undefined' || !google.script || !google.script.run) {
-      document.documentElement.innerHTML = `
-        <body style="margin:0;background:#0f172a;color:#e2e8f0;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;">
-          <div style="max-width:480px;padding:40px 30px;">
-            <div style="width:80px;height:80px;margin:0 auto 24px;background:linear-gradient(135deg,#0A66C2,#22D3EE);border-radius:20px;display:flex;align-items:center;justify-content:center;">
-              <i class="fa-solid fa-hand-holding-heart" style="font-size:42px;color:white;"></i>
-            </div>
-            <h1 style="font-size:28px;margin:0 0 12px;color:#67e8f9;">DEDIKASIH v1.0</h1>
-            <p style="font-size:15px;line-height:1.5;color:#94a3b8;margin-bottom:28px;">
-              Platform ini <strong>hanya berjalan</strong> melalui Google Apps Script Web App.<br>
-              Semua data diambil 100% dari Google Spreadsheet.
-            </p>
-            <div style="background:#1e2937;border:1px solid #334155;border-radius:16px;padding:18px 22px;font-size:13px;">
-              Buka URL Web App yang sudah kamu <strong>Deploy</strong>.<br>
-              Jangan buka file .html secara langsung di browser.
-            </div>
-            <div style="margin-top:30px;font-size:12px;opacity:0.5;">© 2026 DEDIKASIH • Kemenkes</div>
-          </div>
-        </body>
-      `;
-      throw new Error("DEDIKASIH hanya boleh dijalankan melalui deployment Google Apps Script");
+    const IS_LOCAL_PREVIEW = typeof google === 'undefined' || !google.script || !google.script.run;
+
+    // ============================================
+    // MOCK DATA - Diambil dari CSV yang sudah dibuat
+    // ============================================
+    let MOCK_DATA = {
+      formulir: [
+        { timestamp: "2026-05-20 09:15:22", nomorRegistrasi: "DDK-20260520-001", nik: "3201234567890123", namaPengusul: "dr. Ahmad Fauzi", asalInstitusi: "Puskesmas Ciledug", telpon: "081234567890", email: "ahmad.fauzi@puskesmas.go.id", namaKegiatan: "Pemeriksaan Kesehatan Lansia", tempatKegiatan: "Puskesmas Ciledug", tanggalKegiatan: "2026-05-28", status: "Menunggu Verifikasi", catatan: "" },
+        { timestamp: "2026-05-20 14:30:05", nomorRegistrasi: "DDK-20260520-002", nik: "3209876543210987", namaPengusul: "Sari Dewi", asalInstitusi: "Dinas Kesehatan Kabupaten Bogor", telpon: "085678901234", email: "sari.dewi@dinkes.bogor.go.id", namaKegiatan: "Edukasi Gizi Ibu Hamil", tempatKegiatan: "Balai Desa Sukamaju", tanggalKegiatan: "2026-05-30", status: "Disetujui", catatan: "Dokumen lengkap dan valid" },
+        { timestamp: "2026-05-21 10:05:41", nomorRegistrasi: "DDK-20260521-003", nik: "3211122233344455", namaPengusul: "Budi Santoso", asalInstitusi: "Yayasan Sehat Indonesia", telpon: "087812345678", email: "budi.santoso@yayasansehat.id", namaKegiatan: "Posyandu Balita Sehat", tempatKegiatan: "Posyandu RW 05", tanggalKegiatan: "2026-06-02", status: "Menunggu Verifikasi", catatan: "Perlu melengkapi surat tugas" },
+        { timestamp: "2026-05-22 08:45:19", nomorRegistrasi: "DDK-20260522-004", nik: "3204455667788990", namaPengusul: "Nurul Aulia", asalInstitusi: "RSUD Kota Tangerang", telpon: "081998877665", email: "nurul.aulia@rsud-tangerang.go.id", namaKegiatan: "Screening Kesehatan Pekerja", tempatKegiatan: "PT Maju Bersama", tanggalKegiatan: "2026-06-05", status: "Disetujui", catatan: "" },
+        { timestamp: "2026-05-22 16:20:33", nomorRegistrasi: "DDK-20260522-005", nik: "3219988776655443", namaPengusul: "dr. Rina Marlina", asalInstitusi: "Dinkes Provinsi Banten", telpon: "082112345678", email: "rina.marlina@dinkes.banten.go.id", namaKegiatan: "Kampanye Kesehatan Mental", tempatKegiatan: "Auditorium Bappeda", tanggalKegiatan: "2026-06-10", status: "Menunggu Verifikasi", catatan: "" }
+      ],
+      pengumuman: [
+        { judul: "Perubahan Jadwal Kegiatan Mei 2026", isi: "Dikarenakan agenda nasional, beberapa kegiatan pada minggu ke-4 Mei 2026 mengalami pergeseran jadwal.", tanggal: "20 Mei 2026" },
+        { judul: "Batas Akhir Pengumpulan Usulan", isi: "Batas akhir penerimaan usulan kegiatan periode Juni adalah 25 Mei 2026 pukul 23.59 WIB.", tanggal: "18 Mei 2026" },
+        { judul: "Pengumuman Libur Hari Raya Waisak", isi: "Pada tanggal 23 Mei 2026 seluruh kegiatan DEDIKASIH ditiadakan karena hari raya Waisak.", tanggal: "15 Mei 2026" }
+      ],
+      jadwal: [
+        { namaKegiatan: "Pemeriksaan Kesehatan Lansia", tempat: "Puskesmas Ciledug", tanggal: "2026-05-28", jam: "08.00 - 12.00", pic: "dr. Ahmad Fauzi" },
+        { namaKegiatan: "Edukasi Gizi Ibu Hamil", tempat: "Balai Desa Sukamaju", tanggal: "2026-05-30", jam: "09.00 - 11.30", pic: "Nurul Aulia, S.Kep" },
+        { namaKegiatan: "Posyandu Balita Sehat", tempat: "Posyandu RW 05", tanggal: "2026-06-02", jam: "07.30 - 10.00", pic: "Budi Santoso" },
+        { namaKegiatan: "Screening Kesehatan Pekerja", tempat: "PT Maju Bersama", tanggal: "2026-06-05", jam: "13.00 - 16.00", pic: "dr. Rina Marlina" }
+      ],
+      sertifikat: [
+        { no: "001", namaPeserta: "Andi Pratama", profesi: "Dokter Umum", tempatBekerja: "Puskesmas Ciledug", namaKegiatan: "Pemeriksaan Kesehatan Lansia", tanggalKegiatan: "15 Mei 2026", tempatKegiatan: "Puskesmas Ciledug", downloadLink: "https://drive.google.com/file/d/1abc123" },
+        { no: "002", namaPeserta: "Sari Dewi", profesi: "Perawat", tempatBekerja: "RSUD Kota Tangerang", namaKegiatan: "Edukasi Gizi Ibu Hamil", tanggalKegiatan: "12 Mei 2026", tempatKegiatan: "Balai Desa Sukamaju", downloadLink: "https://drive.google.com/file/d/1def456" },
+        { no: "003", namaPeserta: "Budi Santoso", profesi: "Ahli Gizi", tempatBekerja: "Yayasan Sehat Indonesia", namaKegiatan: "Posyandu Balita Sehat", tanggalKegiatan: "20 Mei 2026", tempatKegiatan: "Posyandu RW 05", downloadLink: "https://drive.google.com/file/d/1ghi789" }
+      ]
+    };
+
+    // ============================================
+    // MOCK IMPLEMENTATION (untuk buka langsung di browser)
+    // ============================================
+    if (IS_LOCAL_PREVIEW) {
+      console.log('%c[DEDIKASIH v1.0] 📁 Mode LOCAL BROWSER PREVIEW aktif — menggunakan data simulasi dari CSV', 'color:#22c55e; font-weight:600');
+
+      window.google = {
+        script: {
+          run: {
+            withSuccessHandler: function(callback) {
+              return {
+                getDashboardData: () => {
+                  const d = MOCK_DATA;
+                  setTimeout(() => callback({
+                    success: true,
+                    data: {
+                      totalUsulan: d.formulir.length,
+                      totalPengumuman: d.pengumuman.length,
+                      totalJadwal: d.jadwal.length,
+                      totalSertifikat: d.sertifikat.length,
+                      aktivitasTerbaru: d.formulir.slice(0, 3).map(f => ({
+                        nomorRegistrasi: f.nomorRegistrasi,
+                        namaKegiatan: f.namaKegiatan,
+                        namaPengusul: f.namaPengusul,
+                        tanggal: f.tanggalKegiatan
+                      })),
+                      pengumumanTerbaru: d.pengumuman.slice(0, 2)
+                    }
+                  }), 300);
+                },
+                getPengumuman: () => setTimeout(() => callback({ success: true, data: MOCK_DATA.pengumuman }), 250),
+                getJadwal: () => setTimeout(() => callback({ success: true, data: MOCK_DATA.jadwal }), 250),
+                getSertifikat: () => setTimeout(() => callback({ success: true, data: MOCK_DATA.sertifikat }), 250),
+                saveForm: (formData) => {
+                  setTimeout(() => {
+                    const newReg = "DDK-LOCAL-" + Date.now().toString().slice(-6);
+                    MOCK_DATA.formulir.unshift({
+                      timestamp: new Date().toISOString().slice(0,19).replace('T',' '),
+                      nomorRegistrasi: newReg,
+                      nik: formData.nik,
+                      namaPengusul: formData.namaPengusul,
+                      asalInstitusi: formData.asalInstitusi,
+                      telpon: formData.telpon,
+                      email: formData.email,
+                      namaKegiatan: formData.namaKegiatan,
+                      tempatKegiatan: formData.tempatKegiatan,
+                      tanggalKegiatan: formData.tanggalKegiatan,
+                      status: "Menunggu Verifikasi",
+                      catatan: ""
+                    });
+                    callback({ success: true, message: "Berhasil (Preview Mode)", nomorRegistrasi: newReg });
+                  }, 900);
+                },
+                cekStatus: (search) => setTimeout(() => {
+                  const found = MOCK_DATA.formulir.find(f => 
+                    f.nomorRegistrasi.toLowerCase() === search.toLowerCase() || 
+                    f.nik === search
+                  );
+                  callback({ success: true, data: found ? {
+                    nomorRegistrasi: found.nomorRegistrasi,
+                    nik: found.nik,
+                    namaPengusul: found.namaPengusul,
+                    namaKegiatan: found.namaKegiatan,
+                    tanggalKegiatan: found.tanggalKegiatan,
+                    status: found.status,
+                    catatanAdmin: found.catatan
+                  } : null });
+                }, 400),
+                adminLogin: (u, p) => setTimeout(() => callback({ success: u === "admin" && p === "dedikasi123" }), 400),
+                getAllFormulirAdmin: () => setTimeout(() => {
+                  const withIndex = MOCK_DATA.formulir.map((item, idx) => ({ ...item, rowIndex: idx + 2 }));
+                  callback({ success: true, data: withIndex });
+                }, 300),
+                updateStatusWithNotification: (nomor, status, catatan, sendEmail, email, nama, kegiatan) => {
+                  setTimeout(() => {
+                    const item = MOCK_DATA.formulir.find(f => f.nomorRegistrasi === nomor);
+                    if (item) {
+                      item.status = status;
+                      item.catatan = catatan;
+                    }
+                    const msg = sendEmail && email 
+                      ? `Status diperbarui & email simulasi dikirim ke ${email}` 
+                      : "Status berhasil diperbarui (Preview)";
+                    callback({ success: true, message: msg });
+                  }, 600);
+                },
+                deleteData: (sheet, rowIndex) => setTimeout(() => {
+                  if (sheet === "FORMULIR") {
+                    MOCK_DATA.formulir = MOCK_DATA.formulir.filter((_, i) => (i + 2) !== rowIndex);
+                  }
+                  callback({ success: true, message: "Data dihapus (Preview)" });
+                }, 200),
+                addPengumuman: (judul, isi, tanggal) => setTimeout(() => {
+                  MOCK_DATA.pengumuman.unshift({ judul, isi, tanggal });
+                  callback({ success: true, message: "Pengumuman ditambahkan (Preview)" });
+                }, 300),
+                deletePengumuman: (row) => setTimeout(() => {
+                  MOCK_DATA.pengumuman.splice(row - 2, 1);
+                  callback({ success: true });
+                }, 200)
+              };
+            }
+          }
+        }
+      };
     }
 
     // ============================================
@@ -866,6 +987,15 @@
         
         // Set default nav active
         document.getElementById('nav-dashboard').classList.add('active', 'nav-active');
+
+        // Tampilkan badge jika dibuka langsung di browser
+        if (IS_LOCAL_PREVIEW) {
+          const badge = document.getElementById('preview-badge');
+          if (badge) {
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+          }
+        }
       }, 1400);
 
       // Auto dark mode
