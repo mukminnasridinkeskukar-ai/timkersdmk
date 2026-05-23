@@ -340,14 +340,15 @@ tr:hover { background:#F8FAFC; }
 
 <script>
 // ==================== CONFIG ====================
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyx7KqlcvsxXvaCRuPd0yoBgMJ6_-Pre4Rq7sXBzLDdCBauLsn8bTQPIZTKMORDAA2K/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxhHtY5bwKmnWHUzptV1BNPP1_cN6JMJduG585DR_xCxxQ_BUktU1lu02Hl1RuBw-ID/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
 const USE_GAS = GAS_WEB_APP_URL && GAS_WEB_APP_URL.length > 20;
 
 // ==================== GLOBAL STATE ====================
 let currentUser = null;
 let currentPage = 'dashboard';
 let charts = {};
-let pengumumanData = [];          // ← live data for Pengumuman menu (from GAS or local)
+let pengumumanData = [];          // live data for Pengumuman menu
+let profilData = [];              // live data for Profil SDMK menu (from profil_sdmk sheet)
 let dataStore = {
   profil: [],
   izin: [],
@@ -1666,6 +1667,8 @@ function downloadFile(content, filename, mime) {
 
 // ==================== PROFIL SDMK ====================
 function renderProfil(container) {
+  const isAdmin = currentUser && currentUser.role === 'admin';
+
   container.innerHTML = `
     <div class="flex" style="margin-bottom:16px;gap:10px;flex-wrap:wrap;">
       <div class="search-box">
@@ -1684,7 +1687,12 @@ function renderProfil(container) {
       </select>
       <button onclick="exportProfilCSV()" class="btn btn-sm btn-outline"><i class="fas fa-file-csv"></i> Export CSV</button>
       <button onclick="exportProfilPDF()" class="btn btn-sm btn-outline"><i class="fas fa-file-pdf"></i> Export PDF</button>
-      <button onclick="showAddProfilModal()" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Tambah</button>
+      
+      ${isAdmin ? `
+        <button onclick="showAddProfilModal()" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Tambah</button>
+      ` : ''}
+      
+      <button onclick="refreshProfilData()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i> Refresh</button>
     </div>
     <div class="table-wrapper">
       <table id="profil-table">
@@ -1716,8 +1724,7 @@ function renderProfil(container) {
     </div>
   `;
   
-  populateProfilFilters();
-  renderProfilTable();
+  loadProfilData();
 }
 
 let profilSortCol = 0;
@@ -1725,87 +1732,146 @@ let profilSortDir = 1;
 let profilPage = 1;
 const PROFIL_PER_PAGE = 8;
 
-function populateProfilFilters() {
-  const units = [...new Set(dataStore.profil.map(p => p.nama_unit))];
-  const jenis = [...new Set(dataStore.profil.map(p => p.jenis_tenaga))];
+function populateProfilFilters(data = null) {
+  const source = data || profilData.length ? profilData : dataStore.profil;
+  const units = [...new Set(source.map(p => p.nama_unit || p['Nama Unit']))];
+  const jenis = [...new Set(source.map(p => p.jenis_tenaga || p['Jenis Tenaga']))];
   
   const unitSel = document.getElementById('filter-unit');
-  unitSel.innerHTML = '<option value="">Semua Unit</option>' + units.map(u => `<option>${u}</option>`).join('');
+  if (unitSel) unitSel.innerHTML = '<option value="">Semua Unit</option>' + units.map(u => `<option>${u}</option>`).join('');
   
   const jenisSel = document.getElementById('filter-jenis');
-  jenisSel.innerHTML = '<option value="">Semua Jenis Tenaga</option>' + jenis.map(j => `<option>${j}</option>`).join('');
+  if (jenisSel) jenisSel.innerHTML = '<option value="">Semua Jenis Tenaga</option>' + jenis.map(j => `<option>${j}</option>`).join('');
+}
+
+// Load Profil SDMK from Google Sheet (or local)
+async function loadProfilData() {
+  const tbody = document.querySelector('#profil-table tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="15" style="text-align:center;padding:30px;color:#64748B;">
+    <i class="fas fa-spinner fa-spin"></i> Memuat data Profil SDMK...
+  </td></tr>`;
+
+  let items = [];
+
+  if (USE_GAS) {
+    try {
+      const res = await apiCall('getProfil', {}, 'GET');
+      if (res.success && Array.isArray(res.data)) {
+        items = res.data;
+        profilData = items;
+      } else {
+        items = dataStore.profil || [];
+      }
+    } catch (e) {
+      items = dataStore.profil || [];
+      showToast('Gagal mengambil data dari Google Sheet, menggunakan data lokal', 'warning');
+    }
+  } else {
+    items = dataStore.profil || [];
+    profilData = items;
+  }
+
+  populateProfilFilters(items);
+  renderProfilTable(items);
+}
+
+function refreshProfilData() {
+  loadProfilData();
 }
 
 function renderProfilTable(filteredData = null) {
   const tbody = document.querySelector('#profil-table tbody');
   const countEl = document.getElementById('profil-count');
   if (!tbody) return;
-  
-  let data = filteredData || dataStore.profil;
-  
-  // Apply filters
+
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  let data = filteredData || profilData;
+
+  // Apply filters (support both local and sheet field names)
   const unitF = document.getElementById('filter-unit')?.value || '';
   const jenisF = document.getElementById('filter-jenis')?.value || '';
   const strF = document.getElementById('filter-str')?.value || '';
-  
-  if (unitF) data = data.filter(d => d.nama_unit === unitF);
-  if (jenisF) data = data.filter(d => d.jenis_tenaga === jenisF);
+
+  if (unitF) data = data.filter(d => (d.nama_unit || d['Nama Unit']) === unitF);
+  if (jenisF) data = data.filter(d => (d.jenis_tenaga || d['Jenis Tenaga']) === jenisF);
   if (strF) {
     data = data.filter(d => {
-      const active = d.status_str === 'Aktif' && new Date(d.tgl_berakhir_sip) > new Date();
+      const status = d.status_str || d['Status STR'] || '';
+      const endDate = d.tgl_berakhir_sip || d['Tgl Berakhir SIP'] || '2099-01-01';
+      const active = status === 'Aktif' && new Date(endDate) > new Date();
       return strF === 'Aktif' ? active : !active;
     });
   }
-  
+
   // Sort
   data.sort((a, b) => {
     const keys = ['no','kode_unit','nama_unit','nik','nama_lengkap','jenis_kelamin','jenis_tenaga','status_pegawai','nomor_str','status_str','nomor_sip','tgl_terbit_sip','tgl_berakhir_sip','keterangan'];
-    let va = a[keys[profilSortCol]] || '';
-    let vb = b[keys[profilSortCol]] || '';
+    let va = a[keys[profilSortCol]] || a[keys[profilSortCol]?.replace(/ /g,'_')] || '';
+    let vb = b[keys[profilSortCol]] || b[keys[profilSortCol]?.replace(/ /g,'_')] || '';
     return (va > vb ? 1 : -1) * profilSortDir;
   });
-  
+
   // Pagination
   const totalPages = Math.ceil(data.length / PROFIL_PER_PAGE) || 1;
   if (profilPage > totalPages) profilPage = totalPages;
   const start = (profilPage - 1) * PROFIL_PER_PAGE;
   const pageData = data.slice(start, start + PROFIL_PER_PAGE);
-  
-  tbody.innerHTML = pageData.map((row, idx) => {
-    const isExpired = new Date(row.tgl_berakhir_sip) <= new Date();
+
+  tbody.innerHTML = pageData.map((row) => {
+    const isExpired = new Date(row.tgl_berakhir_sip || row['Tgl Berakhir SIP'] || '2099-01-01') <= new Date();
+    const namaUnit = row.nama_unit || row['Nama Unit'] || '';
+    const kodeUnit = row.kode_unit || row['Kode Unit'] || '';
+    const nik = row.nik || '';
+    const nama = row.nama_lengkap || row['Nama Lengkap'] || '';
+    const jk = row.jenis_kelamin || row['Jenis Kelamin'] || '';
+    const jenisTenaga = row.jenis_tenaga || row['Jenis Tenaga'] || '';
+    const statusPegawai = row.status_pegawai || row['Status Pegawai'] || '';
+    const nomorStr = row.nomor_str || row['Nomor STR'] || '';
+    const statusStr = row.status_str || row['Status STR'] || '';
+    const nomorSip = row.nomor_sip || row['Nomor SIP'] || '';
+    const tglTerbit = row.tgl_terbit_sip || row['Tgl Terbit SIP'] || '';
+    const tglBerakhir = row.tgl_berakhir_sip || row['Tgl Berakhir SIP'] || '';
+    const ket = row.keterangan || row['Keterangan'] || '';
+
     return `
       <tr>
-        <td>${row.no}</td>
-        <td><span class="pill">${row.kode_unit}</span></td>
-        <td>${escapeHtml(row.nama_unit)}</td>
-        <td><strong>${row.nik}</strong></td>
-        <td><strong>${escapeHtml(row.nama_lengkap)}</strong></td>
-        <td>${row.jenis_kelamin === 'Laki-laki' ? 'L' : 'P'}</td>
-        <td>${escapeHtml(row.jenis_tenaga)}</td>
-        <td>${escapeHtml(row.status_pegawai)}</td>
-        <td style="font-family:monospace;font-size:12px;">${row.nomor_str}</td>
-        <td><span class="badge ${isExpired ? 'badge-danger' : 'badge-success'}">${isExpired ? 'Expired' : 'Aktif'}</span></td>
-        <td style="font-family:monospace;font-size:12px;">${row.nomor_sip}</td>
-        <td>${formatDate(row.tgl_terbit_sip)}</td>
-        <td>${formatDate(row.tgl_berakhir_sip)}</td>
-        <td style="max-width:160px;font-size:12px;">${escapeHtml(row.keterangan)}</td>
+        <td>${row.no || ''}</td>
+        <td><span class="pill">${kodeUnit}</span></td>
+        <td>${escapeHtml(namaUnit)}</td>
+        <td><strong>${nik}</strong></td>
+        <td><strong>${escapeHtml(nama)}</strong></td>
+        <td>${jk === 'Laki-laki' ? 'L' : (jk ? 'P' : '')}</td>
+        <td>${escapeHtml(jenisTenaga)}</td>
+        <td>${escapeHtml(statusPegawai)}</td>
+        <td style="font-family:monospace;font-size:12px;">${nomorStr}</td>
+        <td><span class="badge ${isExpired ? 'badge-danger' : 'badge-success'}">${isExpired ? 'Expired' : statusStr}</span></td>
+        <td style="font-family:monospace;font-size:12px;">${nomorSip}</td>
+        <td>${formatDate(tglTerbit)}</td>
+        <td>${formatDate(tglBerakhir)}</td>
+        <td style="max-width:160px;font-size:12px;">${escapeHtml(ket)}</td>
         <td>
-          <button onclick="editProfilRow('${row.nik}')" class="btn btn-sm btn-outline" style="padding:4px 8px;margin-right:4px;"><i class="fas fa-edit"></i></button>
-          <button onclick="deleteProfilRow('${row.nik}')" class="btn btn-sm btn-danger" style="padding:4px 8px;"><i class="fas fa-trash"></i></button>
+          ${isAdmin ? `
+            <button onclick="editProfilRow('${nik}')" class="btn btn-sm btn-outline" style="padding:4px 8px;margin-right:4px;"><i class="fas fa-edit"></i></button>
+            <button onclick="deleteProfilRow('${nik}')" class="btn btn-sm btn-danger" style="padding:4px 8px;"><i class="fas fa-trash"></i></button>
+          ` : '<span style="color:#94A3B8;font-size:11px;">View only</span>'}
         </td>
       </tr>
     `;
   }).join('');
-  
-  countEl.textContent = `Menampilkan ${pageData.length} dari ${data.length} data`;
-  
+
+  if (countEl) countEl.textContent = `Menampilkan ${pageData.length} dari ${data.length} data`;
+
   // Pagination controls
   const pagEl = document.getElementById('profil-pagination');
-  pagEl.innerHTML = `
-    <button onclick="changeProfilPage(-1)" class="btn btn-sm btn-outline" ${profilPage===1?'disabled':''}>‹</button>
-    <span style="margin:0 10px;">Hal ${profilPage} / ${totalPages}</span>
-    <button onclick="changeProfilPage(1)" class="btn btn-sm btn-outline" ${profilPage===totalPages?'disabled':''}>›</button>
-  `;
+  if (pagEl) {
+    pagEl.innerHTML = `
+      <button onclick="changeProfilPage(-1)" class="btn btn-sm btn-outline" ${profilPage===1?'disabled':''}>‹</button>
+      <span style="margin:0 10px;">Hal ${profilPage} / ${totalPages}</span>
+      <button onclick="changeProfilPage(1)" class="btn btn-sm btn-outline" ${profilPage===totalPages?'disabled':''}>›</button>
+    `;
+  }
 }
 
 function changeProfilPage(delta) {
@@ -1884,43 +1950,71 @@ async function saveProfil(editNik) {
   
   if (!payload.nik || payload.nik.length !== 16) { showToast('NIK 16 digit wajib', 'error'); return; }
   
-  let res;
-  if (editNik) {
-    res = await apiCall('updateProfil', { ...payload, nik: editNik });
-  } else {
-    res = await apiCall('addProfil', payload);
-  }
-  
   closeModal();
-  if (res.success) {
-    showToast('Data berhasil disimpan');
-    // Refresh table
+
+  if (USE_GAS) {
+    const action = editNik ? 'updateProfil' : 'addProfil';
+    const res = await apiCall(action, editNik ? { ...payload, nik: editNik } : payload);
+
+    if (res.success) {
+      showToast('Data berhasil disimpan ke Google Sheet');
+      refreshProfilData();   // re-fetch from sheet
+    } else {
+      showToast(res.error || 'Gagal menyimpan', 'error');
+    }
+  } else {
+    // Local mode
+    if (editNik) {
+      const idx = dataStore.profil.findIndex(p => p.nik === editNik);
+      if (idx > -1) dataStore.profil[idx] = { ...dataStore.profil[idx], ...payload };
+    } else {
+      dataStore.profil.push({ ...payload, no: dataStore.profil.length + 1 });
+    }
+    saveToStorage();
+    profilData = [...dataStore.profil];
     renderProfil(document.getElementById('content'));
+    showToast('Data berhasil disimpan (lokal)');
   }
 }
 
 function editProfilRow(nik) {
-  const row = dataStore.profil.find(p => p.nik === nik);
+  let row = profilData.find(p => (p.nik || p.NIK) === nik);
+  if (!row) row = dataStore.profil.find(p => p.nik === nik);
   if (row) showAddProfilModal(row);
 }
 
 function deleteProfilRow(nik) {
   if (!confirm('Hapus data SDMK ini?')) return;
-  dataStore.profil = dataStore.profil.filter(p => p.nik !== nik);
-  saveToStorage();
-  renderProfil(document.getElementById('content'));
+
+  if (USE_GAS) {
+    apiCall('deleteProfil', { nik }).then(res => {
+      if (res.success) {
+        showToast('Data dihapus dari Google Sheet');
+        refreshProfilData();
+      } else {
+        showToast(res.error || 'Gagal hapus', 'error');
+      }
+    });
+  } else {
+    dataStore.profil = dataStore.profil.filter(p => p.nik !== nik);
+    profilData = profilData.filter(p => (p.nik || p.NIK) !== nik);
+    saveToStorage();
+    renderProfil(document.getElementById('content'));
+  }
 }
 
 function exportProfilCSV() {
+  const source = profilData.length ? profilData : dataStore.profil;
   let csv = 'No,Kode Unit,Nama Unit,NIK,Nama Lengkap,Jenis Kelamin,Jenis Tenaga,Status Pegawai,No STR,Status STR,No SIP,Tgl Terbit,Tgl Berakhir,Keterangan\n';
-  dataStore.profil.forEach(r => {
-    csv += `${r.no},${r.kode_unit},"${r.nama_unit}",${r.nik},"${r.nama_lengkap}",${r.jenis_kelamin},${r.jenis_tenaga},${r.status_pegawai},${r.nomor_str},${r.status_str},${r.nomor_sip},${r.tgl_terbit_sip},${r.tgl_berakhir_sip},"${r.keterangan}"\n`;
+  source.forEach(r => {
+    csv += `${r.no || ''},${r.kode_unit || r['Kode Unit'] || ''},"${r.nama_unit || r['Nama Unit'] || ''}",${r.nik || r.NIK || ''},"${r.nama_lengkap || r['Nama Lengkap'] || ''}",${r.jenis_kelamin || r['Jenis Kelamin'] || ''},${r.jenis_tenaga || r['Jenis Tenaga'] || ''},${r.status_pegawai || r['Status Pegawai'] || ''},${r.nomor_str || r['Nomor STR'] || ''},${r.status_str || r['Status STR'] || ''},${r.nomor_sip || r['Nomor SIP'] || ''},${r.tgl_terbit_sip || r['Tgl Terbit SIP'] || ''},${r.tgl_berakhir_sip || r['Tgl Berakhir SIP'] || ''},"${r.keterangan || r['Keterangan'] || ''}"\n`;
   });
   downloadFile(csv, 'profil_sdmk.csv', 'text/csv');
   showToast('Export CSV berhasil');
 }
 
 function exportProfilPDF() {
+  const source = profilData.length ? profilData : dataStore.profil;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   doc.setFontSize(14);
@@ -1929,9 +2023,13 @@ function exportProfilPDF() {
   doc.text(`Dicetak: ${new Date().toLocaleDateString('id-ID')}`, 14, 25);
   
   let y = 35;
-  dataStore.profil.forEach((r, i) => {
+  source.forEach((r, i) => {
     if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(`${i+1}. ${r.nama_lengkap} | ${r.nik} | ${r.nomor_sip} | ${r.tgl_berakhir_sip}`, 14, y);
+    const nama = r.nama_lengkap || r['Nama Lengkap'] || '';
+    const nik = r.nik || r.NIK || '';
+    const sip = r.nomor_sip || r['Nomor SIP'] || '';
+    const akhir = r.tgl_berakhir_sip || r['Tgl Berakhir SIP'] || '';
+    doc.text(`${i+1}. ${nama} | ${nik} | ${sip} | ${akhir}`, 14, y);
     y += 8;
   });
   doc.save('profil_sdmk.pdf');
