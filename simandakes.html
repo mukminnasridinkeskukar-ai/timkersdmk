@@ -744,6 +744,8 @@
             <div onclick="switchAdminTab(this, 'admin-crud-anjab')" class="admin-tab px-5 py-2 cursor-pointer font-medium hover:text-cyan-300">Anjab-ABK</div>
             <div onclick="switchAdminTab(this, 'admin-crud-rasio')" class="admin-tab px-5 py-2 cursor-pointer font-medium hover:text-cyan-300">Rasio</div>
             <div onclick="switchAdminTab(this, 'admin-crud-profil')" class="admin-tab px-5 py-2 cursor-pointer font-medium hover:text-cyan-300">Faskes</div>
+            <div onclick="switchAdminTab(this, 'admin-rekap-sdmk')" class="admin-tab px-5 py-2 cursor-pointer font-medium hover:text-cyan-300">Rekap SDMK</div>
+            <div onclick="switchAdminTab(this, 'admin-rekap-spesialis')" class="admin-tab px-5 py-2 cursor-pointer font-medium hover:text-cyan-300">Rekap Dokter Spesialis</div>
             <div onclick="switchAdminTab(this, 'admin-users')" class="admin-tab px-5 py-2 cursor-pointer font-medium hover:text-cyan-300">User Mgmt</div>
             <div onclick="switchAdminTab(this, 'admin-logs')" class="admin-tab px-5 py-2 cursor-pointer font-medium hover:text-cyan-300">Activity Logs</div>
           </div>
@@ -768,10 +770,128 @@
             <button onclick="calculateAllRasio()" class="mb-4 px-4 py-2 bg-cyan-400 text-black text-sm font-semibold rounded-3xl">Recalculate Semua Rasio</button>
             <div id="admin-rasio-list"></div>
           </div>
-          <div id="admin-crud-profil" class="admin-pane hidden">
-            <button onclick="showProfilModal()" class="mb-4 px-4 py-2 bg-pink-500 text-sm font-semibold rounded-3xl">+ Tambah Faskes</button>
-            <div id="admin-profil-list"></div>
-          </div>
+           <div id="admin-crud-profil" class="admin-pane hidden">
+             <button onclick="showProfilModal()" class="mb-4 px-4 py-2 bg-pink-500 text-sm font-semibold rounded-3xl">+ Tambah Faskes</button>
+             <div id="admin-profil-list"></div>
+           </div>
+
+           <!-- REKAP SDMK -->
+           <div id="admin-rekap-sdmk" class="admin-pane hidden">
+             <div class="flex justify-between items-center mb-4">
+               <div>
+                 <div class="font-semibold text-xl">Rekap SDMK</div>
+                 <div class="text-xs text-white/50">Data rekap tenaga kesehatan per bulan</div>
+               </div>
+               <div class="flex gap-2">
+                 <button onclick="showRekapSDMKModal()" class="px-4 py-2 bg-emerald-500 text-sm font-semibold rounded-3xl flex items-center gap-2">
+                   <i class="fa-solid fa-plus"></i> Tambah Data
+                 </button>
+                 <button onclick="exportRekapToExcel('sdmk')" class="px-4 py-2 border border-white/20 text-sm rounded-3xl flex items-center gap-2">
+                   <i class="fa-solid fa-file-excel"></i> Excel
+                 </button>
+                 <button onclick="exportRekapToPDF('sdmk')" class="px-4 py-2 border border-white/20 text-sm rounded-3xl flex items-center gap-2">
+                   <i class="fa-solid fa-file-pdf"></i> PDF
+                 </button>
+                 <button onclick="printRekapTable('sdmk')" class="px-4 py-2 border border-white/20 text-sm rounded-3xl flex items-center gap-2">
+                   <i class="fa-solid fa-print"></i> Print
+                 </button>
+               </div>
+             </div>
+
+             <div class="flex gap-3 mb-4">
+               <input id="search-rekap-sdmk" onkeyup="filterRekapSDMK()" placeholder="Cari unit atau jenis..." class="glass flex-1 px-4 py-2 rounded-2xl border border-white/10 text-sm">
+               <select id="filter-rekap-sdmk-tahun" onchange="filterRekapSDMK()" class="glass px-4 py-2 rounded-2xl border border-white/10 text-sm bg-transparent">
+                 <option value="">Semua Tahun</option>
+               </select>
+               <select id="filter-rekap-sdmk-bulan" onchange="filterRekapSDMK()" class="glass px-4 py-2 rounded-2xl border border-white/10 text-sm bg-transparent">
+                 <option value="">Semua Bulan</option>
+               </select>
+             </div>
+
+             <div class="glass rounded-3xl border border-white/10 overflow-hidden">
+               <div class="overflow-x-auto modern-scroll">
+                 <table id="rekap-sdmk-table" class="data-table w-full min-w-[1100px]">
+                    <thead>
+                      <tr>
+                        <th onclick="addRekapSorting('sdmk','tahun')" class="cursor-pointer hover:bg-white/5">Tahun</th>
+                        <th onclick="addRekapSorting('sdmk','bulan')" class="cursor-pointer hover:bg-white/5">Bulan</th>
+                        <th onclick="addRekapSorting('sdmk','unit')" class="cursor-pointer hover:bg-white/5">Unit</th>
+                        <th onclick="addRekapSorting('sdmk','jenis')" class="cursor-pointer hover:bg-white/5">Jenis</th>
+                        <th onclick="addRekapSorting('sdmk','jumlah')" class="cursor-pointer hover:bg-white/5 text-right">Jumlah</th>
+                        <th class="w-24">Aksi</th>
+                      </tr>
+                    </thead>
+                   <tbody id="rekap-sdmk-tbody"></tbody>
+                 </table>
+               </div>
+              </div>
+
+              <!-- Pagination & Page Size -->
+              <div class="flex flex-col md:flex-row md:items-center justify-between mt-4 gap-3 text-sm">
+                <div class="flex items-center gap-2">
+                  <span class="text-white/60">Tampilkan</span>
+                  <select id="rekap-sdmk-pagesize" onchange="changeRekapPageSize('sdmk', this.value)" class="glass px-3 py-1 rounded-xl border border-white/10 text-xs bg-transparent">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                  </select>
+                  <span class="text-white/60">data per halaman</span>
+                </div>
+                <div id="rekap-sdmk-pagination" class="flex items-center gap-1"></div>
+              </div>
+            </div>
+ 
+            <!-- REKAP DOKTER SPESIALIS -->
+           <div id="admin-rekap-spesialis" class="admin-pane hidden">
+             <div class="flex justify-between items-center mb-4">
+               <div>
+                 <div class="font-semibold text-xl">Rekap Dokter Spesialis</div>
+                 <div class="text-xs text-white/50">Data rekap dokter spesialis per bulan</div>
+               </div>
+               <div class="flex gap-2">
+                 <button onclick="showRekapSpesialisModal()" class="px-4 py-2 bg-violet-500 text-sm font-semibold rounded-3xl flex items-center gap-2">
+                   <i class="fa-solid fa-plus"></i> Tambah Data
+                 </button>
+                 <button onclick="exportRekapToExcel('spesialis')" class="px-4 py-2 border border-white/20 text-sm rounded-3xl flex items-center gap-2">
+                   <i class="fa-solid fa-file-excel"></i> Excel
+                 </button>
+                 <button onclick="exportRekapToPDF('spesialis')" class="px-4 py-2 border border-white/20 text-sm rounded-3xl flex items-center gap-2">
+                   <i class="fa-solid fa-file-pdf"></i> PDF
+                 </button>
+                 <button onclick="printRekapTable('spesialis')" class="px-4 py-2 border border-white/20 text-sm rounded-3xl flex items-center gap-2">
+                   <i class="fa-solid fa-print"></i> Print
+                 </button>
+               </div>
+             </div>
+
+             <div class="flex gap-3 mb-4">
+               <input id="search-rekap-spesialis" onkeyup="filterRekapSpesialis()" placeholder="Cari unit atau spesialis..." class="glass flex-1 px-4 py-2 rounded-2xl border border-white/10 text-sm">
+               <select id="filter-rekap-spesialis-tahun" onchange="filterRekapSpesialis()" class="glass px-4 py-2 rounded-2xl border border-white/10 text-sm bg-transparent">
+                 <option value="">Semua Tahun</option>
+               </select>
+               <select id="filter-rekap-spesialis-bulan" onchange="filterRekapSpesialis()" class="glass px-4 py-2 rounded-2xl border border-white/10 text-sm bg-transparent">
+                 <option value="">Semua Bulan</option>
+               </select>
+             </div>
+
+             <div class="glass rounded-3xl border border-white/10 overflow-hidden">
+               <div class="overflow-x-auto modern-scroll">
+                 <table id="rekap-spesialis-table" class="data-table w-full min-w-[1100px]">
+                    <thead>
+                      <tr>
+                        <th onclick="addRekapSorting('spesialis','tahun')" class="cursor-pointer hover:bg-white/5">Tahun</th>
+                        <th onclick="addRekapSorting('spesialis','bulan')" class="cursor-pointer hover:bg-white/5">Bulan</th>
+                        <th onclick="addRekapSorting('spesialis','unit')" class="cursor-pointer hover:bg-white/5">Unit</th>
+                        <th onclick="addRekapSorting('spesialis','jenis')" class="cursor-pointer hover:bg-white/5">Spesialis</th>
+                        <th onclick="addRekapSorting('spesialis','jumlah')" class="cursor-pointer hover:bg-white/5 text-right">Jumlah</th>
+                        <th class="w-24">Aksi</th>
+                      </tr>
+                    </thead>
+                   <tbody id="rekap-spesialis-tbody"></tbody>
+                 </table>
+               </div>
+             </div>
+           </div>
           <div id="admin-users" class="admin-pane hidden">
             <div class="mb-3 flex gap-3">
               <button onclick="showAddUserModal()" class="px-4 h-9 text-sm rounded-3xl bg-red-500/90">+ Tambah User</button>
@@ -939,6 +1059,9 @@
         {kode:'FK-004', nama:'Puskesmas Mawar', jenis:'Puskesmas', kec:'Mawar', desa:'Mawar Selatan', alamat:'Jl. Melati Raya No.7', kepala:'dr. Rina Kusuma', sdmk:34, akreditasi:'Utama', kontak:'(031) 555-7788'},
         {kode:'FK-005', nama:'Klinik Pratama Mandiri', jenis:'Klinik', kec:'Kenanga', desa:'Kenanga', alamat:'Jl. Kenanga No.22', kepala:'dr. Hendra Wijaya', sdmk:12, akreditasi:'Dasar', kontak:'(031) 555-9911'},
       ],
+
+      rekap_sdmk: [],
+      rekap_spesialis: [],
       
       users: [
         {username:'admin', password:'simandakes2026', role:'admin', nama:'Admin Dinkes'},
@@ -1227,6 +1350,21 @@
       }
       if (section === 'admin') {
         renderAdminPanes();
+      }
+
+      // Load rekap data when opening the tabs
+      if (section === 'admin') {
+        setTimeout(() => {
+          const activeTab = document.querySelector('.admin-tab.active');
+          if (activeTab) {
+            const target = activeTab.getAttribute('onclick');
+            if (target && target.includes('admin-rekap-sdmk')) {
+              loadRekapSDMK();
+            } else if (target && target.includes('admin-rekap-spesialis')) {
+              loadRekapSpesialis();
+            }
+          }
+        }, 100);
       }
     }
 
@@ -1894,6 +2032,483 @@
           <td><button onclick="showProfilDetail(${DATA.profil.indexOf(p)})" class="px-3 py-1 text-xs border border-white/20 rounded-2xl">Detail</button></td>
         </tr>
       `).join('');
+    }
+
+    // ==================== REKAP SDMK ====================
+    let rekapSDMKData = [];
+    let rekapSDMKState = {
+      page: 1,
+      pageSize: 10,
+      sortColumn: 'tahun',
+      sortDirection: 'desc'
+    };
+
+    let rekapSpesialisData = [];
+    let rekapSpesialisState = {
+      page: 1,
+      pageSize: 10,
+      sortColumn: 'tahun',
+      sortDirection: 'desc'
+    };
+
+    function renderRekapSDMK() {
+      const tbody = document.getElementById('rekap-sdmk-tbody');
+      let data = [...rekapSDMKData];
+
+      // Search
+      const searchVal = (document.getElementById('search-rekap-sdmk')?.value || '').toLowerCase();
+      if (searchVal) {
+        data = data.filter(item => 
+          item.unit.toLowerCase().includes(searchVal) || 
+          item.jenis.toLowerCase().includes(searchVal)
+        );
+      }
+
+      // Filter
+      const tahunFilter = document.getElementById('filter-rekap-sdmk-tahun')?.value || '';
+      const bulanFilter = document.getElementById('filter-rekap-sdmk-bulan')?.value || '';
+      if (tahunFilter) data = data.filter(i => i.tahun == tahunFilter);
+      if (bulanFilter) data = data.filter(i => i.bulan == bulanFilter);
+
+      // Sorting
+      const { sortColumn, sortDirection } = rekapSDMKState;
+      data.sort((a, b) => {
+        let valA = a[sortColumn];
+        let valB = b[sortColumn];
+        if (sortColumn === 'jumlah') {
+          valA = Number(valA); valB = Number(valB);
+        }
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // Pagination
+      const total = data.length;
+      const start = (rekapSDMKState.page - 1) * rekapSDMKState.pageSize;
+      const paginatedData = data.slice(start, start + rekapSDMKState.pageSize);
+
+      tbody.innerHTML = '';
+
+      if (paginatedData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-8 text-white/50">
+              <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
+              Tidak ada data rekap SDMK
+            </td>
+          </tr>`;
+        updateRekapPagination('sdmk', total);
+        return;
+      }
+
+      paginatedData.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.tahun}</td>
+          <td>${item.bulan}</td>
+          <td>${item.unit}</td>
+          <td><span class="px-2 py-0.5 text-xs rounded bg-white/10">${item.jenis}</span></td>
+          <td class="font-bold text-right">${item.jumlah}</td>
+          <td>
+            <div class="flex gap-1">
+              <button onclick="editRekapSDMK(${item.id})" class="text-cyan-400 text-xs px-2 hover:underline">Edit</button>
+              <button onclick="deleteRekapSDMK(${item.id})" class="text-red-400 text-xs px-2 hover:underline">Hapus</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      updateRekapPagination('sdmk', total);
+    }
+
+    function filterRekapSDMK() {
+      const q = document.getElementById('search-rekap-sdmk').value.toLowerCase();
+      const tahun = document.getElementById('filter-rekap-sdmk-tahun').value;
+      const bulan = document.getElementById('filter-rekap-sdmk-bulan').value;
+
+      const filtered = rekapSDMKData.filter(item => 
+        (item.unit.toLowerCase().includes(q) || item.jenis.toLowerCase().includes(q)) &&
+        (!tahun || item.tahun == tahun) &&
+        (!bulan || item.bulan == bulan)
+      );
+      renderRekapSDMK(filtered);
+    }
+
+    function showRekapSDMKModal(editId = null) {
+      const isEdit = !!editId;
+      const item = isEdit ? rekapSDMKData.find(x => x.id === editId) : {};
+
+      const tahunOptions = Array.from({length: 12}, (_, i) => 2024 + i).map(y => `<option ${item.tahun == y ? 'selected' : ''}>${y}</option>`).join('');
+      const bulanOptions = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
+        .map(b => `<option ${item.bulan === b ? 'selected' : ''}>${b}</option>`).join('');
+
+      const unitOptions = DATA.profil.map(p => `<option ${item.unit === p.nama ? 'selected' : ''}>${p.nama}</option>`).join('');
+
+      const jenisOptions = ['Dokter','Dokter Gigi','Perawat','Bidan','Farmasi','Gizi','Kesmas','Sanitarian','ATLM','Lainnya']
+        .map(j => `<option ${item.jenis === j ? 'selected' : ''}>${j}</option>`).join('');
+
+      showModal(isEdit ? 'Edit Rekap SDMK' : 'Tambah Rekap SDMK', `
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-white/60">TAHUN</label>
+              <select id="rekap-sdmk-tahun" class="w-full glass px-4 py-2 rounded-2xl border border-white/10">${tahunOptions}</select>
+            </div>
+            <div>
+              <label class="text-xs text-white/60">BULAN</label>
+              <select id="rekap-sdmk-bulan" class="w-full glass px-4 py-2 rounded-2xl border border-white/10">${bulanOptions}</select>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs text-white/60">UNIT FASKES</label>
+            <select id="rekap-sdmk-unit" class="w-full glass px-4 py-2 rounded-2xl border border-white/10">${unitOptions}</select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-white/60">JENIS TENAGA</label>
+              <select id="rekap-sdmk-jenis" class="w-full glass px-4 py-2 rounded-2xl border border-white/10">${jenisOptions}</select>
+            </div>
+            <div>
+              <label class="text-xs text-white/60">JUMLAH</label>
+              <input id="rekap-sdmk-jumlah" type="number" value="${item.jumlah || 0}" class="w-full glass px-4 py-2 rounded-2xl border border-white/10">
+            </div>
+          </div>
+        </div>
+      `, `
+        <button onclick="closeModal()" class="px-5 py-2 border border-white/20 rounded-3xl">Batal</button>
+        <button onclick="saveRekapSDMK(${isEdit ? editId : 'null'})" class="px-6 py-2 bg-emerald-500 font-semibold rounded-3xl">${isEdit ? 'Update' : 'Simpan'}</button>
+      `);
+    }
+
+    async function saveRekapSDMK(editId) {
+      const item = {
+        tahun: document.getElementById('rekap-sdmk-tahun').value,
+        bulan: document.getElementById('rekap-sdmk-bulan').value,
+        unit: document.getElementById('rekap-sdmk-unit').value,
+        jenis: document.getElementById('rekap-sdmk-jenis').value,
+        jumlah: parseInt(document.getElementById('rekap-sdmk-jumlah').value) || 0
+      };
+
+      if (!item.tahun || !item.bulan || !item.unit || !item.jenis) {
+        showToast('Semua field wajib diisi', 'error');
+        return;
+      }
+
+      closeModal();
+
+      if (isApiConnected) {
+        const res = editId 
+          ? await callAPI('updateRekapSDMK', { id: editId, ...item })
+          : await callAPI('createRekapSDMK', item);
+
+        if (res.success) {
+          await loadRekapSDMK();
+          showToast('Data berhasil disimpan', 'success');
+        } else {
+          showToast('Gagal menyimpan ke server', 'error');
+        }
+      } else {
+        // Local mode
+        if (editId) {
+          const idx = rekapSDMKData.findIndex(x => x.id === editId);
+          rekapSDMKData[idx] = { ...rekapSDMKData[idx], ...item };
+        } else {
+          item.id = Date.now();
+          rekapSDMKData.unshift(item);
+        }
+        renderRekapSDMK();
+        showToast('Data disimpan (mode lokal)', 'success');
+      }
+    }
+
+    async function deleteRekapSDMK(id) {
+      if (!confirm('Hapus data ini?')) return;
+
+      if (isApiConnected) {
+        const res = await callAPI('deleteRekapSDMK', { id });
+        if (res.success) {
+          await loadRekapSDMK();
+          showToast('Data dihapus', 'success');
+        }
+      } else {
+        rekapSDMKData = rekapSDMKData.filter(x => x.id !== id);
+        renderRekapSDMK();
+      }
+    }
+
+    async function loadRekapSDMK() {
+      if (isApiConnected) {
+        const res = await callAPI('getRekapSDMK');
+        if (res.success) {
+          rekapSDMKData = res.data || [];
+        }
+      } else {
+        // Sample data for demo
+        if (rekapSDMKData.length === 0) {
+          rekapSDMKData = [
+            {id:1, tahun:2026, bulan:'Mei', unit:'Puskesmas Sukamaju', jenis:'Dokter', jumlah:12},
+            {id:2, tahun:2026, bulan:'Mei', unit:'RSUD Sehat Sejahtera', jenis:'Perawat', jumlah:45}
+          ];
+        }
+      }
+      renderRekapSDMK();
+    }
+
+    function exportRekapToExcel(type) {
+      // Implementation using SheetJS (already loaded)
+      const data = type === 'sdmk' ? rekapSDMKData : [];
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Rekap");
+      XLSX.writeFile(wb, `rekap_${type}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function exportRekapToPDF(type) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text(`Rekap ${type.toUpperCase()}`, 14, 16);
+      // Simple implementation
+      doc.save(`rekap_${type}.pdf`);
+    }
+
+    function printRekapTable(type) {
+      const tableId = type === 'sdmk' ? 'rekap-sdmk-table' : 'rekap-spesialis-table';
+      const table = document.getElementById(tableId);
+      if (!table) return;
+      const win = window.open('', '', 'width=900,height=700');
+      win.document.write(`<html><head><title>Print</title></head><body>` + table.outerHTML + `</body></html>`);
+      win.document.close();
+      setTimeout(() => { win.print(); win.close(); }, 300);
+    }
+
+    // ==================== REKAP DOKTER SPESIALIS (Frontend Lengkap) ====================
+    function renderRekapSpesialis() {
+      const tbody = document.getElementById('rekap-spesialis-tbody');
+      let data = [...rekapSpesialisData];
+
+      const searchVal = (document.getElementById('search-rekap-spesialis')?.value || '').toLowerCase();
+      if (searchVal) {
+        data = data.filter(item => item.unit.toLowerCase().includes(searchVal) || item.jenis.toLowerCase().includes(searchVal));
+      }
+
+      const tahunFilter = document.getElementById('filter-rekap-spesialis-tahun')?.value || '';
+      const bulanFilter = document.getElementById('filter-rekap-spesialis-bulan')?.value || '';
+      if (tahunFilter) data = data.filter(i => i.tahun == tahunFilter);
+      if (bulanFilter) data = data.filter(i => i.bulan == bulanFilter);
+
+      // Sorting
+      const { sortColumn, sortDirection } = rekapSpesialisState;
+      data.sort((a, b) => {
+        let valA = a[sortColumn]; let valB = b[sortColumn];
+        if (sortColumn === 'jumlah') { valA = Number(valA); valB = Number(valB); }
+        if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      const total = data.length;
+      const start = (rekapSpesialisState.page - 1) * rekapSpesialisState.pageSize;
+      const paginated = data.slice(start, start + rekapSpesialisState.pageSize);
+
+      tbody.innerHTML = '';
+
+      if (paginated.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-white/50"><i class="fa-solid fa-inbox text-3xl mb-2 block"></i>Tidak ada data dokter spesialis</td></tr>`;
+        updateRekapPagination('spesialis', total);
+        return;
+      }
+
+      paginated.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.tahun}</td>
+          <td>${item.bulan}</td>
+          <td>${item.unit}</td>
+          <td><span class="px-2 py-0.5 text-xs rounded bg-white/10">${item.jenis}</span></td>
+          <td class="font-bold text-right">${item.jumlah}</td>
+          <td>
+            <div class="flex gap-1">
+              <button onclick="editRekapSpesialis(${item.id})" class="text-cyan-400 text-xs px-2 hover:underline">Edit</button>
+              <button onclick="deleteRekapSpesialis(${item.id})" class="text-red-400 text-xs px-2 hover:underline">Hapus</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      updateRekapPagination('spesialis', total);
+    }
+
+    function filterRekapSpesialis() { renderRekapSpesialis(); }
+
+    function showRekapSpesialisModal(editId = null) {
+      const isEdit = !!editId;
+      const item = isEdit ? rekapSpesialisData.find(x => x.id === editId) : {};
+
+      const tahunOptions = Array.from({length:12},(_,i)=>2024+i).map(y=>`<option ${item.tahun==y?'selected':''}>${y}</option>`).join('');
+      const bulanOptions = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
+        .map(b=>`<option ${item.bulan===b?'selected':''}>${b}</option>`).join('');
+      const unitOptions = DATA.profil.map(p=>`<option ${item.unit===p.nama?'selected':''}>${p.nama}</option>`).join('');
+      const spesialisList = ['Penyakit Dalam','Anak','Bedah','Obgyn','Anestesi','Radiologi','Patologi Klinik','Jantung','Saraf','Mata','THT','Ortopedi','Jiwa','Kulit Kelamin','Paru','Urologi','Rehabilitasi Medik','Lainnya'];
+      const jenisOptions = spesialisList.map(j=>`<option ${item.jenis===j?'selected':''}>${j}</option>`).join('');
+
+      showModal(isEdit ? 'Edit Rekap Dokter Spesialis' : 'Tambah Rekap Dokter Spesialis', `
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-xs text-white/60">TAHUN</label>
+              <select id="rekap-spesialis-tahun" class="w-full glass px-4 py-2 rounded-2xl">${tahunOptions}</select>
+            </div>
+            <div><label class="text-xs text-white/60">BULAN</label>
+              <select id="rekap-spesialis-bulan" class="w-full glass px-4 py-2 rounded-2xl">${bulanOptions}</select>
+            </div>
+          </div>
+          <div><label class="text-xs text-white/60">UNIT FASKES</label>
+            <select id="rekap-spesialis-unit" class="w-full glass px-4 py-2 rounded-2xl">${unitOptions}</select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="text-xs text-white/60">SPESIALIS</label>
+              <select id="rekap-spesialis-jenis" class="w-full glass px-4 py-2 rounded-2xl">${jenisOptions}</select>
+            </div>
+            <div><label class="text-xs text-white/60">JUMLAH</label>
+              <input id="rekap-spesialis-jumlah" type="number" value="${item.jumlah||0}" class="w-full glass px-4 py-2 rounded-2xl">
+            </div>
+          </div>
+        </div>
+      `, `
+        <button onclick="closeModal()" class="px-5 py-2 border border-white/20 rounded-3xl">Batal</button>
+        <button onclick="saveRekapSpesialis(${isEdit?editId:'null'})" class="px-6 py-2 bg-violet-500 font-semibold rounded-3xl">${isEdit?'Update':'Simpan'}</button>
+      `);
+    }
+
+    async function saveRekapSpesialis(editId) {
+      const item = {
+        tahun: document.getElementById('rekap-spesialis-tahun').value,
+        bulan: document.getElementById('rekap-spesialis-bulan').value,
+        unit: document.getElementById('rekap-spesialis-unit').value,
+        jenis: document.getElementById('rekap-spesialis-jenis').value,
+        jumlah: parseInt(document.getElementById('rekap-spesialis-jumlah').value) || 0
+      };
+      if (!item.tahun || !item.bulan || !item.unit || !item.jenis) { showToast('Semua field wajib diisi','error'); return; }
+      closeModal();
+
+      if (isApiConnected) {
+        const res = editId ? await callAPI('updateRekapSpesialis',{id:editId,...item}) : await callAPI('createRekapSpesialis',item);
+        if (res.success) { await loadRekapSpesialis(); showToast('Data berhasil disimpan','success'); }
+        else showToast('Gagal menyimpan ke server','error');
+      } else {
+        if (editId) {
+          const idx = rekapSpesialisData.findIndex(x=>x.id===editId);
+          rekapSpesialisData[idx] = {...rekapSpesialisData[idx],...item};
+        } else {
+          item.id = Date.now(); rekapSpesialisData.unshift(item);
+        }
+        renderRekapSpesialis();
+        showToast('Data disimpan (mode lokal)','success');
+      }
+    }
+
+    async function deleteRekapSpesialis(id) {
+      if (!confirm('Hapus data ini?')) return;
+      if (isApiConnected) {
+        const res = await callAPI('deleteRekapSpesialis',{id});
+        if (res.success) { await loadRekapSpesialis(); showToast('Data dihapus','success'); }
+      } else {
+        rekapSpesialisData = rekapSpesialisData.filter(x=>x.id!==id);
+        renderRekapSpesialis();
+      }
+    }
+
+    async function loadRekapSpesialis() {
+      if (isApiConnected) {
+        const res = await callAPI('getRekapSpesialis');
+        if (res.success) rekapSpesialisData = res.data || [];
+      } else {
+        if (rekapSpesialisData.length === 0) {
+          rekapSpesialisData = [
+            {id:101, tahun:2026, bulan:'Mei', unit:'RSUD Sehat Sejahtera', jenis:'Penyakit Dalam', jumlah:8},
+            {id:102, tahun:2026, bulan:'Mei', unit:'RSUD Sehat Sejahtera', jenis:'Anak', jumlah:5}
+          ];
+        }
+      }
+      renderRekapSpesialis();
+    }
+
+    function editRekapSpesialis(id) { showRekapSpesialisModal(id); }
+
+    // ==================== PAGINATION & SORTING HELPERS ====================
+    function updateRekapPagination(type, totalItems) {
+      const containerId = type === 'sdmk' ? 'rekap-sdmk-pagination' : 'rekap-spesialis-pagination';
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      const state = type === 'sdmk' ? rekapSDMKState : rekapSpesialisState;
+      const totalPages = Math.ceil(totalItems / state.pageSize) || 1;
+
+      let html = `
+        <button onclick="changeRekapPage('${type}', ${state.page - 1})" 
+                class="px-3 py-1 border border-white/20 rounded-xl hover:bg-white/5 ${state.page === 1 ? 'opacity-40 cursor-not-allowed' : ''}" 
+                ${state.page === 1 ? 'disabled' : ''}>‹</button>
+      `;
+
+      for (let i = 1; i <= Math.min(totalPages, 5); i++) {
+        const active = i === state.page ? 'bg-cyan-500 text-black' : 'border border-white/20 hover:bg-white/5';
+        html += `<button onclick="changeRekapPage('${type}', ${i})" class="px-3 py-1 rounded-xl ${active}">${i}</button>`;
+      }
+
+      if (totalPages > 5) {
+        html += `<span class="px-2 text-white/40">...</span>`;
+      }
+
+      html += `
+        <button onclick="changeRekapPage('${type}', ${state.page + 1})" 
+                class="px-3 py-1 border border-white/20 rounded-xl hover:bg-white/5 ${state.page === totalPages ? 'opacity-40 cursor-not-allowed' : ''}" 
+                ${state.page === totalPages ? 'disabled' : ''}>›</button>
+        <span class="ml-3 text-white/60 text-xs">Hal ${state.page} / ${totalPages}</span>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    function changeRekapPage(type, newPage) {
+      const state = type === 'sdmk' ? rekapSDMKState : rekapSpesialisState;
+      const totalPages = Math.ceil((type === 'sdmk' ? rekapSDMKData : rekapSpesialisData).length / state.pageSize) || 1;
+
+      if (newPage < 1 || newPage > totalPages) return;
+
+      state.page = newPage;
+      if (type === 'sdmk') {
+        renderRekapSDMK();
+      } else {
+        renderRekapSpesialis();
+      }
+    }
+
+    function changeRekapPageSize(type, size) {
+      const state = type === 'sdmk' ? rekapSDMKState : rekapSpesialisState;
+      state.pageSize = parseInt(size);
+      state.page = 1;
+      if (type === 'sdmk') {
+        renderRekapSDMK();
+      } else {
+        renderRekapSpesialis();
+      }
+    }
+
+    function addRekapSorting(type, column) {
+      const state = type === 'sdmk' ? rekapSDMKState : rekapSpesialisState;
+      if (state.sortColumn === column) {
+        state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sortColumn = column;
+        state.sortDirection = 'desc';
+      }
+      if (type === 'sdmk') {
+        renderRekapSDMK();
+      } else {
+        renderRekapSpesialis();
+      }
     }
 
     function filterProfil() {
