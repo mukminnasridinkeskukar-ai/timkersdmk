@@ -284,7 +284,7 @@
             
             <!-- User Info -->
             <div class="flex items-center gap-x-3 pl-4 border-l border-white/10">
-              <div onclick="showUserMenu()" class="flex items-center gap-x-3 cursor-pointer hover:bg-white/5 px-3 py-1.5 rounded-3xl transition-colors">
+              <div onclick="handleTopBarUserClick()" class="flex items-center gap-x-3 cursor-pointer hover:bg-white/5 px-3 py-1.5 rounded-3xl transition-colors">
                 <div class="text-right">
                   <div id="user-name-display" class="font-semibold text-sm">Admin Dinkes</div>
                   <div id="user-role-display" class="text-[10px] text-emerald-400 font-medium">SUPER ADMIN</div>
@@ -620,25 +620,15 @@
 
         <!-- RASIO -->
         <div id="section-rasio" class="hidden">
-           <div class="flex justify-between mb-6">
-             <div class="flex items-center gap-3">
-               <div>
-                 <div class="font-semibold text-3xl tracking-tight">Sebaran SDMK</div>
-               </div>
-               <button onclick="loadDistribusi(true)" class="text-xs px-3 py-1 border border-white/20 rounded-2xl hover:bg-white/5 flex items-center gap-1">
-                 <i class="fa-solid fa-sync"></i> <span>Muat Ulang</span>
-               </button>
-             </div>
-             <div class="flex gap-2">
-               <button onclick="filterDistribusi('all')" class="text-xs px-4 h-9 rounded-3xl border border-white/20 active-filter">SEMUA</button>
-               <button onclick="filterDistribusi('kecamatan')" class="text-xs px-4 h-9 rounded-3xl border border-white/20">PER KECAMATAN</button>
-               <button onclick="filterDistribusi('profesi')" class="text-xs px-4 h-9 rounded-3xl border border-white/20">PER PROFESI</button>
-             </div>
-           </div>
-            <button onclick="calculateAllRasio()" class="px-5 py-2.5 text-sm rounded-3xl border border-cyan-400/70 hover:bg-cyan-400/10 flex items-center gap-2"><i class="fa-solid fa-sync"></i> HITUNG ULANG SEMUA</button>
+          <div class="flex justify-between mb-6">
+            <div>
+              <div class="font-semibold text-3xl tracking-tight">Perhitungan Rasio SDMK</div>
+              <div class="text-sm text-white/50">Rasio per 100.000 Penduduk • Standar WHO &amp; Permenkes</div>
+            </div>
+            <button onclick="calculateAllRasio()" class="px-5 py-2.5 text-sm rounded-3xl border border-cyan-400/70 hover:bg-cyan-400/10 flex items-center gap-2">
+              <i class="fa-solid fa-sync"></i> HITUNG ULANG SEMUA
+            </button>
           </div>
-          
-          <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
             <div class="glass p-5 rounded-3xl border border-white/10">
               <div class="text-xs text-white/60">DOKTER</div>
               <div id="rasio-dokter" class="text-5xl font-semibold text-white mt-1">0.87</div>
@@ -959,7 +949,7 @@
        ============================================================ */
 
     // ==================== CONFIG & STATE ====================
-    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbxZQhqEMJU76Oo84kw5rB802FZ4VHCDLiUqpXiZb8Xc18yXO-Ec3MiadzZ2WHpfBzhf/exec';
+    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbxQt98gQIOVGPfm6WN2FuUCzs78lldEY2EC1wzlmAHAXEKyGjbyRucx2OxdXgfmstoL/exec';
     let currentUser = null;
     let currentSection = 'dashboard';
     let isApiConnected = false;
@@ -1371,6 +1361,14 @@
       setTimeout(() => location.reload(), 650);
     }
 
+    function handleTopBarUserClick() {
+      // Tombol profil di top bar (Admin Dinkes / nama user) 
+      // hanya boleh dibuka setelah login sebagai Admin
+      requireAdminLogin(() => {
+        showUserMenu();
+      });
+    }
+
     function showUserMenu() {
       showModal('Akun Pengguna', `
         <div class="space-y-4">
@@ -1391,7 +1389,10 @@
             <div class="flex justify-between"><span>API Status</span> <span class="font-mono">${isApiConnected ? 'CONNECTED (Server)' : (API_URL ? 'API SET (Local Fallback)' : 'LOCAL MODE')}</span></div>
           </div>
         </div>
-      `, `<button onclick="closeModal(); showSettingsModal()" class="px-6 py-2.5 text-sm border border-white/20 rounded-3xl">API Settings</button>
+      `, `
+          ${currentUser && currentUser.role === 'admin' 
+            ? `<button onclick="closeModal(); showSettingsModal()" class="px-6 py-2.5 text-sm border border-white/20 rounded-3xl">API Settings</button>` 
+            : ''}
           <button onclick="performLogout(); closeModal()" class="px-6 py-2.5 bg-red-600 text-sm rounded-3xl font-semibold">Logout</button>`);
     }
 
@@ -2860,6 +2861,13 @@
     }
 
     function showSettingsModal() {
+      // Hanya admin yang boleh mengakses Test Connection & API Settings
+      if (!currentUser || currentUser.role !== 'admin') {
+        closeModal();
+        showToast('Hanya Admin yang dapat mengakses pengaturan API', 'error');
+        return;
+      }
+
       showModal('API & Integration Settings', `
         <div class="space-y-4 text-sm">
           <div>
