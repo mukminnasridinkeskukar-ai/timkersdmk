@@ -959,7 +959,7 @@
 
     // ==================== CONFIG & STATE ====================
     // Web App URL di-hardcode di sini. Setiap deploy baru, ubah URL di baris ini saja.
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxxq_S05y2yMTFkfqBjIUHjYReTc2w-vdAHeu3WIULzmmtL9uNIndL1dq93emov-AW5/exec';
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbw_1yf2gIUsDDBQfZ5D95RPLt3XlFImy7d0-v1dDWeTpXpAJOTIatHkxzjp7cJ7WSmX/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -2350,23 +2350,56 @@
       }
     }
 
-    async function loadRekapSDMK() {
-      if (isApiConnected) {
-        const res = await callAPI('getRekapSDMK');
-        if (res.success) {
-          rekapSDMKData = res.data || [];
-        }
-      } else {
-        // Sample data for demo
-        if (rekapSDMKData.length === 0) {
-          rekapSDMKData = [
-            {id:1, tahun:2026, bulan:'Mei', unit:'Puskesmas Sukamaju', jenis:'Dokter', jumlah:12},
-            {id:2, tahun:2026, bulan:'Mei', unit:'RSUD Sehat Sejahtera', jenis:'Perawat', jumlah:45}
-          ];
-        }
-      }
+// ==================== REKAP SDMK - VERSI LEBIH KUAT ====================
+async function loadRekapSDMK(force = false) {
+  if (!API_URL) {
+    showToast('API URL belum diatur', 'error');
+    return;
+  }
+
+  try {
+    const res = await callAPI('getRekapSDMK');
+    
+    if (res.success) {
+      rekapSDMKData = res.data || [];
       renderRekapSDMK();
+      isApiConnected = true;
+    } else {
+      const msg = res.message || res.error || 'Unknown error';
+      console.error('Rekap SDMK load error:', res);
+      showToast('Gagal memuat Rekap SDMK: ' + msg, 'error');
     }
+  } catch (e) {
+    console.error('Load Rekap SDMK exception:', e);
+    showToast('Gagal koneksi ke server (Rekap SDMK)', 'error');
+  }
+}
+
+async function saveRekapSDMK(editId) {
+  // ... (kode form tetap sama)
+  const item = { ... };
+
+  closeModal();
+
+  try {
+    const action = editId ? 'updateRekapSDMK' : 'createRekapSDMK';
+    const params = editId ? { id: editId, ...item } : item;
+
+    const res = await callAPI(action, params);
+
+    if (res.success) {
+      await loadRekapSDMK(true);
+      showToast('Data berhasil disimpan ke server', 'success');
+    } else {
+      const msg = res.message || res.error || 'Gagal menyimpan';
+      console.error('Save Rekap SDMK error:', res);
+      showToast('Gagal menyimpan: ' + msg, 'error');
+    }
+  } catch (e) {
+    console.error('Save Rekap SDMK exception:', e);
+    showToast('Gagal koneksi saat menyimpan', 'error');
+  }
+}
 
     function exportRekapToExcel(type) {
       // Implementation using SheetJS (already loaded)
