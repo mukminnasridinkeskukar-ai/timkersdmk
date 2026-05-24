@@ -552,9 +552,14 @@
         <!-- RENBUT SECTION -->
         <div id="section-renbut" class="hidden">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-y-3 mb-6">
-             <div>
-               <div class="font-semibold text-3xl tracking-tight">Renbut SDMK</div>
-               <div class="text-sm text-white/50">Kebutuhan &amp; Rekrutmen Tenaga Kesehatan • Tahun 2026</div>
+             <div class="flex items-center gap-3">
+               <div>
+                 <div class="font-semibold text-3xl tracking-tight">Renbut SDMK</div>
+                 <div class="text-sm text-white/50">Kebutuhan &amp; Rekrutmen Tenaga Kesehatan • Tahun 2026</div>
+               </div>
+               <button onclick="loadRenbut(true)" class="text-xs px-3 py-1 border border-white/20 rounded-2xl hover:bg-white/5 flex items-center gap-1">
+                 <i class="fa-solid fa-sync"></i> <span>Muat Ulang</span>
+               </button>
              </div>
              <!-- Tombol CSV, PDF, Print, dan TAMBAH DATA dipindahkan ke Panel Admin -->
           </div>
@@ -585,11 +590,16 @@
         <!-- ANJAB-ABK -->
         <div id="section-anjab" class="hidden">
            <div class="flex justify-between mb-6 items-center">
-             <div>
-               <div class="font-semibold text-3xl tracking-tight">Anjab &amp; ABK</div>
-               <div class="text-sm text-white/50">Analisis Jabatan &amp; Analisis Beban Kerja</div>
-             </div>
-             <!-- Tombol TAMBAH DATA dipindahkan ke Panel Admin -->
+              <div class="flex items-center gap-3">
+                <div>
+                  <div class="font-semibold text-3xl tracking-tight">Anjab &amp; ABK</div>
+                  <div class="text-sm text-white/50">Analisis Jabatan &amp; Analisis Beban Kerja</div>
+                </div>
+                <button onclick="loadAnjab(true)" class="text-xs px-3 py-1 border border-white/20 rounded-2xl hover:bg-white/5 flex items-center gap-1">
+                  <i class="fa-solid fa-sync"></i> <span>Muat Ulang</span>
+                </button>
+              </div>
+              <!-- Tombol TAMBAH DATA dipindahkan ke Panel Admin -->
            </div>
           
           <div class="mb-3 flex gap-3">
@@ -610,11 +620,21 @@
 
         <!-- RASIO -->
         <div id="section-rasio" class="hidden">
-          <div class="flex justify-between mb-6">
-            <div>
-              <div class="font-semibold text-3xl tracking-tight">Perhitungan Rasio SDMK</div>
-              <div class="text-sm text-white/50">Rasio per 100.000 Penduduk • Standar WHO &amp; Permenkes</div>
-            </div>
+           <div class="flex justify-between mb-6">
+             <div class="flex items-center gap-3">
+               <div>
+                 <div class="font-semibold text-3xl tracking-tight">Sebaran SDMK</div>
+               </div>
+               <button onclick="loadDistribusi(true)" class="text-xs px-3 py-1 border border-white/20 rounded-2xl hover:bg-white/5 flex items-center gap-1">
+                 <i class="fa-solid fa-sync"></i> <span>Muat Ulang</span>
+               </button>
+             </div>
+             <div class="flex gap-2">
+               <button onclick="filterDistribusi('all')" class="text-xs px-4 h-9 rounded-3xl border border-white/20 active-filter">SEMUA</button>
+               <button onclick="filterDistribusi('kecamatan')" class="text-xs px-4 h-9 rounded-3xl border border-white/20">PER KECAMATAN</button>
+               <button onclick="filterDistribusi('profesi')" class="text-xs px-4 h-9 rounded-3xl border border-white/20">PER PROFESI</button>
+             </div>
+           </div>
             <button onclick="calculateAllRasio()" class="px-5 py-2.5 text-sm rounded-3xl border border-cyan-400/70 hover:bg-cyan-400/10 flex items-center gap-2"><i class="fa-solid fa-sync"></i> HITUNG ULANG SEMUA</button>
           </div>
           
@@ -939,7 +959,7 @@
        ============================================================ */
 
     // ==================== CONFIG & STATE ====================
-    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbyX__-Av-VHD6PPYTT-MuTIDJ6OHKdpFcNIFTDIaRzTvJuKVqxXzsge-3noxjGkq_mE/exec';
+    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbxZQhqEMJU76Oo84kw5rB802FZ4VHCDLiUqpXiZb8Xc18yXO-Ec3MiadzZ2WHpfBzhf/exec';
     let currentUser = null;
     let currentSection = 'dashboard';
     let isApiConnected = false;
@@ -990,20 +1010,85 @@
           callAPI('getProfil')
         ]);
 
-        if (dashboardRes.success) DATA.dashboard = { ...DATA.dashboard, ...dashboardRes.data };
-        if (pengumumanRes.success) DATA.pengumuman = pengumumanRes.data || [];
-        if (renbutRes.success) DATA.renbut = renbutRes.data || [];
-        if (anjabRes.success) DATA.anjab = anjabRes.data || [];
-        if (rasioRes.success) DATA.rasio = rasioRes.data || [];
-        if (distribusiRes.success) DATA.distribusi = distribusiRes.data || [];
-        if (profilRes.success) DATA.profil = profilRes.data || [];
+        let successCount = 0;
 
-        isApiConnected = true;
-        return true;
+        if (dashboardRes.success) { DATA.dashboard = { ...DATA.dashboard, ...dashboardRes.data }; successCount++; }
+        if (pengumumanRes.success) { DATA.pengumuman = pengumumanRes.data || []; successCount++; }
+        if (renbutRes.success) { DATA.renbut = renbutRes.data || []; successCount++; }
+        if (anjabRes.success) { DATA.anjab = anjabRes.data || []; successCount++; }
+        if (rasioRes.success) { DATA.rasio = rasioRes.data || []; successCount++; }
+        if (distribusiRes.success) { DATA.distribusi = distribusiRes.data || []; successCount++; }
+        if (profilRes.success) { DATA.profil = profilRes.data || []; successCount++; }
+
+        isApiConnected = successCount > 0;
+        
+        if (successCount < 7) {
+          console.warn(`Partial sync: ${successCount}/7 endpoints succeeded`);
+        }
+
+        return isApiConnected;
       } catch (e) {
-        console.error('Sync failed:', e);
+        console.error('Full sync failed:', e);
         isApiConnected = false;
         return false;
+      }
+    }
+
+    // ==================== ON-DEMAND LOADING FOR PROBLEMATIC MENUS ====================
+    async function loadRenbut(force = false) {
+      if (!API_URL) return;
+      if (!force && DATA.renbut && DATA.renbut.length > 0) return;
+
+      try {
+        const res = await callAPI('getRenbut');
+        if (res.success) {
+          DATA.renbut = res.data || [];
+          renderRenbutTable();
+        } else {
+          showToast('Gagal memuat data Renbut dari server', 'warning');
+        }
+      } catch (e) {
+        console.error('Load Renbut failed:', e);
+        showToast('Koneksi ke server gagal saat memuat Renbut', 'error');
+      }
+    }
+
+    async function loadAnjab(force = false) {
+      if (!API_URL) return;
+      if (!force && DATA.anjab && DATA.anjab.length > 0) return;
+
+      try {
+        const res = await callAPI('getAnjab');
+        if (res.success) {
+          DATA.anjab = res.data || [];
+          renderAnjabTable();
+        } else {
+          showToast('Gagal memuat data Anjab dari server', 'warning');
+        }
+      } catch (e) {
+        console.error('Load Anjab failed:', e);
+        showToast('Koneksi ke server gagal saat memuat Anjab', 'error');
+      }
+    }
+
+    async function loadDistribusi(force = false) {
+      if (!API_URL) return;
+      if (!force && DATA.distribusi && DATA.distribusi.length > 0) return;
+
+      try {
+        const res = await callAPI('getDistribusi');
+        if (res.success) {
+          DATA.distribusi = res.data || [];
+          if (currentSection === 'distribusi' && window.mapInstance) {
+            // Re-init map with new data if already open
+            initMap();
+          }
+        } else {
+          showToast('Gagal memuat data Distribusi dari server', 'warning');
+        }
+      } catch (e) {
+        console.error('Load Distribusi failed:', e);
+        showToast('Koneksi ke server gagal saat memuat Distribusi', 'error');
       }
     }
 
@@ -1350,6 +1435,18 @@
       }
       if (section === 'admin') {
         renderAdminPanes();
+      }
+
+      // ==================== ON-DEMAND DATA LOADING ====================
+      // This fixes the issue where Renbut, Anjab, and Distribusi failed to load from Google Sheet
+      if (section === 'renbut') {
+        loadRenbut();
+      }
+      if (section === 'anjab') {
+        loadAnjab();
+      }
+      if (section === 'distribusi') {
+        loadDistribusi();
       }
 
       // Load rekap data when opening the tabs
