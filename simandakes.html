@@ -527,10 +527,14 @@
                     <i class="fa-solid fa-calculator text-cyan-400 text-xl"></i>
                     <div><div class="font-medium">Hitung Rasio Baru</div><div class="text-xs text-white/50">Update data penduduk</div></div>
                   </button>
-                  <button onclick="navigateTo('admin')" class="premium-btn glass px-5 py-4 rounded-3xl flex items-center gap-x-3 border border-white/10 hover:border-red-400/50 text-left text-sm">
-                    <i class="fa-solid fa-file-export text-red-400 text-xl"></i>
-                    <div><div class="font-medium">Export Laporan</div><div class="text-xs text-white/50">Excel / PDF / CSV</div></div>
-                  </button>
+                   <button onclick="navigateTo('admin')" class="premium-btn glass px-5 py-4 rounded-3xl flex items-center gap-x-3 border border-white/10 hover:border-red-400/50 text-left text-sm">
+                     <i class="fa-solid fa-file-export text-red-400 text-xl"></i>
+                     <div><div class="font-medium">Export Laporan</div><div class="text-xs text-white/50">Excel / PDF / CSV</div></div>
+                   </button>
+                   <button onclick="manualSyncFromServer()" class="premium-btn glass px-5 py-4 rounded-3xl flex items-center gap-x-3 border border-white/10 hover:border-cyan-400/50 text-left text-sm">
+                     <i class="fa-solid fa-sync text-cyan-400 text-xl"></i>
+                     <div><div class="font-medium">Sync dari Server</div><div class="text-xs text-white/50">Muat ulang data dari Google Sheet</div></div>
+                   </button>
                 </div>
               </div>
             </div>
@@ -830,10 +834,74 @@
        ============================================================ */
 
     // ==================== CONFIG & STATE ====================
-    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbwi4hDTPocG4I4UMfwsp0MsVDcZJHuJaG10yGvJXMoLt2YcMzTZGxEgIon0_GjBZo22/exec';
+    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbxZQhqEMJU76Oo84kw5rB802FZ4VHCDLiUqpXiZb8Xc18yXO-Ec3MiadzZ2WHpfBzhf/exec';
     let currentUser = null;
     let currentSection = 'dashboard';
-    
+    let isApiConnected = false;
+
+    // ==================== API HELPER (Backend Integration) ====================
+    async function callAPI(action, params = {}) {
+      if (!API_URL) {
+        return { success: false, message: 'API URL belum diset' };
+      }
+
+      try {
+        const query = new URLSearchParams({ action, ...params }).toString();
+        const url = `${API_URL}?${query}`;
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        console.error('API Error:', err);
+        return { success: false, message: 'Gagal terhubung ke server', error: err.message };
+      }
+    }
+
+    // Sinkronisasi semua data dari server ke local DATA object
+    async function syncAllDataFromServer() {
+      if (!API_URL) return false;
+
+      try {
+        const [
+          dashboardRes,
+          pengumumanRes,
+          renbutRes,
+          anjabRes,
+          rasioRes,
+          distribusiRes,
+          profilRes
+        ] = await Promise.all([
+          callAPI('getDashboard'),
+          callAPI('getPengumuman'),
+          callAPI('getRenbut'),
+          callAPI('getAnjab'),
+          callAPI('getRasio'),
+          callAPI('getDistribusi'),
+          callAPI('getProfil')
+        ]);
+
+        if (dashboardRes.success) DATA.dashboard = { ...DATA.dashboard, ...dashboardRes.data };
+        if (pengumumanRes.success) DATA.pengumuman = pengumumanRes.data || [];
+        if (renbutRes.success) DATA.renbut = renbutRes.data || [];
+        if (anjabRes.success) DATA.anjab = anjabRes.data || [];
+        if (rasioRes.success) DATA.rasio = rasioRes.data || [];
+        if (distribusiRes.success) DATA.distribusi = distribusiRes.data || [];
+        if (profilRes.success) DATA.profil = profilRes.data || [];
+
+        isApiConnected = true;
+        return true;
+      } catch (e) {
+        console.error('Sync failed:', e);
+        isApiConnected = false;
+        return false;
+      }
+    }
+
     // In-memory data (rich sample data so the UI looks complete & professional on first open)
     let DATA = {
       dashboard: { total_sdmk: 4872, total_dokter: 682, total_perawat: 1943, total_bidan: 719, total_nakes: 1528, total_faskes: 147 },
@@ -1036,7 +1104,7 @@
     }
 
     /* ==================== APPLICATION INITIALIZATION ==================== */
-    function initApp() {
+    async function initApp() {
       // Ensure Tailwind is fully configured
       if (window.tailwind && tailwind.config) {
         // already configured early
@@ -1052,7 +1120,19 @@
       }
       updateUserDisplay();
 
-      // Render everything so the UI looks complete immediately
+      // === AGGRESSIVE BACKEND INTEGRATION ===
+      if (API_URL) {
+        showToast('Menghubungkan ke server...', 'info');
+        const synced = await syncAllDataFromServer();
+        
+        if (synced) {
+          showToast('Data berhasil dimuat dari server', 'success');
+        } else {
+          showToast('Gagal sync data dari server. Menggunakan data lokal.', 'warning');
+        }
+      }
+
+      // Render everything (now using data from server if connected)
       updateDashboardStats();
       renderRecentActivity();
       renderPengumuman();
@@ -1109,10 +1189,10 @@
               <div class="text-xs text-white/50 mt-1">Dinas Kesehatan Kabupaten • Sejak 2023</div>
             </div>
           </div>
-          <div class="pt-3 border-t border-white/10 text-xs space-y-1.5">
-            <div class="flex justify-between"><span>Session</span> <span class="font-mono text-emerald-400">VALID • 28m remaining</span></div>
-            <div class="flex justify-between"><span>API Status</span> <span class="font-mono">${API_URL ? 'CONNECTED' : 'LOCAL MODE'}</span></div>
-          </div>
+            <div class="pt-3 border-t border-white/10 text-xs space-y-1.5">
+             <div class="flex justify-between"><span>Session</span> <span class="font-mono text-emerald-400">VALID • 28m remaining</span></div>
+             <div class="flex justify-between"><span>API Status</span> <span class="font-mono">${isApiConnected ? 'CONNECTED (Server)' : (API_URL ? 'API SET (Local Fallback)' : 'LOCAL MODE')}</span></div>
+           </div>
         </div>
       `, `<button onclick="closeModal(); showSettingsModal()" class="px-6 py-2.5 text-sm border border-white/20 rounded-3xl">API Settings</button>
           <button onclick="performLogout(); closeModal()" class="px-6 py-2.5 bg-red-600 text-sm rounded-3xl font-semibold">Logout</button>`);
@@ -1309,7 +1389,7 @@
       `);
     }
 
-    function savePengumuman(editId) {
+    async function savePengumuman(editId) {
       const item = {
         tanggal: document.getElementById('p-tanggal').value,
         judul: document.getElementById('p-judul').value.trim(),
@@ -1317,28 +1397,59 @@
         status: document.getElementById('p-status').value
       };
       if (!item.judul) { showToast('Judul wajib diisi', 'error'); return; }
-      
-      if (editId) {
-        const idx = DATA.pengumuman.findIndex(x => x.id === editId);
-        DATA.pengumuman[idx] = {...DATA.pengumuman[idx], ...item};
-        logActivity('EDIT_PENGUMUMAN', item.judul);
-      } else {
-        item.id = Math.max(0, ...DATA.pengumuman.map(x => x.id)) + 1;
-        DATA.pengumuman.unshift(item);
-        logActivity('ADD_PENGUMUMAN', item.judul);
-      }
+
       closeModal();
+
+      if (isApiConnected && API_URL) {
+        let res;
+        if (editId) {
+          res = await callAPI('updatePengumuman', { id: editId, ...item });
+        } else {
+          res = await callAPI('addPengumuman', item);
+        }
+
+        if (res.success) {
+          showToast(editId ? 'Pengumuman berhasil diupdate' : 'Pengumuman berhasil dipublikasikan', 'success');
+          await syncAllDataFromServer(); // refresh from server
+        } else {
+          showToast('Gagal menyimpan ke server: ' + (res.message || ''), 'error');
+        }
+      } else {
+        // Fallback local mode
+        if (editId) {
+          const idx = DATA.pengumuman.findIndex(x => x.id === editId);
+          DATA.pengumuman[idx] = {...DATA.pengumuman[idx], ...item};
+          logActivity('EDIT_PENGUMUMAN', item.judul);
+        } else {
+          item.id = Math.max(0, ...DATA.pengumuman.map(x => x.id)) + 1;
+          DATA.pengumuman.unshift(item);
+          logActivity('ADD_PENGUMUMAN', item.judul);
+        }
+        showToast('Pengumuman berhasil disimpan (mode lokal)', 'success');
+      }
+
       renderPengumuman();
-      showToast('Pengumuman berhasil disimpan', 'success');
     }
 
-    function deletePengumuman(id) {
+    async function deletePengumuman(id) {
       if (!confirm('Hapus pengumuman ini?')) return;
-      DATA.pengumuman = DATA.pengumuman.filter(x => x.id !== id);
+
+      if (isApiConnected && API_URL) {
+        const res = await callAPI('deletePengumuman', { id });
+        if (res.success) {
+          await syncAllDataFromServer();
+          showToast('Pengumuman dihapus dari server', 'success');
+        } else {
+          showToast('Gagal hapus di server', 'error');
+        }
+      } else {
+        DATA.pengumuman = DATA.pengumuman.filter(x => x.id !== id);
+        logActivity('DELETE_PENGUMUMAN', 'ID ' + id);
+        showToast('Pengumuman dihapus (mode lokal)', 'success');
+      }
+
       renderPengumuman();
       closeModal();
-      showToast('Pengumuman dihapus', 'success');
-      logActivity('DELETE_PENGUMUMAN', 'ID ' + id);
     }
 
     function editPengumuman(id) {
@@ -1429,7 +1540,7 @@
       `);
     }
 
-    function saveRenbut(editId) {
+    async function saveRenbut(editId) {
       const item = {
         nama_unit: document.getElementById('r-unit').value,
         jenis: document.getElementById('r-jenis').value,
@@ -1440,27 +1551,57 @@
         keterangan: document.getElementById('r-ket').value
       };
       item.kekurangan = item.kebutuhan - item.existing;
-      
-      if (editId) {
-        const i = DATA.renbut.findIndex(x => x.id === editId);
-        DATA.renbut[i] = {...DATA.renbut[i], ...item};
-        logActivity('EDIT_RENBUT', item.nama_unit);
-      } else {
-        item.id = Math.max(0, ...DATA.renbut.map(x => x.id)) + 1;
-        DATA.renbut.push(item);
-        logActivity('ADD_RENBUT', item.nama_unit);
-      }
+
       closeModal();
+
+      if (isApiConnected && API_URL) {
+        let res;
+        if (editId) {
+          res = await callAPI('updateRenbut', { id: editId, ...item });
+        } else {
+          res = await callAPI('addRenbut', item);
+        }
+
+        if (res.success) {
+          await syncAllDataFromServer();
+          showToast(editId ? 'Data Renbut berhasil diupdate' : 'Data Renbut berhasil ditambahkan', 'success');
+        } else {
+          showToast('Gagal menyimpan ke server', 'error');
+        }
+      } else {
+        if (editId) {
+          const i = DATA.renbut.findIndex(x => x.id === editId);
+          DATA.renbut[i] = {...DATA.renbut[i], ...item};
+          logActivity('EDIT_RENBUT', item.nama_unit);
+        } else {
+          item.id = Math.max(0, ...DATA.renbut.map(x => x.id)) + 1;
+          DATA.renbut.push(item);
+          logActivity('ADD_RENBUT', item.nama_unit);
+        }
+        showToast('Data Renbut tersimpan (mode lokal)', 'success');
+      }
+
       renderRenbutTable();
-      showToast('Data Renbut tersimpan', 'success');
     }
 
     function editRenbut(id) { showRenbutModal(id); }
-    function deleteRenbut(id) {
+    async function deleteRenbut(id) {
       if (!confirm('Hapus data renbut ini?')) return;
-      DATA.renbut = DATA.renbut.filter(x => x.id !== id);
+
+      if (isApiConnected && API_URL) {
+        const res = await callAPI('deleteRenbut', { id });
+        if (res.success) {
+          await syncAllDataFromServer();
+          showToast('Data dihapus dari server', 'success');
+        } else {
+          showToast('Gagal hapus di server', 'error');
+        }
+      } else {
+        DATA.renbut = DATA.renbut.filter(x => x.id !== id);
+        showToast('Data dihapus (mode lokal)', 'success');
+      }
+
       renderRenbutTable();
-      showToast('Data dihapus', 'success');
     }
 
     function exportRenbutPDF() {
@@ -1543,7 +1684,7 @@
       `, `<button onclick="saveAnjab(${editId || 'null'})" class="px-7 py-2.5 bg-violet-500 rounded-3xl font-semibold">${isEdit ? 'UPDATE' : 'SIMPAN'}</button>`);
     }
 
-    function saveAnjab(editId) {
+    async function saveAnjab(editId) {
       const newItem = {
         jabatan: document.getElementById('a-jabatan').value,
         unit: document.getElementById('a-unit').value,
@@ -1553,21 +1694,51 @@
         gap: +document.getElementById('a-gap').value,
         dokumen: document.getElementById('a-dokumen').value
       };
-      if (editId) {
-        const idx = DATA.anjab.findIndex(x => x.id === editId);
-        DATA.anjab[idx] = {...DATA.anjab[idx], ...newItem};
-      } else {
-        newItem.id = Math.max(...DATA.anjab.map(x => x.id)) + 1;
-        DATA.anjab.push(newItem);
-      }
+
       closeModal();
+
+      if (isApiConnected && API_URL) {
+        const res = editId 
+          ? await callAPI('updateAnjab', { id: editId, ...newItem })
+          : await callAPI('addAnjab', newItem);
+
+        if (res.success) {
+          await syncAllDataFromServer();
+          showToast('Data Anjab tersimpan ke server', 'success');
+        } else {
+          showToast('Gagal simpan ke server', 'error');
+        }
+      } else {
+        if (editId) {
+          const idx = DATA.anjab.findIndex(x => x.id === editId);
+          DATA.anjab[idx] = {...DATA.anjab[idx], ...newItem};
+        } else {
+          newItem.id = Math.max(...DATA.anjab.map(x => x.id)) + 1;
+          DATA.anjab.push(newItem);
+        }
+        showToast('Data Anjab tersimpan (mode lokal)');
+      }
+
       renderAnjabTable();
-      showToast('Data Anjab tersimpan');
     }
 
     function editAnjab(id) { showAnjabModal(id); }
-    function deleteAnjab(id) {
-      DATA.anjab = DATA.anjab.filter(x => x.id !== id);
+    async function deleteAnjab(id) {
+      if (!confirm('Hapus data Anjab ini?')) return;
+
+      if (isApiConnected && API_URL) {
+        const res = await callAPI('deleteAnjab', { id });
+        if (res.success) {
+          await syncAllDataFromServer();
+          showToast('Data Anjab dihapus dari server', 'success');
+        } else {
+          showToast('Gagal hapus di server', 'error');
+        }
+      } else {
+        DATA.anjab = DATA.anjab.filter(x => x.id !== id);
+        showToast('Data dihapus (mode lokal)');
+      }
+
       renderAnjabTable();
     }
 
@@ -1613,10 +1784,27 @@
       document.getElementById('rasio-nakes').textContent = ((totalBidan * 1.3 + totalPerawat * 0.4) / totalPenduduk * 100000).toFixed(2);
     }
 
-    function updateRasioData(idx, field, val) {
-      DATA.rasio[idx][field] = parseInt(val) || 0;
+    async function updateRasioData(idx, field, val) {
+      const row = DATA.rasio[idx];
+      row[field] = parseInt(val) || 0;
+
+      if (isApiConnected && API_URL) {
+        const res = await callAPI('updateRasio', {
+          kec: row.kec,
+          penduduk: row.penduduk,
+          dokter: row.dokter,
+          perawat: row.perawat,
+          bidan: row.bidan,
+          nakes: row.nakes
+        });
+        if (!res.success) {
+          showToast('Gagal update rasio ke server', 'error');
+        }
+      } else {
+        logActivity('UPDATE_RASIO', row.kec);
+      }
+
       renderRasio();
-      logActivity('UPDATE_RASIO', DATA.rasio[idx].kec);
     }
 
     function deleteRasioRow(idx) {
@@ -1624,10 +1812,33 @@
       renderRasio();
     }
 
-    function calculateAllRasio() {
+    async function calculateAllRasio() {
+      if (isApiConnected && API_URL) {
+        await syncAllDataFromServer();
+      }
       renderRasio();
       showToast('Semua rasio berhasil dihitung ulang', 'success');
       logActivity('CALC_RASIO');
+    }
+
+    async function manualSyncFromServer() {
+      if (!API_URL) {
+        showToast('API URL belum diset. Silakan isi di Settings.', 'warning');
+        return;
+      }
+      showToast('Sedang sinkronisasi...', 'info');
+      const success = await syncAllDataFromServer();
+      if (success) {
+        updateDashboardStats();
+        renderPengumuman();
+        renderRenbutTable();
+        renderAnjabTable();
+        renderRasio();
+        renderProfilTable();
+        showToast('Data berhasil disinkronkan dari server', 'success');
+      } else {
+        showToast('Gagal sinkronisasi', 'error');
+      }
     }
 
     function addRasioKecamatan() {
@@ -1748,7 +1959,7 @@
       `, `<button onclick="saveProfil(${isEdit ? editIdx : 'null'})" class="px-7 py-2.5 rounded-3xl bg-pink-500 font-semibold">${isEdit ? 'UPDATE' : 'TAMBAH'}</button>`);
     }
 
-    function saveProfil(idx) {
+    async function saveProfil(idx) {
       const newP = {
         kode: document.getElementById('pr-kode').value,
         nama: document.getElementById('pr-nama').value,
@@ -1761,18 +1972,53 @@
         akreditasi: document.getElementById('pr-akre').value,
         kontak: document.getElementById('pr-kontak').value
       };
-      if (idx !== null) {
-        DATA.profil[idx] = newP;
-      } else {
-        DATA.profil.push(newP);
-      }
+
       closeModal();
+
+      if (isApiConnected && API_URL) {
+        const res = (idx !== null)
+          ? await callAPI('updateProfil', { kode: DATA.profil[idx].kode, ...newP })
+          : await callAPI('addProfil', newP);
+
+        if (res.success) {
+          await syncAllDataFromServer();
+          showToast('Profil faskes tersimpan ke server', 'success');
+        } else {
+          showToast('Gagal simpan ke server', 'error');
+        }
+      } else {
+        if (idx !== null) {
+          DATA.profil[idx] = newP;
+        } else {
+          DATA.profil.push(newP);
+        }
+        showToast('Profil faskes tersimpan (mode lokal)', 'success');
+      }
+
       renderProfilTable();
-      showToast('Profil faskes tersimpan', 'success');
     }
 
     function editProfil(idx) {
       showProfilModal(idx);
+    }
+
+    async function deleteProfil(kode) {
+      if (!confirm('Hapus profil faskes ini?')) return;
+
+      if (isApiConnected && API_URL) {
+        const res = await callAPI('deleteProfil', { kode });
+        if (res.success) {
+          await syncAllDataFromServer();
+          showToast('Profil dihapus dari server', 'success');
+        } else {
+          showToast('Gagal hapus di server', 'error');
+        }
+      } else {
+        DATA.profil = DATA.profil.filter(p => p.kode !== kode);
+        showToast('Data dihapus (mode lokal)');
+      }
+
+      renderProfilTable();
     }
 
     /* ==================== MODULE: ADMIN PANEL ==================== */
