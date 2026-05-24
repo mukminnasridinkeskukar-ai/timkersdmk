@@ -754,7 +754,6 @@
                <div class="px-4 py-2 bg-emerald-500/10 border border-emerald-400/40 rounded-3xl text-emerald-400 flex items-center gap-2">
                  <i class="fa-solid fa-check-double"></i> <span>LOGGED IN AS <span id="admin-user-name" class="font-bold"></span></span>
                </div>
-               <button onclick="showSettingsModal()" class="px-4 py-2 bg-white/5 border border-white/15 rounded-3xl hover:bg-white/10"><i class="fa-solid fa-cog mr-1.5"></i> SETTINGS API</button>
                <button onclick="performLogout()" class="px-4 py-2 bg-red-500/10 border border-red-400/40 text-red-400 rounded-3xl hover:bg-red-500/20">LOGOUT</button>
              </div>
           </div>
@@ -962,7 +961,9 @@
        ============================================================ */
 
     // ==================== CONFIG & STATE ====================
-    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbxZQhqEMJU76Oo84kw5rB802FZ4VHCDLiUqpXiZb8Xc18yXO-Ec3MiadzZ2WHpfBzhf/exec';
+    // Web App URL di-hardcode di sini. Setiap deploy baru, ubah URL di baris ini saja.
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxXFZlPru-zGvagARXvMJw3IFEygUPexbxOJrM-jDR9W_JqjdYnJsKmT2SqTuptGsVb/exec';
+    let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
     let isApiConnected = false;
@@ -1041,15 +1042,15 @@
     async function loadRenbut(force = false) {
       if (!API_URL) return;
 
-      // Always fetch from server if API is configured (ignore local sample data)
-      // Only skip if not forced and we already successfully loaded from server before
-      if (!force && isApiConnected && DATA.renbut && DATA.renbut.length > 0) return;
+      // Selalu coba ambil dari server jika URL ada (tidak tergantung Test Connection)
+      if (!force && DATA.renbut && DATA.renbut.length > 0 && isApiConnected) return;
 
       try {
         const res = await callAPI('getRenbut');
         if (res.success) {
           DATA.renbut = res.data || [];
           renderRenbutTable();
+          isApiConnected = true;
         } else {
           showToast('Gagal memuat data Renbut dari server', 'warning');
         }
@@ -1062,13 +1063,14 @@
     async function loadAnjab(force = false) {
       if (!API_URL) return;
 
-      if (!force && isApiConnected && DATA.anjab && DATA.anjab.length > 0) return;
+      if (!force && DATA.anjab && DATA.anjab.length > 0 && isApiConnected) return;
 
       try {
         const res = await callAPI('getAnjab');
         if (res.success) {
           DATA.anjab = res.data || [];
           renderAnjabTable();
+          isApiConnected = true;
         } else {
           showToast('Gagal memuat data Anjab dari server', 'warning');
         }
@@ -1081,7 +1083,7 @@
     async function loadDistribusi(force = false) {
       if (!API_URL) return;
 
-      if (!force && isApiConnected && DATA.distribusi && DATA.distribusi.length > 0) return;
+      if (!force && DATA.distribusi && DATA.distribusi.length > 0 && isApiConnected) return;
 
       try {
         const res = await callAPI('getDistribusi');
@@ -1090,6 +1092,7 @@
           if (currentSection === 'distribusi' && window.mapInstance) {
             initMap();
           }
+          isApiConnected = true;
         } else {
           showToast('Gagal memuat data Distribusi dari server', 'warning');
         }
@@ -1407,9 +1410,6 @@
           </div>
         </div>
       `, `
-          ${currentUser && currentUser.role === 'admin' 
-            ? `<button onclick="closeModal(); showSettingsModal()" class="px-6 py-2.5 text-sm border border-white/20 rounded-3xl">API Settings</button>` 
-            : ''}
           <button onclick="performLogout(); closeModal()" class="px-6 py-2.5 bg-red-600 text-sm rounded-3xl font-semibold">Logout</button>`);
     }
 
@@ -2877,26 +2877,10 @@
       c.innerHTML = DATA.logs.slice(0, 18).map(l => `<div class="py-0.5 border-b border-white/5"><span class="text-white/40">${l.time.split('T')[1].slice(0,8)}</span> <b>${l.user}</b> — ${l.action} ${l.detail ? '<span class="opacity-50">' + l.detail + '</span>' : ''}</div>`).join('') || '<div class="text-white/40">Belum ada aktivitas</div>';
     }
 
+    // Fitur Test Connection & API Settings sudah dihapus sesuai permintaan.
+    // Untuk mengganti URL Web App, cukup edit nilai HARDCODED_API_URL di bagian atas file ini.
     function showSettingsModal() {
-      // Hanya admin yang boleh mengakses Test Connection & API Settings
-      if (!currentUser || currentUser.role !== 'admin') {
-        closeModal();
-        showToast('Hanya Admin yang dapat mengakses pengaturan API', 'error');
-        return;
-      }
-
-      showModal('API & Integration Settings', `
-        <div class="space-y-4 text-sm">
-          <div>
-            <div class="mb-1 text-xs text-white/60">GOOGLE APPS SCRIPT WEB APP URL</div>
-            <input id="api-url-input" value="${API_URL}" placeholder="https://script.google.com/macros/s/AKfycbxZQhqEMJU76Oo84kw5rB802FZ4VHCDLiUqpXiZb8Xc18yXO-Ec3MiadzZ2WHpfBzhf/exec" class="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 font-mono text-xs">
-          </div>
-          <div class="text-xs text-white/50">Masukkan URL Web App yang sudah di-deploy. Semua data akan sinkron secara realtime ke Google Sheet.</div>
-          <div class="flex items-center gap-2 text-xs"><button onclick="testAPIConnection()" class="px-4 py-1.5 bg-cyan-400/90 text-black rounded-2xl">TEST CONNECTION</button> <span id="api-status" class="text-emerald-400"></span></div>
-        </div>
-      `, `
-        <button onclick="saveAPIUrl()" class="px-6 py-2 rounded-3xl bg-gradient-to-r from-blue-500 to-cyan-400 text-sm font-semibold text-black">SIMPAN &amp; AKTIFKAN</button>
-      `);
+      showToast('Fitur pengaturan API sudah dihapus. Ubah URL langsung di kode HTML.', 'info');
     }
 
     function saveAPIUrl() {
