@@ -11,6 +11,22 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Early Tailwind config to avoid flash and make styling unified -->
+  <script>
+    if (window.tailwind) {
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ['Space Grotesk', 'Inter', 'system-ui', 'sans-serif']
+            }
+          }
+        }
+      };
+    }
+  </script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap');
     
@@ -172,6 +188,17 @@
                   0 4px 6px -4px rgb(0 0 0 / 0.3),
                   0 0 0 1px rgba(0, 102, 255, 0.1);
     }
+
+    /* Extra polish for unified premium feel */
+    .glass, .glass-dark, .premium-card {
+      transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+    table.data-table {
+      font-feature-settings: "tnum";
+    }
+    .section-header {
+      letter-spacing: -0.02em;
+    }
   </style>
 </head>
 <body class="bg-[#0A2540] text-white overflow-x-hidden">
@@ -215,7 +242,7 @@
           <div id="loading-bar" class="h-full w-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-cyan-400 transition-all duration-300 rounded-full" 
                style="box-shadow: 0 0 12px #00E5FF;"></div>
         </div>
-        <div class="text-[10px] text-white/40 mt-3 tracking-[1.5px]">CONNECTING TO NATIONAL HEALTH DATA GRID • TLS 1.3</div>
+            <div class="text-[10px] text-white/40 mt-3 tracking-[1.5px]">CONNECTING TO NATIONAL HEALTH DATA GRID • TLS 1.3 • SECURE SESSION</div>
       </div>
     </div>
     
@@ -367,7 +394,7 @@
       </div>
 
       <!-- MAIN CONTENT AREA -->
-      <div class="flex-1 min-w-0 p-6 lg:p-8 max-w-[1480px] w-full">
+      <div class="flex-1 min-w-0 p-6 lg:p-8 max-w-[1480px] w-full pb-16">
         
         <!-- DASHBOARD SECTION -->
         <div id="section-dashboard">
@@ -378,7 +405,7 @@
             </div>
             <div class="hidden md:flex items-center gap-2 text-xs px-3 py-2 bg-white/5 rounded-3xl border border-white/10">
               <i class="fa-solid fa-sync text-emerald-400"></i> 
-              <span>Terakhir update: <span id="last-update">24 Mei 2026, 01:55</span></span>
+               <span>Terakhir update: <span id="last-update">24 Mei 2026, 20:50</span></span>
             </div>
           </div>
 
@@ -803,48 +830,63 @@
        ============================================================ */
 
     // ==================== CONFIG & STATE ====================
-    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbyS5vxjBRQiagJR2Do8Wt-0nNcFyU-qXpRIV4pVx1srAWoZWPZsGcVFfo5_o4ljLTc/exec';
+    let API_URL = localStorage.getItem('simandakes_api_url') || 'https://script.google.com/macros/s/AKfycbxv1yu5KmF-JmNmNTMuEBG4-VC0lP2DkI2ghUIG27oA6iXq4kXAJEBcaWxbWEoEOzS4/exec';
     let currentUser = null;
     let currentSection = 'dashboard';
     
-    // In-memory data (will be replaced by API if connected)
+    // In-memory data (rich sample data so the UI looks complete & professional on first open)
     let DATA = {
       dashboard: { total_sdmk: 4872, total_dokter: 682, total_perawat: 1943, total_bidan: 719, total_nakes: 1528, total_faskes: 147 },
+      
       pengumuman: [
         {id:1, tanggal:'2026-05-20', judul:'Penerimaan CPNS Tenaga Kesehatan 2026', isi:'Pemerintah Kabupaten membuka lowongan 124 formasi CPNS untuk dokter spesialis, perawat, dan bidan. Pendaftaran dibuka 1-30 Juni 2026 melalui portal SSCASN.', status:'PENTING'},
         {id:2, tanggal:'2026-05-18', judul:'Update Sistem SIMANDAKES v4.2', isi:'Rilis fitur baru: auto-calculation rasio per kecamatan, integrasi Leaflet map realtime, dan API v2 untuk sinkronisasi antar Dinkes.', status:'UMUM'},
         {id:3, tanggal:'2026-05-12', judul:'Pelatihan Manajemen Mutu Pelayanan Kesehatan', isi:'Dinas Kesehatan mengundang seluruh Kepala Puskesmas untuk mengikuti pelatihan 2 hari pada 10-11 Juni 2026 di Aula Bappeda.', status:'URGENT'},
-        {id:4, tanggal:'2026-05-01', judul:'Kebijakan Redistribusi Nakes', isi:'Keputusan Bupati No. 42/2026 tentang redistribusi tenaga kesehatan dari puskesmas perkotaan ke daerah terpencil mulai berlaku 1 Juli 2026.', status:'PENTING'}
+        {id:4, tanggal:'2026-05-01', judul:'Kebijakan Redistribusi Nakes', isi:'Keputusan Bupati No. 42/2026 tentang redistribusi tenaga kesehatan dari puskesmas perkotaan ke daerah terpencil mulai berlaku 1 Juli 2026.', status:'PENTING'},
+        {id:5, tanggal:'2026-05-22', judul:'Jadwal Vaksinasi Massal Tenaga Kesehatan', isi:'Vaksinasi booster untuk seluruh SDMK akan dilaksanakan 1-10 Juni 2026 di 12 titik.', status:'UMUM'}
       ],
+      
       renbut: [
         {id:1, nama_unit:'Puskesmas Sukamaju', jenis:'Dokter', kebutuhan:8, existing:5, kekurangan:3, prioritas:'Tinggi', tahun:2026, keterangan:'Kekurangan dokter umum & gigi'},
         {id:2, nama_unit:'RSUD Sehat Sejahtera', jenis:'Perawat', kebutuhan:42, existing:39, kekurangan:3, prioritas:'Sedang', tahun:2026, keterangan:'IGD & Rawat Inap'},
         {id:3, nama_unit:'Puskesmas Cempaka', jenis:'Bidan', kebutuhan:11, existing:7, kekurangan:4, prioritas:'Tinggi', tahun:2026, keterangan:'Desa terpencil'},
         {id:4, nama_unit:'Klinik Pratama Mandiri', jenis:'Nakes', kebutuhan:6, existing:4, kekurangan:2, prioritas:'Rendah', tahun:2026, keterangan:''},
         {id:5, nama_unit:'Puskesmas Sukamaju', jenis:'Perawat', kebutuhan:18, existing:15, kekurangan:3, prioritas:'Sedang', tahun:2026, keterangan:'Program UKM'},
+        {id:6, nama_unit:'RSUD Sehat Sejahtera', jenis:'Dokter', kebutuhan:15, existing:12, kekurangan:3, prioritas:'Tinggi', tahun:2026, keterangan:'Spesialis anak & bedah'},
+        {id:7, nama_unit:'Puskesmas Kenanga', jenis:'Bidan', kebutuhan:9, existing:6, kekurangan:3, prioritas:'Sedang', tahun:2026, keterangan:''},
       ],
+      
       anjab: [
         {id:1, jabatan:'Dokter Umum', unit:'Puskesmas Sukamaju', beban:120, kebutuhan:4, existing:3, gap:1, dokumen:'anjab-puskesmas-sukamaju.pdf'},
         {id:2, jabatan:'Perawat Pelaksana', unit:'RSUD Sehat Sejahtera', beban:210, kebutuhan:38, existing:36, gap:2, dokumen:'abk-rs-sejahtera-2026.docx'},
         {id:3, jabatan:'Bidan Koordinator', unit:'Puskesmas Cempaka', beban:95, kebutuhan:5, existing:4, gap:1, dokumen:'anjab-cempaka.pdf'},
+        {id:4, jabatan:'Tenaga Gizi', unit:'Puskesmas Mawar', beban:70, kebutuhan:3, existing:2, gap:1, dokumen:'abk-gizi-2026.pdf'},
       ],
+      
       rasio: [
         {kec:'Sukamaju', penduduk:78420, dokter:12, perawat:48, bidan:19, nakes:31},
         {kec:'Cempaka', penduduk:45230, dokter:6, perawat:21, bidan:14, nakes:18},
         {kec:'Mawar', penduduk:63110, dokter:9, perawat:37, bidan:11, nakes:22},
         {kec:'Kenanga', penduduk:28970, dokter:4, perawat:14, bidan:8, nakes:12},
+        {kec:'Melati', penduduk:35480, dokter:5, perawat:19, bidan:9, nakes:14},
       ],
+      
       distribusi: [
         {wilayah:'Sukamaju', total:284, dokter:41, perawat:112, bidan:58, nakes:73, lat:-7.25, lng:112.75},
         {wilayah:'Cempaka', total:129, dokter:18, perawat:51, bidan:32, nakes:28, lat:-7.38, lng:112.62},
         {wilayah:'Mawar', total:203, dokter:29, perawat:84, bidan:41, nakes:49, lat:-7.19, lng:112.89},
         {wilayah:'Kenanga', total:88, dokter:11, perawat:35, bidan:19, nakes:23, lat:-7.42, lng:112.71},
+        {wilayah:'Melati', total:112, dokter:14, perawat:47, bidan:23, nakes:28, lat:-7.31, lng:112.81},
       ],
+      
       profil: [
         {kode:'FK-001', nama:'Puskesmas Sukamaju', jenis:'Puskesmas', kec:'Sukamaju', desa:'Sukamaju', alamat:'Jl. Raya Sukamaju No.12', kepala:'dr. Andi Wijaya, M.Kes', sdmk:48, akreditasi:'Paripurna', kontak:'(031) 555-1201'},
         {kode:'FK-002', nama:'RSUD Sehat Sejahtera', jenis:'RSUD', kec:'Sukamaju', desa:'Sukamaju Kota', alamat:'Jl. Diponegoro No.45', kepala:'dr. Siti Rahayu Sp.PD', sdmk:187, akreditasi:'Utama', kontak:'(031) 555-8900'},
         {kode:'FK-003', nama:'Puskesmas Cempaka', jenis:'Puskesmas', kec:'Cempaka', desa:'Cempaka Indah', alamat:'Jl. Merdeka No.9', kepala:'drg. Budi Santoso', sdmk:29, akreditasi:'Madya', kontak:'(031) 555-3344'},
+        {kode:'FK-004', nama:'Puskesmas Mawar', jenis:'Puskesmas', kec:'Mawar', desa:'Mawar Selatan', alamat:'Jl. Melati Raya No.7', kepala:'dr. Rina Kusuma', sdmk:34, akreditasi:'Utama', kontak:'(031) 555-7788'},
+        {kode:'FK-005', nama:'Klinik Pratama Mandiri', jenis:'Klinik', kec:'Kenanga', desa:'Kenanga', alamat:'Jl. Kenanga No.22', kepala:'dr. Hendra Wijaya', sdmk:12, akreditasi:'Dasar', kontak:'(031) 555-9911'},
       ],
+      
       users: [
         {username:'admin', password:'simandakes2026', role:'admin', nama:'Admin Dinkes'},
         {username:'operator1', password:'dinkes2026', role:'operator', nama:'Operator Dinkes'},
@@ -995,28 +1037,22 @@
 
     /* ==================== APPLICATION INITIALIZATION ==================== */
     function initApp() {
-      // Tailwind script run
-      if (window.tailwind) {
-        tailwind.config = {
-          theme: {
-            extend: { fontFamily: { display: ['Space Grotesk', 'Inter', 'system-ui'] } }
-          }
-        };
+      // Ensure Tailwind is fully configured
+      if (window.tailwind && tailwind.config) {
+        // already configured early
       }
-      
-      // Restore auth
+
+      // Restore or create default session (demo mode)
       const savedAuth = localStorage.getItem('simandakes_auth');
       if (savedAuth) {
         currentUser = JSON.parse(savedAuth);
-        updateUserDisplay();
       } else {
-        // Default login as admin for demo
         currentUser = { username: 'admin', nama: 'Admin Dinkes', role: 'admin' };
         localStorage.setItem('simandakes_auth', JSON.stringify(currentUser));
-        updateUserDisplay();
       }
-      
-      // Initial data render
+      updateUserDisplay();
+
+      // Render everything so the UI looks complete immediately
       updateDashboardStats();
       renderRecentActivity();
       renderPengumuman();
@@ -1024,27 +1060,28 @@
       renderAnjabTable();
       renderRasio();
       renderProfilTable();
-      
-      // Set first section
+
+      // Show dashboard as default
       navigateTo('dashboard');
-      
-      // Global listeners
+
+      // Attach interactions
       addRippleListeners();
       initCharts();
-      
+
       // Keyboard shortcut
       document.addEventListener('keydown', e => {
         if (e.key === '/' && document.activeElement.tagName === 'BODY') {
           e.preventDefault();
-          document.getElementById('global-search').focus();
+          const search = document.getElementById('global-search');
+          if (search) search.focus();
         }
       });
-      
-      // Show welcome toast once
+
+      // Welcome message (feels like finished app)
       setTimeout(() => {
         if (currentUser) showToast(`Selamat datang, ${currentUser.nama}`, 'info');
-      }, 1400);
-      
+      }, 1100);
+
       logActivity('LOGIN', 'Dashboard diakses');
     }
 
@@ -1171,10 +1208,10 @@
     function initCharts() {
       if (chartsInitialized) return;
       chartsInitialized = true;
-      
-      // Distribusi Pie
+
       const ctx = document.getElementById('chart-distribusi');
       if (!ctx) return;
+
       new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -1183,13 +1220,19 @@
             data: [682, 1943, 719, 1528],
             backgroundColor: ['#3b82f6', '#10b981', '#ec4899', '#f59e0b'],
             borderColor: '#0A2540',
-            borderWidth: 4,
-            hoverOffset: 18
+            borderWidth: 5,
+            hoverOffset: 22
           }]
         },
         options: {
-          cutout: '72%',
-          plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', padding: 16, font: { size: 11 } } } }
+          cutout: '70%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#94a3b8', padding: 18, font: { size: 12, weight: 500 } }
+            }
+          },
+          animation: { duration: 800 }
         }
       });
     }
