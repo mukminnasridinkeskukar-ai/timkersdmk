@@ -2019,17 +2019,53 @@
       const peng = document.getElementById('admin-pengumuman-list');
       if (peng) peng.innerHTML = DATA.pengumuman.map(p => `<div class="py-1 border-b border-white/10 text-xs">${p.judul}</div>`).join('');
       
-      // Renbut admin
+      // Renbut admin - Full CRUD (after admin login)
       const ren = document.getElementById('admin-renbut-list');
-      if (ren) ren.innerHTML = `<div class="text-xs space-y-px">${DATA.renbut.slice(0,6).map(r => `<div>${r.nama_unit} — ${r.jenis} (${r.kekurangan}) <span onclick="editRenbut(${r.id})" class="text-cyan-400 cursor-pointer">edit</span></div>`).join('')}</div>`;
+      if (ren) {
+        ren.innerHTML = `<div class="text-xs space-y-1">
+          ${DATA.renbut.map(r => `
+            <div class="flex justify-between items-center border-b border-white/10 py-0.5">
+              <span>${r.nama_unit} — ${r.jenis} <span class="text-red-400">(${r.kekurangan})</span></span>
+              <span class="flex gap-1 text-[10px]">
+                <span onclick="editRenbut(${r.id}); renderAdminPanes()" class="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded cursor-pointer">Edit</span>
+                <span onclick="deleteRenbut(${r.id}); renderAdminPanes()" class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded cursor-pointer">Hapus</span>
+              </span>
+            </div>
+          `).join('')}
+        </div>`;
+      }
       
-      // Anjab admin
+      // Anjab admin - Full CRUD (after admin login)
       const anj = document.getElementById('admin-anjab-list');
-      if (anj) anj.innerHTML = DATA.anjab.map(a => `<div class="text-xs py-px">${a.jabatan} @ ${a.unit} <span onclick="editAnjab(${a.id})" class="cursor-pointer text-violet-300">edit</span></div>`).join('');
+      if (anj) {
+        anj.innerHTML = `<div class="text-xs space-y-1">
+          ${DATA.anjab.map(a => `
+            <div class="flex justify-between items-center border-b border-white/10 py-0.5">
+              <span>${a.jabatan} @ ${a.unit}</span>
+              <span class="flex gap-1 text-[10px]">
+                <span onclick="editAnjab(${a.id}); renderAdminPanes()" class="px-2 py-0.5 bg-violet-500/20 text-violet-300 rounded cursor-pointer">Edit</span>
+                <span onclick="deleteAnjab(${a.id}); renderAdminPanes()" class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded cursor-pointer">Hapus</span>
+              </span>
+            </div>
+          `).join('')}
+        </div>`;
+      }
       
-      // Profil admin
+      // Profil admin - Full CRUD (after admin login)
       const prf = document.getElementById('admin-profil-list');
-      if (prf) prf.innerHTML = DATA.profil.map((p,i) => `<div class="text-xs py-0.5">${p.nama} <span onclick="editProfil(${i});" class="text-pink-300 cursor-pointer">edit</span></div>`).join('');
+      if (prf) {
+        prf.innerHTML = `<div class="text-xs space-y-1">
+          ${DATA.profil.map((p,i) => `
+            <div class="flex justify-between items-center border-b border-white/10 py-0.5">
+              <span>${p.nama}</span>
+              <span class="flex gap-1 text-[10px]">
+                <span onclick="editProfil(${i}); renderAdminPanes()" class="px-2 py-0.5 bg-pink-500/20 text-pink-300 rounded cursor-pointer">Edit</span>
+                <span onclick="if(confirm('Hapus profil faskes ini?')) { DATA.profil.splice(${i},1); renderAdminPanes(); }" class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded cursor-pointer">Hapus</span>
+              </span>
+            </div>
+          `).join('')}
+        </div>`;
+      }
       
       // Users
       renderAdminUsers();
@@ -2207,31 +2243,65 @@
 
     // ==================== AUTH / LOGIN (for admin) ====================
     function requireAdminLogin(callback) {
-      if (currentUser && currentUser.role === 'admin') {
-        callback();
-        return;
-      }
+      // Selalu minta login untuk akses Panel Admin (verifikasi ke sheet users via API)
       showModal('Login Admin Diperlukan', `
         <div class="space-y-3 text-sm">
           <div><input id="login-user" value="admin" class="glass w-full px-4 py-3 rounded-2xl border border-white/10" placeholder="Username"></div>
-          <div><input id="login-pass" type="password" value="simandakes2026" class="glass w-full px-4 py-3 rounded-2xl border border-white/10" placeholder="Password"></div>
-          <div class="text-xs text-white/50">Demo: admin / simandakes2026 atau operator1 / dinkes2026</div>
+          <div><input id="login-pass" type="password" value="" class="glass w-full px-4 py-3 rounded-2xl border border-white/10" placeholder="Password"></div>
+          <div class="text-xs text-white/50">Login menggunakan akun dari sheet <b>users</b> di Google Spreadsheet</div>
         </div>
       `, `<button onclick="doAdminLogin()" class="px-8 py-3 bg-gradient-to-r from-red-500 to-rose-500 rounded-3xl font-bold">LOGIN ADMIN</button>`);
       window._pendingAdminCallback = callback;
     }
 
-    function doAdminLogin() {
-      const user = document.getElementById('login-user').value;
+    async function doAdminLogin() {
+      const user = document.getElementById('login-user').value.trim();
       const pass = document.getElementById('login-pass').value;
+
+      if (!user || !pass) {
+        showToast('Username dan password wajib diisi', 'error');
+        return;
+      }
+
+      // Coba login via backend (Google Sheet users) jika terhubung
+      if (API_URL) {
+        const res = await callAPI('login', { username: user, password: pass });
+        if (res.success) {
+          currentUser = {
+            username: user,
+            nama: res.nama || user,
+            role: res.role || 'admin'
+          };
+          localStorage.setItem('simandakes_auth', JSON.stringify(currentUser));
+          updateUserDisplay();
+          closeModal();
+          showToast(`Login berhasil sebagai ${currentUser.role.toUpperCase()}`, 'success');
+          logActivity('ADMIN_LOGIN', currentUser.username);
+
+          if (window._pendingAdminCallback) {
+            const cb = window._pendingAdminCallback;
+            window._pendingAdminCallback = null;
+            cb();
+          } else {
+            navigateTo('admin');
+          }
+          return;
+        } else {
+          showToast(res.message || 'Username atau password salah di server', 'error');
+          return;
+        }
+      }
+
+      // Fallback ke data lokal jika tidak ada koneksi API
       const found = DATA.users.find(u => u.username === user && u.password === pass);
       if (found) {
         currentUser = found;
         localStorage.setItem('simandakes_auth', JSON.stringify(currentUser));
         updateUserDisplay();
         closeModal();
-        showToast(`Login berhasil sebagai ${found.role}`, 'success');
+        showToast(`Login berhasil (mode lokal) sebagai ${found.role}`, 'success');
         logActivity('ADMIN_LOGIN', found.username);
+
         if (window._pendingAdminCallback) {
           const cb = window._pendingAdminCallback;
           window._pendingAdminCallback = null;
@@ -2244,10 +2314,10 @@
       }
     }
 
-    // Override admin navigation to require login
+    // Override admin navigation to require login (always force login against users sheet)
     const originalNavigate = navigateTo;
     window.navigateTo = function(section) {
-      if (section === 'admin' && (!currentUser || currentUser.role !== 'admin')) {
+      if (section === 'admin') {
         requireAdminLogin(() => originalNavigate('admin'));
         return;
       }
