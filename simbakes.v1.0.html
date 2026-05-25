@@ -208,6 +208,136 @@
       .profile-field-label { font-size: 0.75rem; color: var(--gray-500); margin-bottom: 0.25rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
       .profile-field-value { font-weight: 500; word-break: break-word; color: var(--gray-800); }
       .sticky-header { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); }
+
+      /* === MANDATORY: HORIZONTAL SCROLL + MODERN PAGINATION === */
+      .table-container {
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-radius: 20px;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+        background: rgba(255,255,255,0.65);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.4);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+      }
+      .table-container::-webkit-scrollbar { height: 8px; }
+      .table-container::-webkit-scrollbar-thumb {
+        background: rgba(37,99,235,0.35);
+        border-radius: 20px;
+      }
+      .table-container::-webkit-scrollbar-thumb:hover {
+        background: var(--primary);
+      }
+
+      table.table-modern, table.table {
+        min-width: 1400px;
+        width: 100%;
+        border-collapse: collapse;
+        background: rgba(255,255,255,0.98);
+      }
+
+      thead {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+      }
+
+      .table-modern th, .table-modern td,
+      .table th, .table td {
+        padding: 13px 11px;
+        text-align: left;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+        vertical-align: middle;
+        white-space: nowrap;
+        font-size: 0.925rem;
+      }
+
+      .table-modern tbody tr,
+      .table tbody tr {
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .table-modern tbody tr:hover,
+      .table tbody tr:hover {
+        background: rgba(37, 99, 235, 0.07);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37,99,235,0.1);
+      }
+
+      /* Modern Pagination */
+      .pagination-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 16px;
+        padding: 14px 18px;
+        background: rgba(255,255,255,0.85);
+        border-radius: 16px;
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(0,0,0,0.06);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      }
+      .pagination-info {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+        white-space: nowrap;
+      }
+      .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .pagination-btn {
+        padding: 7px 13px;
+        border: 1px solid rgba(37,99,235,0.25);
+        background: white;
+        color: var(--primary);
+        border-radius: 10px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-width: 40px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .pagination-btn:hover:not(:disabled) {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(37,99,235,0.3);
+      }
+      .pagination-btn.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+        font-weight: 700;
+      }
+      .pagination-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .page-size-selector {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+      }
+      .page-size-selector select {
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(0,0,0,0.15);
+        background: white;
+        font-size: 0.875rem;
+      }
       </style>
 </head>
 <body>
@@ -377,6 +507,12 @@
     window.allApplications = [];
     window.filteredApplications = [];
 
+    // Pagination state
+    window.adminCurrentPage = 1;
+    window.adminPageSize = 10;
+    window.roadmapCurrentPage = 1;
+    window.roadmapPageSize = 10;
+ 
 document.addEventListener('DOMContentLoaded', function() {
       var urlParams = new URLSearchParams(window.location.search);
       currentPage = urlParams.get('page') || 'dashboard';
@@ -781,8 +917,9 @@ document.addEventListener('DOMContentLoaded', function() {
             '<span id="filterCount" class="text-muted text-sm"></span>' +
           '</div>' +
         '</div>' +
-        '<div class="table-responsive"><table class="table"><thead><tr><th>No</th><th>Jurusan</th><th>Jenis Pendidikan</th><th>Kampus</th><th>Status</th><th>Tahun</th><th>Unit Tujuan</th></tr></thead>' +
-        '<tbody id="roadmapTable"><tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr></tbody></table></div></div>';
+         '<div class="table-container"><table class="table"><thead><tr><th>No</th><th>Jurusan</th><th>Jenis Pendidikan</th><th>Kampus</th><th>Status</th><th>Tahun</th><th>Unit Tujuan</th></tr></thead>' +
+         '<tbody id="roadmapTable"><tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr></tbody></table></div>' +
+         '<div id="roadmapPagination"></div></div>';
     }
 
     function renderStatus() {
@@ -847,19 +984,20 @@ function renderAdmin() {
           '</div>' +
         '</div>' +
         '<div id="filterCount" class="mb-2 text-muted" style="font-size:0.875rem;"></div>' +
-        '<div class="table-responsive"><table class="table-modern"><thead><tr class="sticky-header">' +
-          '<th class="foto-cell">Foto</th>' +
-          '<th>NIK</th>' +
-          '<th>Nama Lengkap</th>' +
-          '<th class="hide-sm">Alamat KTP</th>' +
-          '<th class="hide-md">Jurusan Tujuan</th>' +
-          '<th class="hide-md">Jenis Pendidikan</th>' +
-          '<th>Unit Tujuan</th>' +
-          '<th>Status</th>' +
-          '<th>Catatan Admin</th>' +
-          '<th>CRUD</th>' +
-        '</tr></thead>' +
-        '<tbody id="applicationsTable"><tr><td colspan="11" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div>' +
+         '<div class="table-container"><table class="table-modern"><thead><tr>' +
+           '<th class="foto-cell">Foto</th>' +
+           '<th>NIK</th>' +
+           '<th>Nama Lengkap</th>' +
+           '<th class="hide-sm">Alamat KTP</th>' +
+           '<th class="hide-md">Jurusan Tujuan</th>' +
+           '<th class="hide-md">Jenis Pendidikan</th>' +
+           '<th>Unit Tujuan</th>' +
+           '<th>Status</th>' +
+           '<th>Catatan Admin</th>' +
+           '<th>CRUD</th>' +
+         '</tr></thead>' +
+         '<tbody id="applicationsTable"><tr><td colspan="11" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div>' +
+         '<div id="adminPagination"></div>' +
         '<div id="noDataMsg" class="text-center p-4 text-muted hidden">' +
         '<i class="fas fa-inbox fa-3x mb-3" style="opacity:0.5;"></i>' +
         '<h4>Belum ada data pengajuan</h4>' +
@@ -911,6 +1049,7 @@ function renderAdmin() {
         return matchesSearch && matchesStatus && matchesInstansi && matchesJurusan;
       });
       window.filteredApplications = filtered;
+      window.adminCurrentPage = 1; // reset to first page on filter
       renderAdminTable(filtered);
       updateFilterCount(filtered.length, window.allApplications.length);
     }
@@ -920,32 +1059,30 @@ function renderAdmin() {
       if (el) el.textContent = filtered + ' dari ' + total + ' data';
     }
 
-function renderAdminTable(apps) {
+    function renderAdminTable(apps) {
       var tbody = document.getElementById('applicationsTable');
+      var paginationEl = document.getElementById('adminPagination');
       if (!tbody) return;
+
       if (apps.length === 0) {
         tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4 text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
+        if (paginationEl) paginationEl.innerHTML = '';
         return;
       }
 
-      var rows = apps.map(function(app, i) {
-        var badge = app.status === 'approved'
-          ? 'badge-approved'
-          : app.status === 'rejected'
-            ? 'badge-rejected'
-            : app.status === 'processed'
-              ? 'badge-processed'
-              : app.status === 'revision'
-                ? 'badge-revision'
-                : 'badge-pending';
+      var pageSize = window.adminPageSize || 10;
+      var currentPage = window.adminCurrentPage || 1;
+      var totalPages = Math.ceil(apps.length / pageSize);
+      if (currentPage > totalPages) currentPage = totalPages;
 
-        var statusText = {
-          pending: 'Menunggu',
-          processed: 'Diperiksa',
-          approved: 'Disetujui',
-          rejected: 'Ditolak',
-          revision: 'Diperbaiki'
-        };
+      var startIdx = (currentPage - 1) * pageSize;
+      var pageData = apps.slice(startIdx, startIdx + pageSize);
+
+      var rows = pageData.map(function(app) {
+        var badge = app.status === 'approved' ? 'badge-approved'
+          : app.status === 'rejected' ? 'badge-rejected'
+          : app.status === 'processed' ? 'badge-processed'
+          : app.status === 'revision' ? 'badge-revision' : 'badge-pending';
 
         var statusDD = '<select class="status-dropdown" onchange="changeStatusQuick(' + app.id + ', this.value)">' +
           '<option value="">Ubah Status</option>' +
@@ -957,13 +1094,11 @@ function renderAdminTable(apps) {
           '</select>';
 
         var crudBtns = '<div class="flex gap-2">' +
-           '<button class="btn btn-primary btn-sm" onclick="viewApplication(\'' + (app.nik || app.id) + '\')"> <i class="fas fa-eye"></i></button>' +
-           '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(\'' + (app.nik || app.id) + '\')"><i class="fas fa-user"></i></button>' +
-           (app.status === 'approved'
-             ? '<button class="btn btn-success btn-sm" onclick="downloadRekomendasi(\'' + (app.nik || app.id) + '\')"><i class="fas fa-download"></i></button>'
-             : '') +
-           '<button class="btn btn-warning btn-sm" onclick="editApplication(\'' + (app.nik || app.id) + '\')"><i class="fas fa-edit"></i></button>' +
-           '<button class="btn btn-danger btn-sm" onclick="deleteApplication(\'' + (app.nik || app.id) + '\')"><i class="fas fa-trash"></i></button>' +
+          '<button class="btn btn-primary btn-sm" onclick="viewApplication(\'' + (app.nik || app.id) + '\')"><i class="fas fa-eye"></i></button>' +
+          '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(\'' + (app.nik || app.id) + '\')"><i class="fas fa-user"></i></button>' +
+          (app.status === 'approved' ? '<button class="btn btn-success btn-sm" onclick="downloadRekomendasi(\'' + (app.nik || app.id) + '\')"><i class="fas fa-download"></i></button>' : '') +
+          '<button class="btn btn-warning btn-sm" onclick="editApplication(\'' + (app.nik || app.id) + '\')"><i class="fas fa-edit"></i></button>' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteApplication(\'' + (app.nik || app.id) + '\')"><i class="fas fa-trash"></i></button>' +
           '</div>';
 
         var fotoHtml = app.foto_url 
@@ -985,6 +1120,76 @@ function renderAdminTable(apps) {
       });
 
       tbody.innerHTML = rows.join('');
+      if (paginationEl) renderAdminPagination(apps.length, paginationEl);
+    }
+
+    function renderAdminPagination(totalItems, container) {
+      if (!container) return;
+      var pageSize = window.adminPageSize || 10;
+      var currentPage = window.adminCurrentPage || 1;
+      var totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+      var start = (currentPage - 1) * pageSize + 1;
+      var end = Math.min(currentPage * pageSize, totalItems);
+
+      var html = '<div class="pagination-container">' +
+        '<div class="pagination-info">Menampilkan ' + start + '-' + end + ' dari ' + totalItems + ' data</div>' +
+        '<div class="pagination-controls">';
+
+      // Page size selector
+      html += '<div class="page-size-selector">' +
+        '<span>Per halaman:</span>' +
+        '<select onchange="changeAdminPageSize(this.value)">' +
+          '<option value="10"' + (pageSize==10?' selected':'') + '>10</option>' +
+          '<option value="25"' + (pageSize==25?' selected':'') + '>25</option>' +
+          '<option value="50"' + (pageSize==50?' selected':'') + '>50</option>' +
+          '<option value="100"' + (pageSize==100?' selected':'') + '>100</option>' +
+        '</select></div>';
+
+      // Previous
+      html += '<button class="pagination-btn" ' + (currentPage <= 1 ? 'disabled' : '') + ' onclick="goToAdminPage(' + (currentPage-1) + ')">‹ Prev</button>';
+
+      // Page numbers (smart)
+      var pageNums = [];
+      if (totalPages <= 7) {
+        for (var i=1; i<=totalPages; i++) pageNums.push(i);
+      } else {
+        pageNums.push(1);
+        if (currentPage > 3) pageNums.push('...');
+        var startP = Math.max(2, currentPage - 1);
+        var endP = Math.min(totalPages-1, currentPage + 1);
+        for (var i=startP; i<=endP; i++) pageNums.push(i);
+        if (currentPage < totalPages-2) pageNums.push('...');
+        pageNums.push(totalPages);
+      }
+
+      pageNums.forEach(function(p) {
+        if (p === '...') {
+          html += '<span style="padding:0 6px;color:#64748b;">...</span>';
+        } else {
+          html += '<button class="pagination-btn' + (p === currentPage ? ' active' : '') + '" onclick="goToAdminPage(' + p + ')">' + p + '</button>';
+        }
+      });
+
+      // Next
+      html += '<button class="pagination-btn" ' + (currentPage >= totalPages ? 'disabled' : '') + ' onclick="goToAdminPage(' + (currentPage+1) + ')">Next ›</button>';
+
+      html += '</div></div>';
+
+      container.innerHTML = html;
+    }
+
+    function goToAdminPage(page) {
+      window.adminCurrentPage = page;
+      var data = window.filteredApplications && window.filteredApplications.length ? window.filteredApplications : window.allApplications;
+      renderAdminTable(data);
+    }
+
+    function changeAdminPageSize(newSize) {
+      window.adminPageSize = parseInt(newSize, 10) || 10;
+      window.adminCurrentPage = 1;
+      var data = window.filteredApplications && window.filteredApplications.length ? window.filteredApplications : window.allApplications;
+      renderAdminTable(data);
     }
 
     // ========================================
@@ -1057,6 +1262,8 @@ function renderAdminTable(apps) {
         
         if (res && res.success && res.data) {
           window.roadmapData = res.data;
+          window.filteredRoadmap = res.data;
+          window.roadmapCurrentPage = 1;
           populateFilters();
           filtersDiv.style.display = 'block';
           applyFilters();
@@ -1107,7 +1314,7 @@ function renderAdminTable(apps) {
     }
 
     function applyFilters() {
-      var data = window.roadmapData;
+      var data = window.roadmapData || [];
       var jurusan = document.getElementById('filterJurusan')?.value || '';
       var jenis = document.getElementById('filterJenis')?.value || '';
       var kampus = document.getElementById('filterKampus')?.value || '';
@@ -1129,26 +1336,105 @@ function renderAdminTable(apps) {
                  item.tahun_mulai.toLowerCase().includes(search));
       });
       
+      window.filteredRoadmap = filtered;
+      window.roadmapCurrentPage = 1;
       renderRoadmapTable(filtered);
-      document.getElementById('filterCount').textContent = filtered.length + ' dari ' + data.length + ' hasil';
+      var countEl = document.getElementById('filterCount');
+      if (countEl) countEl.textContent = filtered.length + ' dari ' + data.length + ' hasil';
     }
 
     function renderRoadmapTable(data) {
       var tbody = document.getElementById('roadmapTable');
+      var paginationEl = document.getElementById('roadmapPagination');
       if (!tbody) return;
-      
+
       if (data.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
+        if (paginationEl) paginationEl.innerHTML = '';
         return;
       }
-      
-      tbody.innerHTML = data.map(function(item, i) {
+
+      var pageSize = window.roadmapPageSize || 10;
+      var currentPage = window.roadmapCurrentPage || 1;
+      var totalPages = Math.ceil(data.length / pageSize);
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      var startIdx = (currentPage - 1) * pageSize;
+      var pageData = data.slice(startIdx, startIdx + pageSize);
+
+      tbody.innerHTML = pageData.map(function(item, i) {
         var badgeClass = item.status_calon === 'tersedia' ? 'badge-approved' : 'badge-pending';
-        return '<tr><td>' + (i+1) + '</td><td><strong>' + escapeHtml(item.posisi) + '</strong></td>' +
+        var realIndex = startIdx + i + 1;
+        return '<tr><td>' + realIndex + '</td><td><strong>' + escapeHtml(item.posisi) + '</strong></td>' +
           '<td>' + escapeHtml(item.jenis_pendidikan) + '</td><td>' + escapeHtml(item.kampus) + '</td>' +
           '<td><span class="badge ' + badgeClass + '">' + escapeHtml(item.status_calon) + '</span></td>' +
           '<td>' + escapeHtml(item.tahun_mulai) + '</td><td>' + escapeHtml(item.unit_tujuan) + '</td></tr>';
       }).join('');
+
+      if (paginationEl) renderRoadmapPagination(data.length, paginationEl);
+    }
+
+    function renderRoadmapPagination(totalItems, container) {
+      if (!container) return;
+      var pageSize = window.roadmapPageSize || 10;
+      var currentPage = window.roadmapCurrentPage || 1;
+      var totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+      var start = (currentPage - 1) * pageSize + 1;
+      var end = Math.min(currentPage * pageSize, totalItems);
+
+      var html = '<div class="pagination-container">' +
+        '<div class="pagination-info">Menampilkan ' + start + '-' + end + ' dari ' + totalItems + ' data</div>' +
+        '<div class="pagination-controls">';
+
+      html += '<div class="page-size-selector">' +
+        '<span>Per halaman:</span>' +
+        '<select onchange="changeRoadmapPageSize(this.value)">' +
+          '<option value="10"' + (pageSize==10?' selected':'') + '>10</option>' +
+          '<option value="25"' + (pageSize==25?' selected':'') + '>25</option>' +
+          '<option value="50"' + (pageSize==50?' selected':'') + '>50</option>' +
+          '<option value="100"' + (pageSize==100?' selected':'') + '>100</option>' +
+        '</select></div>';
+
+      html += '<button class="pagination-btn" ' + (currentPage <= 1 ? 'disabled' : '') + ' onclick="goToRoadmapPage(' + (currentPage-1) + ')">‹ Prev</button>';
+
+      var pageNums = [];
+      if (totalPages <= 7) {
+        for (var i=1; i<=totalPages; i++) pageNums.push(i);
+      } else {
+        pageNums.push(1);
+        if (currentPage > 3) pageNums.push('...');
+        var startP = Math.max(2, currentPage - 1);
+        var endP = Math.min(totalPages-1, currentPage + 1);
+        for (var i=startP; i<=endP; i++) pageNums.push(i);
+        if (currentPage < totalPages-2) pageNums.push('...');
+        pageNums.push(totalPages);
+      }
+
+      pageNums.forEach(function(p) {
+        if (p === '...') {
+          html += '<span style="padding:0 6px;color:#64748b;">...</span>';
+        } else {
+          html += '<button class="pagination-btn' + (p === currentPage ? ' active' : '') + '" onclick="goToRoadmapPage(' + p + ')">' + p + '</button>';
+        }
+      });
+
+      html += '<button class="pagination-btn" ' + (currentPage >= totalPages ? 'disabled' : '') + ' onclick="goToRoadmapPage(' + (currentPage+1) + ')">Next ›</button>';
+      html += '</div></div>';
+      container.innerHTML = html;
+    }
+
+    function goToRoadmapPage(page) {
+      window.roadmapCurrentPage = page;
+      var data = window.filteredRoadmap && window.filteredRoadmap.length ? window.filteredRoadmap : (window.roadmapData || []);
+      renderRoadmapTable(data);
+    }
+
+    function changeRoadmapPageSize(newSize) {
+      window.roadmapPageSize = parseInt(newSize, 10) || 10;
+      window.roadmapCurrentPage = 1;
+      var data = window.filteredRoadmap && window.filteredRoadmap.length ? window.filteredRoadmap : (window.roadmapData || []);
+      renderRoadmapTable(data);
     }
 
     function clearFilters() {
@@ -1536,6 +1822,8 @@ var fotoSources = fotoU.sources || [];
             var apps = res.data.applications;
             console.log('Loaded', apps.length, 'apps');
             window.allApplications = apps;
+            window.filteredApplications = apps;
+            window.adminCurrentPage = 1;
             renderAdminTable(apps);
             populateAdminDropdowns();
             updateFilterCount(apps.length, apps.length);
