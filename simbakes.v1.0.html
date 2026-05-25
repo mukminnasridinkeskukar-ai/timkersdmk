@@ -338,6 +338,31 @@
         background: white;
         font-size: 0.875rem;
       }
+
+      /* MANDATORY PHOTO STYLES - FULL WITHOUT CROP */
+      .profile-img, .table-photo, .preview-photo {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important;
+        display: block !important;
+        background: #fff;
+        border-radius: 12px;
+      }
+      .photo-container {
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      .foto-thumb-modern {
+        object-fit: contain !important;
+      }
+      .profile-foto-large {
+        object-fit: contain !important;
+      }
       </style>
 </head>
 <body>
@@ -414,96 +439,339 @@
     }
 
     // ===================================================================
-    // ROBUST MULTI-FALLBACK FOTO SYSTEM (4 formats + cache buster)
+    // TOTAL ROBUST FOTO PROFIL SYSTEM v2026 - FULL REQUIREMENTS COMPLIANT
+    // Supports ALL Google Drive formats + 12+ fallbacks + fetch/blob + iframe
+    // object-fit:contain + full display + modern HD preview + cache + debug
     // ===================================================================
-    function getFotoUrlForRender(app) {
-      if (!app) return {primary: '', sources: []};
-      var raw = (app.foto_url || '').toString().trim();
-      if (!raw) return {primary: '', sources: []};
 
-      var fileId = extractDriveFileIdFromString(raw); // reuse enhanced version below
-      if (!fileId) return { primary: raw, sources: [raw] };
+    // Global photo success cache (by fileId) + debug
+    window.__PHOTO_CACHE = window.__PHOTO_CACHE || {};
+    window.__PHOTO_DEBUG = true; // set false in prod to silence
 
-      // AGGRESSIVE 8-FORMAT FALLBACK (2026 proven patterns)
-      var urls = [
-        'https://drive.google.com/uc?export=view&id=' + fileId,                    // 1. Most reliable direct
-        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',           // 2. Good thumbnail
-        'https://lh3.googleusercontent.com/d/' + fileId,                          // 3. CDN direct
-        'https://drive.usercontent.google.com/download?id=' + fileId + '&export=view', // 4. Newer endpoint
-        'https://drive.google.com/uc?id=' + fileId + '&export=download',           // 5. Download force
-        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w0',              // 6. Auto-size thumbnail
-        'https://lh3.googleusercontent.com/d/' + fileId + '=s1000',               // 7. Sized CDN
-        'https://drive.google.com/file/d/' + fileId + '/preview'                   // 8. Preview fallback
+    function photoDebug() {
+      if (window.__PHOTO_DEBUG) {
+        console.log.apply(console, ['[FOTO-DEBUG]'].concat(Array.prototype.slice.call(arguments)));
+      }
+    }
+
+    // STRONG REGEX PARSER for ALL Google Drive link formats + direct ID
+    function extractDriveFileIdFromString(urlOrId) {
+      if (!urlOrId) return '';
+      var s = String(urlOrId).trim();
+      if (!s || s === '-' || s.length < 8) return '';
+
+      // If already pure ID (25+ chars typical for Drive)
+      if (/^[a-zA-Z0-9_-]{25,}$/.test(s)) {
+        photoDebug('Direct ID detected:', s);
+        return s;
+      }
+
+      var patterns = [
+        // Standard file links
+        /\/file\/d\/([a-zA-Z0-9_-]{25,})/i,
+        /\/d\/([a-zA-Z0-9_-]{25,})/i,
+        // open?id= , uc?id= , any ?id=
+        /[?&]id=([a-zA-Z0-9_-]{25,})/i,
+        /open\?.*?id=([a-zA-Z0-9_-]{25,})/i,
+        // uc export variants
+        /uc\?.*?id=([a-zA-Z0-9_-]{25,})/i,
+        /thumbnail\?.*?id=([a-zA-Z0-9_-]{25,})/i,
+        // lh3 CDN
+        /lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{25,})/i,
+        /lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{25,})=s\d*/i,
+        // new usercontent
+        /drive\.usercontent\.google\.com\/download\?.*?id=([a-zA-Z0-9_-]{25,})/i,
+        // preview / view
+        /\/preview\??.*id=([a-zA-Z0-9_-]{25,})/i,
+        // last resort: longest 25+ alphanum-dash-underscore
+        /([a-zA-Z0-9_-]{25,})/
       ];
 
-      return {
-        primary: urls[0],
-        sources: urls
-      };
+      for (var i = 0; i < patterns.length; i++) {
+        var m = s.match(patterns[i]);
+        if (m && m[1] && m[1].length >= 25) {
+          photoDebug('Extracted FILE_ID via pattern', i, ':', m[1], 'from', s.substring(0,80));
+          return m[1];
+        }
+      }
+      // ultra fallback any 20+ chars
+      var loose = s.match(/([a-zA-Z0-9_-]{20,})/);
+      if (loose && loose[1]) return loose[1];
+      photoDebug('No FILE_ID found in:', s);
+      return '';
     }
 
-    // Universal Drive File ID extractor (matches backend)
-    function extractDriveFileIdFromString(url) {
-      if (!url) return '';
-      var m = String(url).match(/[a-zA-Z0-9_-]{25,}/);
-      return m ? m[0] : '';
+    // Generate PRIORITIZED fallback URLs exactly as requested
+    function generateDriveFallbackUrls(fileId) {
+      if (!fileId) return [];
+      var urls = [
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',           // 1. thumbnail (priority)
+        'https://drive.google.com/uc?export=view&id=' + fileId,                   // 2. uc export=view
+        'https://lh3.googleusercontent.com/d/' + fileId,                          // 3. direct lh3
+        'https://drive.google.com/uc?id=' + fileId,                               // 4. direct uc?id
+        'https://drive.google.com/uc?export=view&id=' + fileId + '&cacheBypass=1',// 5. variant
+        'https://drive.usercontent.google.com/download?id=' + fileId + '&export=view',
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w0',              // auto
+        'https://drive.google.com/file/d/' + fileId + '/view?usp=sharing',
+        'https://drive.google.com/file/d/' + fileId + '/preview'
+      ];
+      // Remove dups while preserving order
+      var seen = {};
+      return urls.filter(function(u){ if(seen[u])return false; seen[u]=true; return true; });
     }
 
-    // Production-ready image with full fallback chain + cache buster + styling
-    function createDriveImageWithFallback(rawUrl, altText, options) {
+    // Modern default avatar (gender neutral + consistent per NIK/name hash)
+    function createDefaultAvatar(text, size) {
+      size = size || 120;
+      var colors = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#0ea5e9'];
+      var hash = 0;
+      var key = String(text || 'user');
+      for (var i=0; i<key.length; i++) hash = ((hash<<5)-hash) + key.charCodeAt(i);
+      var color = colors[Math.abs(hash) % colors.length];
+      var initials = (key.match(/\b\w/g) || ['U','S']).join('').toUpperCase().slice(0,2);
+
+      var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'" viewBox="0 0 120 120">' +
+        '<defs><linearGradient id="g'+hash+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="'+color+'"/><stop offset="100%" stop-color="'+color+'"/></linearGradient></defs>' +
+        '<circle cx="60" cy="60" r="58" fill="#f8fafc" stroke="'+color+'" stroke-width="4"/>' +
+        '<circle cx="60" cy="42" r="18" fill="'+color+'"/>' +
+        '<path d="M25 95 Q35 72 60 72 Q85 72 95 95" fill="none" stroke="'+color+'" stroke-width="8" stroke-linecap="round"/>' +
+        '<text x="60" y="112" text-anchor="middle" fill="#64748b" font-family="Segoe UI, Arial" font-size="11" font-weight="600">'+initials+'</text>' +
+      '</svg>';
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+
+    // CORE: create ROBUST <img> with ALL fallbacks (priority + fetch blob + iframe last)
+    // Always uses object-fit:contain + full visible + no crop
+    function createRobustProfilePhoto(rawUrl, altText, options) {
       options = options || {};
       var container = document.createElement('div');
-      container.style.cssText = 'position:relative; display:inline-block; overflow:hidden;';
-
+      container.className = options.className || 'photo-container';
       var w = options.width || '100%';
       var h = options.height || '100%';
-      container.style.width = w;
-      container.style.height = h;
+      container.style.cssText = 'position:relative;display:inline-block;width:'+w+';height:'+h+';overflow:hidden;border-radius:12px;background:#fff;';
 
       var img = document.createElement('img');
-      img.alt = altText || 'Foto';
+      img.alt = altText || 'Foto Profil';
       img.loading = 'lazy';
-      img.style.cssText = 'object-fit:cover; border-radius:14px; box-shadow:0 6px 20px rgba(0,0,0,.2); background:#fff; width:100%; height:100%; display:block;';
+      img.decoding = 'async';
+      img.className = options.imgClass || 'profile-img table-photo preview-photo';
+      // CRITICAL: FULL without crop/damage
+      img.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#fff;border-radius:12px;display:block;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:opacity .2s;';
 
       var fileId = extractDriveFileIdFromString(rawUrl);
-      var urls = fileId ? [
-        'https://drive.google.com/uc?export=view&id=' + fileId,
-        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',
-        'https://lh3.googleusercontent.com/d/' + fileId,
-        'https://drive.usercontent.google.com/download?id=' + fileId + '&export=view',
-        'https://drive.google.com/uc?id=' + fileId + '&export=download',
-        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w0',
-        'https://lh3.googleusercontent.com/d/' + fileId + '=s1000',
-        'https://drive.google.com/file/d/' + fileId + '/preview'
-      ] : [rawUrl];
+      var urls = fileId ? generateDriveFallbackUrls(fileId) : (rawUrl ? [rawUrl] : []);
+
+      // Use cached success URL if available (performance)
+      var cached = fileId && window.__PHOTO_CACHE[fileId];
+      if (cached) {
+        urls.unshift(cached); // try cached first
+      }
 
       var index = 0;
-      var cacheBuster = '&t=' + Date.now();
+      var triedFetch = false;
 
-      function tryNextSrc() {
-        if (index < urls.length) {
-          img.src = urls[index] + cacheBuster;
-          index++;
-        } else {
-          console.warn('Foto gagal dimuat setelah semua fallback:', rawUrl);
-          img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRjNGNEY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk0QTNCMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gVGlkYWsgVGVyc2VkaWE8L3RleHQ+PC9zdmc+';
-          img.style.opacity = '0.5';
+      function showPlaceholder(reason) {
+        photoDebug('Using placeholder for', rawUrl, 'reason:', reason);
+        var placeholder = createDefaultAvatar(altText || fileId || 'user', 200);
+        img.src = placeholder;
+        img.style.opacity = '0.9';
+        img.style.border = '2px dashed #cbd5e1';
+        if (options.showWarning && fileId) {
+          var warn = document.createElement('div');
+          warn.style.cssText = 'position:absolute;bottom:2px;right:2px;font-size:9px;background:#fef3c7;color:#92400e;padding:1px 4px;border-radius:3px;white-space:nowrap;';
+          warn.textContent = 'Private?';
+          container.appendChild(warn);
         }
       }
 
-      img.onerror = tryNextSrc;
-      tryNextSrc();
+      function tryNextSrc() {
+        if (index < urls.length) {
+          var nextUrl = urls[index] + (urls[index].indexOf('?')>0 ? '&' : '?') + 't=' + Date.now();
+          photoDebug('Trying URL #' + (index+1) + ':', nextUrl);
+          img.src = nextUrl;
+          index++;
+        } else if (!triedFetch && fileId) {
+          // FETCH + BLOB FALLBACK (as required)
+          triedFetch = true;
+          photoDebug('All direct URLs failed. Trying FETCH+BLOB for fileId:', fileId);
+          var blobUrl = 'https://drive.google.com/uc?export=view&id=' + fileId;
+          fetch(blobUrl, {mode: 'cors', cache: 'no-cache'})
+            .then(function(r){
+              if (!r.ok) throw new Error('HTTP ' + r.status);
+              return r.blob();
+            })
+            .then(function(blob){
+              if (blob && blob.type && blob.type.indexOf('image') === 0) {
+                var objUrl = URL.createObjectURL(blob);
+                photoDebug('FETCH+BLOB SUCCESS → using objectURL');
+                window.__PHOTO_CACHE[fileId] = objUrl; // cache the working one
+                img.src = objUrl;
+              } else {
+                throw new Error('Not image blob');
+              }
+            })
+            .catch(function(e){
+              photoDebug('FETCH+BLOB failed:', e.message);
+              // LAST RESORT: iframe embed (preview mode)
+              tryIframeFallback();
+            });
+        } else {
+          showPlaceholder('all fallbacks exhausted');
+        }
+      }
 
-      var skeleton = document.createElement('div');
-      skeleton.style.cssText = 'position:absolute;inset:0;background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite; border-radius:14px;';
-      container.appendChild(skeleton);
+      function tryIframeFallback() {
+        photoDebug('Trying IFRAME fallback for', fileId);
+        // Replace img with iframe (for cases where direct blocked)
+        var iframe = document.createElement('iframe');
+        iframe.src = 'https://drive.google.com/file/d/' + fileId + '/preview';
+        iframe.style.cssText = 'width:100%;height:100%;border:0;border-radius:12px;';
+        iframe.loading = 'lazy';
+        container.innerHTML = '';
+        container.appendChild(iframe);
+        // Add close hint
+        var note = document.createElement('div');
+        note.style.cssText = 'position:absolute;bottom:4px;left:4px;font-size:10px;color:#64748b;background:rgba(255,255,255,0.8);padding:1px 4px;border-radius:3px;';
+        note.textContent = 'Preview mode';
+        container.appendChild(note);
+      }
 
-      img.onload = function() {
-        skeleton.style.display = 'none';
+      img.onerror = function() {
+        photoDebug('onerror for current src:', this.src);
+        tryNextSrc();
       };
 
+      img.onload = function() {
+        photoDebug('SUCCESS loaded:', this.src);
+        if (fileId) {
+          // Save the working URL to cache (without cache buster)
+          var clean = this.src.split('&t=')[0].split('?t=')[0];
+          window.__PHOTO_CACHE[fileId] = clean;
+        }
+        // Hide skeleton if any
+        var sk = container.querySelector('.skeleton');
+        if (sk) sk.style.display = 'none';
+      };
+
+      // Skeleton loader
+      var skeleton = document.createElement('div');
+      skeleton.className = 'skeleton';
+      skeleton.style.cssText = 'position:absolute;inset:0;background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:12px;';
+      container.appendChild(skeleton);
+
+      // Start trying
+      if (urls.length > 0) {
+        tryNextSrc();
+      } else {
+        showPlaceholder('no url');
+      }
+
       container.appendChild(img);
+
+      // Click to open modern HD preview (for table thumbs etc)
+      if (options.clickable !== false && fileId) {
+        container.style.cursor = 'pointer';
+        container.title = 'Klik untuk preview HD';
+        container.addEventListener('click', function(e){
+          e.stopPropagation();
+          showModernPhotoPreview(fileId, urls);
+        });
+      }
+
       return container;
+    }
+
+    // Alias for backward compatibility (all old calls continue to work)
+    function getFotoUrlForRender(app) {
+      if (!app) return {primary:'', sources:[]};
+      var raw = (app.foto_url || '').toString().trim();
+      if (!raw) return {primary:'', sources:[]};
+      var fid = extractDriveFileIdFromString(raw);
+      var srcs = fid ? generateDriveFallbackUrls(fid) : [raw];
+      return {primary: srcs[0] || raw, sources: srcs};
+    }
+    function createDriveImageWithFallback(rawUrl, altText, options) {
+      return createRobustProfilePhoto(rawUrl, altText, options);
+    }
+
+    // MODERN HD PREVIEW MODAL (zoom, fullscreen, dark, smooth, close) - REQUIRED
+    function showModernPhotoPreview(fileId, fallbackUrls) {
+      var urls = fallbackUrls && fallbackUrls.length ? fallbackUrls : generateDriveFallbackUrls(fileId);
+      var modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.96);display:flex;align-items:center;justify-content:center;z-index:99999;opacity:0;transition:opacity .2s;';
+      modal.innerHTML = 
+        '<div style="position:relative;max-width:96vw;max-height:96vh;width:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;">' +
+          '<div style="position:absolute;top:12px;right:12px;display:flex;gap:8px;z-index:10;">' +
+            '<button id="zoomOut" style="background:#fff;color:#111;border:none;width:42px;height:42px;border-radius:9999px;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);">−</button>' +
+            '<button id="zoomIn" style="background:#fff;color:#111;border:none;width:42px;height:42px;border-radius:9999px;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);">+</button>' +
+            '<button id="fullBtn" style="background:#fff;color:#111;border:none;width:42px;height:42px;border-radius:9999px;font-size:16px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);">⛶</button>' +
+            '<button id="closePreview" style="background:#ef4444;color:white;border:none;width:42px;height:42px;border-radius:9999px;font-size:22px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3);">&times;</button>' +
+          '</div>' +
+          '<div id="previewStage" style="position:relative;max-width:92vw;max-height:82vh;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 25px 60px -15px rgba(0,0,0,.6);">' +
+            '<img id="previewImg" style="max-width:92vw;max-height:82vh;object-fit:contain;display:block;background:#fff;" />' +
+          '</div>' +
+          '<div style="color:#cbd5e1;margin-top:12px;font-size:12px;opacity:0.8;">Scroll / tombol untuk zoom • ESC tutup • Klik luar untuk tutup</div>' +
+        '</div>';
+
+      document.body.appendChild(modal);
+      requestAnimationFrame(function(){ modal.style.opacity = '1'; });
+
+      var imgEl = modal.querySelector('#previewImg');
+      var stage = modal.querySelector('#previewStage');
+      var scale = 1;
+
+      function applyScale() {
+        imgEl.style.transform = 'scale(' + scale + ')';
+        imgEl.style.transformOrigin = 'center';
+      }
+
+      modal.querySelector('#closePreview').onclick = function(){ modal.remove(); };
+      modal.querySelector('#zoomIn').onclick = function(){ scale = Math.min(4, scale + 0.25); applyScale(); };
+      modal.querySelector('#zoomOut').onclick = function(){ scale = Math.max(0.5, scale - 0.25); applyScale(); };
+      modal.querySelector('#fullBtn').onclick = function(){
+        if (!document.fullscreenElement) {
+          (modal.requestFullscreen || modal.webkitRequestFullscreen || modal.mozRequestFullScreen || modal.msRequestFullscreen || function(){}).call(modal);
+        } else {
+          (document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen || function(){}).call(document);
+        }
+      };
+
+      modal.onclick = function(e){ if (e.target === modal) modal.remove(); };
+      document.addEventListener('keydown', function esc(e){ if(e.key==='Escape'){ modal.remove(); document.removeEventListener('keydown',esc); } }, {once:true});
+
+      // Robust load inside preview (reuse same fallback chain)
+      var pIndex = 0;
+      function loadPreview() {
+        if (pIndex >= urls.length) {
+          imgEl.src = createDefaultAvatar(fileId, 800);
+          return;
+        }
+        imgEl.src = urls[pIndex];
+        pIndex++;
+      }
+      imgEl.onerror = loadPreview;
+      imgEl.onload = function(){ photoDebug('HD Preview loaded:', this.src); };
+      loadPreview();
+
+      // Wheel zoom
+      stage.addEventListener('wheel', function(e){
+        e.preventDefault();
+        scale = Math.max(0.5, Math.min(4, scale + (e.deltaY > 0 ? -0.15 : 0.15)));
+        applyScale();
+      }, {passive:false});
+    }
+
+    // Helper for tables: small consistent responsive photo + click to HD
+    function createTablePhoto(rawUrl, alt, nik) {
+      var c = createRobustProfilePhoto(rawUrl, alt || 'Foto ' + (nik||''), {
+        width: '48px',
+        height: '60px',
+        imgClass: 'table-photo',
+        clickable: true
+      });
+      c.style.border = '2px solid #e2e8f0';
+      c.style.borderRadius = '10px';
+      return c;
     }
 
     </script>
@@ -511,7 +779,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbw5G-IKaXquDR8Pe8DIu2HmiB4qvT7GYYdK6_2I3BOF-SdC_ewZ8oNKuSXhVDOVYiQN/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbx_I4Gik54Ftfw1HNbhPFFbMYA3Xk5zx1z4FedILvRLxLwtPEZ17fEKn0yBUJHlO0Zf/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1115,8 +1383,8 @@ function renderAdmin() {
           '</div>';
 
         var fotoHtml = app.foto_url 
-          ? createDriveImageWithFallback(app.foto_url, 'Foto', {width:'40px', height:'40px'}).outerHTML
-          : '<span class="text-muted"><i class="fas fa-image"></i></span>';
+          ? createTablePhoto(app.foto_url, 'Foto', app.nik).outerHTML
+          : '<span class="text-muted"><i class="fas fa-user"></i></span>';
 
         return '<tr>' +
           '<td>' + fotoHtml + '</td>' +
@@ -1506,8 +1774,8 @@ function renderAdmin() {
             var repairBtn = d.status === 'rejected' ? '<button class="btn btn-warning btn-sm mt-2" onclick="showRepairForm(' + d.id + ')"><i class="fas fa-edit"></i> Perbaiki Pengajuan</button>' : '';
             
             var fotoHtml = d.foto_url 
-              ? createDriveImageWithFallback(d.foto_url, 'Foto', {width: '80px', height: '100px'}).outerHTML
-              : '<div style="width:80px;height:100px;background:#eee;border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-user fa-2x text-muted"></i></div>';
+              ? createRobustProfilePhoto(d.foto_url, 'Foto', {width: '80px', height: '100px', imgClass: 'preview-photo'}).outerHTML
+              : createDefaultAvatar(d.full_name || d.nik, 100);
             
             return '<div class="card text-left mt-2">' +
               '<div class="flex gap-3">' +
@@ -1549,10 +1817,10 @@ var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="
 var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
-              // Use the most robust multi-fallback system for perfect photo display
-              var fotoImg = app.foto_url 
-                ? createDriveImageWithFallback(app.foto_url, 'Foto Pemohon', {width:'200px', height:'250px'}).outerHTML
-                : '<div style="width:200px;height:250px;background:#eee;border-radius:12px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i></div>';
+               // Use the most robust multi-fallback system for perfect photo display
+               var fotoImg = app.foto_url 
+                 ? createRobustProfilePhoto(app.foto_url, 'Foto Pemohon', {width:'200px', height:'250px', imgClass:'preview-photo'}).outerHTML
+                 : '<div style="width:200px;height:250px;background:#eee;border-radius:12px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;">' + createDefaultAvatar(app.full_name || app.nik, 200) + '</div>';
           
           var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user"></i> Profil Pengaju Beasiswa ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
             '<div class="p-4">' +
@@ -1771,20 +2039,18 @@ var fotoSources = fotoU.sources || [];
       };
 
       var img = document.createElement('img');
-      img.src = src;
-      img.style.cssText = 'max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.5);';
-      img.onerror = function() {
-        // Fallback ke thumbnail
-        var fileIdMatch = src.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-        if (fileIdMatch) {
-          this.src = 'https://drive.google.com/thumbnail?id=' + fileIdMatch[1] + '&sz=w800';
-          this.onerror = function() {
-            this.src = 'https://via.placeholder.com/800x600?text=Foto+Tidak+Tersedia';
-          };
-        } else {
-          this.src = 'https://via.placeholder.com/800x600?text=Foto+Tidak+Tersedia';
-        }
-      };
+      img.style.cssText = 'max-width:95vw;max-height:95vh;object-fit:contain;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5);background:#fff;';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      var fid = extractDriveFileIdFromString(src);
+      var fallbacks = fid ? generateDriveFallbackUrls(fid) : [src];
+      var fi = 0;
+      function tryFs() {
+        if (fi < fallbacks.length) { img.src = fallbacks[fi++]; } 
+        else { img.src = createDefaultAvatar('photo', 800); }
+      }
+      img.onerror = tryFs;
+      tryFs();
 
       var hint = document.createElement('p');
       hint.style.cssText = 'color:white;margin-top:1rem;';
@@ -2003,9 +2269,9 @@ var fotoSrc = fotoU.primary;
              var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
-               var fotoImg = fotoSrc 
-                 ? '<div style="text-align:center;margin-bottom:1rem;"><img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:0.5rem;cursor:pointer;" onclick="showFullScreenImage(\'' + escapeHtml(fotoSrc) + '\')" onerror="this.src=\'https://via.placeholder.com/200x250?text=No+Image\';this.onerror=null;"><p style="color:var(--success);font-size:0.875rem;"><i class="fas fa-check-circle"></i> Foto tersedia</p></div>'
-                : '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);"><i class="fas fa-image" style="font-size:4rem;color:var(--gray-500);"></i><p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
+                var fotoImg = app.foto_url 
+                  ? '<div style="text-align:center;margin-bottom:1rem;">' + createRobustProfilePhoto(app.foto_url, 'Foto Pemohon', {width:'200px', height:'250px', imgClass:'preview-photo', clickable:true}).outerHTML + '<p style="color:var(--success);font-size:0.875rem;"><i class="fas fa-check-circle"></i> Foto tersedia (klik untuk HD)</p></div>'
+                 : '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);">' + createDefaultAvatar(app.full_name || app.nik, 200) + '<p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
             var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user-cog"></i> Detail Pengajuan ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
              '<div class="p-4">' +
              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:2rem;">' +
@@ -2393,12 +2659,18 @@ _________________________
     // LIGHTBOX FOR ADMIN PHOTOS
     // ========================================
     function showLightboxAdmin(src) {
+      var fid = extractDriveFileIdFromString(src);
+      if (fid) {
+        showModernPhotoPreview(fid, generateDriveFallbackUrls(fid));
+        return;
+      }
+      // legacy fallback
       var modal = document.createElement('div');
       modal.className = 'lightbox-modal';
       modal.id = 'lightboxModal';
       modal.innerHTML = '<div class="lightbox-content">' +
         '<button class="lightbox-close" onclick="closeLightbox()">&times;</button>' +
-        '<img src="' + src + '" class="lightbox-img" id="lightboxImg" onclick="closeLightbox()">' +
+        '<img src="' + escapeHtml(src) + '" class="lightbox-img" id="lightboxImg" onclick="closeLightbox()" style="object-fit:contain;background:#fff;">' +
         '</div>';
       document.body.appendChild(modal);
     }
@@ -2443,8 +2715,8 @@ var fotoU = getFotoUrlForRender(app);
             var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
             
             var fotoHtml = app.foto_url 
-              ? createDriveImageWithFallback(app.foto_url, 'Foto Pemohon').outerHTML
-              : '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
+              ? createRobustProfilePhoto(app.foto_url, 'Foto Pemohon', {width:'220px', height:'280px', imgClass:'preview-photo'}).outerHTML
+              : '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;">' + createDefaultAvatar(app.full_name || app.nik, 220) + '<small class="text-muted mt-2">Foto tidak tersedia</small></div>';
 
            var fields = [
              {label: 'Foto', valueHtml: fotoHtml},
