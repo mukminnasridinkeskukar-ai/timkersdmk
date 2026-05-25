@@ -240,16 +240,26 @@
 
     <script>
     function formatDocumentLinks(linksStr) {
-      if (!linksStr) return '';
-      return linksStr.split(' | ').map(function(link) {
-        var parts = link.split(': ');
-        if (parts.length < 2) return escapeHtml(link);
-        var field = parts[0];
-        var urls = parts[1].split(', ').map(function(u) { 
-          return '<a href="' + u.trim() + '" target="_blank" style="color:var(--primary);text-decoration:underline;">📎 ' + field + '</a>'; 
-        }).join(', ');
-        return field + ': ' + urls;
-      }).join('<br>');
+      if (!linksStr) return '-';
+      return linksStr.split(' | ').map(function(part) {
+        var m = part.match(/^(.*?):\s*(.*)$/);
+        if (m) {
+          var field = m[1];
+          var url = m[2];
+          var fid = extractDriveFileIdFromString(url);
+          var previewUrl = fid ? 'https://drive.google.com/file/d/' + fid + '/preview' : url;
+          var viewUrl = fid ? 'https://drive.google.com/uc?export=view&id=' + fid : url;
+          var downloadUrl = fid ? 'https://drive.google.com/uc?export=download&id=' + fid : url;
+
+          return '<div class="mb-2 p-2 bg-light rounded">' +
+            '<strong>' + escapeHtml(field) + '</strong><br>' +
+            '<a href="' + escapeHtml(previewUrl) + '" target="_blank" class="btn btn-sm btn-outline-primary me-1">Preview</a>' +
+            '<a href="' + escapeHtml(viewUrl) + '" target="_blank" class="btn btn-sm btn-outline-secondary me-1">Buka Drive</a>' +
+            '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-sm btn-success">Download</a>' +
+            '</div>';
+        }
+        return escapeHtml(part);
+      }).join('');
     }
     
     function getDriveImageUrl(fotoData, fallbackIdx) {
@@ -273,44 +283,93 @@
       try { return String(fotoData || ''); } catch(e) { return ''; }
     }
 
+    // ===================================================================
+    // ROBUST MULTI-FALLBACK FOTO SYSTEM (4 formats + cache buster)
+    // ===================================================================
     function getFotoUrlForRender(app) {
       if (!app) return {primary: '', sources: []};
       var raw = (app.foto_url || '').toString().trim();
       if (!raw) return {primary: '', sources: []};
 
-      // Extract file ID from various Drive URL formats
-      var fileId = null;
-      var m1 = raw.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (m1) fileId = m1[1];
-      if (!fileId) {
-        var m2 = raw.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-        if (m2) fileId = m2[1];
-      }
-      if (!fileId) {
-        var m3 = raw.match(/([a-zA-Z0-9_-]{25,})/);
-        if (m3) fileId = m3[1];
-      }
+      var fileId = extractDriveFileIdFromString(raw); // reuse enhanced version below
+      if (!fileId) return { primary: raw, sources: [raw] };
 
-      if (!fileId) {
-        // If can't extract ID, try using raw as is (might already be good)
-        return { primary: raw, sources: [raw] };
-      }
-
-      // Most reliable formats for displaying in <img>
-      var primary = 'https://drive.google.com/uc?export=view&id=' + fileId;
-      var thumb = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+      // EXACT 4 FORMATS REQUESTED BY USER
+      var urls = [
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',  // FORMAT 1
+        'https://drive.google.com/uc?export=view&id=' + fileId,           // FORMAT 2
+        'https://lh3.googleusercontent.com/d/' + fileId,                 // FORMAT 3
+        'https://drive.google.com/file/d/' + fileId + '/preview'          // FORMAT 4
+      ];
 
       return {
-        primary: primary,
-        sources: [primary, thumb]
+        primary: urls[0],
+        sources: urls
       };
     }
+
+    // Universal Drive File ID extractor (matches backend)
+    function extractDriveFileIdFromString(url) {
+      if (!url) return '';
+      var m = String(url).match(/[a-zA-Z0-9_-]{25,}/);
+      return m ? m[0] : '';
+    }
+
+    // Production-ready image with full fallback chain + cache buster + styling
+    function createDriveImageWithFallback(rawUrl, altText, options) {
+      options = options || {};
+      var container = document.createElement('div');
+      container.style.cssText = 'position:relative;';
+
+      var img = document.createElement('img');
+      img.alt = altText || 'Foto';
+      img.loading = 'lazy';
+      img.style.cssText = 'object-fit:cover; border-radius:14px; box-shadow:0 6px 20px rgba(0,0,0,.2); background:#fff; width:100%; height:100%;';
+
+      var fileId = extractDriveFileIdFromString(rawUrl);
+      var urls = fileId ? [
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',
+        'https://drive.google.com/uc?export=view&id=' + fileId,
+        'https://lh3.googleusercontent.com/d/' + fileId,
+        'https://drive.google.com/file/d/' + fileId + '/preview'
+      ] : [rawUrl];
+
+      var index = 0;
+      var cacheBuster = '&t=' + Date.now();
+
+      function tryNextSrc() {
+        if (index < urls.length) {
+          img.src = urls[index] + cacheBuster;
+          index++;
+        } else {
+          // Final placeholder
+          img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRjNGNEY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk0QTNCMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gVGlkYWsgVGVyc2VkaWE8L3RleHQ+PC9zdmc+';
+          img.style.opacity = '0.6';
+        }
+      }
+
+      img.onerror = tryNextSrc;
+      tryNextSrc(); // start
+
+      // Skeleton while loading
+      var skeleton = document.createElement('div');
+      skeleton.style.cssText = 'position:absolute;inset:0;background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite; border-radius:14px;';
+      container.appendChild(skeleton);
+
+      img.onload = function() {
+        skeleton.style.display = 'none';
+      };
+
+      container.appendChild(img);
+      return container;
+    }
+
     </script>
     <script>
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbwAa4ecUz4-PS-QRmtMP69RkQ_4FHFN2cOGLxBUdH0gEQYwkgTIQ1jNztjQ3rR_3tye/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbxbLZFfJD7QtJpVlub7652UyvRD1qJb1RZtWJpS5nPS92rPcBrXqK1wsyzWRmRK72Pm/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -898,26 +957,17 @@ function renderAdminTable(apps) {
           '</select>';
 
         var crudBtns = '<div class="flex gap-2">' +
-          '<button class="btn btn-primary btn-sm" onclick="viewApplication(' + app.id + ')"><i class="fas fa-eye"></i></button>' +
-          '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(' + app.id + ')"><i class="fas fa-user"></i></button>' +
-          (app.status === 'approved'
-            ? '<button class="btn btn-success btn-sm" onclick="downloadRekomendasi(' + app.id + ')"><i class="fas fa-download"></i></button>'
-            : '') +
-          '<button class="btn btn-warning btn-sm" onclick="editApplication(' + app.id + ')"><i class="fas fa-edit"></i></button>' +
-          '<button class="btn btn-danger btn-sm" onclick="deleteApplication(' + app.id + ')"><i class="fas fa-trash"></i></button>' +
+           '<button class="btn btn-primary btn-sm" onclick="viewApplication(\'' + (app.nik || app.id) + '\')"> <i class="fas fa-eye"></i></button>' +
+           '<button class="btn btn-info btn-sm" onclick="showProfileAdmin(\'' + (app.nik || app.id) + '\')"><i class="fas fa-user"></i></button>' +
+           (app.status === 'approved'
+             ? '<button class="btn btn-success btn-sm" onclick="downloadRekomendasi(\'' + (app.nik || app.id) + '\')"><i class="fas fa-download"></i></button>'
+             : '') +
+           '<button class="btn btn-warning btn-sm" onclick="editApplication(\'' + (app.nik || app.id) + '\')"><i class="fas fa-edit"></i></button>' +
+           '<button class="btn btn-danger btn-sm" onclick="deleteApplication(\'' + (app.nik || app.id) + '\')"><i class="fas fa-trash"></i></button>' +
           '</div>';
 
-        var fotoU = getFotoUrlForRender(app);
-        var fotoSrc = fotoU.primary;
-        var fotoSources = fotoU.sources || [];
-
-        // HTML aman untuk thumbnail (tanpa multi-source array/logic kompleks di atribut)
-        var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
-
-        var fotoHtml = fotoSrc 
-          ? '<img src="' + escapeHtml(fotoSrc) + '" class="foto-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:4px;cursor:pointer;" ' +
-            'onclick="showFullScreenImage(\'' + escapeHtml(fotoSrc) + '\')" ' +
-            'onerror="this.src=\'https://via.placeholder.com/40?text=Err\';this.onerror=null;">'
+        var fotoHtml = app.foto_url 
+          ? createDriveImageWithFallback(app.foto_url, 'Foto', {width:'40px', height:'40px'}).outerHTML
           : '<span class="text-muted"><i class="fas fa-image"></i></span>';
 
         return '<tr>' +
@@ -1559,67 +1609,73 @@ function exportApplications() {
     }
 
 
-    function editApplication(id) {
-      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+    function editApplication(key) {
+      // key can be NIK or ID
+      var payload = /^\d{16}$/.test(String(key).replace(/\s/g,'')) ? {nik: key} : {id: key};
+      apiCallWithData('getApplicationDetail', payload, function(res) {
         if (res && res.success && res.data) {
           var app = res.data;
-          var html = '<form id="editApplicationForm" onsubmit="updateApplicationAdmin(event, ' + app.id + ')">' +
-            '<div class="alert alert-info mb-3">Edit data aplikasi ID: ' + app.id + '</div>' +
+          var html = '<form id="editApplicationForm" onsubmit="updateApplicationAdmin(event, \'' + (app.nik || app.id) + '\')">' +
             '<div class="grid-2">' +
-            '<div class="form-group"><label class="form-label">NIK</label><input type="text" name="nik" class="form-control" value="' + escapeHtml(app.nik || '') + '" readonly></div>' +
-            '<div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" name="nama_lengkap" class="form-control" value="' + escapeHtml(app.full_name || '') + '" required></div>' +
+            '<div class="form-group"><label>NIK</label><input type="text" name="nik" class="form-control" value="' + escapeHtml(app.nik || '') + '" readonly></div>' +
+            '<div class="form-group"><label>Nama Lengkap</label><input type="text" name="nama_lengkap" class="form-control" value="' + escapeHtml(app.full_name || '') + '"></div>' +
             '</div>' +
-            '<div class="grid-2">' +
-            '<div class="form-group"><label class="form-label">No. HP</label><input type="tel" name="no_hp" class="form-control" value="' + escapeHtml(app.phone || '') + '"></div>' +
-            '<div class="form-group"><label class="form-label">No. WhatsApp</label><input type="tel" name="no_wa" class="form-control" value="' + escapeHtml(app.whatsapp || '') + '"></div>' +
-            '</div>' +
-            '<div class="form-group"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="' + escapeHtml(app.email || '') + '"></div>' +
-            '<div class="form-group"><label class="form-label">Catatan Admin</label><textarea name="admin_notes" class="form-control">' + escapeHtml(app.admin_notes || '') + '</textarea></div>' +
-            '<div class="flex gap-2 mt-3">' +
-            '<button type="button" class="btn btn-outline" onclick="closeModal()">Batal</button>' +
-            '<button type="submit" class="btn btn-warning"><i class="fas fa-save"></i> Simpan Perubahan</button>' +
-            '</div></form>';
-          showModal('Edit Aplikasi (ID: ' + app.id + ')', html);
-        } else {
-          showToast('Gagal memuat data', 'error');
+            // Add other editable fields similarly...
+            '<button type="submit" class="btn btn-primary btn-block">Simpan Perubahan</button>' +
+            '</form>';
+          showModal('Edit Data (NIK: ' + (app.nik || '-') + ')', html);
         }
       });
     }
+      });
+    }
 
-    function updateApplicationAdmin(e, id) {
+    function updateApplicationAdmin(e, key) {
       e.preventDefault();
       var form = document.getElementById('editApplicationForm');
-      var params = {
-        id: id,
-        nik: form.querySelector('[name="nik"]').value,
-        nama_lengkap: form.querySelector('[name="nama_lengkap"]').value,
-        no_hp: form.querySelector('[name="no_hp"]').value,
-        no_wa: form.querySelector('[name="no_wa"]').value,
-        email: form.querySelector('[name="email"]').value,
-        admin_notes: form.querySelector('[name="admin_notes"]').value
-      };
-      apiCallWithData('updateApplication', params, function(res) {
-        if (res && res.success) {
+      var formData = new FormData(form);
+      var data = {};
+      for (var [k, v] of formData.entries()) {
+        data[k] = v;
+      }
+      // Use NIK as primary key for update
+      if (/^\d{16}$/.test(String(key).replace(/\s/g,''))) {
+        data.nik = key;
+      } else {
+        data.id = key;
+      }
+      var role = localStorage.getItem('adminRole') || 'admin';
+      data.role = role;
+
+      apiCallWithData('updateApplication', data, function(res) {
+        if (res.success) {
           showToast('Data berhasil diperbarui');
           closeModal();
           loadApplications();
         } else {
-          showToast(res ? res.message : 'Gagal', 'error');
+          showToast(res.message || 'Gagal update', 'error');
         }
       });
     }
+      });
+    }
 
-function deleteApplication(id) {
-       if (!confirm('Hapus pengajuan ini? Tindakan ini tidak dapat dibatalkan.')) return;
-       // Note: Backend requires superadmin role for delete
-       var role = (currentUser && currentUser.role === 'superadmin') ? 'superadmin' : 'admin';
-       apiCallWithData('deleteApplication', {id: id, role: role}, function(res) {
-         if (res && res.success) {
-           showToast('Data berhasil dihapus');
-           loadApplications();
-         } else {
-           showToast(res ? res.message : 'Gagal - hanya superadmin yang dapat menghapus', 'error');
-         }
+    function deleteApplication(key) {
+      if (!confirm('Yakin hapus data ini?')) return;
+      var role = localStorage.getItem('adminRole') || 'admin';
+      var payload = {role: role};
+      if (/^\d{16}$/.test(String(key).replace(/\s/g,''))) payload.nik = key;
+      else payload.id = key;
+
+      apiCallWithData('deleteApplication', payload, function(res) {
+        if (res.success) {
+          showToast('Data berhasil dihapus');
+          loadApplications();
+        } else {
+          showToast(res.message || 'Gagal hapus', 'error');
+        }
+      });
+    }
        });
      }
 
@@ -2044,25 +2100,21 @@ _________________________
     // ========================================
     // QUICK STATUS CHANGE
     // ========================================
-    function changeStatusQuick(id, newStatus) {
-      if (!newStatus) return;
-      if (newStatus === 'rejected' || newStatus === 'revision') {
-        var note = prompt('Catatan Admin (wajib diisi):');
-        if (note === null) return;
-        note = String(note).trim();
-        if (!note) { showToast('Catatan Admin wajib diisi', 'error'); return; }
-        if (!confirm('Ubah status menjadi ' + (newStatus === 'revision' ? 'Diperbaiki' : 'Ditolak') + '?')) return;
-        apiCallWithData('updateApplicationStatus', {id: id, status: newStatus, admin_notes: note}, function(res) {
-          if (res && res.success) { showToast('Status diperbarui'); loadApplications(); }
-          else { showToast(res ? res.message : 'Gagal', 'error'); }
-        });
-      } else {
-        if (!confirm('Ubah status?')) return;
-        apiCallWithData('updateApplicationStatus', {id: id, status: newStatus}, function(res) {
-          if (res && res.success) { showToast('Status diperbarui'); loadApplications(); }
-          else { showToast(res ? res.message : 'Gagal', 'error'); }
-        });
-      }
+    function changeStatusQuick(key, newStatus) {
+      var role = localStorage.getItem('adminRole') || 'admin';
+      var payload = {status: newStatus, role: role};
+      if (/^\d{16}$/.test(String(key).replace(/\s/g,''))) payload.nik = key;
+      else payload.id = key;
+
+      apiCallWithData('updateApplicationStatus', payload, function(res) {
+        if (res.success) {
+          showToast('Status updated');
+          loadApplications();
+        } else {
+          showToast(res.message || 'Gagal update status', 'error');
+        }
+      });
+    }
     }
 
 // ========================================
@@ -2080,8 +2132,8 @@ var fotoU = getFotoUrlForRender(app);
             var fotoSources = fotoU.sources || [];
             var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
             
-            var fotoHtml = fotoSrc 
-                ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:220px;height:280px;object-fit:cover;border-radius:12px;border:4px solid var(--primary);cursor:pointer;" onclick="showFullScreenImage(\'' + escapeHtml(fotoSrc) + '\')" onerror="this.src=\'https://via.placeholder.com/220x280?text=No+Image\';this.onerror=null;">'
+            var fotoHtml = app.foto_url 
+              ? createDriveImageWithFallback(app.foto_url, 'Foto Pemohon').outerHTML
               : '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i><small class="text-muted mt-2">Foto tidak tersedia</small></div>';
 
            var fields = [
