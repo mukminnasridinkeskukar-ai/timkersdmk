@@ -369,7 +369,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxbLZFfJD7QtJpVlub7652UyvRD1qJb1RZtWJpS5nPS92rPcBrXqK1wsyzWRmRK72Pm/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyBkXCG03vaWhNM_JzZlFGiUX7v-Re-MgbgPxIiLV9ua-1pVh_dQzZvSRn5JtM6pVvi/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1588,19 +1588,19 @@ function exportApplications() {
     }
 
 
-    function rejectApplication(id) {
-      // Minta catatan admin khusus untuk status rejected
-      var note = prompt('Catatan Admin (wajib diisi untuk Ditolak/Rejected):');
-      if (note === null) return; // cancelled
+    function rejectApplication(key) {
+      var note = prompt('Catatan Admin (wajib untuk Ditolak):');
+      if (note === null) return;
       note = String(note).trim();
-      if (!note) {
-        showToast('Catatan Admin wajib diisi untuk Ditolak', 'error');
-        return;
-      }
-      if (!confirm('Tolak pengajuan ini?')) return;
-      apiCallWithData('updateApplicationStatus', {id: id, status: 'rejected', admin_notes: note}, function(res) {
+      if (!note) { showToast('Catatan wajib', 'error'); return; }
+      if (!confirm('Tolak data ini?')) return;
+
+      var payload = {status: 'rejected', admin_notes: note, role: localStorage.getItem('adminRole') || 'admin'};
+      if (/^\d{16}$/.test(String(key).replace(/\s/g,''))) payload.nik = key; else payload.id = key;
+
+      apiCallWithData('updateApplicationStatus', payload, function(res) {
         if (res && res.success) {
-          showToast('Status ditolak');
+          showToast('Ditolak');
           loadApplications();
         } else {
           showToast(res ? res.message : 'Gagal', 'error');
@@ -1608,22 +1608,16 @@ function exportApplications() {
       });
     }
 
-
     function editApplication(key) {
-      // key can be NIK or ID
       var payload = /^\d{16}$/.test(String(key).replace(/\s/g,'')) ? {nik: key} : {id: key};
       apiCallWithData('getApplicationDetail', payload, function(res) {
         if (res && res.success && res.data) {
           var app = res.data;
           var html = '<form id="editApplicationForm" onsubmit="updateApplicationAdmin(event, \'' + (app.nik || app.id) + '\')">' +
-            '<div class="grid-2">' +
-            '<div class="form-group"><label>NIK</label><input type="text" name="nik" class="form-control" value="' + escapeHtml(app.nik || '') + '" readonly></div>' +
-            '<div class="form-group"><label>Nama Lengkap</label><input type="text" name="nama_lengkap" class="form-control" value="' + escapeHtml(app.full_name || '') + '"></div>' +
-            '</div>' +
-            // Add other editable fields similarly...
-            '<button type="submit" class="btn btn-primary btn-block">Simpan Perubahan</button>' +
-            '</form>';
-           showModal('Edit Data (NIK: ' + (app.nik || '-') + ')', html);
+            '<div class="grid-2"><div class="form-group"><label>NIK</label><input type="text" name="nik" class="form-control" value="' + escapeHtml(app.nik || '') + '" readonly></div>' +
+            '<div class="form-group"><label>Nama</label><input type="text" name="nama_lengkap" class="form-control" value="' + escapeHtml(app.full_name || '') + '"></div></div>' +
+            '<button type="submit" class="btn btn-primary btn-block">Simpan</button></form>';
+          showModal('Edit (NIK: ' + (app.nik || '-') + ')', html);
         }
       });
     }
@@ -1633,47 +1627,37 @@ function exportApplications() {
       var form = document.getElementById('editApplicationForm');
       var formData = new FormData(form);
       var data = {};
-      for (var [k, v] of formData.entries()) {
-        data[k] = v;
-      }
-      // Use NIK as primary key for update
-      if (/^\d{16}$/.test(String(key).replace(/\s/g,''))) {
-        data.nik = key;
-      } else {
-        data.id = key;
-      }
-      var role = localStorage.getItem('adminRole') || 'admin';
-      data.role = role;
+      for (var [k, v] of formData.entries()) { data[k] = v; }
+      if (/^\d{16}$/.test(String(key).replace(/\s/g,''))) data.nik = key; else data.id = key;
+      data.role = localStorage.getItem('adminRole') || 'admin';
 
       apiCallWithData('updateApplication', data, function(res) {
         if (res.success) {
-          showToast('Data berhasil diperbarui');
+          showToast('Berhasil diupdate');
           closeModal();
           loadApplications();
         } else {
-           showToast(res.message || 'Gagal update', 'error');
-         }
-       });
-     }
+          showToast(res.message || 'Gagal', 'error');
+        }
+      });
+    }
 
     function deleteApplication(key) {
-      if (!confirm('Yakin hapus data ini?')) return;
-      var role = localStorage.getItem('adminRole') || 'admin';
-      var payload = {role: role};
-      if (/^\d{16}$/.test(String(key).replace(/\s/g,''))) payload.nik = key;
-      else payload.id = key;
+      if (!confirm('Hapus data ini?')) return;
+      var payload = {role: localStorage.getItem('adminRole') || 'admin'};
+      if (/^\d{16}$/.test(String(key).replace(/\s/g,''))) payload.nik = key; else payload.id = key;
 
       apiCallWithData('deleteApplication', payload, function(res) {
         if (res.success) {
-          showToast('Data berhasil dihapus');
+          showToast('Dihapus');
           loadApplications();
         } else {
-           showToast(res.message || 'Gagal hapus', 'error');
-         }
-       });
-     }
+          showToast(res.message || 'Gagal', 'error');
+        }
+      });
+    }
 
- function viewApplication(id) {
+    function viewApplication(key) {
        apiCallWithData('getApplicationDetail', {id: id}, function(res) {
          if (res && res.success && res.data) {
            var app = res.data;
