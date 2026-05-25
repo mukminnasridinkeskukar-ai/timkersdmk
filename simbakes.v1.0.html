@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Beasiswa Tematik Kesehatan - Kabupaten Kutai Kartanegara</title>
+  <title>SIMBAKES - Beasiswa Tematik KuKar</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <style>
@@ -424,12 +424,16 @@
       var fileId = extractDriveFileIdFromString(raw); // reuse enhanced version below
       if (!fileId) return { primary: raw, sources: [raw] };
 
-      // EXACT 4 FORMATS REQUESTED BY USER
+      // AGGRESSIVE 8-FORMAT FALLBACK (2026 proven patterns)
       var urls = [
-        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',  // FORMAT 1
-        'https://drive.google.com/uc?export=view&id=' + fileId,           // FORMAT 2
-        'https://lh3.googleusercontent.com/d/' + fileId,                 // FORMAT 3
-        'https://drive.google.com/file/d/' + fileId + '/preview'          // FORMAT 4
+        'https://drive.google.com/uc?export=view&id=' + fileId,                    // 1. Most reliable direct
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',           // 2. Good thumbnail
+        'https://lh3.googleusercontent.com/d/' + fileId,                          // 3. CDN direct
+        'https://drive.usercontent.google.com/download?id=' + fileId + '&export=view', // 4. Newer endpoint
+        'https://drive.google.com/uc?id=' + fileId + '&export=download',           // 5. Download force
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w0',              // 6. Auto-size thumbnail
+        'https://lh3.googleusercontent.com/d/' + fileId + '=s1000',               // 7. Sized CDN
+        'https://drive.google.com/file/d/' + fileId + '/preview'                   // 8. Preview fallback
       ];
 
       return {
@@ -458,9 +462,13 @@
 
       var fileId = extractDriveFileIdFromString(rawUrl);
       var urls = fileId ? [
-        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',
         'https://drive.google.com/uc?export=view&id=' + fileId,
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000',
         'https://lh3.googleusercontent.com/d/' + fileId,
+        'https://drive.usercontent.google.com/download?id=' + fileId + '&export=view',
+        'https://drive.google.com/uc?id=' + fileId + '&export=download',
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w0',
+        'https://lh3.googleusercontent.com/d/' + fileId + '=s1000',
         'https://drive.google.com/file/d/' + fileId + '/preview'
       ] : [rawUrl];
 
@@ -499,7 +507,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbzgpgTzaJLA1Dfr1O-UnBnU2hPT8bcTbuZ8-saAPQcF8KOWVXKOMyMRLJJHKAOubNQ/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyBkXCG03vaWhNM_JzZlFGiUX7v-Re-MgbgPxIiLV9ua-1pVh_dQzZvSRn5JtM6pVvi/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1462,7 +1470,7 @@ function renderAdmin() {
             var repairBtn = d.status === 'rejected' ? '<button class="btn btn-warning btn-sm mt-2" onclick="showRepairForm(' + d.id + ')"><i class="fas fa-edit"></i> Perbaiki Pengajuan</button>' : '';
             
             var fotoHtml = d.foto_url 
-              ? '<img src="' + escapeHtml(d.foto_url) + '" style="width:80px;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--primary);margin-bottom:0.5rem;" onclick="showFullScreenImage(\'' + escapeHtml(d.foto_url) + '\')">'
+              ? createDriveImageWithFallback(d.foto_url, 'Foto', {width: '80px', height: '100px'}).outerHTML
               : '<div style="width:80px;height:100px;background:#eee;border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-user fa-2x text-muted"></i></div>';
             
             return '<div class="card text-left mt-2">' +
@@ -1504,9 +1512,9 @@ var downloadBtn = app.status === 'approved' ? '<div class="mt-3"><button class="
 var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
-             // Build foto HTML with multiple fallback sources
-              var fotoImg = fotoSrc 
-                 ? '<img src="' + escapeHtml(fotoSrc) + '" alt="Foto" style="width:200px;height:250px;object-fit:cover;border-radius:12px;border:3px solid var(--primary);margin-bottom:1rem;cursor:pointer;" onclick="showFullScreenImage(\'' + escapeHtml(fotoSrc) + '\')" onerror="this.src=\'https://via.placeholder.com/200x250?text=No+Image\';this.onerror=null;">'
+              // Use the most robust multi-fallback system for perfect photo display
+              var fotoImg = app.foto_url 
+                ? createDriveImageWithFallback(app.foto_url, 'Foto Pemohon', {width:'200px', height:'250px'}).outerHTML
                 : '<div style="width:200px;height:250px;background:#eee;border-radius:12px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;"><i class="fas fa-image fa-3x text-muted"></i></div>';
           
           var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user"></i> Profil Pengaju Beasiswa ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
