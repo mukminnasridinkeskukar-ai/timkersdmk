@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>simbakes v1.0</title>
+  <title>Beasiswa Tematik Kesehatan - Kabupaten Kutai Kartanegara</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <style>
@@ -646,8 +646,8 @@
   <div id="app">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <h1><i class="fas fa-heartbeat"></i> SIMBAKES</h1>
-        <p>Beasiswa Tematik Kesehatan Pemkab Kukar 2026</p>
+        <h1><i class="fas fa-heartbeat"></i> Beasiswa Tematik Kesehatan</h1>
+        <p>Pemerintah Kabupaten Kutai Kartanegara</p>
       </div>
       <ul class="sidebar-menu">
         <li><a href="#" data-page="dashboard"><i class="fas fa-home"></i> Dashboard</a></li>
@@ -937,30 +937,14 @@
               }
             })
             .catch(function(e){
-              photoDebug('FETCH+BLOB failed:', e.message);
-              // LAST RESORT: iframe embed (preview mode)
-              tryIframeFallback();
-            });
-        } else {
-          showPlaceholder('all fallbacks exhausted');
-        }
-      }
-
-      function tryIframeFallback() {
-        photoDebug('Trying IFRAME fallback for', fileId);
-        // Replace img with iframe (for cases where direct blocked)
-        var iframe = document.createElement('iframe');
-        iframe.src = 'https://drive.google.com/file/d/' + fileId + '/preview';
-        iframe.style.cssText = 'width:100%;height:100%;border:0;border-radius:12px;';
-        iframe.loading = 'lazy';
-        container.innerHTML = '';
-        container.appendChild(iframe);
-        // Add close hint
-        var note = document.createElement('div');
-        note.style.cssText = 'position:absolute;bottom:4px;left:4px;font-size:10px;color:#64748b;background:rgba(255,255,255,0.8);padding:1px 4px;border-radius:3px;';
-        note.textContent = 'Preview mode';
-        container.appendChild(note);
-      }
+               photoDebug('FETCH+BLOB failed:', e.message);
+               // No more iframe (prevents sandbox warning). Use placeholder instead.
+               showPlaceholder('Drive preview blocked - using avatar');
+             });
+         } else {
+           showPlaceholder('all fallbacks exhausted');
+         }
+       }
 
       img.onerror = function() {
         photoDebug('onerror for current src:', this.src);
@@ -1088,28 +1072,20 @@
     }
 
     // SAFE DOCUMENT PREVIEW POPUP for Kolom AD links (no sandbox=allow-scripts+allow-same-origin to avoid escape warning + access fail)
+    // MANDATORY FIX: Pop-up "Buka Dokumen" sekarang LANGSUNG BUKA FOLDER (no iframe, no sandbox error)
     function showDocumentPreview(fileId, label) {
-      if (!fileId) { showToast('File ID tidak valid', 'error'); return; }
-      label = label || 'Dokumen';
-      var modal = document.createElement('div');
-      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:999999;';
-      modal.innerHTML = 
-        '<div style="background:#fff;border-radius:12px;width:96vw;max-width:1000px;height:92vh;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.4);">' +
-          '<div style="padding:0.75rem 1rem;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border-radius:12px 12px 0 0;">' +
-            '<div><strong>' + escapeHtml(label) + '</strong> <span style="color:#64748b;font-size:0.8rem;">— Preview Google Drive (Kolom AD)</span></div>' +
-            '<div style="display:flex;gap:6px;align-items:center;">' +
-              '<a href="https://drive.google.com/file/d/' + fileId + '/view?usp=sharing" target="_blank" style="font-size:0.8rem;padding:4px 10px;background:#dbeafe;color:#1e40af;border-radius:6px;text-decoration:none;">Buka Tab Baru</a>' +
-              '<a href="https://drive.google.com/drive/folders/' + (window.lastFolderId || '') + '?usp=sharing" target="_blank" style="font-size:0.8rem;padding:4px 10px;background:#ecfdf5;color:#166534;border-radius:6px;text-decoration:none;">Buka Folder</a>' +
-              '<button style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;" onclick="this.closest(\'[style*=\'z-index:999999\']\').remove()">Tutup</button>' +
-            '</div>' +
-          '</div>' +
-          '<div style="flex:1;min-height:0;background:#f1f5f9;">' +
-            '<iframe src="https://drive.google.com/file/d/' + fileId + '/preview" style="width:100%;height:100%;border:0;border-radius:0 0 12px 12px;" allowfullscreen></iframe>' +
-          '</div>' +
-          '<div style="font-size:10px;color:#64748b;padding:4px 8px;text-align:center;border-top:1px solid #eee;">Jika gagal akses data folder, klik tombol Perbaiki Izin Drive di Panel Admin atau gunakan link Buka Tab Baru</div>' +
-        '</div>';
-      document.body.appendChild(modal);
-      modal.onclick = function(ev){ if (ev.target === modal) modal.remove(); };
+      var folderId = window.lastFolderId || '';
+      if (folderId) {
+        window.open('https://drive.google.com/drive/folders/' + folderId + '?usp=sharing', '_blank');
+        showToast('Membuka folder dokumen applicant...', 'info');
+      } else {
+        // fallback ke file jika tidak ada folderId
+        if (fileId) {
+          window.open('https://drive.google.com/file/d/' + fileId + '/view?usp=sharing', '_blank');
+        } else {
+          showToast('Folder ID tidak tersedia untuk dokumen ini', 'error');
+        }
+      }
     }
 
     // Helper for tables: MANDATORY simple 50x50 per spec
@@ -1122,7 +1098,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbyF_5x-xdJukJWiFqAlFt7kSrKu6pKXZhyCFNCqzmanV4NnrrMyKk6qzS5PV3_HzHY4/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbzgROkmTiZIhUY0PctI3XOsB1c9bwcTvzZsOgv4wFRemwfLd3UXInIJy5-IFlqM2zjI/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1278,7 +1254,7 @@ document.addEventListener('DOMContentLoaded', function() {
         '<div class="grid-2">' +
         '<div class="card"><div class="card-header"><h3><i class="fas fa-chart-pie"></i> Statistik</h3></div><canvas id="chartStats" height="200"></canvas></div>' +
         '<div class="card"><div class="card-header"><h3><i class="fas fa-bullhorn"></i> Pengumuman</h3></div>' +
-        '<div class="alert alert-info"><p><strong>Pembukaan Periode 2026</strong></p><p class="text-muted">Pengajuan beasiswa tematik kesehatan Periode 2026 sudah dibuka mulai tanggal 6 Mei 2026 s.d 5 Juni 2026. Silakan ajukan Rekomendasi dari Dinkes melalui menu ajukan rekomendasi. Untuk Informasi lanjut dapat menghubungi PIC Dinas Kesehatan (Mukmin - Chat WA: 082130275800).</p></div>' +
+        '<div class="alert alert-info"><p><strong>Pembukaan Periode 2026</strong></p><p class="text-muted">Pengajuan beasiswa tematik kesehatan Periode 2026 sudah dibuka mulai tanggal 6 Mei 2026 s.d 6 Juni 2026. Silakan ajukan Rekomendasi dari Dinkes melalui menu ajukan rekomendasi. Untuk Informasi lanjut dapat menghubungi PIC Dinas Kesehatan (Mukmin - Chat WA: 082130275800).</p></div>' +
         '<div class="alert alert-success" style="margin-top:0.75rem;">' +
           '<p style="margin-bottom:0.25rem;"><strong>Pengisian Link Beasiswa Idaman</strong></p>' +
           '<p class="text-muted">Bagi Pemohon beasiswa yang sudah terbit rekomendasi dari Kepala Dinas Kesehatan dan telah lulus seleksi masuk Perguruan Tinggi sesuai tujuan roadmap dapat segera mengakses link <strong>Beasiswa Idaman</strong>:<br>' +
@@ -2136,7 +2112,9 @@ function renderAdmin() {
                      '<button class="btn btn-primary btn-sm" onclick="showProfile(' + d.id + ')"><i class="fas fa-user"></i> Lihat Profil Lengkap</button>' +
                      repairBtn +
                    '</div>' +
-                   (d.document_links ? '<div class="mt-2 p-2" style="background:var(--gray-50);border-radius:6px;font-size:0.75rem;border-left:3px solid var(--primary);"><strong><i class="fas fa-paperclip"></i> Dokumen (AD):</strong><div style="margin-top:0.25rem;">' + formatDocumentLinks(d.document_links) + '</div></div>' : '') +
+                    (d.document_links ? '<div class="mt-2 p-2" style="background:var(--gray-50);border-radius:6px;font-size:0.75rem;border-left:3px solid var(--primary);"><strong><i class="fas fa-paperclip"></i> Dokumen (Kolom AD)</strong><div style="margin-top:0.25rem;">' + formatDirectDriveLinks(d.document_links) + '</div>' +
+                      (d.folder_id ? '<div style="margin-top:6px;"><button onclick="window.open(\'https://drive.google.com/drive/folders/' + d.folder_id + '?usp=sharing\', \'_blank\');" class="btn btn-primary btn-sm" style="width:100%;font-size:0.7rem;padding:4px;"><i class="fas fa-folder-open"></i> BUKA SEMUA DOKUMEN DI FOLDER</button></div>' : '') +
+                      '</div>' : '') +
                  '</div>' +
                '</div>' +
              '</div>';
@@ -2209,7 +2187,9 @@ var fotoSources = fotoU.sources || [];
             '</div>' +
             '</div>' +
 (app.admin_notes ? '<div style="margin-top:2rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin (Kolom W)</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
-              (app.document_links ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Link Dokumen (Kolom AD)</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + '</div></div>' : '') +
+              (app.document_links ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Link Dokumen (Kolom AD)</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + '</div>' +
+              (window.lastFolderId ? '<div style="margin-top:8px;"><button onclick="window.open(\'https://drive.google.com/drive/folders/' + window.lastFolderId + '?usp=sharing\', \'_blank\'); showToast(\'Membuka folder dokumen...\', \'info\');" class="btn btn-primary btn-sm" style="width:100%;"><i class="fas fa-folder-open"></i> BUKA SEMUA DOKUMEN DI FOLDER (Rekomendasi)</button></div>' : '') +
+              '</div>' : '') +
              (app.folder_id ? '<div style="margin-top:1rem;"><strong>Applicant Folder ID (Kolom AE):</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '?usp=sharing" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
              downloadBtn +
              repairBtn +
@@ -2675,7 +2655,9 @@ var fotoSrc = fotoU.primary;
 '</div>' +
             '</div>' +
             (app.admin_notes ? '<div style="margin-top:2rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin (Kolom W)</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
-            (app.document_links ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Link Dokumen (Kolom AD)</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + '</div></div>' : '') +
+            (app.document_links ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Link Dokumen (Kolom AD)</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + '</div>' +
+              (window.lastFolderId ? '<div style="margin-top:8px;"><button onclick="window.open(\'https://drive.google.com/drive/folders/' + window.lastFolderId + '?usp=sharing\', \'_blank\'); showToast(\'Membuka folder dokumen...\', \'info\');" class="btn btn-primary btn-sm" style="width:100%;"><i class="fas fa-folder-open"></i> BUKA SEMUA DOKUMEN DI FOLDER (Rekomendasi)</button></div>' : '') +
+              '</div>' : '') +
             (app.folder_id ? '<div style="margin-top:1rem;"><strong>Applicant Folder ID (Kolom AE):</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '?usp=sharing" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
             downloadBtn +
             '</div></div>';
@@ -3142,7 +3124,7 @@ var fotoU = getFotoUrlForRender(app);
                ['Keterangan', escapeHtml(app.keterangan || '-')],
                ['Unit Kerja', escapeHtml(app.unit_kerja || '-')],
                ['Rencana Tahun', escapeHtml(app.rencana_tahun || '-')],
-                ['Link Dokumen', app.document_links ? ('<div style="background:var(--gray-50);padding:1rem;border-radius:10px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + '</div>') : '-'],
+                 ['Link Dokumen', app.document_links ? ('<div style="background:var(--gray-50);padding:1rem;border-radius:10px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + (app.folder_id ? '<div style="margin-top:6px;"><button onclick="window.open(\'https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '?usp=sharing\', \'_blank\')" class="btn btn-primary btn-sm" style="width:100%;"><i class="fas fa-folder-open"></i> BUKA FOLDER LENGKAP</button></div>' : '') + '</div>') : '-'],
                ['Applicant Folder ID', app.folder_id ? '<a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '?usp=sharing" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a>' : '-'],
                ['Dibuat Pada', escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-')],
 ['Diperbarui', escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-')]
