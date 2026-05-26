@@ -959,7 +959,7 @@
 
     // ==================== CONFIG & STATE ====================
     // Web App URL di-hardcode di sini. Setiap deploy baru, ubah URL di baris ini saja.
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxD2wOY_Q1Uh_XGFyLMhYqu8trw8W0TLAaNyJsVU7vPlbf679u3tZlsFnpDtAysUaz7/exec';
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxDqofQrR6n1zebZ_xEelVkK8_JjSg0GLHzgD4xX6rj4JRcdGOxBVol0dSngasxWXPS/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -1089,24 +1089,48 @@
     }
 
     async function loadDistribusi(force = false) {
-      if (!API_URL) return;
+      if (!API_URL) {
+        showToast('API URL belum diset. Cek pengaturan.', 'error');
+        return;
+      }
 
-      if (!force && DATA.distribusi && DATA.distribusi.length > 0 && isApiConnected) return;
+      console.log('Distribusi: Fetching fresh data from server...');
 
       try {
         const res = await callAPI('getDistribusi');
+        console.log('Distribusi API Response:', res);
+        
         if (res.success) {
-          DATA.distribusi = res.data || [];
+          DATA.distribusi = Array.isArray(res.data) ? res.data : [];
+          console.log('Distribusi: Loaded ' + DATA.distribusi.length + ' records');
+          
+          // Validate and log coordinates
+          DATA.distribusi.forEach((loc, idx) => {
+            const lat = parseFloat(loc.lat);
+            const lng = parseFloat(loc.lng);
+            if (isNaN(lat) || isNaN(lng)) {
+              console.warn('Distribusi: Koordinat invalid pada row ' + (idx + 1) + ' - wilayah: ' + loc.wilayah);
+            }
+          });
+          
+          if (DATA.distribusi.length > 0) {
+            console.log('Distribusi: Sample data:', DATA.distribusi[0]);
+          }
+          
           if (currentSection === 'distribusi' && window.mapInstance) {
             initMap();
           }
           isApiConnected = true;
+          return true;
         } else {
-          showToast('Gagal memuat data Distribusi dari server', 'warning');
+          console.warn('Distribusi API failed:', res.message || res.error);
+          showToast('Gagal memuat data Distribusi: ' + (res.message || res.error || 'Unknown error'), 'warning');
+          return false;
         }
       } catch (e) {
-        console.error('Load Distribusi failed:', e);
+        console.error('Load Distribusi exception:', e);
         showToast('Koneksi ke server gagal saat memuat Distribusi', 'error');
+        return false;
       }
     }
 
@@ -1143,11 +1167,8 @@
       ],
       
       distribusi: [
-        {wilayah:'Sukamaju', total:284, dokter:41, perawat:112, bidan:58, nakes:73, lat:-7.25, lng:112.75},
-        {wilayah:'Cempaka', total:129, dokter:18, perawat:51, bidan:32, nakes:28, lat:-7.38, lng:112.62},
-        {wilayah:'Mawar', total:203, dokter:29, perawat:84, bidan:41, nakes:49, lat:-7.19, lng:112.89},
-        {wilayah:'Kenanga', total:88, dokter:11, perawat:35, bidan:19, nakes:23, lat:-7.42, lng:112.71},
-        {wilayah:'Melati', total:112, dokter:14, perawat:47, bidan:23, nakes:28, lat:-7.31, lng:112.81},
+        // DATA DISTRIBUSI diambil langsung dari Google Sheet via API
+        // Tidak ada dummy data - kosongkan array ini
       ],
       
       profil: [
@@ -1443,11 +1464,14 @@
       const menuEl = document.getElementById('menu-' + section);
       if (menuEl) menuEl.classList.add('nav-active', 'bg-white/5');
       
-      currentSection = section;
-      
+currentSection = section;
+       
       // Lazy inits
-      if (section === 'distribusi' && !window.mapInstance) {
-        setTimeout(initMap, 80);
+      if (section === 'distribusi') {
+        setTimeout(async () => {
+          await loadDistribusi();
+          initMap();
+        }, 100);
       }
       if (section === 'admin' && currentUser && currentUser.role !== 'admin') {
         showToast('Akses hanya untuk ADMIN', 'error');
@@ -1467,7 +1491,7 @@
         loadAnjab();
       }
       if (section === 'distribusi') {
-        loadDistribusi();
+        // Already handled in lazy inits above
       }
 
       // Load rekap data when opening the tabs
@@ -2097,27 +2121,78 @@ function renderRenbutTable(filteredData = null) {
 
     /* ==================== MODULE: DISTRIBUSI + LEAFLET MAP ==================== */
     let mapInstance = null;
+    let markerGroup = null;
+    
     function initMap() {
       const container = document.getElementById('map');
-      if (!container || mapInstance) return;
+      if (!container || !DATA.distribusi || DATA.distribusi.length === 0) {
+        console.log('Distribusi: Map init skipped - no data');
+        return;
+      }
       
-      mapInstance = L.map('map', { zoomControl: false }).setView([-7.28, 112.75], 10);
+      // Clear existing map dan markers untuk hindari duplicate
+      if (mapInstance) {
+        mapInstance.remove();
+        mapInstance = null;
+        markerGroup = null;
+      }
+      
+      mapInstance = L.map('map', { zoomControl: false });
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap'
       }).addTo(mapInstance);
       
-      DATA.distribusi.forEach(loc => {
-        const radius = Math.sqrt(loc.total) * 1.8;
-        const circle = L.circleMarker([loc.lat, loc.lng], {
+      // Buat marker group
+      markerGroup = L.layerGroup().addTo(mapInstance);
+      
+      // Array untuk menyimpan marker valid (untuk fitBounds)
+      const validMarkers = [];
+      let invalidCount = 0;
+      
+      DATA.distribusi.forEach((loc, idx) => {
+        // Validasi koordinat
+        const lat = parseFloat(loc.lat);
+        const lng = parseFloat(loc.lng);
+        
+        if (isNaN(lat) || isNaN(lng)) {
+          console.warn('Distribusi: Koordinat invalid pada wilayah "' + (loc.wilayah || idx) + '" - lat:' + loc.lat + ', lng:' + loc.lng);
+          invalidCount++;
+          return;
+        }
+        
+        const radius = Math.sqrt(parseFloat(loc.total) || 0) * 1.8;
+        const circle = L.circleMarker([lat, lng], {
           radius: radius,
           color: '#00E5FF',
           weight: 2,
           fillColor: '#0066FF',
           fillOpacity: 0.55
-        }).addTo(mapInstance);
+        }).addTo(markerGroup);
         
-        circle.bindPopup(`<b>${loc.wilayah}</b><br>Total SDMK: ${loc.total}<br>Dokter: ${loc.dokter} • Perawat: ${loc.perawat}<br>Bidan: ${loc.bidan}`);
+        // Popup dengan semua data dari sheet
+        const popupContent = `
+          <div style="min-width: 150px">
+            <b>${loc.wilayah || 'Tidak bernama'}</b><br>
+            <small>Total SDMK: ${loc.total || 0}</small><br>
+            <small>Dokter: ${loc.dokter || 0} • Perawat: ${loc.perawat || 0}</small><br>
+            <small>Bidan: ${loc.bidan || 0} • Nakes: ${loc.nakes || 0}</small>
+          </div>
+        `;
+        circle.bindPopup(popupContent);
+        validMarkers.push([lat, lng]);
       });
+      
+      console.log('Distribusi: Total marker valid = ' + validMarkers.length + ', invalid = ' + invalidCount);
+      
+      // Auto fit bounds jika ada marker valid
+      if (validMarkers.length > 0) {
+        const bounds = L.latLngBounds(validMarkers);
+        mapInstance.fitBounds(bounds, { padding: [50, 50] });
+      } else {
+        // Set view default jika tidak ada marker valid
+        mapInstance.setView([-7.28, 112.75], 10);
+        showToast('Tidak ada data lokasi yang valid untuk ditampilkan di peta', 'warning');
+      }
       
       // Render side stats
       renderDistribusiStats();
@@ -2125,17 +2200,25 @@ function renderRenbutTable(filteredData = null) {
 
     function renderDistribusiStats() {
       const wil = document.getElementById('distribusi-wilayah');
-      wil.innerHTML = DATA.distribusi.map(d => `
+      const data = DATA.distribusi || [];
+      
+      if (data.length === 0) {
+        wil.innerHTML = '<div class="text-white/50 text-xs py-2">Tidak ada data distribusi</div>';
+        document.getElementById('distribusi-top').innerHTML = '';
+        return;
+      }
+      
+      wil.innerHTML = data.map(d => `
         <div class="flex justify-between items-center text-xs border-b border-white/10 pb-2">
-          <div>${d.wilayah}</div>
-          <div class="font-mono font-semibold">${d.total} <span class="text-white/40">SDMK</span></div>
+          <div>${d.wilayah || 'Tanpa nama'}</div>
+          <div class="font-mono font-semibold">${d.total || 0} <span class="text-white/40">SDMK</span></div>
         </div>
       `).join('');
       
       const top = document.getElementById('distribusi-top');
-      const sorted = [...DATA.distribusi].sort((a,b) => b.total - a.total);
+      const sorted = [...data].sort((a,b) => (parseFloat(b.total) || 0) - (parseFloat(a.total) || 0));
       top.innerHTML = sorted.slice(0,3).map(s => `
-        <div class="flex justify-between px-1 py-1"><div>${s.wilayah}</div><div class="font-bold text-emerald-300">${s.total}</div></div>
+        <div class="flex justify-between px-1 py-1"><div>${s.wilayah || 'Tanpa nama'}</div><div class="font-bold text-emerald-300">${s.total || 0}</div></div>
       `).join('');
     }
 
