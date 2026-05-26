@@ -959,7 +959,7 @@
 
     // ==================== CONFIG & STATE ====================
     // Web App URL di-hardcode di sini. Setiap deploy baru, ubah URL di baris ini saja.
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbwI1IdNBNObkCpLv8bCVrnI7jtPXxy6onVkQTb-Meubxyvw-ZdzPlh-uj6Yq17YNSjV/exec';
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxD2wOY_Q1Uh_XGFyLMhYqu8trw8W0TLAaNyJsVU7vPlbf679u3tZlsFnpDtAysUaz7/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -1037,23 +1037,34 @@
 
     // ==================== ON-DEMAND LOADING FOR PROBLEMATIC MENUS ====================
     async function loadRenbut(force = false) {
-      if (!API_URL) return;
+      if (!API_URL) {
+        showToast('API URL belum diset. Cek pengaturan.', 'error');
+        return;
+      }
 
-      // Selalu coba ambil dari server jika URL ada (tidak tergantung Test Connection)
-      if (!force && DATA.renbut && DATA.renbut.length > 0 && isApiConnected) return;
+      // Always fetch fresh data when called
+      console.log('Renbut: Fetching fresh data from server...');
 
       try {
         const res = await callAPI('getRenbut');
+        console.log('Renbut API Response:', res);
+        
         if (res.success) {
-          DATA.renbut = res.data || [];
+          DATA.renbut = Array.isArray(res.data) ? res.data : [];
+          console.log('Renbut: Loaded ' + DATA.renbut.length + ' records');
+          console.log('Renbut: Sample data:', DATA.renbut[0]);
           renderRenbutTable();
           isApiConnected = true;
+          return true;
         } else {
-          showToast('Gagal memuat data Renbut dari server', 'warning');
+          console.warn('Renbut API failed:', res.message || res.error);
+          showToast('Gagal memuat data Renbut: ' + (res.message || res.error || 'Unknown error'), 'warning');
+          return false;
         }
       } catch (e) {
-        console.error('Load Renbut failed:', e);
+        console.error('Load Renbut exception:', e);
         showToast('Koneksi ke server gagal saat memuat Renbut', 'error');
+        return false;
       }
     }
 
@@ -1112,13 +1123,8 @@
       ],
       
       renbut: [
-        {id:1, nama_unit:'Puskesmas Sukamaju', jenis:'Dokter', kebutuhan:8, existing:5, kekurangan:3, prioritas:'Tinggi', tahun:2026, keterangan:'Kekurangan dokter umum & gigi'},
-        {id:2, nama_unit:'RSUD Sehat Sejahtera', jenis:'Perawat', kebutuhan:42, existing:39, kekurangan:3, prioritas:'Sedang', tahun:2026, keterangan:'IGD & Rawat Inap'},
-        {id:3, nama_unit:'Puskesmas Cempaka', jenis:'Bidan', kebutuhan:11, existing:7, kekurangan:4, prioritas:'Tinggi', tahun:2026, keterangan:'Desa terpencil'},
-        {id:4, nama_unit:'Klinik Pratama Mandiri', jenis:'Nakes', kebutuhan:6, existing:4, kekurangan:2, prioritas:'Rendah', tahun:2026, keterangan:''},
-        {id:5, nama_unit:'Puskesmas Sukamaju', jenis:'Perawat', kebutuhan:18, existing:15, kekurangan:3, prioritas:'Sedang', tahun:2026, keterangan:'Program UKM'},
-        {id:6, nama_unit:'RSUD Sehat Sejahtera', jenis:'Dokter', kebutuhan:15, existing:12, kekurangan:3, prioritas:'Tinggi', tahun:2026, keterangan:'Spesialis anak & bedah'},
-        {id:7, nama_unit:'Puskesmas Kenanga', jenis:'Bidan', kebutuhan:9, existing:6, kekurangan:3, prioritas:'Sedang', tahun:2026, keterangan:''},
+        // DUMMY DATA - Hanya untuk preview jika API tidak terhubung
+        // Data ini akan digantikan dengan data dari server saat API tersedia
       ],
       
       anjab: [
@@ -1695,22 +1701,28 @@
     }
 
     /* ==================== MODULE: RENBUT ==================== */
-    function renderRenbutTable(filteredData = null) {
+function renderRenbutTable(filteredData = null) {
       const tbody = document.getElementById('renbut-tbody');
-      const data = filteredData || DATA.renbut;
+      const data = filteredData || DATA.renbut || [];
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-white/50"><i class="fa-solid fa-inbox text-3xl mb-2 block"></i>Tidak ada data renbut</td></tr>';
+        return;
+      }
+      
       tbody.innerHTML = data.map((r, idx) => `
         <tr>
           <td class="font-mono text-white/50">${idx + 1}</td>
-          <td class="font-medium">${r.nama_unit}</td>
-          <td><span class="px-2.5 py-px text-xs rounded-xl bg-white/10">${r.jenis}</span></td>
-          <td class="font-semibold text-right">${r.kebutuhan}</td>
-          <td class="text-right">${r.existing}</td>
-          <td class="font-bold text-right ${r.kekurangan > 0 ? 'text-red-400' : 'text-emerald-400'}">${r.kekurangan}</td>
-          <td><span class="px-3 py-px rounded-2xl text-xs font-medium ${r.prioritas === 'Tinggi' ? 'bg-red-500/80' : r.prioritas === 'Sedang' ? 'bg-amber-400/80 text-black' : 'bg-white/10'}">${r.prioritas}</span></td>
-          <td>${r.tahun}</td>
+          <td class="font-medium">${r.nama_unit || ''}</td>
+          <td><span class="px-2.5 py-px text-xs rounded-xl bg-white/10">${r.jenis || ''}</span></td>
+          <td class="font-semibold text-right">${r.kebutuhan || 0}</td>
+          <td class="text-right">${r.existing || 0}</td>
+          <td class="font-bold text-right ${parseFloat(r.kekurangan) > 0 ? 'text-red-400' : 'text-emerald-400'}">${r.kekurangan || 0}</td>
+          <td><span class="px-3 py-px rounded-2xl text-xs font-medium ${r.prioritas === 'Tinggi' ? 'bg-red-500/80' : r.prioritas === 'Sedang' ? 'bg-amber-400/80 text-black' : 'bg-white/10'}">${r.prioritas || '-'}</span></td>
+          <td>${r.tahun || ''}</td>
            <td class="text-xs text-white/60 max-w-[200px] truncate">${r.keterangan || '-'}</td>
-         </tr>
-      `).join('');
+          </tr>
+       `).join('');
     }
 
     function filterRenbut() {
@@ -1718,7 +1730,7 @@
       const prio = document.getElementById('filter-renbut-prioritas').value;
       const jenis = document.getElementById('filter-renbut-jenis').value;
       const filtered = DATA.renbut.filter(r => 
-        (r.nama_unit.toLowerCase().includes(q) || r.keterangan.toLowerCase().includes(q)) &&
+        (r.nama_unit?.toLowerCase().includes(q) || (r.keterangan || '').toLowerCase().includes(q)) &&
         (!prio || r.prioritas === prio) &&
         (!jenis || r.jenis === jenis)
       );
@@ -1726,7 +1738,11 @@
     }
 
     function viewRenbut(id) {
-      const r = DATA.renbut.find(x => x.id === id);
+      const r = DATA.renbut.find(x => x.id == id);
+      if (!r) {
+        showToast('Data tidak ditemukan', 'error');
+        return;
+      }
       showModal('Detail Renbut', `
         <div class="grid grid-cols-2 gap-y-4 text-sm">
           <div><span class="text-white/60">Unit</span><br><b>${r.nama_unit}</b></div>
@@ -1736,35 +1752,39 @@
           <div><span class="text-white/60">Kekurangan</span><br><b class="text-3xl ${r.kekurangan>0?'text-red-400':'text-emerald-400'}">${r.kekurangan}</b></div>
           <div><span class="text-white/60">Prioritas</span><br><span class="font-semibold">${r.prioritas}</span> • ${r.tahun}</div>
         </div>
-        <div class="mt-5 pt-4 border-t border-white/10 text-sm">${r.keterangan || 'Tidak ada catatan tambahan.'}</div>
-       `, '');  // Edit hanya tersedia di Panel Admin);
+<div class="mt-5 pt-4 border-t border-white/10 text-sm">${r.keterangan || 'Tidak ada catatan tambahan.'}</div>
+        `, '');  // Edit hanya tersedia di Panel Admin
     }
 
     function showRenbutModal(editId = null) {
       const isEdit = editId != null;
-      const r = isEdit ? DATA.renbut.find(x => x.id === editId) : {nama_unit:'', jenis:'Dokter', kebutuhan:5, existing:3, prioritas:'Sedang', tahun:2026, keterangan:''};
+      const r = isEdit ? DATA.renbut.find(x => x.id == editId) : {nama_unit:'', jenis:'Dokter', kebutuhan:5, existing:3, prioritas:'Sedang', tahun:2026, keterangan:''};
+      if (isEdit && !r) {
+        showToast('Data Renbut tidak ditemukan', 'error');
+        return;
+      }
       showModal(isEdit ? 'Edit Renbut' : 'Tambah Renbut Baru', `
         <div class="space-y-3 text-sm">
-          <div><label class="text-xs text-white/60">NAMA UNIT FASKES</label><input id="r-unit" value="${r.nama_unit}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+          <div><label class="text-xs text-white/60">NAMA UNIT FASKES</label><input id="r-unit" value="${r.nama_unit || ''}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
           <div class="grid grid-cols-2 gap-3">
             <div><label class="text-xs text-white/60">JENIS TENAGA</label>
               <select id="r-jenis" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10">
-                <option ${r.jenis==='Dokter'?'selected':''}>Dokter</option><option ${r.jenis==='Perawat'?'selected':''}>Perawat</option>
-                <option ${r.jenis==='Bidan'?'selected':''}>Bidan</option><option ${r.jenis==='Nakes'?'selected':''}>Nakes</option>
+                <option ${(r.jenis || '')==='Dokter'?'selected':''}>Dokter</option><option ${(r.jenis || '')==='Perawat'?'selected':''}>Perawat</option>
+                <option ${(r.jenis || '')==='Bidan'?'selected':''}>Bidan</option><option ${(r.jenis || '')==='Nakes'?'selected':''}>Nakes</option>
               </select>
             </div>
             <div><label class="text-xs text-white/60">PRIORITAS</label>
               <select id="r-prio" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10">
-                <option ${r.prioritas==='Tinggi'?'selected':''}>Tinggi</option><option ${r.prioritas==='Sedang'?'selected':''}>Sedang</option><option ${r.prioritas==='Rendah'?'selected':''}>Rendah</option>
+                <option ${(r.prioritas || '')==='Tinggi'?'selected':''}>Tinggi</option><option ${(r.prioritas || '')==='Sedang'?'selected':''}>Sedang</option><option ${(r.prioritas || '')==='Rendah'?'selected':''}>Rendah</option>
               </select>
             </div>
           </div>
           <div class="grid grid-cols-3 gap-3">
-            <div><label class="text-xs text-white/60">KEBUTUHAN</label><input id="r-butuh" type="number" value="${r.kebutuhan}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
-            <div><label class="text-xs text-white/60">EXISTING</label><input id="r-exist" type="number" value="${r.existing}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
-            <div><label class="text-xs text-white/60">TAHUN</label><input id="r-tahun" type="number" value="${r.tahun}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+            <div><label class="text-xs text-white/60">KEBUTUHAN</label><input id="r-butuh" type="number" value="${r.kebutuhan || 0}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+            <div><label class="text-xs text-white/60">EXISTING</label><input id="r-exist" type="number" value="${r.existing || 0}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+            <div><label class="text-xs text-white/60">TAHUN</label><input id="r-tahun" type="number" value="${r.tahun || 2026}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
           </div>
-          <div><label class="text-xs text-white/60">KETERANGAN</label><input id="r-ket" value="${r.keterangan}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+          <div><label class="text-xs text-white/60">KETERANGAN</label><input id="r-ket" value="${r.keterangan || ''}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
         </div>
       `, `
         <button onclick="closeModal()" class="px-6 py-2.5 rounded-3xl border border-white/20">BATAL</button>
@@ -1779,7 +1799,7 @@
         kebutuhan: parseInt(document.getElementById('r-butuh').value) || 0,
         existing: parseInt(document.getElementById('r-exist').value) || 0,
         prioritas: document.getElementById('r-prio').value,
-        tahun: parseInt(document.getElementById('r-tahun').value),
+        tahun: parseInt(document.getElementById('r-tahun').value) || 2026,
         keterangan: document.getElementById('r-ket').value
       };
       item.kekurangan = item.kebutuhan - item.existing;
@@ -1802,11 +1822,11 @@
         }
       } else {
         if (editId) {
-          const i = DATA.renbut.findIndex(x => x.id === editId);
+          const i = DATA.renbut.findIndex(x => x.id == editId);
           DATA.renbut[i] = {...DATA.renbut[i], ...item};
           logActivity('EDIT_RENBUT', item.nama_unit);
         } else {
-          item.id = Math.max(0, ...DATA.renbut.map(x => x.id)) + 1;
+          item.id = Date.now(); // Use unique timestamp ID instead of array index
           DATA.renbut.push(item);
           logActivity('ADD_RENBUT', item.nama_unit);
         }
@@ -1829,7 +1849,7 @@
           showToast('Gagal hapus di server', 'error');
         }
       } else {
-        DATA.renbut = DATA.renbut.filter(x => x.id !== id);
+        DATA.renbut = DATA.renbut.filter(x => x.id != id);
         showToast('Data dihapus (mode lokal)', 'success');
       }
 
@@ -2742,20 +2762,24 @@ function exportRekapToExcel(type) {
       const peng = document.getElementById('admin-pengumuman-list');
       if (peng) peng.innerHTML = DATA.pengumuman.map(p => `<div class="py-1 border-b border-white/10 text-xs">${p.judul}</div>`).join('');
       
-      // Renbut admin - Full CRUD (after admin login)
-      const ren = document.getElementById('admin-renbut-list');
-      if (ren) {
-        ren.innerHTML = `<div class="text-xs space-y-1">
-          ${DATA.renbut.map(r => `
-            <div class="flex justify-between items-center border-b border-white/10 py-0.5">
-              <span>${r.nama_unit} — ${r.jenis} <span class="text-red-400">(${r.kekurangan})</span></span>
-              <span class="flex gap-1 text-[10px]">
-                <span onclick="editRenbut(${r.id}); renderAdminPanes()" class="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded cursor-pointer">Edit</span>
-                <span onclick="deleteRenbut(${r.id}); renderAdminPanes()" class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded cursor-pointer">Hapus</span>
-              </span>
-            </div>
-          `).join('')}
-        </div>`;
+// Renbut admin - Full CRUD (after admin login)
+       const ren = document.getElementById('admin-renbut-list');
+       if (ren) {
+         if (!DATA.renbut || DATA.renbut.length === 0) {
+           ren.innerHTML = '<div class="text-xs text-white/50 py-2">Tidak ada data renbut</div>';
+         } else {
+           ren.innerHTML = `<div class="text-xs space-y-1">
+             ${DATA.renbut.map(r => `
+               <div class="flex justify-between items-center border-b border-white/10 py-0.5">
+                 <span>${r.nama_unit || ''} — ${r.jenis || ''} <span class="text-red-400">(${r.kekurangan || 0})</span></span>
+                 <span class="flex gap-1 text-[10px]">
+                   <span onclick="editRenbut(${r.id}); renderAdminPanes()" class="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded cursor-pointer">Edit</span>
+                   <span onclick="deleteRenbut(${r.id}); renderAdminPanes()" class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded cursor-pointer">Hapus</span>
+                 </span>
+               </div>
+             `).join('')}
+           </div>`;
+         }
       }
       
       // Anjab admin - Full CRUD (after admin login)
