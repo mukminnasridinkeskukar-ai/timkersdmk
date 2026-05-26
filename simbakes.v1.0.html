@@ -183,8 +183,55 @@
        .lightbox-nav.prev { left: 10px; }
        .lightbox-nav.next { right: 10px; }
      }
-     .foto-thumb { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
-     .foto-thumb:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+      .foto-thumb { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+      .foto-thumb:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+
+      /* === MANDATORY FOTO PROFIL & DOKUMEN STYLES (PERINATAH KILOCODE) === */
+      .profile-photo {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        object-fit: cover;
+        box-shadow: 0 2px 8px rgba(0,0,0,.15);
+        transition: .3s;
+        border: 2px solid #e2e8f0;
+      }
+      .profile-photo:hover {
+        transform: scale(1.8);
+        z-index: 999;
+      }
+      .detail-photo {
+        width: 120px;
+        height: 120px;
+        border-radius: 18px;
+        object-fit: cover;
+        box-shadow: 0 4px 12px rgba(0,0,0,.2);
+        border: 3px solid var(--primary);
+      }
+      .btn-drive {
+        background: #2563eb;
+        color: white;
+        padding: 8px 14px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: 0.2s;
+      }
+      .btn-drive:hover {
+        background: #1e40af;
+        transform: translateY(-1px);
+        opacity: 0.95;
+      }
+      .doc-links-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+      }
 .status-dropdown { min-width: 140px; font-size: 0.75rem; padding: 0.25rem 0.5rem; }
       /* Modern Admin Panel Styles */
       .admin-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); margin-bottom: 1.5rem; overflow: hidden; }
@@ -624,33 +671,25 @@
   <div class="toast-container" id="toastContainer"></div>
 
     <script>
+    // ========== MANDATORY DOKUMEN FORMAT (PER PERINTAH KILOCODE) ==========
     function formatDocumentLinks(linksStr) {
       if (!linksStr) return '-';
       return linksStr.split(' | ').map(function(part) {
         var m = part.match(/^(.*?):\s*(.*)$/);
         if (m) {
-          var field = m[1];
-          var url = m[2];
-          var fid = extractDriveFileIdFromString(url);
-          var previewUrl = fid ? 'https://drive.google.com/file/d/' + fid + '/preview' : url;
-          var viewUrl = fid ? 'https://drive.google.com/uc?export=view&id=' + fid : url;
-          var downloadUrl = fid ? 'https://drive.google.com/uc?export=download&id=' + fid : url;
-
-          var fidSafe = fid || '';
-          return '<div class="mb-2 p-2 bg-light rounded">' +
+          var field = m[1].trim();
+          var url = m[2].trim();
+          var viewerUrl = convertDriveViewer(url);
+          return '<div class="mb-2">' +
             '<strong>' + escapeHtml(field) + '</strong><br>' +
-            (fidSafe ? '<button onclick="showDocumentPreview(\'' + fidSafe + '\', \'' + escapeHtml(field).replace(/'/g, "\\'") + '\'); return false;" class="btn btn-sm btn-outline-primary me-1">Preview Popup</button>' : '') +
-            '<a href="' + escapeHtml(previewUrl) + '" target="_blank" class="btn btn-sm btn-outline-secondary me-1">Preview Tab</a>' +
-            '<a href="' + escapeHtml(viewUrl) + '" target="_blank" class="btn btn-sm btn-outline-secondary me-1">Buka Drive</a>' +
-            '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-sm btn-success">Download</a>' +
+            '<a href="' + escapeHtml(viewerUrl) + '" target="_blank" class="btn-drive">' +
+            '<i class="fas fa-file-alt"></i> Buka Dokumen</a>' +
             '</div>';
         }
         return escapeHtml(part);
       }).join('');
     }
 
-    // SIMPLE DIRECT DRIVE LINKS for Admin Panel popups (Kolom AD)
-    // Langsung tampilkan link yang bisa dibuka otomatis di tab baru
     function formatDirectDriveLinks(linksStr) {
       if (!linksStr) return '-';
       return linksStr.split(' | ').map(function(part) {
@@ -660,24 +699,15 @@
         var urls = urlPart.split(/,\s*/).filter(function(u){ return u && u.trim(); });
 
         var linkTags = urls.map(function(rawUrl) {
-          var url = rawUrl.trim();
-          var fid = extractDriveFileIdFromString(url);
-          var fidSafe = fid || '';
-          var directLink = fidSafe 
-            ? 'https://drive.google.com/file/d/' + fidSafe + '/view?usp=sharing' 
-            : url;
-          var displayText = fidSafe ? 'Buka Drive' : (url.length > 50 ? url.substring(0,47) + '...' : url);
-          var previewBtn = fidSafe 
-            ? '<button onclick="showDocumentPreview(\'' + fidSafe + '\', \'' + (m ? escapeHtml(m[1]).replace(/'/g,"\\'") : 'Dokumen').replace(/'/g,"\\'") + '\');return false;" style="display:inline-flex;align-items:center;gap:3px;margin:3px 2px;padding:3px 8px;background:#10b981;color:white;border:none;border-radius:6px;font-size:0.75rem;cursor:pointer;">Preview</button>' 
-            : '';
-          return previewBtn + '<a href="' + escapeHtml(directLink) + '" target="_blank" ' +
-                 'style="display:inline-flex;align-items:center;gap:4px;margin:3px 2px;padding:4px 8px;background:#dbeafe;color:#1e40af;border-radius:6px;font-size:0.75rem;text-decoration:none;white-space:nowrap;">' +
-                 '<i class="fas fa-external-link-alt"></i> ' + escapeHtml(displayText) + '</a>';
+          var viewerUrl = convertDriveViewer(rawUrl.trim());
+          return '<a href="' + escapeHtml(viewerUrl) + '" target="_blank" class="btn-drive">' +
+                 '<i class="fas fa-file-alt"></i> Buka Dokumen</a>';
         }).join(' ');
 
-        return label + linkTags;
-      }).join('<div style="height:4px;"></div>');
+        return '<div class="doc-links-container">' + label + linkTags + '</div>';
+      }).join('');
     }
+    // =====================================================================
     
     function getDriveImageUrl(fotoData, fallbackIdx) {
       // fotoData bisa: string (url/file-id), atau object (primary/fallback) 
@@ -761,6 +791,40 @@
       if (loose && loose[1]) return loose[1];
       photoDebug('No FILE_ID found in:', s);
       return '';
+    }
+
+    // ========== MANDATORY FUNCTIONS PER PERINTAH KILOCODE ==========
+    function convertDriveLink(url) {
+      if (!url) return '';
+      const match = url.match(/[-\w]{25,}/);
+      if (!match) return url;
+      const fileId = match[0];
+      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    }
+
+    function convertDriveViewer(url) {
+      if (!url) return '#';
+      const match = url.match(/[-\w]{25,}/);
+      if (!match) return url;
+      return `https://drive.google.com/file/d/${match[0]}/view`;
+    }
+    // ============================================================
+
+    function createSimpleProfilePhoto(rawUrl, altText, variant) {
+      const src = convertDriveLink(rawUrl);
+      const isDetail = variant === 'detail';
+      const cls = isDetail ? 'detail-photo' : 'profile-photo';
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = altText || 'Foto Profil';
+      img.className = cls;
+      img.loading = 'lazy';
+      img.referrerPolicy = 'no-referrer';
+      img.onerror = function() {
+        console.warn('[FOTO-DEBUG] Gagal load foto NIK:', altText, 'raw:', rawUrl, '→ fallback avatar');
+        this.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent((altText || 'User').substring(0,2)) + '&background=2563eb&color=fff&size=128&bold=true';
+      };
+      return img;
     }
 
     // Generate PRIORITIZED fallback URLs exactly as requested
@@ -1048,17 +1112,9 @@
       modal.onclick = function(ev){ if (ev.target === modal) modal.remove(); };
     }
 
-    // Helper for tables: small consistent responsive photo + click to HD
+    // Helper for tables: MANDATORY simple 50x50 per spec
     function createTablePhoto(rawUrl, alt, nik) {
-      var c = createRobustProfilePhoto(rawUrl, alt || 'Foto ' + (nik||''), {
-        width: '48px',
-        height: '60px',
-        imgClass: 'table-photo',
-        clickable: true
-      });
-      c.style.border = '2px solid #e2e8f0';
-      c.style.borderRadius = '10px';
-      return c;
+      return createSimpleProfilePhoto(rawUrl, alt || ('Foto ' + (nik||'')), 'table');
     }
 
     </script>
@@ -1066,7 +1122,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbw8AmZH7kAK_QIWPwJSKxpJSf_yahddGpIS2eXarnrwO6UfdyrLFy6Jf-8GR22j7Lzz/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyF_5x-xdJukJWiFqAlFt7kSrKu6pKXZhyCFNCqzmanV4NnrrMyKk6qzS5PV3_HzHY4/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -2066,7 +2122,7 @@ function renderAdmin() {
             var repairBtn = d.status === 'rejected' ? '<button class="btn btn-warning btn-sm mt-2" onclick="showRepairForm(' + d.id + ')"><i class="fas fa-edit"></i> Perbaiki Pengajuan</button>' : '';
             
             var fotoHtml = d.foto_url 
-              ? createRobustProfilePhoto(d.foto_url, 'Foto', {width: '80px', height: '100px', imgClass: 'preview-photo'}).outerHTML
+              ? createSimpleProfilePhoto(d.foto_url, d.full_name || d.nik).outerHTML
               : createDefaultAvatar(d.full_name || d.nik, 100);
             
             return '<div class="card text-left mt-2">' +
@@ -2111,9 +2167,9 @@ var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
                // Use the most robust multi-fallback system for perfect photo display
-               var fotoImg = app.foto_url 
-                 ? createRobustProfilePhoto(app.foto_url, 'Foto Pemohon', {width:'200px', height:'250px', imgClass:'preview-photo'}).outerHTML
-                 : '<div style="width:200px;height:250px;background:#eee;border-radius:12px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;">' + createDefaultAvatar(app.full_name || app.nik, 200) + '</div>';
+                var fotoImg = app.foto_url 
+                  ? '<div style="text-align:center;margin-bottom:1rem;">' + createSimpleProfilePhoto(app.foto_url, app.full_name || app.nik, 'detail').outerHTML + '</div>'
+                  : '<div style="width:120px;height:120px;background:#eee;border-radius:18px;border:3px solid var(--primary);display:flex;align-items:center;justify-content:center;margin:0 auto;">' + createDefaultAvatar(app.full_name || app.nik, 120) + '</div>';
           
           var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user"></i> Profil Pengaju Beasiswa ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
             '<div class="p-4">' +
@@ -2123,7 +2179,7 @@ var fotoSources = fotoU.sources || [];
             '<div style="background:var(--gray-100);padding:1rem;border-radius:8px;">' +
             '<p style="margin:0.5rem 0;font-weight:600;"><strong>No. Pengajuan:</strong> <code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number) + '</code></p>' +
             '<p style="margin:0.5rem 0;"><strong>Status:</strong> <span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span></p>' +
-            (app.folder_id ? '<p style="margin:0.5rem 0;"><strong>Drive Folder:</strong> <a href="https://drive.google.com/drive/folders/' + app.folder_id + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></p>' : '') +
+            (app.folder_id ? '<p style="margin:0.5rem 0;"><strong>Drive Folder:</strong> <a href="https://drive.google.com/drive/folders/' + app.folder_id + '?usp=sharing" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></p>' : '') +
             '</div></div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
             '<div><p><strong>Nama Lengkap:</strong></p><div style="word-break:break-word;padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--primary);">' + escapeHtml(app.full_name) + '</div></div>' +
@@ -2578,9 +2634,9 @@ var fotoSrc = fotoU.primary;
              var fotoSources = fotoU.sources || [];
              var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
              
-                var fotoImg = app.foto_url 
-                  ? '<div style="text-align:center;margin-bottom:1rem;">' + createRobustProfilePhoto(app.foto_url, 'Foto Pemohon', {width:'200px', height:'250px', imgClass:'preview-photo', clickable:true}).outerHTML + '<p style="color:var(--success);font-size:0.875rem;"><i class="fas fa-check-circle"></i> Foto tersedia (klik untuk HD)</p></div>'
-                 : '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);">' + createDefaultAvatar(app.full_name || app.nik, 200) + '<p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
+                 var fotoImg = app.foto_url 
+                   ? '<div style="text-align:center;margin-bottom:1rem;">' + createSimpleProfilePhoto(app.foto_url, app.full_name || app.nik, 'detail').outerHTML + '</div>'
+                  : '<div style="text-align:center;margin-bottom:1rem;padding:2rem;background:var(--gray-100);border-radius:12px;border:2px dashed var(--gray-500);">' + createDefaultAvatar(app.full_name || app.nik, 120) + '<p style="color:var(--gray-500);margin-top:0.5rem;">Foto tidak tersedia</p></div>';
             var html = '<div class="card" style="max-width:1200px;"><div class="card-header"><h3><i class="fas fa-user-cog"></i> Detail Pengajuan ID: ' + app.id + '</h3><button class="btn btn-outline btn-sm" onclick="closeModal()">Tutup</button></div>' +
              '<div class="p-4">' +
              '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(350px,1fr));gap:2rem;">' +
@@ -2588,7 +2644,7 @@ var fotoSrc = fotoU.primary;
              '<div style="background:var(--gray-100);padding:1rem;border-radius:8px;">' +
             '<p style="margin:0.5rem 0;font-weight:600;"><strong>No. Pengajuan:</strong> <code style="background:var(--primary);color:white;padding:0.25rem 0.5rem;border-radius:4px;">' + escapeHtml(app.application_number) + '</code></p>' +
             '<p style="margin:0.5rem 0;"><strong>Status:</strong> <span class="badge ' + badge + '" style="font-size:1rem;padding:0.5rem 1rem;">' + (statusText[app.status] || app.status) + '</span></p>' +
-            (app.folder_id ? '<p style="margin:0.5rem 0;"><strong>Drive Folder:</strong> <a href="https://drive.google.com/drive/folders/' + app.folder_id + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></p>' : '') +
+            (app.folder_id ? '<p style="margin:0.5rem 0;"><strong>Drive Folder:</strong> <a href="https://drive.google.com/drive/folders/' + app.folder_id + '?usp=sharing" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></p>' : '') +
             '</div></div>' +
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">' +
             '<div><p><strong>Nama Lengkap:</strong></p><div style="word-break:break-word;padding:0.75rem;background:var(--gray-50);border-radius:6px;border-left:3px solid var(--primary);">' + escapeHtml(app.full_name) + '</div></div>' +
@@ -3026,8 +3082,8 @@ var fotoU = getFotoUrlForRender(app);
             var placeholderImg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjRTVFN0VBIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzI5Mjk0MSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkZvdG8gUGVtb2hhbjwvdGV4dD48L3N2Zz4=';
             
             var fotoHtml = app.foto_url 
-              ? createRobustProfilePhoto(app.foto_url, 'Foto Pemohon', {width:'220px', height:'280px', imgClass:'preview-photo'}).outerHTML
-              : '<div style="width:220px;height:280px;background:var(--gray-100);border-radius:12px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;">' + createDefaultAvatar(app.full_name || app.nik, 220) + '<small class="text-muted mt-2">Foto tidak tersedia</small></div>';
+              ? createSimpleProfilePhoto(app.foto_url, app.full_name || app.nik, 'detail').outerHTML
+              : '<div style="width:120px;height:120px;background:var(--gray-100);border-radius:18px;border:3px solid var(--primary);display:flex;flex-direction:column;align-items:center;justify-content:center;">' + createDefaultAvatar(app.full_name || app.nik, 120) + '<small class="text-muted mt-2">Foto tidak tersedia</small></div>';
 
            var fields = [
              {label: 'Foto', valueHtml: fotoHtml},
