@@ -959,7 +959,7 @@
 
     // ==================== CONFIG & STATE ====================
     // Web App URL di-hardcode di sini. Setiap deploy baru, ubah URL di baris ini saja.
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxDqofQrR6n1zebZ_xEelVkK8_JjSg0GLHzgD4xX6rj4JRcdGOxBVol0dSngasxWXPS/exec';
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxf6QMN0Yqe-rnY4cGlrA-odfrvA4OicxUrt1J7IVCpuypLvtVXX5D5JbbWOIy1Knuk/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -1069,22 +1069,35 @@
     }
 
     async function loadAnjab(force = false) {
-      if (!API_URL) return;
+      if (!API_URL) {
+        showToast('API URL belum diset. Cek pengaturan.', 'error');
+        return;
+      }
 
-      if (!force && DATA.anjab && DATA.anjab.length > 0 && isApiConnected) return;
+      console.log('Anjab ABK: Fetching fresh data from server...');
 
       try {
         const res = await callAPI('getAnjab');
+        console.log('Anjab API Response:', res);
+        
         if (res.success) {
-          DATA.anjab = res.data || [];
+          DATA.anjab = Array.isArray(res.data) ? res.data : [];
+          console.log('Anjab ABK: Loaded ' + DATA.anjab.length + ' records');
+          if (DATA.anjab.length > 0) {
+            console.log('Anjab ABK: Sample data:', DATA.anjab[0]);
+          }
           renderAnjabTable();
           isApiConnected = true;
+          return true;
         } else {
-          showToast('Gagal memuat data Anjab dari server', 'warning');
+          console.warn('Anjab API failed:', res.message || res.error);
+          showToast('Gagal memuat data Anjab: ' + (res.message || res.error || 'Unknown error'), 'warning');
+          return false;
         }
       } catch (e) {
-        console.error('Load Anjab failed:', e);
+        console.error('Load Anjab exception:', e);
         showToast('Koneksi ke server gagal saat memuat Anjab', 'error');
+        return false;
       }
     }
 
@@ -1136,7 +1149,7 @@
 
     // In-memory data (rich sample data so the UI looks complete & professional on first open)
     let DATA = {
-      dashboard: { total_sdmk: 4872, total_dokter: 682, total_perawat: 1943, total_bidan: 719, total_nakes: 1528, total_faskes: 147 },
+      dashboard: { total_sdmk: 0, total_dokter: 0, total_perawat: 0, total_bidan: 0, total_nakes: 0, total_faskes: 0 },
       
       pengumuman: [
         {id:1, tanggal:'2026-05-20', judul:'Penerimaan CPNS Tenaga Kesehatan 2026', isi:'Pemerintah Kabupaten membuka lowongan 124 formasi CPNS untuk dokter spesialis, perawat, dan bidan. Pendaftaran dibuka 1-30 Juni 2026 melalui portal SSCASN.', status:'PENTING'},
@@ -1152,10 +1165,8 @@
       ],
       
       anjab: [
-        {id:1, jabatan:'Dokter Umum', unit:'Puskesmas Sukamaju', beban:120, kebutuhan:4, existing:3, gap:1, dokumen:'anjab-puskesmas-sukamaju.pdf'},
-        {id:2, jabatan:'Perawat Pelaksana', unit:'RSUD Sehat Sejahtera', beban:210, kebutuhan:38, existing:36, gap:2, dokumen:'abk-rs-sejahtera-2026.docx'},
-        {id:3, jabatan:'Bidan Koordinator', unit:'Puskesmas Cempaka', beban:95, kebutuhan:5, existing:4, gap:1, dokumen:'anjab-cempaka.pdf'},
-        {id:4, jabatan:'Tenaga Gizi', unit:'Puskesmas Mawar', beban:70, kebutuhan:3, existing:2, gap:1, dokumen:'abk-gizi-2026.pdf'},
+        // DATA ANJAB ABK diambil langsung dari Google Sheet via API
+        // Tidak ada dummy data - kosongkan array ini
       ],
       
       rasio: [
@@ -1513,12 +1524,21 @@ currentSection = section;
     /* ==================== MODULE: DASHBOARD ==================== */
     function updateDashboardStats() {
       const d = DATA.dashboard;
-      document.getElementById('stat-sdmk').textContent = d.total_sdmk.toLocaleString('id-ID');
-      document.getElementById('stat-dokter').textContent = d.total_dokter.toLocaleString();
-      document.getElementById('stat-perawat').textContent = d.total_perawat.toLocaleString();
-      document.getElementById('stat-bidan').textContent = d.total_bidan.toLocaleString();
-      document.getElementById('stat-nakes').textContent = d.total_nakes.toLocaleString();
-      document.getElementById('stat-faskes').textContent = d.total_faskes;
+      
+      // Handle null/undefined values
+      const sdmk = d.total_sdmk || 0;
+      const dokter = d.total_dokter || 0;
+      const perawat = d.total_perawat || 0;
+      const bidan = d.total_bidan || 0;
+      const nakes = d.total_nakes || 0;
+      const faskes = d.total_faskes || 0;
+      
+      document.getElementById('stat-sdmk').textContent = sdmk.toLocaleString('id-ID');
+      document.getElementById('stat-dokter').textContent = dokter.toLocaleString();
+      document.getElementById('stat-perawat').textContent = perawat.toLocaleString();
+      document.getElementById('stat-bidan').textContent = bidan.toLocaleString();
+      document.getElementById('stat-nakes').textContent = nakes.toLocaleString();
+      document.getElementById('stat-faskes').textContent = faskes;
       
       // Counter animation
       document.querySelectorAll('.metric-value').forEach(el => {
@@ -1561,14 +1581,25 @@ currentSection = section;
       const ctx = document.getElementById('chart-distribusi');
       if (!ctx) return;
 
+      // Ambil data langsung dari DATA yang sudah di-fetch
+      const d = DATA.dashboard;
+      const chartData = [
+        d.total_dokter || 0,
+        d.total_perawat || 0,
+        d.total_bidan || 0,
+        d.total_nakes || 0
+      ];
+
+      console.log('Dashboard Chart: Data yang dipakai =', chartData);
+
       new Chart(ctx, {
         type: 'doughnut',
-        data: {
-          labels: ['Dokter', 'Perawat', 'Bidan', 'Nakes Lain'],
-          datasets: [{
-            data: [682, 1943, 719, 1528],
-            backgroundColor: ['#3b82f6', '#10b981', '#ec4899', '#f59e0b'],
-            borderColor: '#0A2540',
+data: {
+           labels: ['Dokter', 'Perawat', 'Bidan', 'Nakes Lain'],
+           datasets: [{
+             data: chartData,
+             backgroundColor: ['#3b82f6', '#10b981', '#ec4899', '#f59e0b'],
+             borderColor: '#0A2540',
             borderWidth: 5,
             hoverOffset: 22
           }]
@@ -1895,25 +1926,34 @@ function renderRenbutTable(filteredData = null) {
     }
 
     /* ==================== MODULE: ANJAB-ABK ==================== */
-    function renderAnjabTable(filtered = null) {
-      const data = filtered || DATA.anjab;
+function renderAnjabTable(filtered = null) {
+      const data = filtered || DATA.anjab || [];
       const tbody = document.getElementById('anjab-tbody');
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-white/50"><i class="fa-solid fa-inbox text-3xl mb-2 block"></i>Tidak ada data anjab</td></tr>';
+        return;
+      }
+      
       tbody.innerHTML = data.map((a, i) => `
         <tr>
           <td>${i+1}</td>
-          <td class="font-medium">${a.jabatan}</td>
-          <td>${a.unit}</td>
-          <td>${a.beban}</td>
-          <td class="font-semibold">${a.kebutuhan}</td>
-          <td>${a.existing}</td>
-           <td class="font-bold ${a.gap > 0 ? 'text-red-400' : ''}">${a.gap}</td>
+          <td class="font-medium">${a.jabatan || ''}</td>
+          <td>${a.unit || ''}</td>
+          <td>${a.beban || 0}</td>
+          <td class="font-semibold">${a.kebutuhan || 0}</td>
+          <td>${a.existing || 0}</td>
+          <td class="font-bold ${parseFloat(a.gap) > 0 ? 'text-red-400' : ''}">${a.gap || 0}</td>
          </tr>
       `).join('');
     }
 
     function filterAnjab() {
       const q = document.getElementById('search-anjab').value.toLowerCase();
-      const f = DATA.anjab.filter(a => a.jabatan.toLowerCase().includes(q) || a.unit.toLowerCase().includes(q));
+      const f = (DATA.anjab || []).filter(a => 
+        (a.jabatan || '').toLowerCase().includes(q) || 
+        (a.unit || '').toLowerCase().includes(q)
+      );
       renderAnjabTable(f);
     }
 
@@ -1939,30 +1979,34 @@ function renderRenbutTable(filteredData = null) {
 
     function showAnjabModal(editId = null) {
       const isEdit = !!editId;
-      const item = isEdit ? DATA.anjab.find(x => x.id === editId) : {jabatan:'', unit:'', beban:80, kebutuhan:3, existing:2, gap:1, dokumen:'dokumen-baru.pdf'};
+      const item = isEdit ? DATA.anjab.find(x => x.id == editId) : {jabatan:'', unit:'', beban:80, kebutuhan:3, existing:2, gap:1, dokumen:'dokumen-baru.pdf'};
+      if (isEdit && !item) {
+        showToast('Data Anjab tidak ditemukan', 'error');
+        return;
+      }
       showModal(isEdit ? 'Edit Anjab-ABK' : 'Tambah Data Anjab-ABK', `
         <div class="grid grid-cols-1 gap-3 text-sm">
-          <input id="a-jabatan" value="${item.jabatan}" placeholder="Nama Jabatan" class="glass px-4 py-2 rounded-2xl border border-white/10">
-          <input id="a-unit" value="${item.unit}" placeholder="Unit Kerja" class="glass px-4 py-2 rounded-2xl border border-white/10">
+          <input id="a-jabatan" value="${item.jabatan || ''}" placeholder="Nama Jabatan" class="glass px-4 py-2 rounded-2xl border border-white/10">
+          <input id="a-unit" value="${item.unit || ''}" placeholder="Unit Kerja" class="glass px-4 py-2 rounded-2xl border border-white/10">
           <div class="grid grid-cols-4 gap-3">
-            <input id="a-beban" type="number" value="${item.beban}" placeholder="Beban Kerja" class="glass px-4 py-2 rounded-2xl border border-white/10">
-            <input id="a-kebutuhan" type="number" value="${item.kebutuhan}" placeholder="Kebutuhan" class="glass px-4 py-2 rounded-2xl border border-white/10">
-            <input id="a-existing" type="number" value="${item.existing}" placeholder="Existing" class="glass px-4 py-2 rounded-2xl border border-white/10">
-            <input id="a-gap" type="number" value="${item.gap}" placeholder="Gap" class="glass px-4 py-2 rounded-2xl border border-white/10">
+            <input id="a-beban" type="number" value="${item.beban || 0}" placeholder="Beban Kerja" class="glass px-4 py-2 rounded-2xl border border-white/10">
+            <input id="a-kebutuhan" type="number" value="${item.kebutuhan || 0}" placeholder="Kebutuhan" class="glass px-4 py-2 rounded-2xl border border-white/10">
+            <input id="a-existing" type="number" value="${item.existing || 0}" placeholder="Existing" class="glass px-4 py-2 rounded-2xl border border-white/10">
+            <input id="a-gap" type="number" value="${item.gap || 0}" placeholder="Gap" class="glass px-4 py-2 rounded-2xl border border-white/10">
           </div>
-          <input id="a-dokumen" value="${item.dokumen}" placeholder="Nama file dokumen" class="glass px-4 py-2 rounded-2xl border border-white/10">
+          <input id="a-dokumen" value="${item.dokumen || ''}" placeholder="Nama file dokumen" class="glass px-4 py-2 rounded-2xl border border-white/10">
         </div>
-      `, `<button onclick="saveAnjab(${editId || 'null'})" class="px-7 py-2.5 bg-violet-500 rounded-3xl font-semibold">${isEdit ? 'UPDATE' : 'SIMPAN'}</button>`);
+      `, `<button onclick="saveAnjab(${isEdit ? editId : 'null'})" class="px-7 py-2.5 bg-violet-500 rounded-3xl font-semibold">${isEdit ? 'UPDATE' : 'SIMPAN'}</button>`);
     }
 
     async function saveAnjab(editId) {
       const newItem = {
         jabatan: document.getElementById('a-jabatan').value,
         unit: document.getElementById('a-unit').value,
-        beban: +document.getElementById('a-beban').value,
-        kebutuhan: +document.getElementById('a-kebutuhan').value,
-        existing: +document.getElementById('a-existing').value,
-        gap: +document.getElementById('a-gap').value,
+        beban: +document.getElementById('a-beban').value || 0,
+        kebutuhan: +document.getElementById('a-kebutuhan').value || 0,
+        existing: +document.getElementById('a-existing').value || 0,
+        gap: +document.getElementById('a-gap').value || 0,
         dokumen: document.getElementById('a-dokumen').value
       };
 
@@ -1974,20 +2018,20 @@ function renderRenbutTable(filteredData = null) {
           : await callAPI('addAnjab', newItem);
 
         if (res.success) {
-          await syncAllDataFromServer();
+          await loadAnjab(true);
           showToast('Data Anjab tersimpan ke server', 'success');
         } else {
           showToast('Gagal simpan ke server', 'error');
         }
       } else {
         if (editId) {
-          const idx = DATA.anjab.findIndex(x => x.id === editId);
-          DATA.anjab[idx] = {...DATA.anjab[idx], ...newItem};
+          const idx = DATA.anjab.findIndex(x => x.id == editId);
+          if (idx >= 0) DATA.anjab[idx] = {...DATA.anjab[idx], ...newItem};
         } else {
-          newItem.id = Math.max(...DATA.anjab.map(x => x.id)) + 1;
+          newItem.id = Date.now();
           DATA.anjab.push(newItem);
         }
-        showToast('Data Anjab tersimpan (mode lokal)');
+        showToast('Data Anjab tersimpan (mode lokal)', 'success');
       }
 
       renderAnjabTable();
@@ -2000,14 +2044,14 @@ function renderRenbutTable(filteredData = null) {
       if (isApiConnected && API_URL) {
         const res = await callAPI('deleteAnjab', { id });
         if (res.success) {
-          await syncAllDataFromServer();
+          await loadAnjab(true);
           showToast('Data Anjab dihapus dari server', 'success');
         } else {
           showToast('Gagal hapus di server', 'error');
         }
       } else {
-        DATA.anjab = DATA.anjab.filter(x => x.id !== id);
-        showToast('Data dihapus (mode lokal)');
+        DATA.anjab = DATA.anjab.filter(x => x.id != id);
+        showToast('Data dihapus (mode lokal)', 'success');
       }
 
       renderAnjabTable();
@@ -2865,20 +2909,24 @@ function exportRekapToExcel(type) {
          }
       }
       
-      // Anjab admin - Full CRUD (after admin login)
+// Anjab admin - Full CRUD (after admin login)
       const anj = document.getElementById('admin-anjab-list');
       if (anj) {
-        anj.innerHTML = `<div class="text-xs space-y-1">
-          ${DATA.anjab.map(a => `
-            <div class="flex justify-between items-center border-b border-white/10 py-0.5">
-              <span>${a.jabatan} @ ${a.unit}</span>
-              <span class="flex gap-1 text-[10px]">
-                <span onclick="editAnjab(${a.id}); renderAdminPanes()" class="px-2 py-0.5 bg-violet-500/20 text-violet-300 rounded cursor-pointer">Edit</span>
-                <span onclick="deleteAnjab(${a.id}); renderAdminPanes()" class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded cursor-pointer">Hapus</span>
-              </span>
-            </div>
-          `).join('')}
-        </div>`;
+        if (!DATA.anjab || DATA.anjab.length === 0) {
+          anj.innerHTML = '<div class="text-xs text-white/50 py-2">Tidak ada data anjab</div>';
+        } else {
+          anj.innerHTML = `<div class="text-xs space-y-1">
+            ${DATA.anjab.map(a => `
+              <div class="flex justify-between items-center border-b border-white/10 py-0.5">
+                <span>${a.jabatan || ''} @ ${a.unit || ''}</span>
+                <span class="flex gap-1 text-[10px]">
+                  <span onclick="editAnjab(${a.id}); renderAdminPanes()" class="px-2 py-0.5 bg-violet-500/20 text-violet-300 rounded cursor-pointer">Edit</span>
+                  <span onclick="deleteAnjab(${a.id}); renderAdminPanes()" class="px-2 py-0.5 bg-red-500/20 text-red-400 rounded cursor-pointer">Hapus</span>
+                </span>
+              </div>
+            `).join('')}
+          </div>`;
+        }
       }
       
       // Profil admin - Full CRUD (after admin login)
