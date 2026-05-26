@@ -636,9 +636,11 @@
           var viewUrl = fid ? 'https://drive.google.com/uc?export=view&id=' + fid : url;
           var downloadUrl = fid ? 'https://drive.google.com/uc?export=download&id=' + fid : url;
 
+          var fidSafe = fid || '';
           return '<div class="mb-2 p-2 bg-light rounded">' +
             '<strong>' + escapeHtml(field) + '</strong><br>' +
-            '<a href="' + escapeHtml(previewUrl) + '" target="_blank" class="btn btn-sm btn-outline-primary me-1">Preview</a>' +
+            (fidSafe ? '<button onclick="showDocumentPreview(\'' + fidSafe + '\', \'' + escapeHtml(field).replace(/'/g, "\\'") + '\'); return false;" class="btn btn-sm btn-outline-primary me-1">Preview Popup</button>' : '') +
+            '<a href="' + escapeHtml(previewUrl) + '" target="_blank" class="btn btn-sm btn-outline-secondary me-1">Preview Tab</a>' +
             '<a href="' + escapeHtml(viewUrl) + '" target="_blank" class="btn btn-sm btn-outline-secondary me-1">Buka Drive</a>' +
             '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-sm btn-success">Download</a>' +
             '</div>';
@@ -660,13 +662,16 @@
         var linkTags = urls.map(function(rawUrl) {
           var url = rawUrl.trim();
           var fid = extractDriveFileIdFromString(url);
-          // Langsung buka view link Google Drive
-          var directLink = fid 
-            ? 'https://drive.google.com/file/d/' + fid + '/view' 
+          var fidSafe = fid || '';
+          var directLink = fidSafe 
+            ? 'https://drive.google.com/file/d/' + fidSafe + '/view?usp=sharing' 
             : url;
-          var displayText = fid ? 'Buka di Google Drive' : (url.length > 60 ? url.substring(0,57) + '...' : url);
-          return '<a href="' + escapeHtml(directLink) + '" target="_blank" ' +
-                 'style="display:inline-flex;align-items:center;gap:4px;margin:3px 2px;padding:4px 10px;background:#dbeafe;color:#1e40af;border-radius:6px;font-size:0.8rem;text-decoration:none;white-space:nowrap;">' +
+          var displayText = fidSafe ? 'Buka Drive' : (url.length > 50 ? url.substring(0,47) + '...' : url);
+          var previewBtn = fidSafe 
+            ? '<button onclick="showDocumentPreview(\'' + fidSafe + '\', \'' + (m ? escapeHtml(m[1]).replace(/'/g,"\\'") : 'Dokumen').replace(/'/g,"\\'") + '\');return false;" style="display:inline-flex;align-items:center;gap:3px;margin:3px 2px;padding:3px 8px;background:#10b981;color:white;border:none;border-radius:6px;font-size:0.75rem;cursor:pointer;">Preview</button>' 
+            : '';
+          return previewBtn + '<a href="' + escapeHtml(directLink) + '" target="_blank" ' +
+                 'style="display:inline-flex;align-items:center;gap:4px;margin:3px 2px;padding:4px 8px;background:#dbeafe;color:#1e40af;border-radius:6px;font-size:0.75rem;text-decoration:none;white-space:nowrap;">' +
                  '<i class="fas fa-external-link-alt"></i> ' + escapeHtml(displayText) + '</a>';
         }).join(' ');
 
@@ -1018,6 +1023,31 @@
       }, {passive:false});
     }
 
+    // SAFE DOCUMENT PREVIEW POPUP for Kolom AD links (no sandbox=allow-scripts+allow-same-origin to avoid escape warning + access fail)
+    function showDocumentPreview(fileId, label) {
+      if (!fileId) { showToast('File ID tidak valid', 'error'); return; }
+      label = label || 'Dokumen';
+      var modal = document.createElement('div');
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:999999;';
+      modal.innerHTML = 
+        '<div style="background:#fff;border-radius:12px;width:96vw;max-width:1000px;height:92vh;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.4);">' +
+          '<div style="padding:0.75rem 1rem;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border-radius:12px 12px 0 0;">' +
+            '<div><strong>' + escapeHtml(label) + '</strong> <span style="color:#64748b;font-size:0.8rem;">— Preview Google Drive (Kolom AD)</span></div>' +
+            '<div style="display:flex;gap:6px;align-items:center;">' +
+              '<a href="https://drive.google.com/file/d/' + fileId + '/view?usp=sharing" target="_blank" style="font-size:0.8rem;padding:4px 10px;background:#dbeafe;color:#1e40af;border-radius:6px;text-decoration:none;">Buka Tab Baru</a>' +
+              '<a href="https://drive.google.com/drive/folders/' + (window.lastFolderId || '') + '?usp=sharing" target="_blank" style="font-size:0.8rem;padding:4px 10px;background:#ecfdf5;color:#166534;border-radius:6px;text-decoration:none;">Buka Folder</a>' +
+              '<button style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.85rem;" onclick="this.closest(\'[style*=\'z-index:999999\']\').remove()">Tutup</button>' +
+            '</div>' +
+          '</div>' +
+          '<div style="flex:1;min-height:0;background:#f1f5f9;">' +
+            '<iframe src="https://drive.google.com/file/d/' + fileId + '/preview" style="width:100%;height:100%;border:0;border-radius:0 0 12px 12px;" allowfullscreen></iframe>' +
+          '</div>' +
+          '<div style="font-size:10px;color:#64748b;padding:4px 8px;text-align:center;border-top:1px solid #eee;">Jika gagal akses data folder, klik tombol Perbaiki Izin Drive di Panel Admin atau gunakan link Buka Tab Baru</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+      modal.onclick = function(ev){ if (ev.target === modal) modal.remove(); };
+    }
+
     // Helper for tables: small consistent responsive photo + click to HD
     function createTablePhoto(rawUrl, alt, nik) {
       var c = createRobustProfilePhoto(rawUrl, alt || 'Foto ' + (nik||''), {
@@ -1036,7 +1066,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxn5tliw06mUtwSP3RKGh1gxM9kKgeiXkQTT7Up0zt6kUM36yLEG9BOQVc8t5y3F6u6/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbw8AmZH7kAK_QIWPwJSKxpJSf_yahddGpIS2eXarnrwO6UfdyrLFy6Jf-8GR22j7Lzz/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1487,6 +1517,7 @@ function renderAdmin() {
           '<h3 class="admin-title"><i class="fas fa-users"></i> Panel Admin Beasiswa Tematik</h3>' +
           '<div class="flex gap-2">' +
             '<button class="btn btn-success btn-sm" onclick="exportApplications()"><i class="fas fa-file-excel"></i> Export Excel</button>' +
+            '<button class="btn btn-warning btn-sm" onclick="fixDrivePermissions()"><i class="fas fa-shield-alt"></i> Perbaiki Izin Drive</button>' +
             '<button class="btn btn-outline btn-sm" onclick="resetAdminFilters()"><i class="fas fa-undo"></i> Reset</button>' +
             '<button class="btn btn-danger btn-sm" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>' +
           '</div>' +
@@ -2063,9 +2094,10 @@ function renderAdmin() {
     }
 
 function showProfile(id) {
-      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
-        if (res && res.success && res.data) {
-          var app = res.data;
+        apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+          if (res && res.success && res.data) {
+            var app = res.data;
+            window.lastFolderId = app.folder_id || '';
           var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
 var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
           
@@ -2122,7 +2154,7 @@ var fotoSources = fotoU.sources || [];
             '</div>' +
 (app.admin_notes ? '<div style="margin-top:2rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin (Kolom W)</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
               (app.document_links ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Link Dokumen (Kolom AD)</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + '</div></div>' : '') +
-             (app.folder_id ? '<div style="margin-top:1rem;"><strong>Applicant Folder ID (Kolom AE):</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
+             (app.folder_id ? '<div style="margin-top:1rem;"><strong>Applicant Folder ID (Kolom AE):</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '?usp=sharing" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
              downloadBtn +
              repairBtn +
              '</div>' +
@@ -2135,9 +2167,10 @@ var fotoSources = fotoU.sources || [];
     }
 
     function showRepairForm(id) {
-      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
-        if (res && res.success && res.data) {
-          var app = res.data;
+        apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+          if (res && res.success && res.data) {
+            var app = res.data;
+            window.lastFolderId = app.folder_id || '';
           var lamaDomisili = app.lama_domisili || '';
           var statusPekerjaan = app.status_pekerjaan || '';
           var kondisiPemohon = app.kondisi_pemohon || '';
@@ -2373,6 +2406,20 @@ var fotoSources = fotoU.sources || [];
       navigate('dashboard');
     }
 
+    function fixDrivePermissions() {
+      if (!confirm('Perbaiki izin sharing "siapa saja dengan link" untuk SEMUA folder & file dokumen applicant?\n\nProses bisa memakan waktu jika data banyak.')) return;
+      var btns = document.querySelectorAll('button[onclick*="fixDrivePermissions"]');
+      if (btns.length) btns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memperbaiki...'; });
+      apiCallWithData('fixDrivePermissions', {role: 'admin'}, function(res) {
+        if (btns.length) btns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="fas fa-shield-alt"></i> Perbaiki Izin Drive'; });
+        if (res && res.success) {
+          showToast(res.message || 'Izin Drive diperbaiki', 'success');
+        } else {
+          showToast('Gagal: ' + (res && res.message || 'unknown'), 'error');
+        }
+      }, function(){ if (btns.length) btns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="fas fa-shield-alt"></i> Perbaiki Izin Drive'; }); });
+    }
+
     function getDownloadBtnHTML(id) {
       return '<a href="#" onclick="downloadRekomendasi(' + id + '); return false;" class="btn btn-success btn-sm" title="Download Surat Rekomendasi"><i class="fas fa-download"></i></a>';
     }
@@ -2518,9 +2565,10 @@ function exportApplications() {
     }
 
     function viewApplication(key) {
-       apiCallWithData('getApplicationDetail', {id: key}, function(res) {
-         if (res && res.success && res.data) {
-           var app = res.data;
+        apiCallWithData('getApplicationDetail', {id: key}, function(res) {
+          if (res && res.success && res.data) {
+            var app = res.data;
+            window.lastFolderId = app.folder_id || '';
            var statusText = {pending: 'Menunggu', processed: 'Diproses', approved: 'Disetujui', rejected: 'Ditolak'};
            var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : 'badge-pending';
            // Download button for approved applications
@@ -2572,7 +2620,7 @@ var fotoSrc = fotoU.primary;
             '</div>' +
             (app.admin_notes ? '<div style="margin-top:2rem;padding:1.5rem;background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;"><h4 style="color:#92400e;margin-bottom:0.5rem;"><i class="fas fa-sticky-note"></i> Catatan Admin (Kolom W)</h4><p style="margin:0;word-break:break-word;">' + escapeHtml(app.admin_notes) + '</p></div>' : '') +
             (app.document_links ? '<div style="margin-top:2rem;"><h4 style="margin-bottom:1rem;"><i class="fas fa-paperclip"></i> Link Dokumen (Kolom AD)</h4><div style="background:var(--gray-50);padding:1.5rem;border-radius:12px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + '</div></div>' : '') +
-            (app.folder_id ? '<div style="margin-top:1rem;"><strong>Applicant Folder ID (Kolom AE):</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
+            (app.folder_id ? '<div style="margin-top:1rem;"><strong>Applicant Folder ID (Kolom AE):</strong> <a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '?usp=sharing" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a></div>' : '') +
             downloadBtn +
             '</div></div>';
           showModal('Detail Pengajuan', html);
@@ -2964,9 +3012,11 @@ _________________________
     // SHOW PROFILE WITH FULL DATA (ADMIN) - GLASSMORPHISM
     // ========================================
 function showProfileAdmin(id) {
-       apiCallWithData('getApplicationDetail', {id: id}, function(res) {
-         if (res && res.success && res.data) {
-           var app = res.data;
+        apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+          if (res && res.success && res.data) {
+            var app = res.data;
+            window.lastFolderId = app.folder_id || '';
+          window.lastFolderId = app.folder_id || '';
            var statusText = {pending: 'Menunggu', processed: 'Diperiksa', approved: 'Disetujui', rejected: 'Ditolak', revision: 'Diperbaiki'};
            var badge = app.status === 'approved' ? 'badge-approved' : app.status === 'rejected' ? 'badge-rejected' : app.status === 'processed' ? 'badge-processed' : app.status === 'revision' ? 'badge-revision' : 'badge-pending';
 
@@ -3037,7 +3087,7 @@ var fotoU = getFotoUrlForRender(app);
                ['Unit Kerja', escapeHtml(app.unit_kerja || '-')],
                ['Rencana Tahun', escapeHtml(app.rencana_tahun || '-')],
                 ['Link Dokumen', app.document_links ? ('<div style="background:var(--gray-50);padding:1rem;border-radius:10px;border-left:4px solid var(--primary);">' + formatDirectDriveLinks(app.document_links) + '</div>') : '-'],
-               ['Applicant Folder ID', app.folder_id ? '<a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a>' : '-'],
+               ['Applicant Folder ID', app.folder_id ? '<a href="https://drive.google.com/drive/folders/' + escapeHtml(app.folder_id) + '?usp=sharing" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-folder-open"></i> Buka Folder</a>' : '-'],
                ['Dibuat Pada', escapeHtml(app.dibuat_pada ? new Date(app.dibuat_pada).toLocaleDateString('id-ID') : '-')],
 ['Diperbarui', escapeHtml(app.diperbarui ? new Date(app.diperbarui).toLocaleDateString('id-ID') : '-')]
               ].map(function(x) {
