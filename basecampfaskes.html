@@ -6,97 +6,227 @@
   <title>BASECAMP FASKES - Health Information System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #e0f7fa, #e3f2fd); min-height: 100vh; color: #333; }
-    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-    header { background: linear-gradient(135deg, #0077be, #00c2cb); color: white; padding: 20px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0, 119, 190, 0.3); }
-    header h1 { font-size: 1.8rem; font-weight: 700; }
-    header p { opacity: 0.9; font-size: 0.95rem; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
-    .stat-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
-    .stat-card .number { font-size: 2rem; font-weight: 700; color: #0077be; }
-    .stat-card .label { font-size: 0.85rem; color: #666; margin-top: 5px; }
-    .controls { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-radius: 12px; padding: 16px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
-    .controls .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-    .search-box, .filter-select { padding: 10px 14px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.9rem; background: white; }
-    .search-box { flex: 1; min-width: 200px; }
-    .filter-select { min-width: 150px; }
-    .btn-add { background: linear-gradient(135deg, #0077be, #00c2cb); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: transform 0.2s; }
-    .btn-add:hover { transform: translateY(-2px); }
-    .table-wrapper { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); overflow: hidden; }
+    :root {
+      --primary: #0077be;
+      --secondary: #00c2cb;
+      --accent: #ffc107;
+      --danger: #f44336;
+      --success: #4CAF50;
+      --dark: #0a1929;
+      --glass: rgba(255, 255, 255, 0.15);
+      --glass-border: rgba(255, 255, 255, 0.2);
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0a1929 0%, #172a45 100%);
+      min-height: 100vh;
+      color: #fff;
+      overflow: hidden;
+    }
+    .app-container { display: flex; height: 100vh; }
+    .sidebar {
+      width: 240px;
+      background: rgba(10, 25, 41, 0.95);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--glass-border);
+      transition: all 0.3s ease;
+      overflow-y: auto;
+      z-index: 1000;
+    }
+    .logo { padding: 20px; text-align: center; border-bottom: 1px solid var(--glass-border); }
+    .logo h1 { font-size: 1.3rem; font-weight: 800; color: var(--secondary); }
+    .logo p { font-size: 0.7rem; color: #888; margin-top: 5px; }
+    .nav-item { padding: 12px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; }
+    .nav-item:hover { background: var(--glass); border-left: 3px solid var(--secondary); }
+    .nav-item.active { background: rgba(0, 119, 190, 0.2); border-left: 3px solid var(--secondary); }
+    .nav-item i { font-size: 1.1rem; color: var(--secondary); }
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .topbar { background: rgba(10, 25, 41, 0.95); backdrop-filter: blur(20px); padding: 15px 30px; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; }
+    .topbar h2 { font-size: 1.4rem; font-weight: 700; color: #fff; }
+    .user-info { display: flex; align-items: center; gap: 10px; }
+    .user-info i { color: var(--secondary); }
+    .content { flex: 1; padding: 25px; overflow-y: auto; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border-radius: 16px; padding: 25px; border: 1px solid var(--glass-border); transition: transform 0.3s, box-shadow 0.3s; }
+    .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 40px rgba(0, 119, 190, 0.3); }
+    .stat-card .icon { width: 50px; height: 50px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; }
+    .stat-card .icon i { font-size: 1.5rem; color: white; }
+    .stat-card .number { font-size: 2rem; font-weight: 800; color: var(--secondary); margin-bottom: 5px; }
+    .stat-card .label { font-size: 0.85rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+    .table-container { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border-radius: 16px; border: 1px solid var(--glass-border); overflow: hidden; }
+    .table-controls { padding: 20px; border-bottom: 1px solid var(--glass-border); display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+    .search-box { position: relative; flex: 1; min-width: 200px; }
+    .search-box input { width: 100%; padding: 12px 15px 12px 40px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 0.9rem; }
+    .search-box i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #888; }
+    .filter-select { padding: 12px 15px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 0.9rem; min-width: 150px; }
+    .btn-add { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: transform 0.2s; }
+    .btn-add:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 119, 190, 0.4); }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #0077be; color: white; font-weight: 600; }
-    tr:hover { background: rgba(0, 119, 190, 0.05); cursor: pointer; }
-    .actions { display: flex; gap: 8px; }
-    .btn-edit, .btn-del { border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-    .btn-edit { background: #ffc107; color: #333; }
-    .btn-del { background: #f44336; color: white; }
-    .popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); display: none; z-index: 2000; align-items: center; justify-content: center; }
+    th, td { padding: 15px 20px; text-align: left; border-bottom: 1px solid var(--glass-border); }
+    th { background: rgba(0, 119, 190, 0.2); color: var(--secondary); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
+    td { color: #e0e0e0; }
+    tr:hover { background: rgba(255, 255, 255, 0.05); }
+    .actions { display: flex; gap: 10px; }
+    .btn-edit, .btn-del { border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+    .btn-edit { background: rgba(255, 193, 7, 0.2); color: var(--accent); }
+    .btn-del { background: rgba(244, 67, 54, 0.2); color: #f44336; }
+    .btn-edit:hover, .btn-del:hover { background: rgba(255, 255, 255, 0.1); }
+    .popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); display: none; z-index: 2000; align-items: center; justify-content: center; animation: fadeIn 0.3s ease; }
     .popup.active { display: flex; }
-    .popup-content { background: white; border-radius: 16px; width: 90%; max-width: 900px; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
-    .popup-header { background: linear-gradient(135deg, #0077be, #00c2cb); color: white; padding: 25px; border-radius: 16px 16px 0 0; position: relative; }
-    .popup-header h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 5px; }
-    .popup-header .meta { opacity: 0.9; font-size: 0.9rem; }
-    .btn-close { position: absolute; top: 20px; right: 20px; background: white; color: #0077be; border: none; width: 36px; height: 36px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .popup-body { padding: 25px; }
-    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
-    .detail-item { background: #f8f9fa; padding: 12px 15px; border-radius: 8px; }
-    .detail-item .label { font-size: 0.75rem; color: #666; text-transform: uppercase; }
-    .detail-item .value { font-weight: 600; margin-top: 4px; }
-    .maps-popup { background: rgba(0, 0, 0, 0.7); position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 3000; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .popup-content { background: rgba(10, 25, 41, 0.95); backdrop-filter: blur(20px); border-radius: 20px; width: 95vw; max-width: 1000px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--glass-border); animation: scaleIn 0.3s ease; }
+    @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .popup-header { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; padding: 25px; border-radius: 20px 20px 0 0; position: relative; }
+    .popup-header h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 5px; }
+    .popup-header .meta { opacity: 0.9; font-size: 0.9rem; margin-top: 8px; }
+    .btn-close { position: absolute; top: 20px; right: 20px; background: white; color: var(--primary); border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+    .btn-close:hover { transform: rotate(90deg); }
+    .popup-body { padding: 30px; }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+    .detail-card { background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 20px; border: 1px solid var(--glass-border); }
+    .detail-card .icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .detail-card .icon i { color: white; font-size: 1.1rem; }
+    .detail-card .label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .detail-card .value { font-size: 1rem; color: #fff; font-weight: 600; }
+    .maps-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); display: none; z-index: 3000; }
     .maps-popup.active { display: block; }
-    .maps-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90vw; height: 90vh; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
-    .maps-header { background: #0077be; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
-    .maps-header h3 { font-weight: 600; }
-    #map-container { width: 100%; height: calc(90vh - 65px); }
-    .crud-form { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); display: none; }
-    .crud-form h3 { margin-bottom: 15px; color: #0077be; }
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .maps-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90vw; height: 80vh; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 50px 100px rgba(0, 0, 0, 0.5); }
+    .maps-header { background: var(--primary); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; }
+    .maps-header h3 { font-weight: 700; }
+    #map-container { width: 100%; height: calc(80vh - 60px); }
+    .crud-container { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border-radius: 16px; border: 1px solid var(--glass-border); padding: 25px; margin-top: 20px; }
+    .crud-container h3 { margin-bottom: 20px; color: var(--secondary); }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
     .form-group { display: flex; flex-direction: column; }
-    .form-group label { font-size: 0.8rem; color: #666; margin-bottom: 4px; }
-    .form-group input, .form-group select, .form-group textarea { padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9rem; }
-    .btn-save { background: #4CAF50; color: white; padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-weight: 600; }
-    .btn-cancel { background: #9e9e9e; color: white; padding: 10px 15px; border-radius: 6px; border: none; cursor: pointer; }
+    .form-group label { font-size: 0.8rem; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .form-group input, .form-group select, .form-group textarea { padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 0.9rem; }
+    .btn-save { background: linear-gradient(135deg, var(--success), #4CAF50); color: white; padding: 12px 25px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; }
+    .btn-cancel { background: rgba(158, 158, 158, 0.3); color: #aaa; padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; }
+    .loading-shimmer { background: linear-gradient(90deg, rgba(255,255,255,0.1) 25%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     @media (max-width: 768px) {
-      .container { padding: 10px; }
-      header h1 { font-size: 1.3rem; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .detail-grid { grid-template-columns: 1fr; }
-      .form-grid { grid-template-columns: 1fr; }
+      .sidebar { position: fixed; left: -240px; transition: all 0.3s ease; }
+      .sidebar.active { left: 0; }
+      .menu-toggle { display: block !important; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1><i class="fas fa-book-medical"></i> BASECAMP FASKES</h1>
-      <p>Base Center Profile Fasilitas Kesehatan</p>
-    </header>
-    <div class="stats-grid" id="statsGrid"></div>
-    <div class="controls">
-      <div class="row">
-        <input type="text" class="search-box" id="searchBox" placeholder="Cari fasilitas...">
-        <select class="filter-select" id="filterKecamatan"></select>
-        <select class="filter-select" id="filterJenis"></select>
-        <button class="btn-add" id="btnAdd"><i class="fas fa-plus"></i> Tambah Data</button>
+  <div class="app-container">
+    <div class="sidebar" id="sidebar">
+      <div class="logo">
+        <h1><i class="fas fa-book-medical"></i> BASECAMP FASKES</h1>
+        <p>Health Information System</p>
+      </div>
+      <div class="nav-item active" onclick="showSection('dashboard')">
+        <i class="fas fa-home"></i><span>Dashboard</span>
+      </div>
+      <div class="nav-item" onclick="showSection('data')">
+        <i class="fas fa-database"></i><span>Data Fasyankes</span>
+      </div>
+      <div class="nav-item" onclick="showSection('maps')">
+        <i class="fas fa-map-marked-alt"></i><span>Maps Fasyankes</span>
+      </div>
+      <div class="nav-item" onclick="showSection('statistics')">
+        <i class="fas fa-chart-bar"></i><span>Statistik</span>
+      </div>
+      <div class="nav-item" onclick="showSection('kecamatan')">
+        <i class="fas fa-map-marker-alt"></i><span>Kecamatan</span>
+      </div>
+      <div class="nav-item" onclick="showSection('jenis')">
+        <i class="fas fa-clinic-medical"></i><span>Jenis Fasyankes</span>
+      </div>
+      <div class="nav-item" onclick="showSection('izin')">
+        <i class="fas fa-file-contract"></i><span>Data Izin</span>
+      </div>
+      <div class="nav-item" onclick="showSection('crud')">
+        <i class="fas fa-edit"></i><span>CRUD Admin</span>
+      </div>
+      <div class="nav-item" onclick="showSection('about')">
+        <i class="fas fa-info-circle"></i><span>Tentang Sistem</span>
       </div>
     </div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr id="tableHeader"></tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
+    <div class="main-content">
+      <div class="topbar">
+        <h2 id="pageTitle">Dashboard</h2>
+        <div class="user-info">
+          <i class="fas fa-user-circle fa-lg"></i>
+          <span>Admin</span>
+        </div>
+      </div>
+      <div class="content" id="mainContent">
+        <div id="dashboardSection">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="icon"><i class="fas fa-hospital"></i></div>
+              <div class="number" id="totalFasyankes">-</div>
+              <div class="label">Total Fasyankes</div>
+            </div>
+            <div class="stat-card">
+              <div class="icon"><i class="fas fa-map-marked-alt"></i></div>
+              <div class="number" id="totalKecamatan">-</div>
+              <div class="label">Kecamatan</div>
+            </div>
+            <div class="stat-card">
+              <div class="icon"><i class="fas fa-clinic-medical"></i></div>
+              <div class="number" id="totalJenis">-</div>
+              <div class="label">Jenis Fasyankes</div>
+            </div>
+            <div class="stat-card">
+              <div class="icon"><i class="fas fa-building"></i></div>
+              <div class="number" id="totalTipe">-</div>
+              <div class="label">Tipe Fasyankes</div>
+            </div>
+          </div>
+          <div class="table-container">
+            <div class="table-controls">
+              <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchBox" placeholder="Cari fasilitas...">
+              </div>
+              <select class="filter-select" id="filterKecamatan"></select>
+              <select class="filter-select" id="filterJenis"></select>
+              <button class="btn-add" id="btnAdd"><i class="fas fa-plus"></i> Tambah Data</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Nama Fasyankes</th>
+                  <th>Kecamatan</th>
+                  <th>Jenis</th>
+                  <th>Tipe</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="aboutSection" style="display: none;">
+          <div class="stat-card" style="max-width: 600px;">
+            <h3 style="margin-bottom: 15px; color: var(--secondary);">Tentang BASECAMP FASKES</h3>
+            <p style="color: #aaa; line-height: 1.8;">Platform ini dikembangkan untuk memberikan profil lengkap fasilitas pelayanan kesehatan berbasis digital. Fitur utama meliputi:</p>
+            <ul style="color: #aaa; margin-top: 15px; padding-left: 20px;">
+              <li style="margin-bottom: 8px;">Dashboard statistik real-time</li>
+              <li style="margin-bottom: 8px;">Tabel data dengan pencarian & filter</li>
+              <li style="margin-bottom: 8px;">Popup detail lengkap</li>
+              <li style="margin-bottom: 8px;">Integrasi peta interaktif</li>
+              <li style="margin-bottom: 8px;">Sistem CRUD admin</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
   <div class="popup" id="detailPopup">
     <div class="popup-content">
       <div class="popup-header">
@@ -106,9 +236,16 @@
         </div>
         <button class="btn-close" id="closePopup">&times;</button>
       </div>
-      <div class="popup-body" id="popupBody"></div>
+      <div class="popup-body">
+        <div class="detail-grid" id="popupBody"></div>
+        <div style="margin-top: 25px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn-add" onclick="showMapsFromPopup()"><i class="fas fa-map-marker-alt"></i> Lihat Peta</button>
+          <button class="btn-edit" onclick="editFromPopup()"><i class="fas fa-edit"></i> Edit</button>
+        </div>
+      </div>
     </div>
   </div>
+
   <div class="maps-popup" id="mapsPopup">
     <div class="maps-content">
       <div class="maps-header">
@@ -118,80 +255,86 @@
       <div id="map-container"></div>
     </div>
   </div>
-  <div class="crud-form" id="crudForm">
-    <h3 id="formTitle"></h3>
+
+  <div class="crud-container" id="crudContainer" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; z-index: 4000;">
+    <h3 id="crudTitle"></h3>
     <form id="formData">
       <input type="hidden" id="editId">
       <div class="form-grid" id="formGrid"></div>
-      <div style="margin-top: 15px; display: flex; gap: 10px;">
-        <button type="submit" class="btn-save">Simpan</button>
+      <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
         <button type="button" class="btn-cancel" id="cancelForm">Batal</button>
+        <button type="submit" class="btn-save">Simpan</button>
       </div>
     </form>
   </div>
 
   <script>
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwpfk1gQ8N9bxGealFz0M0gbgwBY_56WkABEYHDit07QhGGBsCW8h6ooGbB2bXyFCk/exec';
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwmmpNeFIIdVmTMHqVbwnTj_CIHo1TdhYIT7CerTiEfbnYME8huf719AYbZnXaCOdF3/exec';
     let currentData = [];
-    let editId = null;
+    let currentMapViewIndex = null;
     let mapInstance = null;
-    let markers = [];
+    let currentSection = 'dashboard';
 
-    async function fetchData() {
-      try {
-        console.log('Fetching data from:', WEB_APP_URL);
-        const response = await fetch(WEB_APP_URL);
-        console.log('Response status:', response.status);
-        const result = await response.json();
-        console.log('Result:', result);
-        if (result.success) {
-          currentData = result.data;
-          console.log('Total data loaded:', result.total);
-          console.log('Sample data:', currentData[0]);
-          renderStats();
-          renderTable(currentData);
-          populateFilters();
-          renderFormFields();
-        } else {
-          console.error('Failed to load data:', result.error);
-          Swal.fire('Error', result.error || 'Gagal memuat data', 'error');
-        }
-      } catch (error) {
-        console.error('Fetch error:', error);
-        Swal.fire('Error', 'Gagal memuat data: ' + error.message, 'error');
+    function showSection(section) {
+      currentSection = section;
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+      document.getElementById('pageTitle').textContent = event.currentTarget.textContent.trim();
+      
+      if (section === 'dashboard') {
+        document.getElementById('dashboardSection').style.display = 'block';
+        document.getElementById('aboutSection').style.display = 'none';
+      } else if (section === 'about') {
+        document.getElementById('dashboardSection').style.display = 'none';
+        document.getElementById('aboutSection').style.display = 'block';
+      } else {
+        document.getElementById('dashboardSection').style.display = 'block';
+        document.getElementById('aboutSection').style.display = 'none';
       }
     }
 
-    function renderStats() {
+    async function fetchData() {
+      try {
+        console.log('Fetching data...');
+        const response = await fetch(WEB_APP_URL);
+        const result = await response.json();
+        if (result.success) {
+          currentData = result.data;
+          console.log('Loaded:', currentData.length, 'rows');
+          updateStats();
+          renderTable(currentData);
+          populateFilters();
+          renderFormFields();
+        }
+      } catch (error) {
+        console.error('Fetch error:', error);
+      }
+    }
+
+    function updateStats() {
       const kecamatanCount = {};
       const jenisCount = {};
       const tipeCount = {};
       currentData.forEach(d => {
-        kecamatanCount[d.Kecamatan] = (kecamatanCount[d.Kecamatan] || 0) + 1;
-        jenisCount[d.Jenis] = (jenisCount[d.Jenis] || 0) + 1;
-        tipeCount[d.Tipe] = (tipeCount[d.Tipe] || 0) + 1;
+        if (d.Kecamatan) kecamatanCount[d.Kecamatan] = (kecamatanCount[d.Kecamatan] || 0) + 1;
+        if (d.Jenis) jenisCount[d.Jenis] = (jenisCount[d.Jenis] || 0) + 1;
+        if (d.Tipe) tipeCount[d.Tipe] = (tipeCount[d.Tipe] || 0) + 1;
       });
-      document.getElementById('statsGrid').innerHTML = `
-        <div class="stat-card"><div class="number">${currentData.length}</div><div class="label">Total Fasyankes</div></div>
-        <div class="stat-card"><div class="number">${Object.keys(kecamatanCount).length}</div><div class="label">Kecamatan</div></div>
-        <div class="stat-card"><div class="number">${Object.keys(jenisCount).length}</div><div class="label">Jenis</div></div>
-        <div class="stat-card"><div class="number">${Object.keys(tipeCount).length}</div><div class="label">Tipe</div></div>
-      `;
+      document.getElementById('totalFasyankes').textContent = currentData.length;
+      document.getElementById('totalKecamatan').textContent = Object.keys(kecamatanCount).length;
+      document.getElementById('totalJenis').textContent = Object.keys(jenisCount).length;
+      document.getElementById('totalTipe').textContent = Object.keys(tipeCount).length;
     }
 
     function renderTable(data) {
-      const headers = ['No', 'Nama Fasyankes/ TPM', 'Kecamatan', 'Jenis', 'Tipe', 'Penyelenggara', 'Aksi'];
-      const visibleHeaders = headers;
-      document.getElementById('tableHeader').innerHTML = visibleHeaders.map(h => `<th>${h}</th>`).join('');
       const rows = data.map((d, i) => `
-        <tr onclick="showDetail(${i})">
+        <tr>
           <td>${d.No || i + 1}</td>
-          <td>${d['Nama Fasyankes/ TPM'] || '-'}</td>
+          <td style="color: var(--secondary); font-weight: 600; cursor: pointer;" onclick="showDetail(${i})">${d['Nama Fasyankes/ TPM'] || '-'}</td>
           <td>${d.Kecamatan || '-'}</td>
           <td>${d.Jenis || '-'}</td>
           <td>${d.Tipe || '-'}</td>
-          <td>${d.Penyelenggara || '-'}</td>
-          <td class="actions" onclick="event.stopPropagation()">
+          <td class="actions">
             <button class="btn-edit" onclick="editData(${i})"><i class="fas fa-edit"></i></button>
             <button class="btn-del" onclick="deleteData(${i})"><i class="fas fa-trash"></i></button>
           </td>
@@ -205,45 +348,73 @@
       document.getElementById('popupTitle').textContent = d['Nama Fasyankes/ TPM'] || 'Detail';
       document.getElementById('popupJenis').textContent = d.Jenis || '-';
       document.getElementById('popupKecamatan').textContent = d.Kecamatan || '-';
-      let html = '<div class="detail-grid">';
-      const fields = Object.keys(d).filter(k => !['id'].includes(k));
-      fields.forEach(key => {
-        html += `<div class="detail-item"><div class="label">${key}</div><div class="value">${d[key] || '-'}</div></div>`;
+      
+      const fields = [
+        { icon: 'far fa-id-card', label: 'No', key: 'No' },
+        { icon: 'fas fa-hospital', label: 'Nama Fasyankes/ TPM', key: 'Nama Fasyankes/ TPM' },
+        { icon: 'fas fa-key', label: 'Kode SISDMK', key: 'Kode SISDMK' },
+        { icon: 'fas fa-building', label: 'Kode Pusat', key: 'Kode Pusat' },
+        { icon: 'fas fa-map', label: 'Alamat', key: 'Alamat' },
+        { icon: 'fas fa-city', label: 'Desa/Kelurahan', key: 'Desa/Kelurahan' },
+        { icon: 'fas fa-map-marker', label: 'Kecamatan', key: 'Kecamatan' },
+        { icon: 'fas fa-building', label: 'Tipe', key: 'Tipe' },
+        { icon: 'fas fa-clinic-medical', label: 'Jenis', key: 'Jenis' },
+        { icon: 'fas fa-user-tie', label: 'Penyelenggara', key: 'Penyelenggara' },
+        { icon: 'fas fa-phone', label: 'Nomor Telpon', key: 'Nomor Telpon' },
+        { icon: 'fas fa-envelope', label: 'Email', key: 'Email' },
+        { icon: 'fas fa-globe', label: 'Alamat Web', key: 'Alamat Web' },
+        { icon: 'fas fa-postal-code', label: 'Kode Pos', key: 'Kode Pos' },
+        { icon: 'fas fa-globe', label: 'Koordinat Longitude', key: 'Koordinat Longitude' },
+        { icon: 'fas fa-globe', label: 'Koordinat Latitude', key: 'Koordinat Latitude' },
+        { icon: 'fas fa-link', label: 'Link Google Maps', key: 'Link Google Maps' },
+        { icon: 'fas fa-file', label: 'Nomor Izin', key: 'Nomor Izin' },
+        { icon: 'fas fa-user-shield', label: 'Pemberi Izin', key: 'Pemberi Izin' },
+        { icon: 'fas fa-calendar', label: 'Tanggal Izin Mulai', key: 'Tanggal Izin Mulai' },
+        { icon: 'fas fa-calendar', label: 'Tanggal Izin Akhir', key: 'Tanggal Izin Akhir' },
+        { icon: 'fas fa-user', label: 'Nama Pimpinan', key: 'Nama Pimpinan' }
+      ];
+      
+      let html = '';
+      fields.forEach(f => {
+        if (d[f.key]) {
+          html += `<div class="detail-card"><div class="icon"><i class="${f.icon}"></i></div><div class="label">${f.label}</div><div class="value">${d[f.key]}</div></div>`;
+        }
       });
-      html += '</div>';
-      html += `<div style="margin-top: 20px; text-align: center;"><button class="btn-add" onclick="showMaps(${index})"><i class="fas fa-map-marker-alt"></i> Lihat Peta</button></div>`;
       document.getElementById('popupBody').innerHTML = html;
       document.getElementById('detailPopup').classList.add('active');
     }
 
-    function showMaps(index) {
-      const d = currentData[index];
+    function showMapsFromPopup() {
       document.getElementById('detailPopup').classList.remove('active');
+      showMaps(currentMapViewIndex);
+    }
+
+    function showMaps(index) {
+      currentMapViewIndex = index;
+      const d = currentData[index];
       document.getElementById('mapsTitle').textContent = d['Nama Fasyankes/ TPM'] || 'Peta';
       document.getElementById('mapsPopup').classList.add('active');
+      
       setTimeout(() => {
         if (mapInstance) mapInstance.remove();
         mapInstance = L.map('map-container').setView([d['Koordinat Latitude'] || -6.2, d['Koordinat Longitude'] || 106.8], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
         if (d['Koordinat Latitude'] && d['Koordinat Longitude']) {
-          const marker = L.marker([d['Koordinat Latitude'], d['Koordinat Longitude']]).addTo(mapInstance);
-          marker.bindPopup(`<b>${d['Nama Fasyankes/ TPM']}</b><br>${d.Jenis}<br>${d.Kecamatan}<br><a href="${d['Link Google Maps']}" target="_blank">Buka di Google Maps</a>`).openPopup();
+          L.marker([d['Koordinat Latitude'], d['Koordinat Longitude']]).addTo(mapInstance)
+            .bindPopup(`<b>${d['Nama Fasyankes/ TPM']}</b><br>${d.Jenis}<br>${d.Kecamatan}`).openPopup();
         }
-        const group = new L.featureGroup(markers);
-        if (group.getLayers().length > 0) mapInstance.fitBounds(group.getBounds());
-      }, 300);
+      }, 100);
     }
 
     function editData(index) {
       const d = currentData[index];
-      editId = index;
-      document.getElementById('formTitle').textContent = 'Edit Data';
+      document.getElementById('crudTitle').textContent = 'Edit Data';
       document.getElementById('editId').value = index;
       Object.keys(d).forEach(key => {
-        const el = document.getElementById(`form_${key}`);
+        const el = document.getElementById('form_' + key.replace(/\//g, '_').replace(/\s/g, '_'));
         if (el) el.value = d[key] || '';
       });
-      document.getElementById('crudForm').style.display = 'block';
+      document.getElementById('crudContainer').style.display = 'block';
     }
 
     function deleteData(index) {
@@ -267,41 +438,32 @@
           body: JSON.stringify(bodyData || {})
         });
         const result = await response.json();
-        console.log(`${action} status:`, result);
-        if (!result.success) {
-          Swal.fire('Error', result.error || 'Gagal', 'error');
-        }
+        console.log(action, result);
+        if (result.success) fetchData();
       } catch (e) { console.error(e); }
     }
 
     function populateFilters() {
       const kecamatan = [...new Set(currentData.map(d => d.Kecamatan).filter(Boolean))];
       const jenis = [...new Set(currentData.map(d => d.Jenis).filter(Boolean))];
-      const filterKec = document.getElementById('filterKecamatan');
-      const filterJenis = document.getElementById('filterJenis');
-      filterKec.innerHTML = '<option value="">Semua Kecamatan</option>' + kecamatan.map(k => `<option value="${k}">${k}</option>`).join('');
-      filterJenis.innerHTML = '<option value="">Semua Jenis</option>' + jenis.map(j => `<option value="${j}">${j}</option>`).join('');
+      document.getElementById('filterKecamatan').innerHTML = '<option value="">Semua Kecamatan</option>' + kecamatan.map(k => `<option value="${k}">${k}</option>`).join('');
+      document.getElementById('filterJenis').innerHTML = '<option value="">Semua Jenis</option>' + jenis.map(j => `<option value="${j}">${j}</option>`).join('');
     }
 
     function renderFormFields() {
       const form = document.getElementById('formGrid');
       const fields = ['No', 'Nama Fasyankes/ TPM', 'Kode SISDMK', 'Kode Pusat', 'Alamat', 'Desa/Kelurahan', 'Kecamatan', 'Tipe', 'Jenis', 'Penyelenggara', 'Nomor Telpon', 'Email', 'Alamat Web', 'Kode Pos', 'Koordinat Longitude', 'Koordinat Latitude', 'Link Google Maps', 'Nomor Izin', 'Pemberi Izin', 'Tanggal Izin Mulai', 'Tanggal Izin Akhir', 'Nama Pimpinan'];
-      form.innerHTML = fields.map(f => `
-        <div class="form-group">
-          <label>${f}</label>
-          <input type="text" id="form_${f.replace(/\//g, '_').replace(/\s/g, '_')}" name="${f}">
-        </div>
-      `).join('');
+      form.innerHTML = fields.map(f => `<div class="form-group"><label>${f}</label><input type="text" id="form_${f.replace(/\//g, '_').replace(/\s/g, '_')}" name="${f}"></div>`).join('');
     }
 
-    document.getElementById('btnAdd').onclick = () => { editId = null; document.getElementById('formTitle').textContent = 'Tambah Data'; document.getElementById('crudForm').style.display = 'block'; };
+    document.getElementById('btnAdd').onclick = () => { document.getElementById('crudTitle').textContent = 'Tambah Data'; document.getElementById('editId').value = ''; document.getElementById('crudContainer').style.display = 'block'; };
     document.getElementById('closePopup').onclick = () => document.getElementById('detailPopup').classList.remove('active');
     document.getElementById('closeMaps').onclick = () => { document.getElementById('mapsPopup').classList.remove('active'); if (mapInstance) mapInstance.remove(); };
-    document.getElementById('cancelForm').onclick = () => document.getElementById('crudForm').style.display = 'none';
-    document.getElementById('searchBox').oninput = (e) => { const term = e.target.value.toLowerCase(); renderTable(currentData.filter(d => JSON.stringify(d).toLowerCase().includes(term))); };
-    document.getElementById('filterKecamatan').onchange = (e) => { const val = e.target.value; renderTable(val ? currentData.filter(d => d.Kecamatan === val) : currentData); };
-    document.getElementById('filterJenis').onchange = (e) => { const val = e.target.value; renderTable(val ? currentData.filter(d => d.Jenis === val) : currentData); };
-    document.getElementById('formData').onsubmit = async (e) => { e.preventDefault(); const data = {}; document.querySelectorAll('#formGrid input').forEach(el => data[el.name] = el.value); await sendCRUD(editId !== null ? 'updateData' : 'addData', { id: editId, data }); fetchData(); document.getElementById('crudForm').style.display = 'none'; };
+    document.getElementById('cancelForm').onclick = () => document.getElementById('crudContainer').style.display = 'none';
+    document.getElementById('searchBox').oninput = (e) => renderTable(currentData.filter(d => JSON.stringify(d).toLowerCase().includes(e.target.value.toLowerCase())));
+    document.getElementById('filterKecamatan').onchange = (e) => renderTable(e.target.value ? currentData.filter(d => d.Kecamatan === e.target.value) : currentData);
+    document.getElementById('filterJenis').onchange = (e) => renderTable(e.target.value ? currentData.filter(d => d.Jenis === e.target.value) : currentData);
+    document.getElementById('formData').onsubmit = async (e) => { e.preventDefault(); const data = {}; document.querySelectorAll('#formGrid input').forEach(el => data[el.name] = el.value); await sendCRUD(document.getElementById('editId').value ? 'updateData' : 'addData', { id: document.getElementById('editId').value || null, data }); document.getElementById('crudContainer').style.display = 'none'; };
 
     fetchData();
   </script>
