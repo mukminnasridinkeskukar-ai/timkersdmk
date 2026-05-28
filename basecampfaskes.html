@@ -131,7 +131,7 @@
   </div>
 
   <script>
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw548d7MO5mLFTYd4tTRmIVk_UKFb_Y0G1cKpi6rdR-cfRcWktZnkMGFdVCCnpXLDzd/exec';
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwpfk1gQ8N9bxGealFz0M0gbgwBY_56WkABEYHDit07QhGGBsCW8h6ooGbB2bXyFCk/exec';
     let currentData = [];
     let editId = null;
     let mapInstance = null;
@@ -139,19 +139,26 @@
 
     async function fetchData() {
       try {
-        const response = await fetch(`${WEB_APP_URL}?action=getData`);
+        console.log('Fetching data from:', WEB_APP_URL);
+        const response = await fetch(WEB_APP_URL);
+        console.log('Response status:', response.status);
         const result = await response.json();
+        console.log('Result:', result);
         if (result.success) {
           currentData = result.data;
           console.log('Total data loaded:', result.total);
+          console.log('Sample data:', currentData[0]);
           renderStats();
           renderTable(currentData);
           populateFilters();
           renderFormFields();
+        } else {
+          console.error('Failed to load data:', result.error);
+          Swal.fire('Error', result.error || 'Gagal memuat data', 'error');
         }
       } catch (error) {
         console.error('Fetch error:', error);
-        Swal.fire('Error', 'Gagal memuat data', 'error');
+        Swal.fire('Error', 'Gagal memuat data: ' + error.message, 'error');
       }
     }
 
@@ -249,10 +256,21 @@
       });
     }
 
-    async function sendCRUD(action, data) {
+    async function sendCRUD(action, payload) {
       try {
-        await fetch(`${WEB_APP_URL}?action=${action}`, { method: 'POST', body: JSON.stringify(data) });
-        console.log(`${action} status: success`);
+        const url = WEB_APP_URL + '?action=' + action + (payload.id !== undefined ? '&id=' + payload.id : '');
+        const bodyData = payload.id !== undefined ? payload.data : payload;
+        const response = await fetch(url, {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyData || {})
+        });
+        const result = await response.json();
+        console.log(`${action} status:`, result);
+        if (!result.success) {
+          Swal.fire('Error', result.error || 'Gagal', 'error');
+        }
       } catch (e) { console.error(e); }
     }
 
