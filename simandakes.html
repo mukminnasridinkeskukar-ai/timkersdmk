@@ -227,9 +227,9 @@
       <div class="flex items-center justify-center gap-x-3 mt-4">
         <div class="px-4 py-1.5 rounded-2xl bg-white/10 text-sm font-medium border border-white/20 flex items-center gap-x-2">
           <div class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-          <span>ENTERPRISE v4.0</span>
+          <span>VERSI 1.0</span>
         </div>
-        <div class="px-4 py-1.5 rounded-2xl bg-white/10 text-sm font-medium border border-white/20">GOVERNMENT GRADE</div>
+        <div class="px-4 py-1.5 rounded-2xl bg-white/10 text-sm font-medium border border-white/20">DALAM PENGEMBANGAN</div>
       </div>
       
       <!-- Premium Loading -->
@@ -247,7 +247,7 @@
     </div>
     
     <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center">
-      <div class="text-[10px] text-white/40 tracking-[2px]">POWERED BY KEMENTERIAN KESEHATAN RI</div>
+      <div class="text-[10px] text-white/40 tracking-[2px]">POWERED BY DINAS KESEHATAN KAB. KUTAI KARTANEGARA</div>
     </div>
   </div>
 
@@ -1000,7 +1000,8 @@
           anjabRes,
           rasioRes,
           distribusiRes,
-          profilRes
+          profilRes,
+          logsRes
         ] = await Promise.all([
           callAPI('getDashboard'),
           callAPI('getPengumuman'),
@@ -1008,7 +1009,8 @@
           callAPI('getAnjab'),
           callAPI('getRasio'),
           callAPI('getDistribusi'),
-          callAPI('getProfil')
+          callAPI('getProfil'),
+          callAPI('getLogs')
         ]);
 
         let successCount = 0;
@@ -1020,6 +1022,7 @@
         if (rasioRes.success) { DATA.rasio = rasioRes.data || []; successCount++; }
         if (distribusiRes.success) { DATA.distribusi = distribusiRes.data || []; successCount++; }
         if (profilRes.success) { DATA.profil = profilRes.data || []; successCount++; }
+        if (logsRes.success) { DATA.logs = logsRes.data || []; successCount++; }
 
         isApiConnected = successCount > 0;
         
@@ -1147,39 +1150,15 @@
       }
     }
 
-    // In-memory data (rich sample data so the UI looks complete & professional on first open)
+// In-memory data (rich sample data so the UI looks complete & professional on first open)
     let DATA = {
       dashboard: { total_sdmk: 0, total_dokter: 0, total_perawat: 0, total_bidan: 0, total_nakes: 0, total_faskes: 0 },
-      
-pengumuman: [
-         // DATA PENGUMUMAN diambil langsung dari Google Sheet via API
-         // Tidak ada dummy data - akan diisi saat API terhubung
-       ],
-      
-      renbut: [
-        // DUMMY DATA - Hanya untuk preview jika API tidak terhubung
-        // Data ini akan digantikan dengan data dari server saat API tersedia
-      ],
-      
-      anjab: [
-        // DATA ANJAB ABK diambil langsung dari Google Sheet via API
-        // Tidak ada dummy data - kosongkan array ini
-      ],
-      
-rasio: [
-         // DATA RASIO diambil langsung dari Google Sheet via API
-         // Tidak ada dummy data - akan diisi saat API terhubung
-       ],
-      
-      distribusi: [
-        // DATA DISTRIBUSI diambil langsung dari Google Sheet via API
-        // Tidak ada dummy data - kosongkan array ini
-      ],
-      
-profil: [
-         // DATA PROFIL_FASKES diambil langsung dari Google Sheet via API
-         // Tidak ada dummy data - kosongkan array ini
-       ],
+      pengumuman: [],
+      renbut: [],
+      anjab: [],
+      rasio: [],
+      distribusi: [],
+      profil: [],
 
       rekap_sdmk: [],
       rekap_spesialis: [],
@@ -1547,21 +1526,34 @@ currentSection = section;
 
     function renderRecentActivity() {
       const container = document.getElementById('recent-activity');
-      const activities = [
-        {icon:'fa-user-plus', text:'3 dokter baru ditambahkan di Puskesmas Sukamaju', time:'12 menit lalu'},
-        {icon:'fa-file-alt', text:'Renbut 2026 telah direvisi oleh Admin', time:'1 jam lalu'},
-        {icon:'fa-map-marker-alt', text:'Distribusi data Cempaka diperbarui', time:'3 jam lalu'},
-        {icon:'fa-bullhorn', text:'Pengumuman CPNS dipublikasikan', time:'Kemarin'},
-      ];
-      container.innerHTML = activities.map(a => `
-        <div class="flex gap-3 items-start">
-          <div class="w-7 h-7 flex-shrink-0 rounded-2xl bg-white/10 flex items-center justify-center mt-px"><i class="fa-solid ${a.icon} text-xs"></i></div>
-          <div class="flex-1 leading-tight">
-            <div>${a.text}</div>
-            <div class="text-[10px] text-white/40">${a.time}</div>
+      const logs = (DATA.logs || []).slice(0, 4);
+      
+      // Update "last update" timestamp
+      document.getElementById('last-update').textContent = new Date().toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) + ', ' + 
+                                                            new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+      
+      if (!logs || logs.length === 0) {
+        container.innerHTML = '<div class="text-xs text-white/50 py-2">Belum ada aktivitas</div>';
+        return;
+      }
+      
+      container.innerHTML = logs.map(l => {
+        const time = l.time ? new Date(l.time) : new Date();
+        const timeStr = time.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) + ', ' + 
+                      time.toLocaleDateString('id-ID', {day:'numeric', month:'short'});
+        const iconMap = {'LOGIN':'fa-sign-in', 'ADD_RENBUT':'fa-plus', 'EDIT_RENBUT':'fa-edit', 'DELETE_RENBUT':'fa-trash', 
+                         'ADD_ANJAB':'fa-plus', 'ADD_PROFIL':'fa-hospital', 'UPDATE':'fa-sync'};
+        const icon = iconMap[l.action] || 'fa-clock';
+        return `
+          <div class="flex gap-3 items-start">
+            <div class="w-7 h-7 flex-shrink-0 rounded-2xl bg-white/10 flex items-center justify-center mt-px"><i class="fa-solid ${icon} text-xs"></i></div>
+            <div class="flex-1 leading-tight">
+              <div>${l.action || 'Aktivitas'} ${l.detail ? '<span class="opacity-50">' + l.detail + '</span>' : ''}</div>
+              <div class="text-[10px] text-white/40">${l.user || 'System'} • ${timeStr}</div>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     let chartsInitialized = false;
