@@ -2260,9 +2260,138 @@ function renderAnjabTable(filtered = null) {
     }
 
     function filterDistribusi(mode) {
-      if (!mapInstance) return;
-      // Simple demo filter - could expand with layer groups
-      showToast('Filter ' + mode + ' diterapkan (demo)', 'info');
+      const wil = document.getElementById('distribusi-wilayah');
+      const top = document.getElementById('distribusi-top');
+      const data = DATA.distribusi || [];
+      
+      // Clear marker group and re-render based on filter
+      if (!mapInstance || !markerGroup) return;
+      markerGroup.clearLayers();
+      
+      let filteredData = data;
+      let title = 'Distribusi SDMK';
+      
+      if (mode === 'kecamatan') {
+        // Group by kecamatan (aggregate wilayah data)
+        const agg = {};
+        data.forEach(d => {
+          const kec = d.wilayah || 'Unknown';
+          if (!agg[kec]) {
+            agg[kec] = { wilayah: kec, total: 0, dokter: 0, perawat: 0, bidan: 0, nakes: 0, lat: d.lat, lng: d.lng };
+          }
+          agg[kec].total += parseFloat(d.total) || 0;
+          agg[kec].dokter += parseFloat(d.dokter) || 0;
+          agg[kec].perawat += parseFloat(d.perawat) || 0;
+          agg[kec].bidan += parseFloat(d.bidan) || 0;
+          agg[kec].nakes += parseFloat(d.nakes) || 0;
+        });
+        filteredData = Object.values(agg);
+        title = 'Distribusi per Kecamatan';
+      } else if (mode === 'profesi') {
+        // Group by total aggregate per profession
+        const totalData = data.reduce((acc, d) => ({
+          total: (acc.total || 0) + parseFloat(d.total || 0),
+          dokter: (acc.dokter || 0) + parseFloat(d.dokter || 0),
+          perawat: (acc.perawat || 0) + parseFloat(d.perawat || 0),
+          bidan: (acc.bidan || 0) + parseFloat(d.bidan || 0),
+          nakes: (acc.nakes || 0) + parseFloat(d.nakes || 0)
+        }), {});
+        
+        // Calculate center for display
+        const center = data.reduce((acc, d) => {
+          const lat = parseFloat(d.lat);
+          const lng = parseFloat(d.lng);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            acc.lat = (acc.lat || 0) + lat;
+            acc.lng = (acc.lng || 0) + lng;
+            acc.count = (acc.count || 0) + 1;
+          }
+          return acc;
+        }, {});
+        
+        wil.innerHTML = `
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="p-2 bg-white/5 rounded-xl"><div class="opacity-60">DOKTER</div><div class="font-bold text-lg text-blue-400">${totalData.dokter}</div></div>
+            <div class="p-2 bg-white/5 rounded-xl"><div class="opacity-60">PERAWAT</div><div class="font-bold text-lg text-emerald-400">${totalData.perawat}</div></div>
+            <div class="p-2 bg-white/5 rounded-xl"><div class="opacity-60">BIDAN</div><div class="font-bold text-lg text-pink-400">${totalData.bidan}</div></div>
+            <div class="p-2 bg-white/5 rounded-xl"><div class="opacity-60">NAKES LAIN</div><div class="font-bold text-lg text-amber-400">${totalData.nakes}</div></div>
+          </div>
+          <div class="mt-3 pt-2 border-t border-white/10 text-xs opacity-60">Total SDMK: ${totalData.total}</div>
+        `;
+        top.innerHTML = '<div class="text-white/50 text-xs">Mode Profesi - Lihat distribusi total</div>';
+        
+        // Show single center marker with total counts
+        const lat = center.count ? center.lat / center.count : -7.28;
+        const lng = center.count ? center.lng / center.count : 112.75;
+        if (!isNaN(lat) && !isNaN(lng)) {
+          L.circleMarker([lat, lng], {
+            radius: Math.sqrt(totalData.total || 0) * 1.8,
+            color: '#00E5FF',
+            weight: 2,
+            fillColor: '#0066FF',
+            fillOpacity: 0.55
+          }).addTo(markerGroup).bindPopup(`
+            <div style="min-width: 150px">
+              <b>Profesi Total</b><br>
+              <small>Dokter: ${totalData.dokter}</small><br>
+              <small>Perawat: ${totalData.perawat}</small><br>
+              <small>Bidan: ${totalData.bidan}</small><br>
+              <small>Nakes Lain: ${totalData.nakes}</small>
+            </div>
+          `);
+          mapInstance.setView([lat, lng], 10);
+        }
+        return;
+      }
+      
+      // Render wilayah list
+      wil.innerHTML = filteredData.map(d => `
+        <div class="flex justify-between items-center text-xs border-b border-white/10 pb-2">
+          <div>${d.wilayah || 'Tanpa nama'}</div>
+          <div class="font-mono font-semibold">${d.total || 0} <span class="text-white/40">SDMK</span></div>
+        </div>
+      `).join('');
+      
+      // Render top 3
+      const sorted = [...filteredData].sort((a,b) => (parseFloat(b.total) || 0) - (parseFloat(a.total) || 0));
+      top.innerHTML = sorted.slice(0,3).map(s => `
+        <div class="flex justify-between px-1 py-1"><div>${s.wilayah || 'Tanpa nama'}</div><div class="font-bold text-emerald-300">${s.total || 0}</div></div>
+      `).join('');
+      
+      // Re-render map markers
+      filteredData.forEach(loc => {
+        const lat = parseFloat(loc.lat);
+        const lng = parseFloat(loc.lng);
+        
+        if (isNaN(lat) || isNaN(lng)) return;
+        
+        const radius = Math.sqrt(parseFloat(loc.total) || 0) * 1.8;
+        const circle = L.circleMarker([lat, lng], {
+          radius: radius,
+          color: '#00E5FF',
+          weight: 2,
+          fillColor: '#0066FF',
+          fillOpacity: 0.55
+        }).addTo(markerGroup);
+        
+        circle.bindPopup(`
+          <div style="min-width: 150px">
+            <b>${loc.wilayah || 'Tidak bernama'}</b><br>
+            <small>Total SDMK: ${loc.total || 0}</small><br>
+            <small>Dokter: ${loc.dokter || 0} • Perawat: ${loc.perawat || 0}</small><br>
+            <small>Bidan: ${loc.bidan || 0} • Nakes: ${loc.nakes || 0}</small>
+          </div>
+        `);
+      });
+      
+      // Fit bounds
+      const validCoords = filteredData.filter(d => !isNaN(parseFloat(d.lat)) && !isNaN(parseFloat(d.lng)));
+      if (validCoords.length > 0) {
+        const bounds = L.latLngBounds(validCoords.map(d => [parseFloat(d.lat), parseFloat(d.lng)]));
+        mapInstance.fitBounds(bounds, { padding: [50, 50] });
+      }
+      
+      showToast('Filter ' + title + ' diterapkan', 'info');
     }
 
 /* ==================== MODULE: PROFIL UNIT FASKES ==================== */
