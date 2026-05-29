@@ -256,7 +256,7 @@
   </div>
 
 <script>
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwdRvCDugySprMTLEB5vff_f6YQDpqUds9TMh4w5hWNwaozhFcn_Ki6mtXw9N31nM5w/exec';
+    const WEB_APP_URL = 'YOUR_WEB_APP_URL';
     let currentData = [];
     let editId = null;
     let mapInstance = null;
@@ -389,17 +389,29 @@
     function showMaps(index) {
       const d = currentData[index];
       if (!d) return;
+      currentMapViewIndex = index;
       document.getElementById('mapsTitle').textContent = d['Nama Fasyankes/ TPM'] || 'Peta';
-      document.getElementById('mapFullscreen').innerHTML = '<div id="mapPopup" style="width: 100%; height: calc(100vh - 60px);"></div>';
       document.getElementById('mapsFullscreen').classList.add('active');
+      document.getElementById('mapFullscreen').innerHTML = '<div id="mapPopup" style="width: 100%; height: calc(100vh - 60px);"></div>';
+      
       setTimeout(() => {
-        const lat = parseFloat(d['Koordinat Latitude']) || -6.2;
-        const lng = parseFloat(d['Koordinat Longitude']) || 106.8;
-        if (mapInstance) mapInstance.remove();
-        mapInstance = L.map('mapPopup').setView([lat, lng], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
-        if (d['Koordinat Latitude'] && d['Koordinat Longitude']) L.marker([lat, lng]).addTo(mapInstance).bindPopup(`<b>${d['Nama Fasyankes/ TPM']}</b><br>${d.Jenis}<br>${d.Kecamatan}`).openPopup();
-      }, 100);
+        try {
+          const lat = parseFloat(d['Koordinat Latitude']);
+          const lng = parseFloat(d['Koordinat Longitude']);
+          
+          if (isNaN(lat) || isNaN(lng)) {
+            console.warn('Invalid coordinates for:', d['Nama Fasyankes/ TPM']);
+            return;
+          }
+          
+          if (mapInstance) mapInstance.remove();
+          mapInstance = L.map('mapPopup').setView([lat, lng], 15);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+          L.marker([lat, lng]).addTo(mapInstance).bindPopup(`<b>${d['Nama Fasyankes/ TPM']}</b><br>${d.Jenis || ''}<br>${d.Kecamatan || ''}`).openPopup();
+        } catch (e) {
+          console.error('Map error:', e);
+        }
+      }, 300);
     }
 
     function showAllMarkers() {
