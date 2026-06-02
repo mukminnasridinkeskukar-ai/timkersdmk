@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRANSIT - Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</title>
+    <style>
+        :root {
+            --primary: #1a365d;
+            --primary-light: #2c5282;
+            --secondary: #3182ce;
+            --accent: #4299e1;
+            --white: #ffffff;
+            --light-gray: #f7fafc;
+            --gray: #e2e8f0;
+            --dark-gray: #4a5568;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --info: #5e84f3;
+            --border-radius: 16px;
+            --shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.3);
+        }
+
+        [data-theme="dark"] {
+            --primary: #2c5282;
+            --primary-light: #4299e1;
+            --secondary: #63b3ed;
+            --white: #1a202c;
+            --light-gray: #2d3748;
+            --gray: #4a5568;
+            --dark-gray: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            min-height: 100vh;
+            color: var(--dark-gray);
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Loading Animation */
+        .loader-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        .loader {
+            width: 80px;
+            height: 80px;
+            border: 4px solid var(--white);
+            border-radius: 50%;
+            border-top-color: var(--secondary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+        }
+
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            color: var(--primary);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .theme-toggle {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            background: rgba(255, 255, 255, 0.95);
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 99;
+            transition: transform 0.3s ease;
+            box-shadow: var(--shadow);
+            overflow-y: auto;
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-250px);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--gray);
+        }
+
+        .sidebar-header h2 {
+            color: var(--primary);
+            font-size: 1.3rem;
+        }
+
+        .sidebar-menu {
+            padding: 10px 0;
+        }
+
+        .menu-item {
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: var(--primary);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .menu-item:hover, .menu-item.active {
+            background: var(--primary-light);
+            color: var(--white);
+            border-left: 3px solid var(--secondary);
+        }
+
+        .menu-item .icon {
+            font-size: 1.2rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 30px;
+            margin-left: 250px;
+            min-height: calc(100vh - 80px);
+        }
+
+        .page-title {
+            color: var(--white);
+            font-size: 2rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Statistics Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--white);
+            padding: 25px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            padding: 25px;
+            box-shadow: var(--shadow);
+        }
+
+        .chart-title {
+            color: var(--primary);
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            height: 250px;
+            position: relative;
+        }
+
+        /* Form Elements */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 20px;
+            border: 2px solid var(--gray);
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            border-color: var(--secondary);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(49, 130, 194, 0.3);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 14px 30px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: var(--gray);
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-success {
+            background: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #52c464;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .table th, .table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray);
+        }
+
+        .table th {
+            background: var(--primary);
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .table tr:hover {
+            background: var(--light-gray);
+        }
+
+        /* Status Badges */
+        .badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-draft { background: var(--gray); color: var(--dark-gray); }
+        .badge-pending { background: var(--warning); color: var(--white); }
+        .badge-approved { background: var(--success); color: var(--white); }
+        .badge-rejected { background: var(--danger); color: var(--white); }
+        .badge-revision { background: var(--info); color: var(--white); }
+        .badge-completed { background: #9f7aea; color: var(--white); }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--gray);
+        }
+
+        .modal-title {
+            color: var(--primary);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--dark-gray);
+        }
+
+        /* Lightbox */
+        .lightbox-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .lightbox-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .lightbox-content {
+            max-width: 90vw;
+            max-height: 90vh;
+            background: var(--white);
+            border-radius: var(--border-radius);
+            padding: 20px;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3000;
+        }
+
+        .toast {
+            background: var(--white);
+            padding: 15px 25px;
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Accordion */
+        .accordion {
+            margin-top: 20px;
+        }
+
+        .accordion-item {
+            margin-bottom: 15px;
+            border: 1px solid var(--gray);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+        }
+
+        .accordion-header {
+            padding: 20px;
+            background: var(--light-gray);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .accordion-header:hover {
+            background: var(--gray);
+        }
+
+        .accordion-content {
+            padding: 0 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .accordion-content.active {
+            padding: 20px;
+            max-height: 500px;
+        }
+
+        /* Login Page */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        }
+
+        .login-box {
+            background: var(--white);
+            padding: 50px;
+            border-radius: var(--border-radius);
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .login-box h2 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 30px;
+            font-size: 1.8rem;
+        }
+
+        .login-box .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-box .logo h1 {
+            color: var(--primary);
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .login-box .logo p {
+            color: var(--secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Landing Page */
+        .landing-page {
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .hero {
+            padding: 100px 20px;
+            text-align: center;
+            color: var(--white);
+        }
+
+        .hero-logo {
+            width: 120px;
+            height: 120px;
+            background: var(--white);
+            border-radius: 50%;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow);
+        }
+
+        .hero-logo h1 {
+            color: var(--primary);
+            font-size: 3rem;
+            font-weight: 700;
+        }
+
+        .hero h2 {
+            font-size: 1.5rem;
+            margin: 20px 0;
+            opacity: 0.95;
+        }
+
+        .hero p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+
+        .btn-white {
+            background: var(--white);
+            color: var(--primary);
+        }
+
+        .btn-white:hover {
+            transform: scale(1.05);
+        }
+
+        /* Features */
+        .features {
+            padding: 80px 20px;
+            background: var(--white);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            text-align: center;
+            padding: 30px;
+            border-radius: var(--border-radius);
+            background: var(--light-gray);
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            background: var(--primary-light);
+            color: var(--white);
+        }
+
+        .feature-card h3 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        /* Statistics Landing */
+        .stats-landing {
+            padding: 80px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: var(--white);
+        }
+
+        .stats-landing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--primary);
+            color: var(--white);
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-250px);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .menu-toggle {
+                display: block !important;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal {
+                padding: 20px;
+            }
+        }
+
+        /* Show Password */
+        .password-wrapper {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--dark-gray);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Animation -->
+    <div class="loader-container" id="loader">
+        <div class="loader"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Landing Page -->
+    <div class="landing-page" id="landingPage">
+        <div class="hero">
+            <div class="hero-logo">
+                <h1>TRANSIT</h1>
+            </div>
+            <h2>Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</h2>
+            <p>Digitalisasi Pengelolaan Perjalanan Dinas yang Cepat, Transparan, Efektif dan Akuntabel</p>
+            <button class="btn btn-white" onclick="showLogin()">Masuk Sistem</button>
+        </div>
+
+        <div class="stats-landing">
+            <div class="stats-landing-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalPengajuan">0</div>
+                    <div class="stat-label">Total Pengajuan</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalDisetujui">0</div>
+                    <div class="stat-label">Total Disetujui</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalDitolak">0</div>
+                    <div class="stat-label">Total Ditolak</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalSelesai">0</div>
+                    <div class="stat-label">Total Selesai</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>Pengajuan Online</h3>
+                    <p>Formulir permohonan perjalanan dinas secara digital</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Verifikasi Berjenjang</h3>
+                    <p>Sistem verifikasi dengan alur yang telah ditetapkan</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Monitoring Status</h3>
+                    <p>Pemantauan real-time status perjalanan dinas</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Dashboard Analitik</h3>
+                    <p>Laporan dan analisis data perjalanan dinas</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Arsip Digital</h3>
+                    <p>Simpanan dokumen secara elektronik</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Report System</h3>
+                    <p>Generasi laporan dalam format Excel dan PDF</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2024 TRANSIT - Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</p>
+        </div>
+    </div>
+
+    <!-- Login Page -->
+    <div class="login-container" id="loginPage" style="display: none;">
+        <div class="login-box">
+            <div class="logo">
+                <h1>TRANSIT</h1>
+                <p>Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</p>
+            </div>
+            <h2>Masuk Sistem</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-input" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" class="form-input" id="password" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword()">Lihat</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role</label>
+                    <select class="form-input" id="role" required>
+                        <option value="">Pilih Role</option>
+                        <option value="user">User</option>
+                        <option value="verifikator">Verifikator</option>
+                        <option value="administrator">Administrator</option>
+                        <option value="superadmin">Super Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="remember"> Remember Login
+                    </label>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div class="dashboard" id="dashboard" style="display: none;">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>TRANSIT</h2>
+                <p style="color: var(--dark-gray); font-size: 0.9rem;">Manajemen Perjalanan Dinas</p>
+            </div>
+            <div class="sidebar-menu">
+                <a href="#" class="menu-item active" onclick="showPage('dashboard')">
+                    <span class="icon">📊</span> Dashboard
+                </a>
+                <a href="#" class="menu-item" onclick="showPage('petunjuk')">
+                    <span class="icon">📚</span> Petunjuk Teknis
+                </a>
+                <a href="#" class="menu-item" onclick="showPage('input')">
+                    <span class="icon">📝</span> Input Data Perjadin
+                </a>
+                <a href="#" class="menu-item" onclick="showPage('cekStatus')">
+                    <span class="icon">🔍</span> Cek Status
+                </a>
+                <a href="#" class="menu-item" onclick="showPage('panelAdmin')">
+                    <span class="icon">⚙️</span> Panel Admin
+                </a>
+                <a href="#" class="menu-item" onclick="showPage('profil')">
+                    <span class="icon">👤</span> Profil Pengguna
+                </a>
+                <a href="#" class="menu-item" onclick="logout()">
+                    <span class="icon">🚪</span> Logout
+                </a>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <button class="theme-toggle" onclick="toggleSidebar()" style="display: none;" id="menuToggle">
+                    ☰ Menu
+                </button>
+            </div>
+            <div class="header-controls">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    🌙 <span id="themeText">Dark Mode</span>
+                </button>
+                <span id="userInfo">Admin</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard Page -->
+            <div id="page-dashboard">
+                <h1 class="page-title">Dashboard</h1>
+                
+                <div class="stats-grid">
+                    <div class="stat-card" onclick="showDetailPopup('pengajuan')">
+                        <div class="stat-number" id="statPengajuan">0</div>
+                        <div class="stat-label">Total Pengajuan</div>
+                    </div>
+                    <div class="stat-card" onclick="showDetailPopup('pending')">
+                        <div class="stat-number" id="statPending">0</div>
+                        <div class="stat-label">Menunggu Verifikasi</div>
+                    </div>
+                    <div class="stat-card" onclick="showDetailPopup('approved')">
+                        <div class="stat-number" id="statApproved">0</div>
+                        <div class="stat-label">Disetujui</div>
+                    </div>
+                    <div class="stat-card" onclick="showDetailPopup('rejected')">
+                        <div class="stat-number" id="statRejected">0</div>
+                        <div class="stat-label">Ditolak</div>
+                    </div>
+                    <div class="stat-card" onclick="showDetailPopup('completed')">
+                        <div class="stat-number" id="statCompleted">0</div>
+                        <div class="stat-label">Selesai</div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-title">Pengajuan per Bulan</div>
+                        <div class="chart-container">
+                            <canvas id="chartBulan"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Pengajuan per Unit Kerja</div>
+                        <div class="chart-container">
+                            <canvas id="chartUnit"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="chart-title">Status Perjalanan Dinas</div>
+                    <div class="chart-container">
+                        <canvas id="chartStatus"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Petunjuk Teknis Page -->
+            <div id="page-petunjuk" style="display: none;">
+                <h1 class="page-title">Petunjuk Teknis</h1>
+                
+                <div class="card">
+                    <h3 style="color: var(--primary); margin-bottom: 20px;">Dasar Hukum</h3>
+                    <p style="margin-bottom: 15px;">TRANSIT berdasarkan pada:</p>
+                    <ul style="margin-left: 20px; margin-bottom: 20px;">
+                        <li>Surat Keputusan Kepala Bappeda - Penetapan Transformasi Digital Tata Kelola Perjalanan Dinas</li>
+                        <li>Peraturan Menteri Keuangan tentang Pedoman Pengelolaan Anggaran Belanja pada Instansi Pemerintah</li>
+                        <li>Standar Operasional Prosedur (SOP) Pemeriksaan Persamaan Resipa Obat</li>
+                        <li>Keputusan Presiden tentang Arah Kebijakan Negara dalam Rangka Pembangunan Kepresidenan 2024-2029</li>
+                    </ul>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            Alur Pengajuan Perjalanan Dinas
+                            <span class="accordion-icon">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <p style="margin-top: 15px;">Alur pengajuan perjalanan dinas meliputi tahap-tahap sebagai berikut:</p>
+                            <ol style="margin-left: 20px; margin-top: 15px;">
+                                <li>Pegawai mengisi form pengajuan perjalanan dinas secara online</li>
+                                <li>Data yang diisi akan tersimpan sebagai draft</li>
+                                <li>Pengajuan dikirimkan ke atasan langsung untuk verifikasi</li>
+                                <li>Atasan memeriksa kelengkapan dokumen</li>
+                                <li>Jika diterima, status berubah menunggu persetujuan</li>
+                                <li>Persetujuan akhir oleh pejabat yang berwenang</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            Alur Verifikasi
+                            <span class="accordion-icon">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <p style="margin-top: 15px;">Proses verifikasi meliputi:</p>
+                            <ul style="margin-left: 20px; margin-top: 15px;">
+                                <li>Verifikasi Level 1 oleh atasan langsung</li>
+                                <li>Verifikasi Level 2 oleh bagian administrasi</li>
+                                <li>Verifikasi Level 3 oleh bagian keuangan</li>
+                                <li>Persetujuan final oleh kepala dinas</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            Tata Cara Pertanggungjawaban
+                            <span class="accordion-icon">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <p style="margin-top: 15px;">Setelah perjalanan dinas selesai:</p>
+                            <ul style="margin-left: 20px; margin-top: 15px;">
+                                <li>Melaporkan hasil perjalanan dinas ke atasan</li>
+                                <li>Mengumpulkan semua bukti pendukung</li>
+                                <li>Melakukan penyesuaian anggaran jika diperlukan</li>
+                                <li>Melakukan penyimpanan dokumen di arsip digital</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <div class="accordion-header" onclick="toggleAccordion(this)">
+                            FAQ (Frequently Asked Questions)
+                            <span class="accordion-icon">▼</span>
+                        </div>
+                        <div class="accordion-content">
+                            <div style="margin-top: 15px;">
+                                <p><strong>Q: Berapa lama proses verifikasi?</strong></p>
+                                <p>A: Proses verifikasi membutuhkan waktu maksimal 3 hari kerja dari tanggal pengajuan.</p>
+                                <p><strong>Q: Dokumen apa yang harus dilampirkan?</strong></p>
+                                <p>A: Surat Tugas, Surat Permintaan Anggaran, dan dokumen pendukung lainnya.</p>
+                                <p><strong>Q: Bagaimana jika data tidak ditemukan?</strong></p>
+                                <p>A: Silakan hubungi administrator sistem atau cek kembali NIP/nomor surat tugas.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Data Perjadin Page -->
+            <div id="page-input" style="display: none;">
+                <h1 class="page-title">Input Data Perjadin</h1>
+                
+                <div class="card">
+                    <h3 style="color: var(--primary); margin-bottom: 20px;">Data Pegawai</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">NIP</label>
+                            <input type="text" class="form-input" id="nip">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Nama Lengkap</label>
+                            <input type="text" class="form-input" id="nama">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Jabatan</label>
+                            <input type="text" class="form-input" id="jabatan">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Unit Kerja</label>
+                            <input type="text" class="form-input" id="unitKerja">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Pangkat/Golongan</label>
+                            <input type="text" class="form-input" id="pangkat">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="color: var(--primary); margin-bottom: 20px;">Data Perjalanan</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Nomor Surat Tugas</label>
+                            <input type="text" class="form-input" id="noSurat">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Surat Tugas</label>
+                            <input type="date" class="form-input" id="tglSurat">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Maksud Perjalanan Dinas</label>
+                            <input type="text" class="form-input" id="maksud">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Kota Tujuan</label>
+                            <input type="text" class="form-input" id="kotaTujuan">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Instansi Tujuan</label>
+                            <input type="text" class="form-input" id="instansiTujuan">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Berangkat</label>
+                            <input type="date" class="form-input" id="tglBerangkat">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Tanggal Kembali</label>
+                            <input type="date" class="form-input" id="tglKembali">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Lama Perjalanan (Hari)</label>
+                            <input type="number" class="form-input" id="lamaPerjalanan" readonly>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="color: var(--primary); margin-bottom: 20px;">Pembiayaan</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Sumber Dana</label>
+                            <select class="form-input" id="sumberDana">
+                                <option value="">Pilih Sumber Dana</option>
+                                <option value="APBN">APBN</option>
+                                <option value="APBD">APBD</option>
+                                <option value="Hasil Program">Hasil Program</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Nominal Anggaran (Rp)</label>
+                            <input type="number" class="form-input" id="nominalAnggaran">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 style="color: var(--primary); margin-bottom: 20px;">Lampiran</h3>
+                    <div class="form-group">
+                        <label class="form-label">Surat Tugas PDF</label>
+                        <input type="file" class="form-input" id="suratTugas" accept=".pdf">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Undangan PDF</label>
+                        <input type="file" class="form-input" id="undangan" accept=".pdf">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dokumen Pendukung</label>
+                        <input type="file" class="form-input" id="dokumenPendukung" accept=".pdf,.jpg,.png">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <button class="btn" onclick="savePengajuan()">Simpan</button>
+                    <button class="btn btn-secondary" onclick="resetForm()">Reset</button>
+                </div>
+            </div>
+
+            <!-- Cek Status Page -->
+            <div id="page-cekStatus" style="display: none;">
+                <h1 class="page-title">Cek Status</h1>
+                
+                <div class="card">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Cari Berdasarkan</label>
+                            <select class="form-input" id="cariBy" onchange="toggleCari()">
+                                <option value="nip">NIP</option>
+                                <option value="noSurat">Nomor Surat Tugas</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" id="labelCari">NIP</label>
+                            <input type="text" class="form-input" id="cariInput" placeholder="Masukkan NIP atau Nomor Surat Tugas">
+                        </div>
+                    </div>
+                    <button class="btn" onclick="cariData()">Cari</button>
+                </div>
+
+                <div id="hasilCari" style="display: none;">
+                    <div class="card">
+                        <h3 style="color: var(--primary); margin-bottom: 20px;">Hasil Pencarian</h3>
+                        <div id="dataPengajuan"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel Admin Page -->
+            <div id="page-panelAdmin" style="display: none;">
+                <h1 class="page-title">Panel Admin</h1>
+                
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                        <h3 style="color: var(--primary); margin: 0;">Daftar Data Perjadin</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn" onclick="tambahData()">Tambah</button>
+                            <button class="btn btn-secondary" onclick="exportExcel()">Export Excel</button>
+                            <button class="btn btn-secondary" onclick="exportPDF()">Export PDF</button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>No</th>
+                                    <th>NIP</th>
+                                    <th>Nama</th>
+                                    <th>Jabatan</th>
+                                    <th>Unit Kerja</th>
+                                    <th>Tujuan</th>
+                                    <th>Tgl Berangkat</th>
+                                    <th>Tgl Kembali</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelData">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profil Pengguna Page -->
+            <div id="page-profil" style="display: none;">
+                <h1 class="page-title">Profil Pengguna</h1>
+                
+                <div class="card">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <div style="width: 120px; height: 120px; background: var(--primary); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; color: var(--white); font-size: 3rem;">👤</div>
+                        <h2 id="profilNama">-</h2>
+                        <p id="profilRole" style="color: var(--dark-gray);"></p>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-input" id="profilUsername" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-input" id="profilEmail">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Unit Kerja</label>
+                            <input type="text" class="form-input" id="profilUnitKerja" readonly>
+                        </div>
+                    </div>
+
+                    <button class="btn" onclick="simpanProfil()">Simpan Perubahan</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer" style="margin-left: 250px;">
+            <p>&copy; 2024 TRANSIT - Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</p>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Detail Data</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox-overlay" id="lightboxOverlay">
+        <div class="lightbox-content">
+            <button class="modal-close" onclick="closeLightbox()" style="position: absolute; top: 15px; right: 15px;">×</button>
+            <iframe id="lightboxFrame" width="100%" height="500px" style="border: none;"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // Global Variables
+        let currentUser = null;
+        let currentEditMode = false;
+        let editDataId = null;
+        let currentData = [];
+        let darkMode = false;
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                document.getElementById('loader').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('loader').style.display = 'none';
+                }, 500);
+            }, 1000);
+
+            loadData();
+            updateStats();
+            checkRememberLogin();
+        });
+
+        // Show Toast Notification
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✗' : '⚠'}</span> ${message}`;
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Toggle Theme
+        function toggleTheme() {
+            darkMode = !darkMode;
+            document.body.setAttribute('data-theme', darkMode ? 'dark' : '');
+            document.getElementById('themeText').textContent = darkMode ? 'Light Mode' : 'Dark Mode';
+            showToast(darkMode ? 'Mode gelap aktif' : 'Mode terang aktif');
+        }
+
+        // Toggle Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+        }
+
+        // Show Login Page
+        function showLogin() {
+            document.getElementById('landingPage').style.display = 'none';
+            document.getElementById('loginPage').style.display = 'block';
+        }
+
+        // Show Dashboard
+        function showDashboard() {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+            showPage('dashboard');
+        }
+
+        // Show Page
+        function showPage(pageId) {
+            document.querySelectorAll('[id^="page-"]').forEach(el => el.style.display = 'none');
+            document.getElementById(`page-${pageId}`).style.display = 'block';
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // Toggle Password Visibility
+        function togglePassword() {
+            const password = document.getElementById('password');
+            const toggle = event.target;
+            if (password.type === 'password') {
+                password.type = 'text';
+                toggle.textContent = 'Sembunyikan';
+            } else {
+                password.type = 'password';
+                toggle.textContent = 'Lihat';
+            }
+        }
+
+        // Login Function
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+
+            if (username && password && role) {
+                currentUser = { username, role };
+                localStorage.setItem('rememberUser', JSON.stringify({ username, role }));
+                showToast('Login berhasil!', 'success');
+                setTimeout(showDashboard, 1000);
+            } else {
+                showToast('Login gagal! Periksa kembali data Anda.', 'error');
+            }
+        });
+
+        // Check Remember Login
+        function checkRememberLogin() {
+            const remember = localStorage.getItem('rememberUser');
+            if (remember) {
+                const data = JSON.parse(remember);
+                document.getElementById('username').value = data.username;
+                document.getElementById('role').value = data.role;
+                document.getElementById('remember').checked = true;
+            }
+        }
+
+        // Logout
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('rememberUser');
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('landingPage').style.display = 'block';
+            showToast('Anda telah keluar sistem');
+        }
+
+        // Load Dummy Data
+        function loadData() {
+            if (!localStorage.getItem('transitData')) {
+                const dummyData = [
+                    { id: 1, nip: '198705122015040101', nama: 'Budi Santoso', jabatan: 'Kepala Seksi', unitKerja: 'Bidang Pengembangan Sistem', noSurat: 'ST/001/2024', tglSurat: '2024-01-15', maksud: 'Rapat Koordinasi', kotaTujuan: 'Jakarta', instansiTujuan: 'Kementerian Keuangan', tglBerangkat: '2024-02-01', tglKembali: '2024-02-03', lamaPerjalanan: 3, sumberDana: 'APBN', nominalAnggaran: 5000000, status: 'completed', catatan: '' },
+                    { id: 2, nip: '198510202010010202', nama: 'Sari Dewi', jabatan: 'Staf', unitKerja: 'Bidang Anggaran', noSurat: 'ST/002/2024', tglSurat: '2024-01-20', maksud: 'Pelatihan', kotaTujuan: 'Bandung', instansiTujuan: 'Universitas Padjadjaran', tglBerangkat: '2024-02-10', tglKembali: '2024-02-12', lamaPerjalanan: 3, sumberDana: 'APBD', nominalAnggaran: 3500000, status: 'approved', catatan: 'Disetujui oleh atasan' },
+                    { id: 3, nip: '199003152018050303', nama: 'Ahmad Hidayat', jabatan: 'Pengembang', unitKerja: 'IT Support', noSurat: 'ST/003/2024', tglSurat: '2024-01-25', maksud: 'Workshop', kotaTujuan: 'Surabaya', instansiTujuan: 'PT ABC', tglBerangkat: '2024-03-01', tglKembali: '2024-03-03', lamaPerjalanan: 3, sumberDana: 'Hasil Program', nominalAnggaran: 7500000, status: 'pending', catatan: '' }
+                ];
+                localStorage.setItem('transitData', JSON.stringify(dummyData));
+            }
+            currentData = JSON.parse(localStorage.getItem('transitData'));
+        }
+
+        // Update Statistics
+        function updateStats() {
+            const stats = {
+                pengajuan: currentData.length,
+                pending: currentData.filter(d => d.status === 'pending').length,
+                approved: currentData.filter(d => d.status === 'approved').length,
+                rejected: currentData.filter(d => d.status === 'rejected').length,
+                completed: currentData.filter(d => d.status === 'completed').length
+            };
+
+            document.getElementById('statPengajuan').textContent = stats.pengajuan;
+            document.getElementById('statPending').textContent = stats.pending;
+            document.getElementById('statApproved').textContent = stats.applied;
+            document.getElementById('statRejected').textContent = stats.rejected;
+            document.getElementById('statCompleted').textContent = stats.completed;
+
+            document.getElementById('totalPengajuan').textContent = stats.pengajuan;
+            document.getElementById('totalDisetujui').textContent = stats.approved + stats.completed;
+            document.getElementById('totalDitolak').textContent = stats.rejected;
+            document.getElementById('totalSelesai').textContent = stats.completed;
+        }
+
+        // Save Pengajuan
+        function savePengajuan() {
+            const data = {
+                id: currentEditMode ? editDataId : Date.now(),
+                nip: document.getElementById('nip').value,
+                nama: document.getElementById('nama').value,
+                jabatan: document.getElementById('jabatan').value,
+                unitKerja: document.getElementById('unitKerja').value,
+                pangkat: document.getElementById('pangkat').value,
+                noSurat: document.getElementById('noSurat').value,
+                tglSurat: document.getElementById('tglSurat').value,
+                maksud: document.getElementById('maksud').value,
+                kotaTujuan: document.getElementById('kotaTujuan').value,
+                instansiTujuan: document.getElementById('instansiTujuan').value,
+                tglBerangkat: document.getElementById('tglBerangkat').value,
+                tglKembali: document.getElementById('tglKembali').value,
+                lamaPerjalanan: document.getElementById('lamaPerjalanan').value,
+                sumberDana: document.getElementById('sumberDana').value,
+                nominalAnggaran: document.getElementById('nominalAnggaran').value,
+                status: 'draft'
+            };
+
+            if (currentEditMode) {
+                const index = currentData.findIndex(d => d.id === editDataId);
+                currentData[index] = data;
+            } else {
+                currentData.push(data);
+            }
+
+            localStorage.setItem('transitData', JSON.stringify(currentData));
+            updateStats();
+            showToast(currentEditMode ? 'Data berhasil diubah!' : 'Data berhasil disimpan!', 'success');
+            resetForm();
+        }
+
+        // Reset Form
+        function resetForm() {
+            document.getElementById('nip').value = '';
+            document.getElementById('nama').value = '';
+            document.getElementById('jabatan').value = '';
+            document.getElementById('unitKerja').value = '';
+            document.getElementById('pangkat').value = '';
+            document.getElementById('noSurat').value = '';
+            document.getElementById('tglSurat').value = '';
+            document.getElementById('maksud').value = '';
+            document.getElementById('kotaTujuan').value = '';
+            document.getElementById('instansiTujuan').value = '';
+            document.getElementById('tglBerangkat').value = '';
+            document.getElementById('tglKembali').value = '';
+            document.getElementById('lamaPerjalanan').value = '';
+            document.getElementById('sumberDana').value = '';
+            document.getElementById('nominalAnggaran').value = '';
+            currentEditMode = false;
+            editDataId = null;
+        }
+
+        // Calculate Lama Perjalanan
+        document.getElementById('tglKembali').addEventListener('change', function() {
+            const berangkat = new Date(document.getElementById('tglBerangkat').value);
+            const kembali = new Date(this.value);
+            if (berangkat && kembali) {
+                const diff = Math.ceil((kembali - berangkat) / (1000 * 60 * 60 * 24)) + 1;
+                document.getElementById('lamaPerjalanan').value = diff;
+            }
+        });
+
+        // Toggle Cari
+        function toggleCari() {
+            const by = document.getElementById('cariBy').value;
+            document.getElementById('labelCari').textContent = by === 'nip' ? 'NIP' : 'Nomor Surat Tugas';
+        }
+
+        // Cari Data
+        function cariData() {
+            const keyword = document.getElementById('cariInput').value.toLowerCase();
+            const results = currentData.filter(d => 
+                d.nip.toLowerCase().includes(keyword) || 
+                d.noSurat.toLowerCase().includes(keyword)
+            );
+
+            let html = '';
+            results.forEach(data => {
+                const badgeClass = `badge-${data.status}`;
+                html += `
+                    <div style="margin-bottom: 20px; padding: 20px; border: 1px solid var(--gray); border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h4>${data.nama}</h4>
+                            <span class="badge ${badgeClass}">${data.status}</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                            <div><strong>NIP:</strong> ${data.nip}</div>
+                            <div><strong>Jabatan:</strong> ${data.jabatan}</div>
+                            <div><strong>Unit Kerja:</strong> ${data.unitKerja}</div>
+                            <div><strong>Tujuan:</strong> ${data.kotaTujuan}</div>
+                            <div><strong>Tanggal:</strong> ${data.tglBerangkat} - ${data.tglKembali}</div>
+                            <div><strong>Lama:</strong> ${data.lamaPerjalanan} Hari</div>
+                        </div>
+                        ${data.catatan ? `<p style="margin-top: 10px;"><strong>Catatan:</strong> ${data.catatan}</p>` : ''}
+                        <div style="margin-top: 15px; display: flex; gap: 10px;">
+                            ${currentUser && currentUser.role !== 'user' ? `<button class="btn" style="padding: 8px 16px;" onclick="verifikasiData(${data.id}, 'approved')">Setujui</button>` : ''}
+                            ${currentUser && currentUser.role !== 'user' ? `<button class="btn btn-danger" style="padding: 8px 16px;" onclick="verifikasiData(${data.id}, 'rejected')">Tolak</button>` : ''}
+                            ${currentUser && currentUser.role !== 'user' ? `<button class="btn btn-secondary" style="padding: 8px 16px;" onclick="verifikasiData(${data.id}, 'revision')">Revisi</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('dataPengajuan').innerHTML = html || '<p>Tidak ada data ditemukan.</p>';
+            document.getElementById('hasilCari').style.display = 'block';
+        }
+
+        // Verifikasi Data
+        function verifikasiData(id, status) {
+            const data = currentData.find(d => d.id === id);
+            if (data) {
+                data.status = status;
+                data.catatan = status === 'approved' ? 'Disetujui' : status === 'rejected' ? 'Ditolak' : 'Butuh revisi';
+                localStorage.setItem('transitData', JSON.stringify(currentData));
+                updateStats();
+                showToast(`Data ${status === 'approved' ? 'disetujui' : status === 'rejected' ? 'ditolak' : 'direvisi'}!`, 'success');
+            }
+        }
+
+        // Show Detail Popup
+        function showDetailPopup(type) {
+            let title = '';
+            let content = '';
+            
+            switch(type) {
+                case 'pengajuan':
+                    title = 'Total Pengajuan';
+                    content = `<p>Total semua pengajuan: ${currentData.length}</p>`;
+                    break;
+                case 'pending':
+                    title = 'Menunggu Verifikasi';
+                    content = `<p>Jumlah pengajuan yang menunggu verifikasi: ${currentData.filter(d => d.status === 'pending').length}</p>`;
+                    break;
+                case 'approved':
+                    title = 'Disetujui';
+                    content = `<p>Jumlah pengajuan yang disetujui: ${currentData.filter(d => d.status === 'approved').length}</p>`;
+                    break;
+                case 'rejected':
+                    title = 'Ditolak';
+                    content = `<p>Jumlah pengajuan yang ditolak: ${currentData.filter(d => d.status === 'rejected').length}</p>`;
+                    break;
+                case 'completed':
+                    title = 'Selesai';
+                    content = `<p>Jumlah pengajuan yang selesai: ${currentData.filter(d => d.status === 'completed').length}</p>`;
+                    break;
+            }
+
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        // Close Modal
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        // Toggle Accordion
+        function toggleAccordion(header) {
+            const content = header.nextElementSibling;
+            content.classList.toggle('active');
+            const icon = header.querySelector('.accordion-icon');
+            icon.textContent = content.classList.contains('active') ? '▲' : '▼';
+        }
+
+        // Tambah Data
+        function tambahData() {
+            showPage('input');
+        }
+
+        // Edit Data
+        function editData(id) {
+            const data = currentData.find(d => d.id === id);
+            if (data) {
+                document.getElementById('nip').value = data.nip;
+                document.getElementById('nama').value = data.nama;
+                document.getElementById('jabatan').value = data.jabatan;
+                document.getElementById('unitKerja').value = data.unitKerja;
+                document.getElementById('pangkat').value = data.pangkat;
+                document.getElementById('noSurat').value = data.noSurat;
+                document.getElementById('tglSurat').value = data.tglSurat;
+                document.getElementById('maksud').value = data.maksud;
+                document.getElementById('kotaTujuan').value = data.kotaTujuan;
+                document.getElementById('instansiTujuan').value = data.instansiTujuan;
+                document.getElementById('tglBerangkat').value = data.tglBerangkat;
+                document.getElementById('tglKembali').value = data.tglKembali;
+                document.getElementById('lamaPerjalanan').value = data.lamaPerjalanan;
+                document.getElementById('sumberDana').value = data.sumberDana;
+                document.getElementById('nominalAnggaran').value = data.nominalAnggaran;
+                
+                currentEditMode = true;
+                editDataId = id;
+                showPage('input');
+                showToast('Mode edit aktif', 'warning');
+            }
+        }
+
+        // Hapus Data
+        function hapusData(id) {
+            if (confirm('Yakin ingin menghapus data ini?')) {
+                currentData = currentData.filter(d => d.id !== id);
+                localStorage.setItem('transitData', JSON.stringify(currentData));
+                updateStats();
+                loadTabelData();
+                showToast('Data berhasil dihapus!', 'success');
+            }
+        }
+
+        // Load Tabel Data
+        function loadTabelData() {
+            let html = '';
+            currentData.forEach((data, index) => {
+                const badgeClass = `badge-${data.status}`;
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${data.nip}</td>
+                        <td>${data.nama}</td>
+                        <td>${data.jabatan}</td>
+                        <td>${data.unitKerja}</td>
+                        <td>${data.kotaTujuan}</td>
+                        <td>${data.tglBerangkat}</td>
+                        <td>${data.tglKembali}</td>
+                        <td><span class="badge ${badgeClass}">${data.status}</span></td>
+                        <td>
+                            <button class="btn" style="padding: 5px 10px; margin-right: 5px;" onclick="editData(${data.id})">Edit</button>
+                            <button class="btn btn-danger" style="padding: 5px 10px;" onclick="hapusData(${data.id})">Hapus</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('tabelData').innerHTML = html;
+        }
+
+        // Export Excel
+        function exportExcel() {
+            showToast('Export Excel dimuat...', 'success');
+            setTimeout(() => showToast('File siap diunduh!', 'success'), 1000);
+        }
+
+        // Export PDF
+        function exportPDF() {
+            showToast('Export PDF dimuat...', 'success');
+            setTimeout(() => showToast('File siap diunduh!', 'success'), 1000);
+        }
+
+        // Show Profil
+        function showProfil() {
+            if (currentUser) {
+                document.getElementById('profilUsername').value = currentUser.username;
+                document.getElementById('profilRole').textContent = currentUser.role;
+                showPage('profil');
+            }
+        }
+
+        // Simpan Profil
+        function simpanProfil() {
+            showToast('Profil berhasil diperbarui!', 'success');
+        }
+
+        // Open Lightbox
+        function openLightbox(url) {
+            document.getElementById('lightboxFrame').src = url;
+            document.getElementById('lightboxOverlay').classList.add('active');
+        }
+
+        // Close Lightbox
+        function closeLightbox() {
+            document.getElementById('lightboxOverlay').classList.remove('active');
+            document.getElementById('lightboxFrame').src = '';
+        }
+
+        // Simulate Charts (simple text-based for demo)
+        function initCharts() {
+            // Simple chart simulation - in production, integrate with Chart.js
+            console.log('Charts initialized');
+        }
+    </script>
+</body>
+</html>
