@@ -1078,6 +1078,10 @@
                         <span>Remember Login</span>
                     </label>
                 </div>
+                <div style="margin-bottom: 15px; padding: 15px; background: rgba(255,255,255,0.2); border-radius: 12px; font-size: 0.95rem;">
+                    <strong>Demo Login:</strong><br>
+                    User: <strong>admin</strong> / Password: <strong>admin123</strong> / Role: Administrator
+                </div>
                 <button type="submit" class="btn">Login</button>
             </form>
         </div>
@@ -1508,6 +1512,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         let currentUser = null;
         let currentEditMode = false;
@@ -1589,14 +1594,28 @@
 
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
             const role = document.getElementById('role').value;
 
-            if (username && password && role) {
+            if (!username || !password) {
+                showToast('Username dan password wajib diisi!', 'error');
+                return;
+            }
+            
+            if (!role) {
+                showToast('Pilih role terlebih dahulu!', 'error');
+                return;
+            }
+
+            if ((username === 'admin' && password === 'admin123') || (username !== '' && password !== '' && role)) {
                 currentUser = { username, role };
-                localStorage.setItem('rememberUser', JSON.stringify({ username, role }));
-                showToast('Login berhasil!', 'success');
+                if (document.getElementById('remember').checked) {
+                    localStorage.setItem('rememberUser', JSON.stringify({ username, role }));
+                } else {
+                    localStorage.removeItem('rememberUser');
+                }
+                showToast('Login berhasil! Selamat datang, ' + username, 'success');
                 setTimeout(showDashboard, 1000);
             } else {
                 showToast('Login gagal! Periksa kembali data Anda.', 'error');
@@ -1610,6 +1629,10 @@
                 document.getElementById('username').value = data.username;
                 document.getElementById('role').value = data.role;
                 document.getElementById('remember').checked = true;
+            } else {
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('role').value = '';
             }
         }
 
@@ -1652,6 +1675,47 @@
             animateCounter('totalDisetujui', stats.approved + stats.completed);
             animateCounter('totalDitolak', stats.rejected);
             animateCounter('totalSelesai', stats.completed);
+            
+            initCharts();
+        }
+        
+        function initCharts() {
+            const chartBulan = new Chart(document.getElementById('chartBulan'), {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'],
+                    datasets: [{
+                        label: 'Pengajuan',
+                        data: [12, 19, 3, 5, 2, 3],
+                        backgroundColor: 'rgba(15, 23, 42, 0.8)'
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } } }
+            });
+            
+            const chartUnit = new Chart(document.getElementById('chartUnit'), {
+                type: 'pie',
+                data: {
+                    labels: ['Bidang Pengembangan Sistem', 'Bidang Anggaran', 'IT Support'],
+                    datasets: [{
+                        data: [30, 40, 30],
+                        backgroundColor: ['#0f172a', '#1e40af', '#3b82f6']
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
+            
+            const chartStatus = new Chart(document.getElementById('chartStatus'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pending', 'Disetujui', 'Ditolak', 'Selesai'],
+                    datasets: [{
+                        data: [33, 33, 33, 33],
+                        backgroundColor: ['#f59e0b', '#10b981', '#ef4444', '#84cc16']
+                    }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
         }
 
         function animateCounter(id, target) {
