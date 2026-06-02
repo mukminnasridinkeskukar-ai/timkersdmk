@@ -691,7 +691,7 @@
     }
 
     function formatDirectDriveLinks(linksStr) {
-      if (!linksStr) return '-';
+      if (!linksStr) return '<span class="text-muted"><i class="fas fa-file-alt"></i> Pratinjau tidak tersedia</span>';
       return linksStr.split(' | ').map(function(part) {
         var m = part.match(/^(.*?):\s*(.*)$/);
         var label = m ? '<strong>' + escapeHtml(m[1]) + ':</strong> ' : '';
@@ -699,9 +699,23 @@
         var urls = urlPart.split(/,\s*/).filter(function(u){ return u && u.trim(); });
 
         var linkTags = urls.map(function(rawUrl) {
-          var viewerUrl = convertDriveViewer(rawUrl.trim());
-          return '<a href="' + escapeHtml(viewerUrl) + '" target="_blank" class="btn-drive">' +
-                 '<i class="fas fa-file-alt"></i> Buka Dokumen</a>';
+          var fileId = extractDriveFileIdFromString(rawUrl.trim());
+          var viewerUrl = fileId 
+            ? 'https://drive.google.com/file/d/' + fileId + '/view?usp=sharing'
+            : convertDriveViewer(rawUrl.trim());
+          var thumbUrl = fileId 
+            ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400'
+            : rawUrl.trim();
+          
+          return '<div style="margin-bottom:8px;">' +
+                 '<div class="doc-links-container">' + 
+                   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">' +
+                     '<img src="' + escapeHtml(thumbUrl) + '" onerror="this.src=\'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwLzIwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNFNUU3RWEiLz48dGV4dCB4PSIyMCIgeT0iMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzZCNzU4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5QcmF0aW5handhPC90ZXh0Pjwvc3ZnPg==\' ;" style="width:40px;height:40px;object-fit:contain;background:#fff;border:1px solid #ddd;border-radius:4px;">' +
+                     '<a href="' + escapeHtml(viewerUrl) + '" target="_blank" class="btn-drive">' +
+                        '<i class="fas fa-file-alt"></i> Buka Dokumen</a>' +
+                   '</div>' +
+                 '</div>' +
+               '</div>';
         }).join(' ');
 
         return '<div class="doc-links-container">' + label + linkTags + '</div>';
@@ -2898,7 +2912,7 @@ var fotoSrc = fotoU.primary;
     // ========================================
     // MODAL
     // ========================================
-    function showModal(title, content) {
+function showModal(title, content) {
       var container = document.getElementById('content');
       var modal = document.createElement('div');
       modal.className = 'modal';
@@ -2907,10 +2921,19 @@ var fotoSrc = fotoU.primary;
       container.appendChild(modal);
     }
 
-function closeModal() {
+    function closeModal() {
        var m = document.getElementById('modal');
        if (m) m.remove();
      }
+
+    function createDocThumbnail(fileId, fileName) {
+      var placeholder = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwLzIwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNFNUU3RWEiLz48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNSIgZmlsbD0iIzZCNzU4IiBvcGFjaXR5PSIwLjUiLz48dGV4dCB4PSIyMCIgeT0iMjUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzZCNzU4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5QREY8L3RleHQ+PC9zdmc+';
+      var img = document.createElement('img');
+      img.src = placeholder;
+      img.onerror = function() { this.src = placeholder; };
+      img.style.cssText = 'width:40px;height:40px;object-fit:contain;background:#fff;border:1px solid #ddd;border-radius:4px;';
+      return img.outerHTML;
+    }
 
      // ========================================
      // UTILITIES
