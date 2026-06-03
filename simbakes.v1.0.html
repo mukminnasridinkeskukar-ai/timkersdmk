@@ -1363,7 +1363,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbziclxMckiu1Rq1-ETQhn3q60HZuDl70bqQaCZJwQc0JRT67Dg6nv8ucEBPHCpwtKzp/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbwVKTpy4rVV3gNiRmC7VSDFJF7WDoMk9b4RFi8q_DTSDc2db2OptkPNCFmN74aaONb1/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -3583,13 +3583,36 @@ function showProfileAdmin(id) {
         '<span class="status-badge processed">Diproses</span>' :
         '<span class="status-badge pending">Menunggu</span>';
 
-      var rekomBadge = app.download_url || app[27] ?
+      var rekomBadge = app.download_url ?
         '<span class="rekom-badge terbit">REKOMENDASI SUDAH TERBIT</span>' :
         '<span class="rekom-badge belum">BELUM TERBIT</span>';
 
       var dokumenHtml = '';
-      if (app.document_links || app.dokumen) {
-        var dokumenUrl = app.document_links || app.dokumen || '';
+      // Dokumen Lengkap from folder_id (column AE) - primary source
+      if (app.folder_id) {
+        var folderUrl = 'https://drive.google.com/drive/folders/' + app.folder_id + '?usp=sharing';
+        dokumenHtml = '<div class="doc-card-modern">' +
+          '<div class="doc-card-header">' +
+            '<div class="doc-icon"><i class="fas fa-folder"></i></div>' +
+            '<div><h5 class="doc-title">Dokumen Lengkap</h5><div class="doc-meta">Google Drive Folder</div></div>' +
+          '</div>' +
+          '<div class="doc-actions">' +
+            '<a href="' + escapeHtml(folderUrl) + '" target="_blank" class="doc-btn doc-btn-primary"><i class="fas fa-folder-open"></i> Buka Folder</a>' +
+          '</div></div>';
+      } else if (app.document_links && app.document_links.includes('/folders/')) {
+        // document_links contains folder URL as fallback
+        var dokumenUrl = app.document_links || '';
+        dokumenHtml = '<div class="doc-card-modern">' +
+          '<div class="doc-card-header">' +
+            '<div class="doc-icon"><i class="fas fa-folder"></i></div>' +
+            '<div><h5 class="doc-title">Dokumen Lengkap</h5><div class="doc-meta">Google Drive Folder</div></div>' +
+          '</div>' +
+          '<div class="doc-actions">' +
+            '<a href="' + escapeHtml(dokumenUrl) + '" target="_blank" class="doc-btn doc-btn-primary"><i class="fas fa-folder-open"></i> Buka Folder</a>' +
+          '</div></div>';
+      } else if (app.document_links) {
+        // Individual file links from document_links
+        var dokumenUrl = app.document_links || '';
         var fileId = extractDriveFileIdFromString(dokumenUrl);
         var previewUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/view' : dokumenUrl;
         var downloadUrl = getDriveDownloadUrl(dokumenUrl);
