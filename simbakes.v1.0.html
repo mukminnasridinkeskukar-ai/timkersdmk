@@ -431,24 +431,6 @@
       .profile-status-badge.rejected { background: #fee2e2; color: #991b1b; }
       .profile-status-badge.processed { background: #dbeafe; color: #1e40af; }
       
-      /* Rekomendasi Badge - Visual Indicator */
-      .rekom-indicator {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 14px;
-        border-radius: 10px;
-        font-weight: 600;
-        font-size: 0.95rem;
-      }
-      
-      .rekom-indicator.terbit { background: #d1fae5; color: #065f46; }
-      .rekom-indicator.belum { background: #fee2e2; color: #991b1b; }
-      
-      .rekom-indicator i {
-        font-size: 1rem;
-      }
-      
       /* Document Section Card */
       .profile-docs-section {
         grid-column: 1 / -1;
@@ -1399,7 +1381,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxCInJY02bY8xG27g1STmNvJ1pHz99A_dIPn_Z3uxZwatWne9b1-v1kCn3Wmc_7ebdE/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbz0fsOcBCbumVV_ZLZMwS-NDfbh3YjbEFc4aNM9Ru20RfW10ex83QY8O_rSboaVnZ8J/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -3619,10 +3601,60 @@ function showProfileAdmin(id) {
         app.status === 'rejected' ? 'rejected' :
         app.status === 'processed' ? 'processed' : 'pending';
 
-      // Rekomendasi badge
-      var rekomHtml = app.download_url ?
-        '<span class="rekom-indicator terbit"><i class="fas fa-check-circle"></i> SUDAH TERBIT</span>' :
-        '<span class="rekom-indicator belum"><i class="fas fa-times-circle"></i> BELUM TERBIT</span>';
+      // Rekomendasi section - Column AB (Download Rekomendasi)
+      var rekomSection = '';
+      if (app.download_url && app.download_url.trim() !== '') {
+        var rekomFileId = extractDriveFileIdFromString(app.download_url);
+        var rekomPreviewUrl = rekomFileId ? 'https://drive.google.com/file/d/' + rekomFileId + '/preview' : app.download_url;
+        var rekomDownloadUrl = rekomFileId ? 'https://drive.google.com/uc?export=download&id=' + rekomFileId : app.download_url;
+        var isRekomFolder = app.download_url.includes('/folders/');
+        
+        if (isRekomFolder) {
+          rekomSection = '<div class="profile-item full-width">' +
+            '<div class="profile-label">Download Rekomendasi</div>' +
+            '<div style="margin-top:8px;">' +
+            '<div class="profile-docs-card">' +
+              '<div class="profile-docs-card-header">' +
+                '<div class="profile-docs-icon"><i class="fas fa-folder"></i></div>' +
+                '<div>' +
+                  '<h4 class="profile-docs-title">Google Drive Folder</h4>' +
+                  '<div class="profile-docs-meta">File rekomendasi tersedia di folder</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="profile-docs-actions">' +
+                '<a href="' + escapeHtml(app.download_url) + '" target="_blank" class="profile-docs-btn profile-docs-btn-primary">' +
+                  '<i class="fas fa-folder-open"></i> Buka Folder' +
+                '</a>' +
+              '</div>' +
+            '</div></div></div>';
+        } else {
+          rekomSection = '<div class="profile-item full-width">' +
+            '<div class="profile-label">Download Rekomendasi</div>' +
+            '<div style="margin-top:8px;">' +
+            '<div class="profile-docs-card">' +
+              '<div class="profile-docs-card-header">' +
+                '<div class="profile-docs-icon"><i class="fas fa-file-pdf"></i></div>' +
+                '<div>' +
+                  '<h4 class="profile-docs-title">File Rekomendasi</h4>' +
+                  '<div class="profile-docs-meta">Surat Rekomendasi Beasiswa</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="profile-docs-actions">' +
+                '<a href="' + escapeHtml(rekomPreviewUrl) + '" target="_blank" class="profile-docs-btn profile-docs-btn-primary">' +
+                  '<i class="fas fa-eye"></i> Preview' +
+                '</a>' +
+                '<a href="' + escapeHtml(rekomDownloadUrl) + '" download class="profile-docs-btn profile-docs-btn-secondary">' +
+                  '<i class="fas fa-download"></i> Download' +
+                '</a>' +
+              '</div>' +
+            '</div></div></div>';
+        }
+      } else {
+        rekomSection = '<div class="profile-item full-width">' +
+          '<div class="profile-label">Download Rekomendasi</div>' +
+          '<div class="profile-empty-state"><i class="fas fa-file-pdf"></i> Belum tersedia</div>' +
+        '</div>';
+      }
 
       // Document section
       var dokumenSection = '';
@@ -3772,16 +3804,13 @@ function showProfileAdmin(id) {
           '<div class="profile-label">Rencana Tahun</div>' +
           '<div class="profile-value">' + escapeHtml(app.rencana_tahun || '-') + '</div>' +
         '</div>' +
-        '<div class="profile-item full-width">' +
-          '<div class="profile-label">Keterangan</div>' +
-          '<div class="profile-value">' + escapeHtml(app.keterangan || '-') + '</div>' +
-        '</div>' +
-        '<div class="profile-item">' +
-          '<div class="profile-label">Rekomendasi Terbit</div>' +
-          '<div class="profile-value">' + rekomHtml + '</div>' +
-        '</div>' +
-        dokumenSection +
-      '</div>';
+'<div class="profile-item full-width">' +
+           '<div class="profile-label">Keterangan</div>' +
+           '<div class="profile-value">' + escapeHtml(app.keterangan || '-') + '</div>' +
+         '</div>' +
+         rekomSection +
+         dokumenSection +
+       '</div>';
 
       container.innerHTML = '<div class="profile-popup-container">' + html + '</div>';
       document.body.appendChild(container);
