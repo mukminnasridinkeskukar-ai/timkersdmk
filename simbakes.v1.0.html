@@ -1147,10 +1147,10 @@
       <ul class="sidebar-menu">
         <li><a href="#" data-page="dashboard"><i class="fas fa-home"></i> Dashboard</a></li>
         <li><a href="#" data-page="roadmap"><i class="fas fa-map-marked-alt"></i> Roadmap</a></li>
-        <li><a href="#" data-page="form"><i class="fas fa-file-alt"></i> Ajukan Rekomendasi</a></li>
-        <li><a href="#" data-page="status"><i class="fas fa-search"></i> Cek Status</a></li>
-        <li><a href="#" data-page="admin"><i class="fas fa-user-shield"></i> Panel Admin</a></li>
-        <li><a href="#" data-page="personal-rekomendasi"><i class="fas fa-user-check"></i> Personal_Rekomendasi</a></li>
+        <li><a href="#" data-page="ajukan_rekomendasi"><i class="fas fa-file-alt"></i> Ajukan Rekomendasi</a></li>
+        <li><a href="#" data-page="cek_status"><i class="fas fa-search"></i> Cek Status</a></li>
+        <li><a href="#" data-page="panel_admin"><i class="fas fa-user-shield"></i> Panel Admin</a></li>
+        <li><a href="#" data-page="personal_rekomendasi"><i class="fas fa-user-check"></i> Personal_Rekomendasi</a></li>
       </ul>
     </aside>
 
@@ -1623,13 +1623,12 @@
     window.roadmapPageSize = 10;
  
 document.addEventListener('DOMContentLoaded', function() {
-      var urlParams = new URLSearchParams(window.location.search);
-      currentPage = urlParams.get('page') || 'dashboard';
+      var hash = window.location.hash.replace('#', '');
+      var validPages = ['dashboard', 'roadmap', 'ajukan_rekomendasi', 'cek_status', 'panel_admin', 'personal_rekomendasi'];
+      currentPage = validPages.includes(hash) ? hash : 'dashboard';
       updateCurrentDate();
       navigate(currentPage);
       
-      // Fix onclick handlers - replace with addEventListener
-      // Setup menu navigation (prevent # jumping)
       document.querySelectorAll('.sidebar-menu a').forEach(function(link) {
         link.addEventListener('click', function(e) {
           e.preventDefault();
@@ -1638,6 +1637,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
       });
       document.querySelector('.menu-toggle').addEventListener('click', toggleSidebar);
+      
+      window.addEventListener('hashchange', function() {
+        var h = window.location.hash.replace('#', '');
+        if (validPages.includes(h)) navigate(h);
+      });
     });
 
     function updateCurrentDate() {
@@ -1671,27 +1675,39 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function navigate(page) {
-      console.log('Navigating to:', page);
+      console.log('Menu Klik:', page);
       currentPage = page;
       document.getElementById('pageTitle').textContent = getPageTitle(page);
       updateActiveMenu();
       var html = '';
       switch(page) {
         case 'dashboard': html = renderDashboard(); break;
-        case 'form': html = renderForm(); break;
         case 'roadmap': html = renderRoadmap(); break;
-        case 'status': html = renderStatus(); break;
-        case 'admin': html = renderAdmin(); break;
-        case 'personal-rekomendasi': html = renderPersonalRekomendasi(); break;
-        default: html = renderDashboard();
+        case 'ajukan_rekomendasi': html = renderForm(); break;
+        case 'cek_status': html = renderStatus(); break;
+        case 'panel_admin': html = renderAdmin(); break;
+        case 'personal_rekomendasi': html = renderPersonalRekomendasi(); break;
+        default:
+          console.warn('Halaman tidak ditemukan:', page, '→ Fallback ke Dashboard');
+          html = renderDashboard();
+          page = 'dashboard';
       }
       document.getElementById('content').innerHTML = html;
       initPage(page);
       document.getElementById('sidebar').classList.remove('active');
+      window.location.hash = page;
+      localStorage.setItem('lastPage', page);
     }
 
     function getPageTitle(page) {
-      var titles = {dashboard: 'Dashboard', form: 'Ajukan Rekomendasi', roadmap: 'Roadmap', status: 'Cek Status', admin: 'Panel Admin', 'personal-rekomendasi': 'Personal_Rekomendasi'};
+      var titles = {
+        dashboard: 'Dashboard',
+        roadmap: 'Roadmap',
+        ajukan_rekomendasi: 'Ajukan Rekomendasi',
+        cek_status: 'Cek Status',
+        panel_admin: 'Panel Admin',
+        'personal_rekomendasi': 'Personal_Rekomendasi'
+      };
       return titles[page] || 'Dashboard';
     }
 
@@ -2349,23 +2365,9 @@ function renderAdmin() {
     function initPage(page) {
       if (page === 'dashboard') loadDashboard();
       if (page === 'roadmap') loadRoadmap();
-      if (page === 'admin' && isAdminLoggedIn) loadApplications();
-      if (page === 'personal-rekomendasi' && isAdminLoggedIn) loadPersonalRekomendasi();
-      
-      // Setup roadmap filter listeners
-      if (page === 'roadmap') {
-        ['filterJurusan', 'filterJenis', 'filterKampus', 'filterTahun', 'filterTujuan'].forEach(function(id) {
-          var el = document.getElementById(id);
-          if (el) el.addEventListener('change', applyFilters);
-        });
-        var searchEl = document.getElementById('filterSearch');
-        if (searchEl) {
-          searchEl.addEventListener('input', function() {
-            clearTimeout(window.roadmapTimeout);
-            window.roadmapTimeout = setTimeout(applyFilters, 300);
-          });
-        }
-      }
+      if (page === 'panel_admin' && isAdminLoggedIn) loadApplications();
+      if (page === 'personal_rekomendasi' && isAdminLoggedIn) loadPersonalRekomendasi();
+      console.log('Page initialized:', page);
     }
 
     function loadDashboard() {
@@ -2879,7 +2881,7 @@ function showProfile(id) {
           localStorage.setItem('adminRole', res.data.user.role || 'admin');
           localStorage.setItem('adminUser', u);
           showToast('Login berhasil!');
-          navigate('admin');
+          navigate('panel_admin');
         } else {
           showToast(res ? res.message : 'Login gagal', 'error');
         }
