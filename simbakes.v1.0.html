@@ -62,6 +62,8 @@
      .stat-card.info { border-left-color: var(--info); }
      .stat-card h3 { font-size: 0.8rem; color: var(--gray-500); margin-bottom: 0.5rem; }
       .stat-card .value { font-size: 2rem; font-weight: 700; }
+      .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+      .stat-label { font-size: 0.8rem; color: var(--gray-500); margin-top: 0.5rem; }
 
       /* Interactive TOTAL PENGAJUAN card */
       .stat-clickable {
@@ -1136,6 +1138,7 @@
         <li><a href="#" data-page="form"><i class="fas fa-file-alt"></i> Ajukan Rekomendasi</a></li>
         <li><a href="#" data-page="status"><i class="fas fa-search"></i> Cek Status</a></li>
         <li><a href="#" data-page="admin"><i class="fas fa-user-shield"></i> Panel Admin</a></li>
+        <li><a href="#" data-page="personal-rekomendasi"><i class="fas fa-user-check"></i> Personal_Rekomendasi</a></li>
       </ul>
     </aside>
 
@@ -1593,7 +1596,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxlkNqUH14FqVAQDctcAgU7GU1jzxDDCssIwAG4Qeu2VmR5YVDQ4cgT-e7ToGxwAR14/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbxQq1DHww_PB717OzSqiq6mGqYTQSI3PEZEwpfXnSrCfLZYGgDqPGrEkgugVE84AeSi/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1667,6 +1670,7 @@ document.addEventListener('DOMContentLoaded', function() {
         case 'roadmap': html = renderRoadmap(); break;
         case 'status': html = renderStatus(); break;
         case 'admin': html = renderAdmin(); break;
+        case 'personal-rekomendasi': html = renderPersonalRekomendasi(); break;
         default: html = renderDashboard();
       }
       document.getElementById('content').innerHTML = html;
@@ -1675,7 +1679,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function getPageTitle(page) {
-      var titles = {dashboard: 'Dashboard', form: 'Ajukan Rekomendasi', roadmap: 'Roadmap', status: 'Cek Status', admin: 'Panel Admin'};
+      var titles = {dashboard: 'Dashboard', form: 'Ajukan Rekomendasi', roadmap: 'Roadmap', status: 'Cek Status', admin: 'Panel Admin', 'personal-rekomendasi': 'Personal_Rekomendasi'};
       return titles[page] || 'Dashboard';
     }
 
@@ -2334,6 +2338,7 @@ function renderAdmin() {
       if (page === 'dashboard') loadDashboard();
       if (page === 'roadmap') loadRoadmap();
       if (page === 'admin' && isAdminLoggedIn) loadApplications();
+      if (page === 'personal-rekomendasi' && isAdminLoggedIn) loadPersonalRekomendasi();
       
       // Setup roadmap filter listeners
       if (page === 'roadmap') {
@@ -2894,6 +2899,348 @@ function showProfile(id) {
           showToast('Gagal: ' + (res && res.message || 'unknown'), 'error');
         }
       }, function(){ if (btns.length) btns.forEach(b => { b.disabled = false; b.innerHTML = '<i class="fas fa-shield-alt"></i> Perbaiki Izin Drive'; }); });
+    }
+
+    // ===========================================
+    // PERSONAL REKOMENDASI SECTION
+    // ===========================================
+
+    function renderPersonalRekomendasi() {
+      if (!isAdminLoggedIn) {
+        return '<div class="card" style="max-width:400px;margin:0 auto;"><div class="text-center mb-4"><i class="fas fa-user-shield" style="font-size:3rem;color:var(--primary);"></i><h2 class="mt-3">Admin Dinas Kesehatan</h2><p class="text-muted">Beasiswa Tematik Kesehatan</p></div><div class="form-group"><label class="form-label">Username</label><input type="text" id="loginUser" class="form-control" value="admin"></div><div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div><button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button></div>';
+      }
+      return '<div class="admin-card">' +
+        '<div class="admin-header">' +
+          '<h3 class="admin-title"><i class="fas fa-user-check"></i> Personal_Rekomendasi</h3>' +
+          '<div class="flex gap-2">' +
+            '<button class="btn btn-primary btn-sm" onclick="loadPersonalRekomendasi()"><i class="fas fa-sync-alt"></i> Refresh</button>' +
+            '<button class="btn btn-success btn-sm" onclick="exportPersonalRekomendasi()"><i class="fas fa-file-excel"></i> Export</button>' +
+            '<button class="btn btn-outline btn-sm" onclick="resetPersonalRekomendasiFilters()"><i class="fas fa-undo"></i> Reset</button>' +
+            '<button class="btn btn-danger btn-sm" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Logout</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="p-4">' +
+        '<div id="prStats" class="stats-grid"></div>' +
+        '<div class="filters-grid">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Cari Nama / No</label>' +
+            '<input type="text" id="prSearch" class="form-control" placeholder="Ketik nama atau nomor..." onkeyup="applyPersonalRekomendasiFilters()">' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Filter Status</label>' +
+            '<select id="prStatusFilter" class="form-control" onchange="applyPersonalRekomendasiFilters()">' +
+              '<option value="">Semua Status</option>' +
+              '<option value="aktif">Aktif</option>' +
+              '<option value="selesai">Selesai</option>' +
+              '<option value="proses">Proses</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        '<div id="prFilterCount" class="mb-2 text-muted" style="font-size:0.875rem;"></div>' +
+        '<div class="table-container"><table class="table-modern"><thead><tr>' +
+          '<th>NO</th>' +
+          '<th>JURUSAN</th>' +
+          '<th>JENIS</th>' +
+          '<th>PILIHAN</th>' +
+          '<th>CENTER</th>' +
+          '<th>NAMA</th>' +
+          '<th>STATUS</th>' +
+          '<th class="hide-md">TEMPAT/TGL LAHIR</th>' +
+          '<th class="hide-md">DOMISILI</th>' +
+          '<th class="hide-md">TAHUN STUDI</th>' +
+          '<th class="hide-md">KETERANGAN</th>' +
+          '<th>AKSI</th>' +
+        '</tr></thead>' +
+        '<tbody id="prTable"><tr><td colspan="12" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div>' +
+        '<div id="prPagination"></div>' +
+        '<div id="prNoDataMsg" class="text-center p-4 text-muted hidden"><i class="fas fa-inbox fa-3x mb-3" style="opacity:0.5;"></i><h4>Belum ada data</h4><p>Gunakan filter untuk menampilkan data.</p></div></div></div>';
+    }
+
+    function loadPersonalRekomendasi() {
+      var tbody = document.getElementById('prTable');
+      var noDataMsg = document.getElementById('prNoDataMsg');
+      if (noDataMsg) noDataMsg.classList.add('hidden');
+      
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr>';
+      }
+      
+      apiCallWithData('getPersonalRekomendasi', {role: localStorage.getItem('adminRole') || 'admin'}, function(res) {
+        if (res && res.success && res.data) {
+          window.allPersonalRekomendasi = res.data;
+          window.filteredPersonalRekomendasi = res.data;
+          window.prCurrentPage = 1;
+          applyPersonalRekomendasiFilters();
+          renderPersonalRekomendasiStats(res.data);
+        } else {
+          if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-danger">Gagal memuat data</td></tr>';
+          if (noDataMsg) noDataMsg.classList.remove('hidden');
+        }
+      }, function(err) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-danger">Error koneksi</td></tr>';
+      });
+    }
+
+    function renderPersonalRekomendasiStats(data) {
+      var statsContainer = document.getElementById('prStats');
+      if (!statsContainer || !data) return;
+      
+      var total = data.length;
+      var aktif = data.filter(function(x) { return x.status === 'aktif'; }).length;
+      var selesai = data.filter(function(x) { return x.status === 'selesai'; }).length;
+      var proses = data.filter(function(x) { return x.status === 'proses'; }).length;
+      
+      statsContainer.innerHTML = 
+        '<div class="stat-card"><div class="stat-value">' + total + '</div><div class="stat-label">Total Data</div></div>' +
+        '<div class="stat-card"><div class="stat-value" style="color:#10b981;">' + aktif + '</div><div class="stat-label">Total Aktif</div></div>' +
+        '<div class="stat-card"><div class="stat-value" style="color:#f59e0b;">' + selesai + '</div><div class="stat-label">Total Selesai</div></div>' +
+        '<div class="stat-card"><div class="stat-value" style="color:#06b6d4;">' + proses + '</div><div class="stat-label">Total Proses</div></div>';
+    }
+
+    function resetPersonalRekomendasiFilters() {
+      document.getElementById('prSearch').value = '';
+      document.getElementById('prStatusFilter').value = '';
+      applyPersonalRekomendasiFilters();
+    }
+
+    function applyPersonalRekomendasiFilters() {
+      var search = (document.getElementById('prSearch')?.value || '').toLowerCase();
+      var status = document.getElementById('prStatusFilter')?.value || '';
+      var filtered = window.allPersonalRekomendasi.filter(function(item) {
+        var matchesSearch = !search || 
+          (item.nama && item.nama.toLowerCase().includes(search)) ||
+          (item.no && item.no.toLowerCase().includes(search));
+        var matchesStatus = !status || item.status === status;
+        return matchesSearch && matchesStatus;
+      });
+      window.filteredPersonalRekomendasi = filtered;
+      window.prCurrentPage = 1;
+      renderPersonalRekomendasiTable(filtered);
+      var el = document.getElementById('prFilterCount');
+      if (el) el.textContent = filtered.length + ' dari ' + window.allPersonalRekomendasi.length + ' data';
+    }
+
+    function renderPersonalRekomendasiTable(data) {
+      var tbody = document.getElementById('prTable');
+      if (!tbody) return;
+      
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center p-4 text-muted">Tidak ada data yang cocok</td></tr>';
+        return;
+      }
+      
+      var pageSize = 10;
+      var currentPage = window.prCurrentPage || 1;
+      var totalPages = Math.ceil(data.length / pageSize);
+      var startIdx = (currentPage - 1) * pageSize;
+      var pageData = data.slice(startIdx, startIdx + pageSize);
+      
+      var rows = pageData.map(function(item) {
+        var statusBadge = item.status === 'aktif' ? '<span class="badge badge-success">Aktif</span>' :
+          item.status === 'selesai' ? '<span class="badge badge-primary">Selesai</span>' :
+          item.status === 'proses' ? '<span class="badge badge-warning">Proses</span>' : '<span class="badge">Unknown</span>';
+        
+        var crudBtns = '<div class="flex gap-2">' +
+          '<button class="btn btn-primary btn-sm" title="Detail" onclick="showPersonalRekomendasiDetail(' + item.row_id + ')"><i class="fas fa-eye"></i></button>' +
+          '<button class="btn btn-warning btn-sm" title="Edit" onclick="showPersonalRekomendasiEdit(' + item.row_id + ')"><i class="fas fa-edit"></i></button>' +
+          '<button class="btn btn-danger btn-sm" title="Hapus" onclick="deletePersonalRekomendasi(' + item.row_id + ')"><i class="fas fa-trash"></i></button>' +
+          '</div>';
+        
+        return '<tr>' +
+          '<td>' + escapeHtml(item.no || '-') + '</td>' +
+          '<td>' + escapeHtml(item.jurusan || '-') + '</td>' +
+          '<td>' + escapeHtml(item.jenis || '-') + '</td>' +
+          '<td>' + escapeHtml(item.pilihan || '-') + '</td>' +
+          '<td>' + escapeHtml(item.center || '-') + '</td>' +
+          '<td>' + escapeHtml(item.nama || '-') + '</td>' +
+          '<td>' + statusBadge + '</td>' +
+          '<td>' + escapeHtml((item.tempat_lahir || '-') + ' / ' + (item.tgl_lahir || '-')) + '</td>' +
+          '<td>' + escapeHtml(item.domisili || '-') + '</td>' +
+          '<td>' + escapeHtml(item.tahun_studi || '-') + '</td>' +
+          '<td>' + escapeHtml(item.keterangan || '-') + '</td>' +
+          '<td>' + crudBtns + '</td>' +
+          '</tr>';
+      });
+      
+      tbody.innerHTML = rows.join('');
+      renderPersonalRekomendasiPagination(data.length);
+    }
+
+    function renderPersonalRekomendasiPagination(totalItems) {
+      var container = document.getElementById('prPagination');
+      if (!container) return;
+      
+      var pageSize = 10;
+      var totalPages = Math.ceil(totalItems / pageSize);
+      var currentPage = window.prCurrentPage || 1;
+      
+      if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+      }
+      
+      var html = '<div class="pagination">';
+      if (currentPage > 1) {
+        html += '<button class="btn btn-sm" onclick="window.prCurrentPage=1;applyPersonalRekomendasiFilters()">«</button>';
+        html += '<button class="btn btn-sm" onclick="window.prCurrentPage=' + (currentPage-1) + ';applyPersonalRekomendasiFilters()">‹</button>';
+      }
+      
+      for (var i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
+        html += '<button class="btn btn-sm ' + (i === currentPage ? 'active' : '') + '" onclick="window.prCurrentPage=' + i + ';applyPersonalRekomendasiFilters()">' + i + '</button>';
+      }
+      
+      if (currentPage < totalPages) {
+        html += '<button class="btn btn-sm" onclick="window.prCurrentPage=' + (currentPage+1) + ';applyPersonalRekomendasiFilters()">›</button>';
+        html += '<button class="btn btn-sm" onclick="window.prCurrentPage=' + totalPages + ';applyPersonalRekomendasiFilters()">»</button>';
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function showPersonalRekomendasiDetail(rowId) {
+      var item = window.allPersonalRekomendasi.find(function(x) { return x.row_id === rowId; });
+      if (!item) return;
+      
+      var modal = document.createElement('div');
+      modal.className = 'modal-edit-fullscreen';
+      modal.innerHTML = '<div class="modal-edit-overlay"></div><div class="modal-edit-content">' +
+        '<div class="modal-edit-header"><h2 class="modal-edit-title">Detail: ' + escapeHtml(item.nama || '') + '</h2><button class="modal-edit-close-btn" onclick="this.closest(\'.modal-edit-fullscreen\').remove()">&times;</button></div>' +
+        '<form class="modal-edit-form"><div class="modal-edit-form-grid" style="grid-template-columns: 1fr;">' +
+          '<div class="form-group"><label>NO</label><input type="text" value="' + escapeHtml(item.no || '') + '" readonly></div>' +
+          '<div class="form-group"><label>JURUSAN</label><input type="text" value="' + escapeHtml(item.jurusan || '') + '" readonly></div>' +
+          '<div class="form-group"><label>JENIS</label><input type="text" value="' + escapeHtml(item.jenis || '') + '" readonly></div>' +
+          '<div class="form-group"><label>PILIHAN</label><input type="text" value="' + escapeHtml(item.pilihan || '') + '" readonly></div>' +
+          '<div class="form-group"><label>CENTER</label><input type="text" value="' + escapeHtml(item.center || '') + '" readonly></div>' +
+          '<div class="form-group"><label>NAMA</label><input type="text" value="' + escapeHtml(item.nama || '') + '" readonly></div>' +
+          '<div class="form-group"><label>STATUS</label><input type="text" value="' + escapeHtml(item.status || '') + '" readonly></div>' +
+          '<div class="form-group"><label>TEMPAT LAHIR</label><input type="text" value="' + escapeHtml(item.tempat_lahir || '') + '" readonly></div>' +
+          '<div class="form-group"><label>TGL LAHIR</label><input type="text" value="' + escapeHtml(item.tgl_lahir || '') + '" readonly></div>' +
+          '<div class="form-group"><label>DOMISILI</label><textarea readonly>' + escapeHtml(item.domisili || '') + '</textarea></div>' +
+          '<div class="form-group"><label>TAHUN STUDI</label><input type="text" value="' + escapeHtml(item.tahun_studi || '') + '" readonly></div>' +
+          '<div class="form-group"><label>KETERANGAN</label><textarea readonly>' + escapeHtml(item.keterangan || '') + '</textarea></div>' +
+        '</div></form>' +
+        '<div class="modal-edit-footer"><button class="btn btn-outline" onclick="this.closest(\'.modal-edit-fullscreen\').remove()">TUTUP</button></div>' +
+        '</div>';
+      document.body.appendChild(modal);
+      setTimeout(() => modal.classList.add('show'), 10);
+      modal.querySelector('.modal-edit-overlay').addEventListener('click', () => modal.remove());
+    }
+
+    function showPersonalRekomendasiEdit(rowId) {
+      var item = window.allPersonalRekomendasi.find(function(x) { return x.row_id === rowId; });
+      if (!item) return;
+      
+      var modal = document.createElement('div');
+      modal.className = 'modal-edit-fullscreen';
+      modal.id = 'prEditModal';
+      modal.innerHTML = '<div class="modal-edit-overlay"></div><div class="modal-edit-content">' +
+        '<div class="modal-edit-header"><h2 class="modal-edit-title">Edit: ' + escapeHtml(item.nama || '') + '</h2><button class="modal-edit-close-btn" onclick="document.getElementById(\'prEditModal\').remove()">&times;</button></div>' +
+        '<form class="modal-edit-form" id="prEditForm"><div class="modal-edit-form-grid">' +
+          '<div class="form-group"><label>NO <span class="required-badge">Wajib</span></label><input type="text" name="no" value="' + escapeHtml(item.no || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>JURUSAN <span class="required-badge">Wajib</span></label><input type="text" name="jurusan" value="' + escapeHtml(item.jurusan || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>JENIS <span class="required-badge">Wajib</span></label><input type="text" name="jenis" value="' + escapeHtml(item.jenis || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>PILIHAN <span class="required-badge">Wajib</span></label><input type="text" name="pilihan" value="' + escapeHtml(item.pilihan || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>CENTER <span class="required-badge">Wajib</span></label><input type="text" name="center" value="' + escapeHtml(item.center || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>NAMA <span class="required-badge">Wajib</span></label><input type="text" name="nama" value="' + escapeHtml(item.nama || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>STATUS <span class="required-badge">Wajib</span></label><select name="status"><option value="">Pilih Status</option><option value="aktif" ' + (item.status === 'aktif' ? 'selected' : '') + '>Aktif</option><option value="selesai" ' + (item.status === 'selesai' ? 'selected' : '') + '>Selesai</option><option value="proses" ' + (item.status === 'proses' ? 'selected' : '') + '>Proses</option></select><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>TEMPAT LAHIR</label><input type="text" name="tempat_lahir" value="' + escapeHtml(item.tempat_lahir || '') + '"></div>' +
+          '<div class="form-group"><label>TGL LAHIR</label><input type="date" name="tgl_lahir" value="' + escapeHtml(item.tgl_lahir || '') + '"></div>' +
+          '<div class="form-group"><label>DOMISILI</label><textarea name="domisili">' + escapeHtml(item.domisili || '') + '</textarea></div>' +
+          '<div class="form-group"><label>TAHUN STUDI</label><input type="text" name="tahun_studi" value="' + escapeHtml(item.tahun_studi || '') + '"></div>' +
+          '<div class="form-group"><label>KETERANGAN</label><textarea name="keterangan">' + escapeHtml(item.keterangan || '') + '</textarea></div>' +
+        '</div></form>' +
+        '<div class="modal-edit-footer">' +
+          '<button type="button" class="btn btn-outline" onclick="document.getElementById(\'prEditModal\').remove()">TUTUP</button>' +
+          '<button type="button" class="btn btn-primary" onclick="updatePersonalRekomendasi(' + rowId + ')">SIMPAN PERUBAHAN</button>' +
+        '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+      setTimeout(() => modal.classList.add('show'), 10);
+      modal.querySelector('.modal-edit-overlay').addEventListener('click', () => modal.remove());
+    }
+
+    function updatePersonalRekomendasi(rowId) {
+      var form = document.getElementById('prEditForm');
+      if (!form) return;
+      
+      var requiredFields = ['no', 'jurusan', 'jenis', 'pilihan', 'center', 'nama', 'status'];
+      var hasError = false;
+      
+      requiredFields.forEach(function(fieldName) {
+        var field = form.elements[fieldName];
+        if (!field || !field.value.trim()) {
+          var errorEl = field.parentElement.querySelector('.error-msg');
+          if (errorEl) errorEl.classList.add('error');
+          hasError = true;
+        } else {
+          var errorEl = field.parentElement.querySelector('.error-msg');
+          if (errorEl) errorEl.classList.remove('error');
+        }
+      });
+      
+      if (hasError) {
+        Swal.fire({icon: 'warning', title: 'Data Belum Lengkap', text: 'Lengkapi seluruh data wajib'});
+        return;
+      }
+      
+      var data = new FormData(form);
+      var obj = {};
+      data.forEach(function(value, key) {
+        if (value.trim() !== '') obj[key] = value.trim();
+      });
+      obj.row_id = rowId;
+      obj.role = localStorage.getItem('adminRole') || 'admin';
+      
+      var btn = document.querySelector('#prEditModal .modal-edit-footer button:last-child');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+      
+      apiCallWithData('updatePersonalRekomendasi', obj, function(res) {
+        btn.disabled = false;
+        btn.innerHTML = 'SIMPAN PERUBAHAN';
+        
+        if (res && res.success) {
+          Swal.fire({icon: 'success', title: 'Berhasil!', text: 'Data berhasil diperbarui', timer: 1500}).then(() => {
+            document.getElementById('prEditModal').remove();
+            loadPersonalRekomendasi();
+          });
+        } else {
+          Swal.fire({icon: 'error', title: 'Error', text: res ? res.message : 'Gagal menyimpan'});
+        }
+      }, function(err) {
+        btn.disabled = false;
+        btn.innerHTML = 'SIMPAN PERUBAHAN';
+        Swal.fire({icon: 'error', title: 'Koneksi Error', text: 'Gagal menghubungi server'});
+      });
+    }
+
+    function deletePersonalRekomendasi(rowId) {
+      Swal.fire({
+        title: 'Yakin ingin menghapus?',
+        text: 'Data ini akan dihapus dari sistem',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Hapus',
+        cancelButtonText: 'Batal'
+      }).then(function(result) {
+        if (result.isConfirmed) {
+          apiCallWithData('deletePersonalRekomendasi', {row_id: rowId, role: localStorage.getItem('adminRole') || 'admin'}, function(res) {
+            if (res && res.success) {
+              Swal.fire({icon: 'success', title: 'Terhapus!', text: 'Data berhasil dihapus', timer: 1500}).then(() => {
+                loadPersonalRekomendasi();
+              });
+            } else {
+              Swal.fire({icon: 'error', title: 'Error', text: res ? res.message : 'Gagal menghapus'});
+            }
+          }, function(err) {
+            Swal.fire({icon: 'error', title: 'Koneksi Error', text: 'Gagal menghubungi server'});
+          });
+        }
+      });
+    }
+
+    function exportPersonalRekomendasi() {
+      Swal.fire({icon: 'info', title: 'Export', text: 'Fitur export sedang dikembangkan'});
     }
 
     function getDownloadBtnHTML(id) {
