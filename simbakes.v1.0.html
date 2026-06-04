@@ -2924,20 +2924,28 @@ function showProfile(id) {
         '<div id="prStats" class="stats-grid"></div>' +
         '<div class="filters-grid">' +
           '<div class="form-group">' +
-            '<label class="form-label">Cari Nama / No</label>' +
-            '<input type="text" id="prSearch" class="form-control" placeholder="Ketik nama atau nomor..." onkeyup="applyPersonalRekomendasiFilters()">' +
+            '<label class="form-label">Jurusan</label>' +
+            '<select id="filterJurusan" class="form-control" onchange="applyPersonalRekomendasiFilter()">' +
+              '<option value="">Semua Jurusan</option>' +
+            '</select>' +
           '</div>' +
           '<div class="form-group">' +
-            '<label class="form-label">Filter Status</label>' +
-            '<select id="prStatusFilter" class="form-control" onchange="applyPersonalRekomendasiFilters()">' +
-              '<option value="">Semua Status</option>' +
-              '<option value="aktif">Aktif</option>' +
-              '<option value="selesai">Selesai</option>' +
-              '<option value="proses">Proses</option>' +
+            '<label class="form-label">Jenis</label>' +
+            '<select id="filterJenis" class="form-control" onchange="applyPersonalRekomendasiFilter()">' +
+              '<option value="">Semua Jenis</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Pilihan Center</label>' +
+            '<select id="filterPilihanCenter" class="form-control" onchange="applyPersonalRekomendasiFilter()">' +
+              '<option value="">Semua Pilihan Center</option>' +
             '</select>' +
           '</div>' +
         '</div>' +
-        '<div id="prFilterCount" class="mb-2 text-muted" style="font-size:0.875rem;"></div>' +
+        '<div class="flex gap-2 justify-between mt-2">' +
+          '<button class="btn btn-outline btn-sm" onclick="resetPersonalRekomendasiFilters()"><i class="fas fa-times"></i> Reset Filter</button>' +
+          '<span id="prFilterCount" class="text-muted text-sm"></span>' +
+        '</div>' +
         '<div class="table-container"><table class="table-modern"><thead><tr>' +
           '<th>NO</th>' +
           '<th>JURUSAN</th>' +
@@ -2956,6 +2964,11 @@ function showProfile(id) {
         '<div id="prNoDataMsg" class="text-center p-4 text-muted hidden"><i class="fas fa-inbox fa-3x mb-3" style="opacity:0.5;"></i><h4>Belum ada data</h4><p>Gunakan filter untuk menampilkan data.</p></div></div></div>';
     }
 
+    var personalRekomendasiMaster = [];
+    var filteredPersonalRekomendasi = [];
+    window.prCurrentPage = 1;
+    window.prPageSize = 10;
+
     function loadPersonalRekomendasi() {
       var tbody = document.getElementById('prTable');
       var noDataMsg = document.getElementById('prNoDataMsg');
@@ -2968,11 +2981,12 @@ function showProfile(id) {
       apiCallWithData('getPersonalRekomendasi', {role: localStorage.getItem('adminRole') || 'admin'}, function(res) {
         if (res && res.success && res.data) {
           console.log('Personal_Rekomendasi Data:', res.data);
-          window.allPersonalRekomendasi = res.data;
-          window.filteredPersonalRekomendasi = res.data;
+          console.table(res.data[0]);
+          personalRekomendasiMaster = res.data;
+          filteredPersonalRekomendasi = [...personalRekomendasiMaster];
           window.prCurrentPage = 1;
-          applyPersonalRekomendasiFilters();
-          renderPersonalRekomendasiStats(res.data);
+          populatePersonalRekomendasiFilters();
+          applyPersonalRekomendasiFilter();
         } else {
           if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4 text-danger">Gagal memuat data</td></tr>';
           if (noDataMsg) noDataMsg.classList.remove('hidden');
@@ -2982,64 +2996,124 @@ function showProfile(id) {
       });
     }
 
-    function renderPersonalRekomendasiStats(data) {
-      var statsContainer = document.getElementById('prStats');
-      if (!statsContainer || !data) return;
+    function populatePersonalRekomendasiFilters() {
+      var jurusanList = [...new Set(personalRekomendasiMaster.map(x => x.jurusan).filter(Boolean))].sort();
+      var jenisList = [...new Set(personalRekomendasiMaster.map(x => x.jenis).filter(Boolean))].sort();
+      var centerList = [...new Set(personalRekomendasiMaster.map(x => x.pilihan_center).filter(Boolean))].sort();
       
-      var total = data.length;
-      var aktif = data.filter(function(x) { return x.status === 'aktif'; }).length;
-      var selesai = data.filter(function(x) { return x.status === 'selesai'; }).length;
-      var proses = data.filter(function(x) { return x.status === 'proses'; }).length;
+      var jurusanSelect = document.getElementById('filterJurusan');
+      var jenisSelect = document.getElementById('filterJenis');
+      var centerSelect = document.getElementById('filterPilihanCenter');
       
-      statsContainer.innerHTML = 
-        '<div class="stat-card"><div class="stat-value">' + total + '</div><div class="stat-label">Total Data</div></div>' +
-        '<div class="stat-card"><div class="stat-value" style="color:#10b981;">' + aktif + '</div><div class="stat-label">Total Aktif</div></div>' +
-        '<div class="stat-card"><div class="stat-value" style="color:#f59e0b;">' + selesai + '</div><div class="stat-label">Total Selesai</div></div>' +
-        '<div class="stat-card"><div class="stat-value" style="color:#06b6d4;">' + proses + '</div><div class="stat-label">Total Proses</div></div>';
+      if (jurusanSelect) {
+        jurusanSelect.innerHTML = '<option value="">Semua Jurusan</option>';
+        jurusanList.forEach(function(val) {
+          var opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          jurusanSelect.appendChild(opt);
+        });
+      }
+      
+      if (jenisSelect) {
+        jenisSelect.innerHTML = '<option value="">Semua Jenis</option>';
+        jenisList.forEach(function(val) {
+          var opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          jenisSelect.appendChild(opt);
+        });
+      }
+      
+      if (centerSelect) {
+        centerSelect.innerHTML = '<option value="">Semua Pilihan Center</option>';
+        centerList.forEach(function(val) {
+          var opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          centerSelect.appendChild(opt);
+        });
+      }
+    }
+
+    function applyPersonalRekomendasiFilter() {
+      console.log('Filter berjalan');
+      var jurusan = document.getElementById('filterJurusan')?.value || '';
+      var jenis = document.getElementById('filterJenis')?.value || '';
+      var pilihanCenter = document.getElementById('filterPilihanCenter')?.value || '';
+      
+      console.log('Filter values:', { jurusan, jenis, pilihanCenter });
+      
+      filteredPersonalRekomendasi = personalRekomendasiMaster.filter(function(item) {
+        const matchJurusan = !jurusan || item.jurusan === jurusan;
+        const matchJenis = !jenis || item.jenis === jenis;
+        const matchCenter = !pilihanCenter || item.pilihan_center === pilihanCenter;
+        return matchJurusan && matchJenis && matchCenter;
+      });
+      
+      window.prCurrentPage = 1;
+      renderPersonalRekomendasiTable();
+      updatePersonalRekomendasiCount();
     }
 
     function resetPersonalRekomendasiFilters() {
-      document.getElementById('prSearch').value = '';
-      document.getElementById('prStatusFilter').value = '';
-      applyPersonalRekomendasiFilters();
-    }
-
-    function applyPersonalRekomendasiFilters() {
-      var search = (document.getElementById('prSearch')?.value || '').toLowerCase();
-      var status = document.getElementById('prStatusFilter')?.value || '';
-      var filtered = window.allPersonalRekomendasi.filter(function(item) {
-        var matchesSearch = !search || 
-          (item.nama && item.nama.toLowerCase().includes(search)) ||
-          (item.no && item.no.toLowerCase().includes(search));
-        var matchesStatus = !status || item.status === status;
-        return matchesSearch && matchesStatus;
-      });
-      window.filteredPersonalRekomendasi = filtered;
+      document.getElementById('filterJurusan').value = '';
+      document.getElementById('filterJenis').value = '';
+      document.getElementById('filterPilihanCenter').value = '';
+      filteredPersonalRekomendasi = [...personalRekomendasiMaster];
       window.prCurrentPage = 1;
-      renderPersonalRekomendasiTable(filtered);
-      var el = document.getElementById('prFilterCount');
-      if (el) el.textContent = filtered.length + ' dari ' + window.allPersonalRekomendasi.length + ' data';
+      renderPersonalRekomendasiTable();
+      updatePersonalRekomendasiCount();
+      console.log('Filter direset');
     }
 
-    function renderPersonalRekomendasiTable(data) {
+    function updatePersonalRekomendasiCount() {
+      var countEl = document.getElementById('prFilterCount');
+      if (countEl) {
+        countEl.textContent = filteredPersonalRekomendasi.length + ' dari ' + personalRekomendasiMaster.length + ' data';
+      }
+    }
+
+    function changePage(page) {
+      window.prCurrentPage = page;
+      console.log({
+        currentPage: window.prCurrentPage,
+        totalPages: Math.ceil(filteredPersonalRekomendasi.length / window.prPageSize),
+        totalData: filteredPersonalRekomendasi.length,
+        pageSize: window.prPageSize
+      });
+      renderPersonalRekomendasiTable();
+    }
+
+    function renderPersonalRekomendasiTable() {
       var tbody = document.getElementById('prTable');
       if (!tbody) return;
       
-      if (data.length === 0) {
+      if (filteredPersonalRekomendasi.length === 0) {
         tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4 text-muted">Tidak ada data yang cocok</td></tr>';
+        renderPersonalRekomendasiPagination(0);
         return;
       }
       
-      var pageSize = 10;
+      var pageSize = window.prPageSize || 10;
       var currentPage = window.prCurrentPage || 1;
-      var totalPages = Math.ceil(data.length / pageSize);
-      var startIdx = (currentPage - 1) * pageSize;
-      var pageData = data.slice(startIdx, startIdx + pageSize);
+      var totalData = filteredPersonalRekomendasi.length;
+      var totalPages = Math.ceil(totalData / pageSize);
+      
+      console.log({
+        currentPage: currentPage,
+        totalPages: totalPages,
+        totalData: totalData,
+        pageSize: pageSize
+      });
+      
+      var start = (currentPage - 1) * pageSize;
+      var end = start + pageSize;
+      var pageData = filteredPersonalRekomendasi.slice(start, end);
       
       var rows = pageData.map(function(item) {
-        var statusBadge = item.status === 'aktif' ? '<span class="badge badge-success">Aktif</span>' :
-          item.status === 'selesai' ? '<span class="badge badge-primary">Selesai</span>' :
-          item.status === 'proses' ? '<span class="badge badge-warning">Proses</span>' : '<span class="badge">Unknown</span>';
+        var statusBadge = item.status === 'ASN' ? '<span class="badge badge-success">ASN</span>' :
+          item.status === 'NON ASN' ? '<span class="badge badge-warning">NON ASN</span>' : '<span class="badge">' + escapeHtml(item.status || '') + '</span>';
         
         var crudBtns = '<div class="flex gap-2">' +
           '<button class="btn btn-primary btn-sm" title="Detail" onclick="showPersonalRekomendasiDetail(' + item.row_id + ')"><i class="fas fa-eye"></i></button>' +
@@ -3063,14 +3137,14 @@ function showProfile(id) {
       });
       
       tbody.innerHTML = rows.join('');
-      renderPersonalRekomendasiPagination(data.length);
+      renderPersonalRekomendasiPagination(totalData);
     }
 
     function renderPersonalRekomendasiPagination(totalItems) {
       var container = document.getElementById('prPagination');
       if (!container) return;
       
-      var pageSize = 10;
+      var pageSize = window.prPageSize || 10;
       var totalPages = Math.ceil(totalItems / pageSize);
       var currentPage = window.prCurrentPage || 1;
       
@@ -3081,17 +3155,17 @@ function showProfile(id) {
       
       var html = '<div class="pagination">';
       if (currentPage > 1) {
-        html += '<button class="btn btn-sm" onclick="window.prCurrentPage=1;applyPersonalRekomendasiFilters()">«</button>';
-        html += '<button class="btn btn-sm" onclick="window.prCurrentPage=' + (currentPage-1) + ';applyPersonalRekomendasiFilters()">‹</button>';
+        html += '<button class="btn btn-sm" onclick="changePage(1)">«</button>';
+        html += '<button class="btn btn-sm" onclick="changePage(' + (currentPage-1) + ')">‹</button>';
       }
       
       for (var i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) {
-        html += '<button class="btn btn-sm ' + (i === currentPage ? 'active' : '') + '" onclick="window.prCurrentPage=' + i + ';applyPersonalRekomendasiFilters()">' + i + '</button>';
+        html += '<button class="btn btn-sm ' + (i === currentPage ? 'active' : '') + '" onclick="changePage(' + i + ')">' + i + '</button>';
       }
       
       if (currentPage < totalPages) {
-        html += '<button class="btn btn-sm" onclick="window.prCurrentPage=' + (currentPage+1) + ';applyPersonalRekomendasiFilters()">›</button>';
-        html += '<button class="btn btn-sm" onclick="window.prCurrentPage=' + totalPages + ';applyPersonalRekomendasiFilters()">»</button>';
+        html += '<button class="btn btn-sm" onclick="changePage(' + (currentPage+1) + ')">›</button>';
+        html += '<button class="btn btn-sm" onclick="changePage(' + totalPages + ')">»</button>';
       }
       html += '</div>';
       container.innerHTML = html;
@@ -3139,7 +3213,7 @@ function showProfile(id) {
           '<div class="form-group"><label>JENIS <span class="required-badge">Wajib</span></label><input type="text" name="jenis" value="' + escapeHtml(item.jenis || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
           '<div class="form-group"><label>PILIHAN CENTER <span class="required-badge">Wajib</span></label><input type="text" name="pilihan_center" value="' + escapeHtml(item.pilihan_center || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
           '<div class="form-group"><label>NAMA <span class="required-badge">Wajib</span></label><input type="text" name="nama" value="' + escapeHtml(item.nama || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
-          '<div class="form-group"><label>STATUS <span class="required-badge">Wajib</span></label><select name="status"><option value="">Pilih Status</option><option value="aktif" ' + (item.status === 'aktif' ? 'selected' : '') + '>Aktif</option><option value="selesai" ' + (item.status === 'selesai' ? 'selected' : '') + '>Selesai</option><option value="proses" ' + (item.status === 'proses' ? 'selected' : '') + '>Proses</option></select><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>STATUS <span class="required-badge">Wajib</span></label><select name="status"><option value="">Pilih Status</option><option value="ASN" ' + (item.status === 'ASN' ? 'selected' : '') + '>ASN</option><option value="NON ASN" ' + (item.status === 'NON ASN' ? 'selected' : '') + '>NON ASN</option></select><div class="error-msg">Wajib diisi</div></div>' +
           '<div class="form-group"><label>TEMPAT/ TGL LAHIR</label><input type="text" name="tempat_tgl_lahir" value="' + escapeHtml(item.tempat_tgl_lahir || '') + '"></div>' +
           '<div class="form-group"><label>DOMISILI</label><textarea name="domisili">' + escapeHtml(item.domisili || '') + '</textarea></div>' +
           '<div class="form-group"><label>TAHUN STUDI</label><input type="text" name="tahun_studi" value="' + escapeHtml(item.tahun_studi || '') + '"></div>' +
