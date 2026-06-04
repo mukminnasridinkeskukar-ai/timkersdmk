@@ -1608,7 +1608,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxWH3oAALquRgnIuQQ0uF6Tc-EjyoSYuiPyAU1WA02Wk5xAwk0RqQOXv__kHw520DlE/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyck4mYr3ThVk8NwACWA2YeUHOTDrvAF-qQxvczymnaWs7BHHxvc4XRD8FDJ7R14KAs/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -2039,15 +2039,11 @@ document.addEventListener('DOMContentLoaded', function() {
       return '<div class="card"><div class="card-header"><h3><i class="fas fa-map-marked-alt"></i> Daftar Kebutuhan Tenaga Kesehatan</h3></div>' +
         '<div id="roadmapFilters" class="filters-section card p-3 mb-3" style="display:none;">' +
           '<div class="filters-grid">' +
-            '<div class="form-group"><label class="form-label text-sm">Jurusan</label><select id="filterJurusan" class="form-control"><option value="">Semua Jurusan</option></select></div>' +
-            '<div class="form-group"><label class="form-label text-sm">Jenis Pendidikan</label><select id="filterJenis" class="form-control"><option value="">Semua Jenis</option></select></div>' +
-            '<div class="form-group"><label class="form-label text-sm">Kampus</label><select id="filterKampus" class="form-control"><option value="">Semua Kampus</option></select></div>' +
-            '<div class="form-group"><label class="form-label text-sm">Tahun</label><select id="filterTahun" class="form-control"><option value="">Semua Tahun</option></select></div>' +
-            '<div class="form-group"><label class="form-label text-sm">Tujuan</label><select id="filterTujuan" class="form-control"><option value="">Semua Tujuan</option></select></div>' +
-            '<div class="form-group"><label class="form-label text-sm">Cari</label><input id="filterSearch" class="form-control" placeholder="Ketik untuk cari..."></div>' +
+            '<div class="form-group"><label class="form-label text-sm">Kategori</label><select id="roadmapFilter" class="form-control"><option value="">Semua Kategori</option></select></div>' +
+            '<div class="form-group"><label class="form-label text-sm">Cari</label><input id="roadmapSearch" class="form-control" placeholder="Ketik untuk cari..."></div>' +
           '</div>' +
           '<div class="flex gap-2 justify-between mt-2">' +
-            '<button class="btn btn-outline btn-sm" onclick="clearFilters()"><i class="fas fa-times"></i> Clear Filter</button>' +
+            '<button class="btn btn-outline btn-sm" onclick="resetRoadmapFilter()"><i class="fas fa-times"></i> Reset Filter</button>' +
             '<span id="filterCount" class="text-muted text-sm"></span>' +
           '</div>' +
         '</div>' +
@@ -2364,7 +2360,11 @@ function renderAdmin() {
     // ========================================
     function initPage(page) {
       if (page === 'dashboard') loadDashboard();
-      if (page === 'roadmap') loadRoadmap();
+      if (page === 'roadmap') {
+        loadRoadmap();
+        document.getElementById('roadmapFilter')?.addEventListener('change', applyRoadmapFilter);
+        document.getElementById('roadmapSearch')?.addEventListener('input', applyRoadmapFilter);
+      }
       if (page === 'panel_admin' && isAdminLoggedIn) loadApplications();
       if (page === 'personal_rekomendasi' && isAdminLoggedIn) loadPersonalRekomendasi();
       console.log('Page initialized:', page);
@@ -2408,19 +2408,26 @@ function renderAdmin() {
     window.roadmapData = [];
     window.roadmapTimeout = null;
 
+    var roadmapMasterData = [];
+    var roadmapFilteredData = [];
+
     function loadRoadmap() {
+      console.log('Loading roadmap...');
       apiCall('getRoadmap', function(res) {
         var tbody = document.getElementById('roadmapTable');
         var filtersDiv = document.getElementById('roadmapFilters');
         if (!tbody || !filtersDiv) return;
         
         if (res && res.success && res.data) {
-          window.roadmapData = res.data;
-          window.filteredRoadmap = res.data;
+          roadmapMasterData = res.data;
+          roadmapFilteredData = [...roadmapMasterData];
           window.roadmapCurrentPage = 1;
-          populateFilters();
+          populateRoadmapFilter();
           filtersDiv.style.display = 'block';
-          applyFilters();
+          console.log('Roadmap Data:', roadmapMasterData);
+          console.table(roadmapMasterData[0]);
+          renderRoadmapTable(roadmapFilteredData);
+          updateRoadmapCount();
         } else {
           tbody.innerHTML = '<tr><td colspan="7" class="text-center">Belum ada data roadmap</td></tr>';
           filtersDiv.style.display = 'none';
@@ -2428,73 +2435,54 @@ function renderAdmin() {
       });
     }
 
-    function populateFilters() {
-      var data = window.roadmapData;
-      
-      // Get unique values
-      var jurusan = [...new Set(data.map(d => d.posisi).filter(Boolean))].sort();
-      var jenis = [...new Set(data.map(d => d.jenis_pendidikan).filter(Boolean))].sort();
-      var kampus = [...new Set(data.map(d => d.kampus).filter(Boolean))].sort();
-      var tahun = [...new Set(data.map(d => d.tahun_mulai).filter(Boolean))].sort();
-      var tujuan = [...new Set(data.map(d => d.unit_tujuan).filter(Boolean))].sort();
-      
-      // Populate dropdowns
-      ['Jurusan', 'Jenis', 'Kampus', 'Tahun', 'Tujuan'].forEach(function(type, idx) {
-        var id = 'filter' + type;
-        var select = document.getElementById(id);
-        if (select) {
-          var opts = Array.from(select.options);
-          opts[0].textContent = 'Semua ' + type.toLowerCase();
-          opts[0].value = '';
-          
-          var uniqueVals = jurusan;
-          switch(type) {
-            case 'Jenis': uniqueVals = jenis; break;
-            case 'Kampus': uniqueVals = kampus; break;
-            case 'Tahun': uniqueVals = tahun; break;
-            case 'Tujuan': uniqueVals = tujuan; break;
-          }
-          
-          uniqueVals.forEach(function(val) {
-            if (!opts.find(o => o.value === val)) {
-              var opt = document.createElement('option');
-              opt.value = val;
-              opt.textContent = val;
-              select.appendChild(opt);
-            }
-          });
+    function populateRoadmapFilter() {
+      var kategoriList = [...new Set(roadmapMasterData.map(d => d.posisi || 'Umum'))].sort();
+      var select = document.getElementById('roadmapFilter');
+      if (!select) return;
+      kategoriList.forEach(function(val) {
+        if (!Array.from(select.options).some(o => o.value === val)) {
+          var opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          select.appendChild(opt);
         }
       });
     }
 
-    function applyFilters() {
-      var data = window.roadmapData || [];
-      var jurusan = document.getElementById('filterJurusan')?.value || '';
-      var jenis = document.getElementById('filterJenis')?.value || '';
-      var kampus = document.getElementById('filterKampus')?.value || '';
-      var tahun = document.getElementById('filterTahun')?.value || '';
-      var tujuan = document.getElementById('filterTujuan')?.value || '';
-      var search = (document.getElementById('filterSearch')?.value || '').toLowerCase();
+    function applyRoadmapFilter() {
+      console.log('Filter berjalan');
+      var keyword = (document.getElementById('roadmapSearch')?.value || '').toLowerCase().trim();
+      var kategori = document.getElementById('roadmapFilter')?.value || '';
       
-      var filtered = data.filter(function(item) {
-        return (!jurusan || item.posisi === jurusan) &&
-               (!jenis || item.jenis_pendidikan === jenis) &&
-               (!kampus || item.kampus === kampus) &&
-               (!tahun || item.tahun_mulai === tahun) &&
-               (!tujuan || item.unit_tujuan === tujuan) &&
-               (!search || 
-                 item.posisi.toLowerCase().includes(search) ||
-                 item.jenis_pendidikan.toLowerCase().includes(search) ||
-                 item.kampus.toLowerCase().includes(search) ||
-                 item.unit_tujuan.toLowerCase().includes(search) ||
-                 item.tahun_mulai.toLowerCase().includes(search));
+      console.log('Keyword:', keyword);
+      console.log('Kategori:', kategori);
+      
+      roadmapFilteredData = roadmapMasterData.filter(function(item) {
+        const matchKeyword = !keyword || JSON.stringify(item).toLowerCase().includes(keyword);
+        const matchKategori = !kategori || (item.posisi === kategori);
+        return matchKeyword && matchKategori;
       });
       
-      window.filteredRoadmap = filtered;
       window.roadmapCurrentPage = 1;
-      renderRoadmapTable(filtered);
+      renderRoadmapTable(roadmapFilteredData);
+      updateRoadmapCount();
+    }
+
+    function resetRoadmapFilter() {
+      roadmapFilteredData = [...roadmapMasterData];
+      document.getElementById('roadmapSearch').value = '';
+      document.getElementById('roadmapFilter').value = '';
+      window.roadmapCurrentPage = 1;
+      renderRoadmapTable(roadmapFilteredData);
+      updateRoadmapCount();
+      console.log('Filter direset');
+    }
+
+    function updateRoadmapCount() {
       var countEl = document.getElementById('filterCount');
-      if (countEl) countEl.textContent = filtered.length + ' dari ' + data.length + ' hasil';
+      if (countEl) {
+        countEl.textContent = roadmapFilteredData.length + ' dari ' + roadmapMasterData.length + ' data';
+      }
     }
 
     function renderRoadmapTable(data) {
@@ -2592,12 +2580,11 @@ function renderAdmin() {
     }
 
     function clearFilters() {
-      ['filterJurusan', 'filterJenis', 'filterKampus', 'filterTahun', 'filterTujuan'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.value = '';
-      });
-      document.getElementById('filterSearch').value = '';
-      applyFilters();
+      var searchEl = document.getElementById('roadmapSearch');
+      var filterEl = document.getElementById('roadmapFilter');
+      if (searchEl) searchEl.value = '';
+      if (filterEl) filterEl.value = '';
+      resetRoadmapFilter();
     }
 
     function checkStatus() {
@@ -3152,7 +3139,7 @@ function showProfile(id) {
           '<div class="form-group"><label>JENIS <span class="required-badge">Wajib</span></label><input type="text" name="jenis" value="' + escapeHtml(item.jenis || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
           '<div class="form-group"><label>PILIHAN CENTER <span class="required-badge">Wajib</span></label><input type="text" name="pilihan_center" value="' + escapeHtml(item.pilihan_center || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
           '<div class="form-group"><label>NAMA <span class="required-badge">Wajib</span></label><input type="text" name="nama" value="' + escapeHtml(item.nama || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
-          '<div class="form-group"><label>STATUS <span class="required-badge">Wajib</span></label><select name="status"><option value="">Pilih Status</option><option value="aktif" ' + (item.status === 'aktif' ? 'selected' : '') + '>Aktif</option><option value="ASN" ' + (item.status === 'ASN' ? 'selected' : '') + '>ASN</option><option value="Non ASN" ' + (item.status === 'Non ASN' ? 'selected' : '') + '>Non ASN</option></select><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>STATUS <span class="required-badge">Wajib</span></label><select name="status"><option value="">Pilih Status</option><option value="aktif" ' + (item.status === 'aktif' ? 'selected' : '') + '>Aktif</option><option value="selesai" ' + (item.status === 'selesai' ? 'selected' : '') + '>Selesai</option><option value="proses" ' + (item.status === 'proses' ? 'selected' : '') + '>Proses</option></select><div class="error-msg">Wajib diisi</div></div>' +
           '<div class="form-group"><label>TEMPAT/ TGL LAHIR</label><input type="text" name="tempat_tgl_lahir" value="' + escapeHtml(item.tempat_tgl_lahir || '') + '"></div>' +
           '<div class="form-group"><label>DOMISILI</label><textarea name="domisili">' + escapeHtml(item.domisili || '') + '</textarea></div>' +
           '<div class="form-group"><label>TAHUN STUDI</label><input type="text" name="tahun_studi" value="' + escapeHtml(item.tahun_studi || '') + '"></div>' +
