@@ -3,9 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRANSIT - Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>E-SPPD - Elektronik Surat Perjalanan Dinas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/datatables.net/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables.net-bs5/css/dataTables.bootstrap5.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/qrcode.js/lib/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             --primary: #0f172a;
@@ -28,7 +35,6 @@
             --glass-border: rgba(255, 255, 255, 0.5);
             --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
         [data-theme="dark"] {
             --primary: #1e40af;
             --primary-light: #3b82f6;
@@ -42,497 +48,178 @@
             --glass-bg: rgba(15, 23, 42, 0.85);
             --glass-border: rgba(255, 255, 255, 0.1);
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', 'Poppins', 'Segoe UI', sans-serif;
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             min-height: 100vh;
             color: var(--text-primary);
             transition: var(--transition);
             overflow-x: hidden;
         }
-
         .loader-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--primary);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--primary); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 9999;
             transition: opacity 0.8s ease;
         }
-
         .loader-logo {
-            width: 120px;
-            height: 120px;
-            background: var(--white);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 30px;
-            box-shadow: 0 0 50px var(--accent);
-            animation: pulse 2s infinite;
+            width: 120px; height: 120px; background: var(--white);
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; margin-bottom: 30px;
+            box-shadow: 0 0 50px var(--accent); animation: pulse 2s infinite;
         }
-
-        .loader-logo h1 {
-            color: var(--primary);
-            font-size: 2.5rem;
-            font-weight: 800;
-        }
-
+        .loader-logo h1 { color: var(--primary); font-size: 2.5rem; font-weight: 800; }
         .loader {
-            width: 60px;
-            height: 60px;
+            width: 60px; height: 60px;
             border: 4px solid rgba(255,255,255,0.3);
-            border-top-color: var(--white);
-            border-radius: 50%;
+            border-top-color: var(--white); border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-
-        .loader-text {
-            color: var(--white);
-            margin-top: 20px;
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
+        .loader-text { color: var(--white); margin-top: 20px; font-size: 1.1rem; font-weight: 500; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
         .toast-container {
-            position: fixed;
-            top: 30px;
-            right: 30px;
-            z-index: 3000;
+            position: fixed; top: 30px; right: 30px; z-index: 3000;
         }
-
         .toast {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            padding: 16px 28px;
-            border-radius: 16px;
-            margin-bottom: 12px;
-            box-shadow: var(--shadow);
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            animation: slideIn 0.4s ease;
-            border-left: 4px solid;
-            min-width: 280px;
+            background: var(--glass-bg); backdrop-filter: blur(20px);
+            padding: 16px 28px; border-radius: 16px; margin-bottom: 12px;
+            box-shadow: var(--shadow); display: flex; align-items: center;
+            gap: 15px; animation: slideIn 0.4s ease;
+            border-left: 4px solid; min-width: 280px;
         }
-
         .toast.success { border-color: var(--success); }
         .toast.error { border-color: var(--danger); }
         .toast.warning { border-color: var(--warning); }
-
         @keyframes slideIn {
             from { transform: translateX(120%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
-
         .header {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            padding: 18px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            background: var(--glass-bg); backdrop-filter: blur(20px);
+            padding: 18px 32px; display: flex; justify-content: space-between;
+            align-items: center; position: sticky; top: 0; z-index: 100;
             border-bottom: 1px solid var(--glass-border);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
-
-        .header h1 {
-            color: var(--primary);
-            font-size: 1.8rem;
-            font-weight: 800;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-
+        .header h1 { color: var(--primary); font-size: 1.8rem; font-weight: 800; }
+        .header-controls { display: flex; align-items: center; gap: 20px; }
+        .user-info { display: flex; align-items: center; gap: 12px; color: var(--text-primary); font-weight: 600; }
         .theme-toggle {
-            background: var(--primary);
-            color: var(--white);
-            border: none;
-            padding: 12px 24px;
-            border-radius: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: var(--transition);
-            font-weight: 600;
-            font-size: 0.95rem;
+            background: var(--primary); color: var(--white); border: none;
+            padding: 12px 24px; border-radius: 16px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px; transition: var(--transition);
+            font-weight: 600; font-size: 0.95rem;
         }
-
         .sidebar {
-            width: 260px;
-            height: 100vh;
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            position: fixed;
-            left: 0;
-            top: 0;
-            z-index: 99;
-            transition: var(--transition);
-            border-right: 1px solid var(--glass-border);
-            overflow-y: auto;
+            width: 260px; height: 100vh; background: var(--glass-bg);
+            backdrop-filter: blur(20px); position: fixed; left: 0; top: 0;
+            z-index: 99; transition: var(--transition);
+            border-right: 1px solid var(--glass-border); overflow-y: auto;
         }
-
-        .sidebar.collapsed {
-            transform: translateX(-260px);
-        }
-
+        .sidebar.collapsed { transform: translateX(-260px); }
         .sidebar-header {
-            padding: 30px 24px 24px;
-            text-align: center;
+            padding: 30px 24px 24px; text-align: center;
             border-bottom: 1px solid var(--glass-border);
         }
-
-        .sidebar-header h2 {
-            color: var(--primary);
-            font-size: 1.8rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-
-        .sidebar-header p {
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-        }
-
-        .sidebar-menu {
-            padding: 16px 0;
-        }
-
+        .sidebar-header h2 { color: var(--primary); font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; }
+        .sidebar-header p { color: var(--text-secondary); font-size: 0.85rem; }
+        .sidebar-menu { padding: 16px 0; }
         .menu-item {
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            color: var(--text-primary);
-            text-decoration: none;
-            transition: var(--transition);
-            border-left: 3px solid transparent;
-            position: relative;
+            padding: 16px 24px; display: flex; align-items: center; gap: 18px;
+            color: var(--text-primary); text-decoration: none; transition: var(--transition);
+            border-left: 3px solid transparent; position: relative;
         }
-
-        .menu-item:hover {
-            background: var(--accent);
-            color: var(--white);
-        }
-
-        .menu-item.active {
-            background: var(--accent);
-            color: var(--white);
-            border-left: 3px solid var(--white);
-        }
-
-        .main-content {
-            padding: 40px;
-            margin-left: 260px;
-            min-height: calc(100vh - 80px);
-            animation: fadeIn 0.6s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .page-title {
-            color: var(--white);
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 30px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
+        .menu-item:hover { background: var(--accent); color: var(--white); }
+        .menu-item.active { background: var(--accent); color: var(--white); border-left: 3px solid var(--white); }
+        .main-content { padding: 40px; margin-left: 260px; min-height: calc(100vh - 80px); animation: fadeIn 0.6s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .page-title { color: var(--white); font-size: 2.5rem; font-weight: 800; margin-bottom: 30px; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); }
         .card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--border-radius);
-            padding: 32px;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow);
-            transition: var(--transition);
+            background: var(--glass-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: var(--border-radius);
+            padding: 32px; margin-bottom: 24px; box-shadow: var(--shadow); transition: var(--transition);
         }
-
         .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 24px;
-            margin-bottom: 40px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px; margin-bottom: 40px;
         }
-
         .stat-card {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            color: var(--white);
-            padding: 32px;
-            border-radius: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
+            color: var(--white); padding: 32px; border-radius: 20px; text-align: center;
+            cursor: pointer; transition: var(--transition); position: relative; overflow: hidden;
             box-shadow: 0 15px 35px rgba(15, 23, 42, 0.4);
         }
-
-        .stat-card:hover {
-            transform: translateY(-12px) scale(1.05);
-            box-shadow: 0 25px 50px rgba(15, 23, 42, 0.5);
-        }
-
-        .stat-number {
-            font-size: 2.8rem;
-            font-weight: 800;
-            margin-bottom: 12px;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .stat-label {
-            font-size: 1.05rem;
-            opacity: 0.95;
-            font-weight: 500;
-        }
-
+        .stat-card:hover { transform: translateY(-12px) scale(1.05); box-shadow: 0 25px 50px rgba(15, 23, 42, 0.5); }
+        .stat-number { font-size: 2.8rem; font-weight: 800; margin-bottom: 12px; font-family: 'Poppins', sans-serif; }
+        .stat-label { font-size: 1.05rem; opacity: 0.95; font-weight: 500; }
         .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-            gap: 24px;
-            margin-bottom: 30px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 24px; margin-bottom: 30px;
         }
-
         .chart-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--border-radius);
-            padding: 28px;
-            box-shadow: var(--shadow);
+            background: var(--glass-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: var(--border-radius);
+            padding: 28px; box-shadow: var(--shadow);
         }
-
-        .chart-title {
-            color: var(--primary);
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 25px;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-        }
-
-        .form-group {
-            margin-bottom: 24px;
-        }
-
-        .form-label {
-            display: block;
-            color: var(--primary);
-            font-weight: 700;
-            margin-bottom: 10px;
-            font-size: 0.95rem;
-        }
-
+        .chart-title { color: var(--primary); font-size: 1.3rem; font-weight: 700; margin-bottom: 25px; text-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+        .form-group { margin-bottom: 24px; }
+        .form-label { display: block; color: var(--primary); font-weight: 700; margin-bottom: 10px; font-size: 0.95rem; }
         .form-input {
-            width: 100%;
-            padding: 16px 22px;
-            border: 2px solid var(--gray);
-            border-radius: 16px;
-            font-size: 1rem;
-            font-family: inherit;
-            transition: var(--transition);
+            width: 100%; padding: 16px 22px; border: 2px solid var(--gray);
+            border-radius: 16px; font-size: 1rem; font-family: inherit; transition: var(--transition);
             background: var(--white);
         }
-
-        .form-input:focus {
-            border-color: var(--accent);
-            outline: none;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4);
-        }
-
+        .form-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4); }
         .btn {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            color: var(--white);
-            border: none;
-            padding: 16px 32px;
-            border-radius: 16px;
-            cursor: pointer;
-            font-size: 1.05rem;
-            font-weight: 700;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.3);
+            color: var(--white); border: none; padding: 16px 32px; border-radius: 16px;
+            cursor: pointer; font-size: 1.05rem; font-weight: 700; transition: var(--transition);
+            display: inline-flex; align-items: center; gap: 12px; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.3);
         }
-
-        .btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 35px rgba(15, 23, 42, 0.4);
-        }
-
-        .btn-secondary {
-            background: linear-gradient(135deg, var(--gray) 0%, #cbd5e1 100%);
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, var(--danger) 0%, #f87171 100%);
-        }
-
-        .table-container {
-            overflow-x: auto;
-            border-radius: 16px;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            font-size: 0.95rem;
-        }
-
-        .table th, .table td {
-            padding: 18px 20px;
-            text-align: left;
-            border-bottom: 1px solid var(--gray);
-        }
-
-        .table th {
-            background: var(--primary);
-            color: var(--white);
-            font-weight: 700;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .table tr:hover {
-            background: rgba(59, 130, 246, 0.1);
-        }
-
-        .badge {
-            padding: 8px 20px;
-            border-radius: 24px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
+        .btn:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(15, 23, 42, 0.4); }
+        .btn-secondary { background: linear-gradient(135deg, var(--gray) 0%, #cbd5e1 100%); }
+        .btn-danger { background: linear-gradient(135deg, var(--danger) 0%, #f87171 100%); }
+        .btn-success { background: linear-gradient(135deg, var(--success) 0%, #4ade80 100%); }
+        .table-container { overflow-x: auto; border-radius: 16px; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.95rem; }
+        .table th, .table td { padding: 18px 20px; text-align: left; border-bottom: 1px solid var(--gray); }
+        .table th { background: var(--primary); color: var(--white); font-weight: 700; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .table tr:hover { background: rgba(59, 130, 246, 0.1); }
+        .badge { padding: 8px 20px; border-radius: 24px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         .badge-draft { background: var(--gray); color: var(--text-primary); }
         .badge-pending { background: rgba(245, 158, 11, 0.2); color: #d97706; }
         .badge-approved { background: rgba(16, 185, 129, 0.2); color: #059669; }
         .badge-rejected { background: rgba(239, 68, 68, 0.2); color: #dc2626; }
         .badge-completed { background: rgba(156, 163, 244, 0.2); color: #7c3aed; }
-
         .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(5px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: var(--transition);
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000; opacity: 0; visibility: hidden; transition: var(--transition);
         }
-
-        .modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
+        .modal-overlay.active { opacity: 1; visibility: visible; }
         .modal {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 40px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 85vh;
-            overflow-y: auto;
-            box-shadow: var(--shadow);
+            background: var(--glass-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 24px;
+            padding: 40px; max-width: 600px; width: 90%; max-height: 85vh;
+            overflow-y: auto; box-shadow: var(--shadow);
         }
-
-        .password-wrapper {
-            position: relative;
-        }
-
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .modal-title { color: var(--primary); font-size: 1.5rem; font-weight: 700; }
+        .modal-close { background: none; border: none; font-size: 28px; cursor: pointer; color: var(--text-secondary); }
+        .password-wrapper { position: relative; }
         .toggle-password {
-            position: absolute;
-            right: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-weight: 600;
-            font-size: 0.95rem;
+            position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; color: var(--text-secondary); font-weight: 600; font-size: 0.95rem;
         }
-
-        .bg-elements {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            overflow: hidden;
-        }
-
+        .bg-elements { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden; }
         .bg-element {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-            animation: float 15s infinite linear;
+            position: absolute; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05); animation: float 15s infinite linear;
         }
-
         @keyframes float {
             0% { transform: translate(0, 0) rotate(0deg); }
             25% { transform: translate(20px, 30px) rotate(90deg); }
@@ -540,140 +227,27 @@
             75% { transform: translate(20px, -30px) rotate(270deg); }
             100% { transform: translate(0, 0) rotate(360deg); }
         }
-
-        .login-container {
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            padding: 40px;
-        }
-
+        .login-container { min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 40px; }
         .login-box {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            padding: 60px;
-            border-radius: 24px;
-            width: 100%;
-            max-width: 480px;
-            box-shadow: var(--shadow);
+            background: var(--glass-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); padding: 60px; border-radius: 24px;
+            width: 100%; max-width: 480px; box-shadow: var(--shadow);
         }
-
-        .login-box h2 {
-            text-align: center;
-            color: var(--primary);
-            margin-bottom: 35px;
-            font-size: 1.8rem;
-            font-weight: 800;
+        .login-box h2 { text-align: center; color: var(--primary); margin-bottom: 35px; font-size: 1.8rem; font-weight: 800; }
+        .login-box .logo h1 { color: var(--white); font-size: 2.5rem; font-weight: 800; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); }
+        .workflow-progress { display: flex; align-items: center; margin: 30px 0; }
+        .workflow-step { text-align: center; flex: 1; position: relative; }
+        .workflow-step .step-icon {
+            width: 50px; height: 50px; border-radius: 50%; background: var(--gray);
+            display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;
+            font-weight: 700; color: var(--white);
         }
-
-        .login-box .logo h1 {
-            color: var(--white);
-            font-size: 2.5rem;
-            font-weight: 800;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        .workflow-step.active .step-icon { background: var(--success); }
+        .workflow-step.completed .step-icon { background: var(--accent); }
+        .workflow-step:not(:last-child):after {
+            content: ''; position: absolute; top: 25px; left: 50%; width: 50%; height: 2px; background: var(--gray);
         }
-
-        .landing-page {
-            min-height: 100vh;
-            padding: 0;
-        }
-
-        .hero {
-            padding: 120px 30px 80px;
-            text-align: center;
-            color: var(--white);
-        }
-
-        .hero-logo {
-            width: 160px;
-            height: 160px;
-            background: var(--white);
-            border-radius: 50%;
-            margin: 0 auto 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        .hero-logo h1 {
-            color: var(--primary);
-            font-size: 3rem;
-            font-weight: 800;
-        }
-
-        .hero h2 {
-            font-size: 2.8rem;
-            margin: 20px 0 25px;
-            font-weight: 800;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .hero p {
-            font-size: 1.25rem;
-            opacity: 0.95;
-            margin-bottom: 50px;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .stats-landing {
-            padding: 100px 30px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            color: var(--white);
-        }
-
-        .stats-landing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 25px;
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-
-        .features {
-            padding: 100px 30px;
-            background: var(--white);
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 35px;
-            max-width: 1300px;
-            margin: 0 auto;
-        }
-
-        .feature-card {
-            text-align: center;
-            padding: 40px 30px;
-            border-radius: 20px;
-            background: var(--light-gray);
-            transition: var(--transition);
-            border: 1px solid var(--glass-border);
-        }
-
-        .feature-card h3 {
-            margin-bottom: 18px;
-            font-size: 1.3rem;
-            font-weight: 700;
-        }
-
-        .footer {
-            background: var(--primary);
-            color: var(--white);
-            padding: 40px 30px;
-            text-align: center;
-        }
-
-        @media (max-width: 1200px) {
-            .charts-grid { grid-template-columns: 1fr; }
-        }
-
+        @media (max-width: 1200px) { .charts-grid { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-260px); }
             .sidebar.active { transform: translateX(0); }
@@ -681,30 +255,7 @@
             .page-title { font-size: 2rem; }
             .stat-number { font-size: 2.2rem; }
             .login-box { padding: 40px 30px; }
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(120%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
+            .charts-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -717,7 +268,7 @@
 
     <div class="loader-container" id="loader">
         <div>
-            <div class="loader-logo"><h1>TRANSIT</h1></div>
+            <div class="loader-logo"><h1>E-SPPD</h1></div>
             <div class="loader"></div>
             <div class="loader-text">Memuat Aplikasi...</div>
         </div>
@@ -725,41 +276,13 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
-    <div class="landing-page" id="landingPage">
-        <div class="hero">
-            <div class="hero-logo"><h1>TRANSIT</h1></div>
-            <h2>Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</h2>
-            <p>Digitalisasi Pengelolaan Perjalanan Dinas yang Cepat, Transparan, Efektif dan Akuntabel</p>
-            <button class="btn btn-white" onclick="showLogin()">Masuk Sistem</button>
-        </div>
-
-        <div class="stats-landing">
-            <div class="stats-landing-grid">
-                <div class="stat-card"><div class="stat-number" id="totalPengajuan">0</div><div class="stat-label">Total Pengajuan</div></div>
-                <div class="stat-card"><div class="stat-number" id="totalDisetujui">0</div><div class="stat-label">Total Disetujui</div></div>
-                <div class="stat-card"><div class="stat-number" id="totalDitolak">0</div><div class="stat-label">Total Ditolak</div></div>
-                <div class="stat-card"><div class="stat-number" id="totalSelesai">0</div><div class="stat-label">Total Selesai</div></div>
-            </div>
-        </div>
-
-        <div class="features">
-            <div class="features-grid">
-                <div class="feature-card"><h3> Pengajuan Online</h3><p>Formulir permohonan perjalanan dinas secara digital</p></div>
-                <div class="feature-card"><h3>Verifikasi Berjenjang</h3><p>Sistem verifikasi dengan alur yang telah ditetapkan</p></div>
-                <div class="feature-card"><h3>Monitoring Status</h3><p>Pemantauan real-time status perjalanan dinas</p></div>
-                <div class="feature-card"><h3>Dashboard Analitik</h3><p>Laporan dan analisis data perjalanan dinas</p></div>
-                <div class="feature-card"><h3>Arsip Digital</h3><p>Simpanan dokumen secara elektronik</p></div>
-                <div class="feature-card"><h3>Report System</h3><p>Generasi laporan dalam format Excel dan PDF</p></div>
-            </div>
-        </div>
-
-        <div class="footer"><p>&copy; 2024 TRANSIT - Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</p></div>
-    </div>
-
-    <div class="login-container" id="loginPage" style="display: none;">
+    <div class="login-container" id="loginPage">
         <div class="login-box">
-            <div class="logo"><h1>TRANSIT</h1><p>Transformasi Tata Kelola Perjalanan Dinas Terintegrasi</p></div>
-            <h2>Masuk Sistem</h2>
+            <div class="logo" style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: var(--primary); font-size: 2.5rem; font-weight: 800;">E-SPPD</h1>
+                <p style="color: var(--text-secondary); margin-top: 10px;">Elektronik Surat Perjalanan Dinas</p>
+            </div>
+            <h2 style="margin-bottom: 30px;">Masuk Sistem</h2>
             <form id="loginForm">
                 <div class="form-group">
                     <label class="form-label">Username</label>
@@ -776,10 +299,14 @@
                     <label class="form-label">Role</label>
                     <select class="form-input" id="role" required>
                         <option value="">Pilih Role</option>
-                        <option value="user">User</option>
-                        <option value="verifikator">Verifikator</option>
-                        <option value="administrator">Administrator</option>
-                        <option value="superadmin">Super Admin</option>
+                        <option value="PEGAWAI">Pegawai</option>
+                        <option value="ATASAN">Atasan Langsung</option>
+                        <option value="OPERATOR">Operator</option>
+                        <option value="PPTK">PPTK</option>
+                        <option value="PPK">PPK</option>
+                        <option value="PIMPINAN">Pimpinan</option>
+                        <option value="ADMIN">Administrator</option>
+                        <option value="SUPER_ADMIN">Super Admin</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -796,30 +323,34 @@
     <div class="dashboard" id="dashboard" style="display: none;">
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>TRANSIT</h2>
+                <h2>E-SPPD</h2>
                 <p>Manajemen Perjalanan Dinas</p>
             </div>
             <div class="sidebar-menu">
-                <a href="#" class="menu-item active" onclick="showPage('dashboard')"><span style="font-size: 1.4rem;">📊</span> Dashboard</a>
-                <a href="#" class="menu-item" onclick="showPage('petunjuk')"><span style="font-size: 1.4rem;">📚</span> Petunjuk Teknis</a>
-                <a href="#" class="menu-item" onclick="showPage('input')"><span style="font-size: 1.4rem;">📝</span> Input Data Perjadin</a>
-                <a href="#" class="menu-item" onclick="showPage('cekStatus')"><span style="font-size: 1.4rem;">🔍</span> Cek Status</a>
-                <a href="#" class="menu-item" onclick="showPage('riwayat')"><span style="font-size: 1.4rem;">📋</span> Riwayat Pengajuan</a>
-                <a href="#" class="menu-item" onclick="showPage('panelAdmin')"><span style="font-size: 1.4rem;">⚙️</span> Panel Admin</a>
-                <a href="#" class="menu-item" onclick="showPage('laporan')"><span style="font-size: 1.4rem;">📈</span> Laporan</a>
-                <a href="#" class="menu-item" onclick="showPage('manajemenUser')"><span style="font-size: 1.4rem;">👥</span> Manajemen User</a>
-                <a href="#" class="menu-item" onclick="showPage('profil')"><span style="font-size: 1.4rem;">👤</span> Profil Pengguna</a>
-                <a href="#" class="menu-item" onclick="logout()"><span style="font-size: 1.4rem;">🚪</span> Logout</a>
+                <a href="#" class="menu-item active" onclick="showPage('dashboard')"><i class="bi bi-grid-1x2"></i> Dashboard</a>
+                <a href="#" class="menu-item" onclick="showPage('pengajuan')"><i class="bi bi-send"></i> Pengajuan Perjalanan</a>
+                <a href="#" class="menu-item" onclick="showPage('riwayat')"><i class="bi bi-clock-history"></i> Riwayat Pengajuan</a>
+                <a href="#" class="menu-item" onclick="showPage('verifikasi')"><i class="bi bi-check-circle"></i> Verifikasi</a>
+                <a href="#" class="menu-item" onclick="showPage('spt')"><i class="bi bi-file-text"></i> Surat Tugas</a>
+                <a href="#" class="menu-item" onclick="showPage('sppd')"><i class="bi bi-file-earmark-text"></i> SPPD</a>
+                <a href="#" class="menu-item" onclick="showPage('realisasi')"><i class="bi bi-wallet2"></i> Realisasi</a>
+                <a href="#" class="menu-item" onclick="showPage('laporan')"><i class="bi bi-bar-chart"></i> Laporan</a>
+                <a href="#" class="menu-item" onclick="showPage('master')"><i class="bi bi-database"></i> Master Data</a>
+                <a href="#" class="menu-item" onclick="showPage('user')"><i class="bi bi-people"></i> Manajemen User</a>
+                <a href="#" class="menu-item" onclick="showPage('audit')"><i class="bi bi-journal-text"></i> Audit Trail</a>
+                <a href="#" class="menu-item" onclick="showPage('profile')"><i class="bi bi-person"></i> Profil</a>
+                <a href="#" class="menu-item" onclick="logout()"><i class="bi bi-box-arrow-left"></i> Logout</a>
             </div>
         </div>
 
         <div class="header">
             <div style="display: flex; align-items: center; gap: 20px;">
-                <button class="theme-toggle" onclick="toggleSidebar()" id="menuToggle">☰ Menu</button>
+                <button class="theme-toggle" onclick="toggleSidebar()" id="menuToggle"><i class="bi bi-list"></i> Menu</button>
+                <span style="color: var(--white); font-weight: 600;" id="roleBadge"></span>
             </div>
             <div class="header-controls">
-                <div class="user-info"><span>👤</span><span id="userInfo">-</span></div>
-                <button class="theme-toggle" onclick="toggleTheme()">🌙 <span id="themeText">Dark Mode</span></button>
+                <div class="user-info"><i class="bi bi-person-circle"></i><span id="userInfo">-</span></div>
+                <button class="theme-toggle" onclick="toggleTheme()"><i class="bi bi-moon" id="themeIcon"></i> <span id="themeText">Dark Mode</span></button>
             </div>
         </div>
 
@@ -827,139 +358,180 @@
             <div id="page-dashboard">
                 <h1 class="page-title">Dashboard</h1>
                 <div class="stats-grid">
-                    <div class="stat-card" onclick="showDetailPopup('pengajuan')"><div class="stat-number" id="statPengajuan">0</div><div class="stat-label">Total Pengajuan</div></div>
-                    <div class="stat-card" onclick="showDetailPopup('pending')"><div class="stat-number" id="statPending">0</div><div class="stat-label">Menunggu Verifikasi</div></div>
-                    <div class="stat-card" onclick="showDetailPopup('approved')"><div class="stat-number" id="statApproved">0</div><div class="stat-label">Disetujui</div></div>
-                    <div class="stat-card" onclick="showDetailPopup('rejected')"><div class="stat-number" id="statRejected">0</div><div class="stat-label">Ditolak</div></div>
-                    <div class="stat-card" onclick="showDetailPopup('revision')"><div class="stat-number" id="statRevision">0</div><div class="stat-label">Revisi</div></div>
-                    <div class="stat-card" onclick="showDetailPopup('completed')"><div class="stat-number" id="statCompleted">0</div><div class="stat-label">Selesai</div></div>
+                    <div class="stat-card" onclick="showDetail('pengajuan')"><div class="stat-number" id="statPengajuan">0</div><div class="stat-label">Total Pengajuan</div></div>
+                    <div class="stat-card" onclick="showDetail('pending')"><div class="stat-number" id="statPending">0</div><div class="stat-label">Menunggu Verifikasi</div></div>
+                    <div class="stat-card" onclick="showDetail('approved')"><div class="stat-number" id="statApproved">0</div><div class="stat-label">Disetujui</div></div>
+                    <div class="stat-card" onclick="showDetail('rejected')"><div class="stat-number" id="statRejected">0</div><div class="stat-label">Ditolak</div></div>
+                    <div class="stat-card" onclick="showDetail('completed')"><div class="stat-number" id="statCompleted">0</div><div class="stat-label">Selesai</div></div>
+                    <div class="stat-card" onclick="showDetail('anggaran')"><div class="stat-number" id="statAnggaran">Rp0</div><div class="stat-label">Total Anggaran</div></div>
                 </div>
 
                 <div class="charts-grid">
                     <div class="chart-card"><div class="chart-title">Pengajuan per Bulan</div><div class="chart-container"><canvas id="chartBulan"></canvas></div></div>
-                    <div class="chart-card"><div class="chart-title">Pengajuan per Unit Kerja</div><div class="chart-container"><canvas id="chartUnit"></canvas></div></div>
-                </div>
-                <div class="chart-card"><div class="chart-title">Status Perjalanan Dinas</div><div class="chart-container"><canvas id="chartStatus"></canvas></div></div>
-            </div>
-
-            <div id="page-petunjuk" style="display: none;">
-                <h1 class="page-title">Petunjuk Teknis</h1>
-                <div class="card">
-                    <h3 style="color: var(--primary); margin-bottom: 20px;">Dasar Hukum</h3>
-                    <ul style="margin-left: 25px; font-size: 1.05rem;">
-                        <li style="margin-bottom: 12px;">Surat Keputusan Kepala Bappeda - Penetapan Transformasi Digital Tata Kelola Perjalanan Dinas</li>
-                        <li style="margin-bottom: 12px;">Peraturan Menteri Keuangan tentang Pedoman Pengelolaan Anggaran Belanja pada Instansi Pemerintah</li>
-                        <li style="margin-bottom: 12px;">Standar Operasional Prosedur (SOP) Pemeriksaan Persamaan Resipa Obat</li>
-                        <li>Keputusan Presiden tentang Arah Kebijakan Negara dalam Rangka Pembangunan Kepresidenan 2024-2029</li>
-                    </ul>
-                </div>
-                <div class="accordion">
-                    <div class="accordion-item" style="margin-bottom: 16px; border: 1px solid var(--gray); border-radius: 16px; overflow: hidden;">
-                        <div class="accordion-header" onclick="toggleAccordion(this)" style="padding: 22px; background: var(--light-gray); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: var(--primary);">Alur Pengajuan Perjalanan Dinas <span>▼</span></div>
-                        <div class="accordion-content" style="padding: 0 25px; max-height: 0; overflow: hidden; transition: all 0.4s ease;">
-                            <div style="padding: 25px; font-size: 1.05rem; line-height: 1.7;">
-                                <ol style="margin-left: 25px;">
-                                    <li style="margin-bottom: 10px;">Pegawai mengisi form pengajuan perjalanan dinas secara online</li>
-                                    <li style="margin-bottom: 10px;">Data yang diisi akan tersimpan sebagai draft</li>
-                                    <li style="margin-bottom: 10px;">Pengajuan dikirimkan ke atasan langsung untuk verifikasi</li>
-                                    <li style="margin-bottom: 10px;">Atasan memeriksa kelengkapan dokumen</li>
-                                    <li style="margin-bottom: 10px;">Jika diterima, status berubah menunggu persetujuan</li>
-                                    <li>Persetujuan akhir oleh pejabat yang berwenang</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="chart-card"><div class="chart-title">Status Perjalanan</div><div class="chart-container"><canvas id="chartStatus"></canvas></div></div>
                 </div>
             </div>
 
-            <div id="page-input" style="display: none;">
-                <h1 class="page-title">Input Data Perjadin</h1>
+            <div id="page-pengajuan" style="display: none;">
+                <h1 class="page-title">Pengajuan Perjalanan Dinas</h1>
                 <div class="card">
-                    <h3 style="color: var(--primary); margin-bottom: 25px;">Data Pegawai</h3>
-                    <div class="form-grid">
-                        <div class="form-group"><label class="form-label">NIP</label><input type="text" class="form-input" id="nip" placeholder="Masukkan NIP"></div>
-                        <div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" class="form-input" id="nama" placeholder="Masukkan nama lengkap"></div>
-                        <div class="form-group"><label class="form-label">Jabatan</label><input type="text" class="form-input" id="jabatan" placeholder="Masukkan jabatan"></div>
-                        <div class="form-group"><label class="form-label">Unit Kerja</label><input type="text" class="form-input" id="unitKerja" placeholder="Masukkan unit kerja"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 20px;">
+                        <h3 style="color: var(--primary); margin: 0;">Daftar Pengajuan</h3>
+                        <button class="btn" onclick="openPengajuanModal()"><i class="bi bi-plus"></i> Tambah Pengajuan</button>
                     </div>
-                </div>
-                <div class="card">
-                    <h3 style="color: var(--primary); margin-bottom: 25px;">Data Perjalanan</h3>
-                    <div class="form-grid">
-                        <div class="form-group"><label class="form-label">Nomor Surat Tugas</label><input type="text" class="form-input" id="noSurat" placeholder="Masukkan nomor surat"></div>
-                        <div class="form-group"><label class="form-label">Tanggal Surat Tugas</label><input type="date" class="form-input" id="tglSurat"></div>
-                        <div class="form-group"><label class="form-label">Maksud Perjalanan</label><input type="text" class="form-input" id="maksud" placeholder="Masukkan maksud perjalanan"></div>
-                        <div class="form-group"><label class="form-label">Kota Tujuan</label><input type="text" class="form-input" id="kotaTujuan" placeholder="Masukkan kota tujuan"></div>
-                        <div class="form-group"><label class="form-label">Instansi Tujuan</label><input type="text" class="form-input" id="instansiTujuan" placeholder="Masukkan instansi tujuan"></div>
-                        <div class="form-group"><label class="form-label">Tanggal Berangkat</label><input type="date" class="form-input" id="tglBerangkat"></div>
-                        <div class="form-group"><label class="form-label">Tanggal Kembali</label><input type="date" class="form-input" id="tglKembali"></div>
-                        <div class="form-group"><label class="form-label">Lama Hari</label><input type="number" class="form-input" id="lamaPerjalanan" readonly></div>
+                    <div class="table-container">
+                        <table class="table" id="tabelPengajuan">
+                            <thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Tujuan</th><th>Status</th><th>Aksi</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
-                </div>
-                <div class="card">
-                    <h3 style="color: var(--primary); margin-bottom: 25px;">Pembiayaan</h3>
-                    <div class="form-grid">
-                        <div class="form-group"><label class="form-label">Sumber Dana</label>
-                            <select class="form-input" id="sumberDana"><option value="APBN">APBN</option><option value="APBD">APBD</option><option value="Hasil Program">Hasil Program</option></select>
-                        </div>
-                        <div class="form-group"><label class="form-label">Anggaran (Rp)</label><input type="number" class="form-input" id="anggaran" placeholder="Masukkan anggaran"></div>
-                    </div>
-                </div>
-                <div class="card">
-                    <button class="btn" onclick="savePengajuan()">Simpan</button>
-                    <button class="btn btn-secondary" onclick="resetForm()">Reset</button>
-                </div>
-            </div>
-
-            <div id="page-cekStatus" style="display: none;">
-                <h1 class="page-title">Cek Status</h1>
-                <div class="card">
-                    <div class="form-grid">
-                        <div class="form-group"><label class="form-label">Cari Berdasarkan</label>
-                            <select class="form-input" id="cariBy" onchange="toggleCari()"><option value="nip">NIP</option><option value="noSurat">Nomor Pengajuan</option></select>
-                        </div>
-                        <div class="form-group"><label class="form-label" id="labelCari">NIP</label><input type="text" class="form-input" id="cariInput" placeholder="Masukkan kata kunci"></div>
-                    </div>
-                    <button class="btn" onclick="cariData()">Cari</button>
-                </div>
-                <div id="hasilCari" style="display: none;">
-                    <div class="card"><h3 style="color: var(--primary); margin-bottom: 25px;">Hasil Pencarian</h3><div id="dataPengajuan"></div></div>
                 </div>
             </div>
 
             <div id="page-riwayat" style="display: none;">
                 <h1 class="page-title">Riwayat Pengajuan</h1>
-                <div class="card"><div class="table-container"><table class="table"><thead><tr><th>No</th><th>NIP</th><th>Nama</th><th>Tujuan</th><th>Tgl Berangkat</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tabelRiwayat"></tbody></table></div></div>
+                <div class="card">
+                    <div class="form-grid" style="margin-bottom: 25px;">
+                        <div class="form-group"><input type="text" class="form-input" id="searchRiwayat" placeholder="Cari data..." onkeyup="searchTable('tabelRiwayat', this.value)"></div>
+                    </div>
+                    <div class="table-container">
+                        <table class="table" id="tabelRiwayat">
+                            <thead><tr><th>No</th><th>Tanggal</th><th>Nama</th><th>Tujuan</th><th>Lama</th><th>Status</th><th>Aksi</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
-            <div id="page-panelAdmin" style="display: none;">
-                <h1 class="page-title">Panel Admin</h1>
+            <div id="page-verifikasi" style="display: none;">
+                <h1 class="page-title">Verifikasi Pengajuan</h1>
                 <div class="card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 20px;">
-                        <h3 style="color: var(--primary); margin: 0;">Daftar Data Perjadin</h3>
-                        <div style="display: flex; gap: 15px; flex-wrap: wrap;"><button class="btn" onclick="tambahData()">Tambah</button></div>
+                    <div class="table-container">
+                        <table class="table" id="tabelVerifikasi">
+                            <thead><tr><th>No</th><th>Nama</th><th>Tujuan</th><th>Status</th><th>Aksi</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
                     </div>
-                    <div class="table-container"><table class="table"><thead><tr><th>No</th><th>NIP</th><th>Nama</th><th>Tujuan</th><th>Tgl Berangkat</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tabelData"></tbody></table></div>
+                </div>
+            </div>
+
+            <div id="page-spt" style="display: none;">
+                <h1 class="page-title">Surat Tugas (SPT)</h1>
+                <div class="card">
+                    <div class="table-container">
+                        <table class="table" id="tabelSPT">
+                            <thead><tr><th>No</th><th>No SPT</th><th>Nama</th><th>Tujuan</th><th>Aksi</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-sppd" style="display: none;">
+                <h1 class="page-title">Surat Perjalanan Dinas (SPPD)</h1>
+                <div class="card">
+                    <div class="table-container">
+                        <table class="table" id="tabelSPPD">
+                            <thead><tr><th>No</th><th>No SPPD</th><th>Nama</th><th>Tujuan</th><th>QR Code</th><th>Aksi</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-realisasi" style="display: none;">
+                <h1 class="page-title">Realisasi Anggaran</h1>
+                <div class="card">
+                    <div class="form-grid" style="margin-bottom: 25px;">
+                        <div class="form-group"><input type="text" class="form-input" id="searchRealisasi" placeholder="Cari data..." onkeyup="searchTable('tabelRealisasi', this.value)"></div>
+                    </div>
+                    <div class="table-container">
+                        <table class="table" id="tabelRealisasi">
+                            <thead><tr><th>No</th><th>Nama</th><th>Tiket</th><th>Hotel</th><th>Uang Harian</th><th>Total</th><th>Aksi</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
             <div id="page-laporan" style="display: none;">
                 <h1 class="page-title">Laporan</h1>
                 <div class="card">
+                    <h3 style="color: var(--primary); margin-bottom: 25px;">Filter Laporan</h3>
                     <div class="form-grid">
                         <div class="form-group"><label class="form-label">Periode</label><select class="form-input" id="periodeLaporan"><option value="bulan">Per Bulan</option><option value="tahun">Per Tahun</option></select></div>
-                        <div class="form-group"><label class="form-label">Unit Kerja</label><select class="form-input" id="unitLaporan"><option value="">Semua Unit</option></select></div>
+                        <div class="form-group"><label class="form-label">Bulan</label><input type="month" class="form-input" id="bulanLaporan"></div>
+                        <div class="form-group"><label class="form-label">Tahun</label><input type="number" class="form-input" id="tahunLaporan" value="2024"></div>
                     </div>
-                    <div style="display: flex; gap: 15px; margin-top: 20px;"><button class="btn" onclick="exportExcel()">Export Excel</button><button class="btn btn-secondary" onclick="exportPDF()">Export PDF</button></div>
+                    <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
+                        <button class="btn" onclick="exportExcel()"><i class="bi bi-file-excel"></i> Export Excel</button>
+                        <button class="btn btn-secondary" onclick="exportPDF()"><i class="bi bi-file-pdf"></i> Export PDF</button>
+                        <button class="btn btn-success" onclick="printReport()"><i class="bi bi-printer"></i> Print</button>
+                    </div>
                 </div>
             </div>
 
-            <div id="page-manajemenUser" style="display: none;">
-                <h1 class="page-title">Manajemen User</h1>
-                <div class="card"><div class="table-container"><table class="table"><thead><tr><th>No</th><th>Username</th><th>Nama</th><th>Role</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="tabelUser"></tbody></table></div></div>
+            <div id="page-master" style="display: none;">
+                <h1 class="page-title">Master Data</h1>
+                <div id="tab-pegawai">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 20px;">
+                            <h3 style="color: var(--primary); margin: 0;">Data Pegawai</h3>
+                            <button class="btn" onclick="openPegawaiModal()"><i class="bi bi-person-plus"></i> Tambah Pegawai</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="table" id="tabelPegawai">
+                                <thead><tr><th>No</th><th>NIP</th><th>Nama</th><th>Jabatan</th><th>Unit Kerja</th><th>Aksi</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="tab-tujuan" style="margin-top: 30px;">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 20px;">
+                            <h3 style="color: var(--primary); margin: 0;">Data Tujuan Dinas</h3>
+                            <button class="btn" onclick="openTujuanModal()"><i class="bi bi-geo-alt-plus"></i> Tambah Tujuan</button>
+                        </div>
+                        <div class="table-container">
+                            <table class="table" id="tabelTujuan">
+                                <thead><tr><th>No</th><th>Provinsi</th><th>Kabupaten</th><th>Kota</th><th>Aksi</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div id="page-profil" style="display: none;">
+            <div id="page-user" style="display: none;">
+                <h1 class="page-title">Manajemen User</h1>
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 20px;">
+                        <h3 style="color: var(--primary); margin: 0;">Daftar User</h3>
+                        <button class="btn" onclick="openUserModal()"><i class="bi bi-person-plus"></i> Tambah User</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="table" id="tabelUser">
+                            <thead><tr><th>No</th><th>Username</th><th>Nama</th><th>Role</th><th>Status</th><th>Aksi</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-audit" style="display: none;">
+                <h1 class="page-title">Audit Trail</h1>
+                <div class="card">
+                    <div class="table-container">
+                        <table class="table" id="tabelAudit">
+                            <thead><tr><th>No</th><th>User</th><th>Aktivitas</th><th>Waktu</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-profile" style="display: none;">
                 <h1 class="page-title">Profil Pengguna</h1>
                 <div class="card">
                     <div style="text-align: center; margin-bottom: 40px;">
@@ -969,8 +541,10 @@
                     </div>
                     <div class="form-grid">
                         <div class="form-group"><label class="form-label">Username</label><input type="text" class="form-input" id="profilUsername" readonly></div>
+                        <div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" class="form-input" id="profilNamaInput"></div>
                         <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="profilEmail"></div>
                         <div class="form-group"><label class="form-label">Unit Kerja</label><input type="text" class="form-input" id="profilUnitKerja" readonly></div>
+                        <div class="form-group"><label class="form-label">Jabatan</label><input type="text" class="form-input" id="profilJabatan" readonly></div>
                     </div>
                     <button class="btn" onclick="simpanProfil()" style="margin-top: 20px;">Simpan Perubahan</button>
                 </div>
@@ -981,28 +555,21 @@
     <div class="modal-overlay" id="modalOverlay">
         <div class="modal">
             <div class="modal-header">
-                <h3 class="modal-title" id="modalTitle">Detail Data</h3>
+                <h3 class="modal-title" id="modalTitle">Form Data</h3>
                 <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
             <div id="modalContent"></div>
         </div>
     </div>
 
-    <div class="lightbox-overlay" id="lightboxOverlay">
-        <div class="lightbox-content"><button class="modal-close" onclick="closeLightbox()" style="position: absolute; top: 15px; right: 15px;">×</button><iframe id="lightboxFrame" width="100%" height="500px" style="border: none; border-radius: 16px;"></iframe></div>
-    </div>
-
     <script>
         const CONFIG = {
             GAS_URL: 'https://script.google.com/macros/d/1LrBbXk2Wz5VjQYJqHf3KcPdAeFgHiJkL/exec',
-            SPREADSHEET_ID: '1a2b3c4d5e6f7g8h9i0j_klMNOPqrstuvwxyz',
-            DRIVE_FOLDER_ID: '1FolderIdABCDEFGHIJKLMNOPQRSTUVWXYZ',
-            API_KEY: 'transit_api_key_2024'
+            SS_ID: 'YOUR_SPREADSHEET_ID',
+            DRIVE_FOLDER_ID: 'YOUR_DRIVE_FOLDER_ID'
         };
 
         let currentUser = null;
-        let currentEditMode = false;
-        let editDataId = null;
         let currentData = [];
         let darkMode = false;
         let charts = {};
@@ -1011,26 +578,36 @@
             setTimeout(() => {
                 document.getElementById('loader').style.opacity = '0';
                 setTimeout(() => { document.getElementById('loader').style.display = 'none'; }, 500);
-            }, 1200);
+            }, 800);
             initApp();
         });
 
         async function initApp() {
-            showLogin();
-            await loadData();
             checkRememberLogin();
         }
 
-        async function apiRequest(endpoint, method = 'GET', data = null) {
+async function apiRequest(action, method = 'GET', data = null) {
             try {
+                const params = new URLSearchParams();
+                params.append('action', action);
+                if (data) {
+                    Object.keys(data).forEach(key => params.append(key, data[key]));
+                }
+                
+                const url = CONFIG.GAS_URL + '?' + params.toString();
                 const options = {
                     method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    muteHttpExceptions: true
+                    mode: 'cors',
+                    cache: 'no-cache'
                 };
-                if (data) options.payload = JSON.stringify({ ...data, config: CONFIG });
                 
-                const response = await fetch(CONFIG.GAS_URL + '/' + endpoint, options);
+                if (method === 'POST') {
+                    options.method = 'POST';
+                    options.headers = { 'Content-Type': 'application/json' };
+                    options.body = JSON.stringify({ action, ...data });
+                }
+                
+                const response = await fetch(url, options);
                 const result = await response.json();
                 return result;
             } catch (error) {
@@ -1038,10 +615,6 @@
                 return { success: false, data: [] };
             }
         }
-
-        async function loadData() {
-            const result = await apiRequest('getPerjadin');
-            currentData = result.success ? result.data : [];
         }
 
         function showToast(message, type = 'success') {
@@ -1056,6 +629,7 @@
             darkMode = !darkMode;
             document.body.setAttribute('data-theme', darkMode ? 'dark' : '');
             document.getElementById('themeText').textContent = darkMode ? 'Light Mode' : 'Dark Mode';
+            document.getElementById('themeIcon').className = darkMode ? 'bi bi-sun' : 'bi bi-moon';
         }
 
         function toggleSidebar() {
@@ -1064,15 +638,12 @@
         }
 
         function showLogin() {
-            document.getElementById('landingPage').style.display = 'none';
             document.getElementById('loginPage').style.display = 'block';
-            document.getElementById('loader').style.display = 'none';
         }
 
         function showDashboard() {
             document.getElementById('loginPage').style.display = 'none';
             document.getElementById('dashboard').style.display = 'block';
-            document.getElementById('loader').style.display = 'none';
             loadDashboard();
         }
 
@@ -1087,6 +658,12 @@
             document.getElementById(`page-${pageId}`).style.display = 'block';
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
             event.target.classList.add('active');
+            if (pageId === 'riwayat') loadRiwayat();
+            if (pageId === 'pengajuan') loadPengajuan();
+            if (pageId === 'verifikasi') loadVerifikasi();
+            if (pageId === 'master') loadMaster();
+            if (pageId === 'user') loadUser();
+            if (pageId === 'audit') loadAudit();
         }
 
         function togglePassword() {
@@ -1108,7 +685,6 @@
             }
 
             const result = await apiRequest('login', 'POST', { username, password, role });
-            
             if (result.success && result.user) {
                 currentUser = result.user;
                 if (document.getElementById('remember').checked) {
@@ -1119,7 +695,7 @@
                 showToast('Login berhasil! Selamat datang, ' + username, 'success');
                 setTimeout(showDashboard, 1000);
             } else {
-                showToast(result.message || 'Login gagal! Periksa kembali data Anda.', 'error');
+                showToast(result.message || 'Login gagal!', 'error');
             }
         }
 
@@ -1139,7 +715,7 @@
             currentUser = null;
             localStorage.removeItem('rememberUser');
             document.getElementById('dashboard').style.display = 'none';
-            document.getElementById('landingPage').style.display = 'block';
+            document.getElementById('loginPage').style.display = 'block';
             showToast('Anda telah keluar sistem');
         }
 
@@ -1149,19 +725,13 @@
                 pending: currentData.filter(d => d.status === 'pending').length,
                 approved: currentData.filter(d => d.status === 'approved').length,
                 rejected: currentData.filter(d => d.status === 'rejected').length,
-                revision: currentData.filter(d => d.status === 'revision').length,
                 completed: currentData.filter(d => d.status === 'completed').length
             };
             animateCounter('statPengajuan', stats.pengajuan);
             animateCounter('statPending', stats.pending);
             animateCounter('statApproved', stats.approved);
             animateCounter('statRejected', stats.rejected);
-            animateCounter('statRevision', stats.revision);
             animateCounter('statCompleted', stats.completed);
-            animateCounter('totalPengajuan', stats.pengajuan);
-            animateCounter('totalDisetujui', stats.approved + stats.completed);
-            animateCounter('totalDitolak', stats.rejected);
-            animateCounter('totalSelesai', stats.completed);
         }
 
         function animateCounter(id, target) {
@@ -1177,17 +747,10 @@
         }
 
         function initCharts() {
-            if (charts.bulan) charts.bulan.destroy();
-            if (charts.unit) charts.unit.destroy();
-            if (charts.status) charts.status.destroy();
-
+            Object.values(charts).forEach(c => c.destroy());
             charts.bulan = new Chart(document.getElementById('chartBulan'), {
                 type: 'bar', data: { labels: ['Jan','Feb','Mar','Apr','Mei','Jun'], datasets: [{ label: 'Pengajuan', data: [10,15,8,12,18,20], backgroundColor: 'rgba(15, 23, 42, 0.8)' }] },
                 options: { responsive: true, plugins: { legend: { display: false } } }
-            });
-            charts.unit = new Chart(document.getElementById('chartUnit'), {
-                type: 'pie', data: { labels: ['Bidang Pengembangan', 'Bidang Anggaran', 'IT Support'], datasets: [{ data: [30,40,30], backgroundColor: ['#0f172a','#1e40af','#3b82f6'] }] },
-                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
             });
             charts.status = new Chart(document.getElementById('chartStatus'), {
                 type: 'doughnut', data: { labels: ['Pending','Disetujui','Ditolak','Selesai'], datasets: [{ data: [25,35,20,20], backgroundColor: ['#f59e0b','#10b981','#ef4444','#84cc16'] }] },
@@ -1195,88 +758,14 @@
             });
         }
 
-        async function savePengajuan() {
-            const data = {
-                nip: document.getElementById('nip').value,
-                nama: document.getElementById('nama').value,
-                jabatan: document.getElementById('jabatan').value,
-                unitKerja: document.getElementById('unitKerja').value,
-                noSurat: document.getElementById('noSurat').value,
-                tglSurat: document.getElementById('tglSurat').value,
-                maksud: document.getElementById('maksud').value,
-                kotaTujuan: document.getElementById('kotaTujuan').value,
-                instansiTujuan: document.getElementById('instansiTujuan').value,
-                tglBerangkat: document.getElementById('tglBerangkat').value,
-                tglKembali: document.getElementById('tglKembali').value,
-                lamaPerjalanan: document.getElementById('lamaPerjalanan').value,
-                sumberDana: document.getElementById('sumberDana').value,
-                anggaran: document.getElementById('anggaran').value,
-                createdBy: currentUser.username
-            };
-            const result = await apiRequest('addPerjadin', 'POST', data);
-            if (result.success) {
-                showToast('Data berhasil disimpan!', 'success');
-                resetForm();
-                await loadData();
-                updateStats();
-            } else {
-                showToast(result.message || 'Gagal menyimpan data', 'error');
-            }
+        async function loadData() {
+            const result = await apiRequest('getData', 'POST');
+            currentData = result.success ? result.data : [];
         }
 
-        function resetForm() {
-            document.getElementById('nip').value = '';
-            document.getElementById('nama').value = '';
-            document.getElementById('jabatan').value = '';
-            document.getElementById('unitKerja').value = '';
-            document.getElementById('noSurat').value = '';
-            document.getElementById('tglSurat').value = '';
-            document.getElementById('maksud').value = '';
-            document.getElementById('kotaTujuan').value = '';
-            document.getElementById('instansiTujuan').value = '';
-            document.getElementById('tglBerangkat').value = '';
-            document.getElementById('tglKembali').value = '';
-            document.getElementById('lamaPerjalanan').value = '';
-            document.getElementById('sumberDana').value = '';
-            document.getElementById('anggaran').value = '';
-            currentEditMode = false;
-            editDataId = null;
-        }
-
-        document.getElementById('tglKembali').addEventListener('change', function() {
-            const berangkat = new Date(document.getElementById('tglBerangkat').value);
-            const kembali = new Date(this.value);
-            if (berangkat && kembali) {
-                const diff = Math.ceil((kembali - berangkat) / (1000 * 60 * 60 * 24)) + 1;
-                document.getElementById('lamaPerjalanan').value = diff;
-            }
-        });
-
-        async function cariData() {
-            const keyword = document.getElementById('cariInput').value.toLowerCase();
-            const results = currentData.filter(d => d.nip.toLowerCase().includes(keyword) || d.noSurat.toLowerCase().includes(keyword));
-            let html = '';
-            results.forEach(data => {
-                html += `<div style="margin-bottom: 25px; padding: 25px; border: 1px solid var(--gray); border-radius: 16px;">
-                    <h4 style="color: var(--primary);">${data.nama}</h4>
-                    <p><strong>NIP:</strong> ${data.nip} | <strong>Tujuan:</strong> ${data.kotaTujuan}</p>
-                    <p><strong>Status:</strong> <span class="badge badge-${data.status}">${data.status}</span></p>
-                </div>`;
-            });
-            document.getElementById('dataPengajuan').innerHTML = html || '<p>Tidak ada data ditemukan.</p>';
-            document.getElementById('hasilCari').style.display = 'block';
-        }
-
-        function toggleCari() {
-            const by = document.getElementById('cariBy').value;
-            document.getElementById('labelCari').textContent = by === 'nip' ? 'NIP' : 'Nomor Pengajuan';
-        }
-
-        function showDetailPopup(type) {
-            const title = { pengajuan: 'Total Pengajuan', pending: 'Menunggu Verifikasi', approved: 'Disetujui', rejected: 'Ditolak', revision: 'Revisi', completed: 'Selesai' }[type] || '';
-            const count = currentData.filter(d => d.status === type).length;
+        function showModal(title, content) {
             document.getElementById('modalTitle').textContent = title;
-            document.getElementById('modalContent').innerHTML = `<p style="font-size: 1.1rem;">${title}: ${count}</p>`;
+            document.getElementById('modalContent').innerHTML = content;
             document.getElementById('modalOverlay').classList.add('active');
         }
 
@@ -1284,50 +773,187 @@
             document.getElementById('modalOverlay').classList.remove('active');
         }
 
-        function toggleAccordion(header) {
-            const content = header.nextElementSibling;
-            content.style.maxHeight = content.style.maxHeight === '500px' ? '0' : '500px';
+        function searchTable(tableId, keyword) {
+            const table = document.getElementById(tableId);
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(keyword.toLowerCase()) ? '' : 'none';
+            });
         }
 
-        function tambahData() { showPage('input'); }
+        function showDetail(type) {
+            let title = '';
+            let content = '';
+            switch(type) {
+                case 'pengajuan': title = 'Total Pengajuan'; content = '<p>Total semua pengajuan: ' + currentData.length + '</p>'; break;
+                case 'pending': title = 'Menunggu Verifikasi'; content = '<p>Jumlah: ' + currentData.filter(d => d.status === 'pending').length + '</p>'; break;
+                case 'approved': title = 'Disetujui'; content = '<p>Jumlah: ' + currentData.filter(d => d.status === 'approved').length + '</p>'; break;
+                case 'rejected': title = 'Ditolak'; content = '<p>Jumlah: ' + currentData.filter(d => d.status === 'rejected').length + '</p>'; break;
+                case 'completed': title = 'Selesai'; content = '<p>Jumlah: ' + currentData.filter(d => d.status === 'completed').length + '</p>'; break;
+            }
+            showModal(title, content + '<div style="margin-top: 20px; display: flex; gap: 10px;"><button class="btn" onclick="closeModal()">Tutup</button></div>');
+        }
 
-        async function verifikasiData(id, status) {
-            const result = await apiRequest('verifyPerjadin', 'POST', { id, status, catatan: status === 'approved' ? 'Disetujui' : 'Ditolak' });
-            if (result.success) {
-                showToast('Data ' + (status === 'approved' ? 'disetujui' : 'ditolak'), 'success');
-                await loadData();
-                updateStats();
+        function openPengajuanModal() {
+            const content = `
+                <form id="formPengajuan">
+                    <div class="form-grid">
+                        <div class="form-group"><label class="form-label">Nama Pegawai</label><input type="text" class="form-input" id="namaPengajuan" required></div>
+                        <div class="form-group"><label class="form-label">NIP</label><input type="text" class="form-input" id="nipPengajuan" required></div>
+                        <div class="form-group"><label class="form-label">Tujuan</label><input type="text" class="form-input" id="tujuanPengajuan" required></div>
+                        <div class="form-group"><label class="form-label">Keperluan</label><input type="text" class="form-input" id="keperluanPengajuan" required></div>
+                        <div class="form-group"><label class="form-label">Tanggal Berangkat</label><input type="date" class="form-input" id="tglBerangkat" required></div>
+                        <div class="form-group"><label class="form-label">Tanggal Kembali</label><input type="date" class="form-input" id="tglKembali" required></div>
+                    </div>
+                    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Batal</button>
+                        <button type="submit" class="btn">Simpan</button>
+                    </div>
+                </form>
+            `;
+            showModal('Tambah Pengajuan', content);
+            document.getElementById('formPengajuan').onsubmit = async function(e) {
+                e.preventDefault();
+                const data = {
+                    nama: document.getElementById('namaPengajuan').value,
+                    nip: document.getElementById('nipPengajuan').value,
+                    tujuan: document.getElementById('tujuanPengajuan').value,
+                    keperluan: document.getElementById('keperluanPengajuan').value,
+                    tglBerangkat: document.getElementById('tglBerangkat').value,
+                    tglKembali: document.getElementById('tglKembali').value
+                };
+                const result = await apiRequest('addPengajuan', 'POST', data);
+                if (result.success) {
+                    showToast('Pengajuan berhasil disimpan', 'success');
+                    closeModal();
+                    loadPengajuan();
+                } else {
+                    showToast('Gagal menyimpan pengajuan', 'error');
+                }
+            };
+        }
+
+        async function loadPengajuan() {
+            const tbody = document.querySelector('#tabelPengajuan tbody');
+            tbody.innerHTML = '';
+            currentData.forEach((item, i) => {
+                tbody.innerHTML += `<tr>
+                    <td>${i + 1}</td>
+                    <td>${item.tanggal || '-'}</td>
+                    <td>${item.nama || '-'}</td>
+                    <td>${item.tujuan || '-'}</td>
+                    <td><span class="badge badge-${(item.status || 'draft').toLowerCase()}">${item.status || 'DRAFT'}</span></td>
+                    <td><button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;" onclick="showPengajuanDetail(${item.id})">Detail</button></td>
+                </tr>`;
+            });
+        }
+
+        async function loadRiwayat() {
+            const tbody = document.querySelector('#tabelRiwayat tbody');
+            tbody.innerHTML = '';
+            currentData.forEach((item, i) => {
+                tbody.innerHTML += `<tr>
+                    <td>${i + 1}</td>
+                    <td>${item.nama || '-'}</td>
+                    <td>${item.tujuan || '-'}</td>
+                    <td>${item.tglBerangkat || '-'} s/d ${item.tglKembali || '-'}</td>
+                    <td>${item.lamaHari || 0} Hari</td>
+                    <td><span class="badge badge-${(item.status || 'draft').toLowerCase()}">${item.status || 'DRAFT'}</span></td>
+                    <td><button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;" onclick="showPengajuanDetail(${item.id})">Detail</button></td>
+                </tr>`;
+            });
+        }
+
+        async function loadVerifikasi() {
+            const tbody = document.querySelector('#tabelVerifikasi tbody');
+            tbody.innerHTML = '';
+            const pendingData = currentData.filter(d => d.status === 'pending' || d.status === 'MENUNGGU');
+            pendingData.forEach((item, i) => {
+                tbody.innerHTML += `<tr>
+                    <td>${i + 1}</td>
+                    <td>${item.nama || '-'}</td>
+                    <td>${item.tujuan || '-'}</td>
+                    <td><span class="badge badge-pending">Menunggu</span></td>
+                    <td><button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;" onclick="verifikasiPengajuan(${item.id})">Verifikasi</button></td>
+                </tr>`;
+            });
+        }
+
+        async function loadMaster() {
+            const tbody = document.querySelector('#tabelPegawai tbody');
+            tbody.innerHTML = '';
+            const pegawai = await apiRequest('getPegawai', 'POST');
+            pegawai.data?.forEach((item, i) => {
+                tbody.innerHTML += `<tr>
+                    <td>${i + 1}</td>
+                    <td>${item.nip || '-'}</td>
+                    <td>${item.nama || '-'}</td>
+                    <td>${item.jabatan || '-'}</td>
+                    <td>${item.unitKerja || '-'}</td>
+                    <td><button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;">Edit</button></td>
+                </tr>`;
+            });
+        }
+
+        async function loadUser() {
+            const tbody = document.querySelector('#tabelUser tbody');
+            tbody.innerHTML = '';
+            const users = await apiRequest('getUsers', 'POST');
+            users.data?.forEach((item, i) => {
+                tbody.innerHTML += `<tr>
+                    <td>${i + 1}</td>
+                    <td>${item.username || '-'}</td>
+                    <td>${item.nama || '-'}</td>
+                    <td>${item.role || '-'}</td>
+                    <td><span class="badge badge-${item.status?.toLowerCase() || 'aktif'}">${item.status || 'AKTIF'}</span></td>
+                    <td><button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem;">Edit</button></td>
+                </tr>`;
+            });
+        }
+
+        async function loadAudit() {
+            const tbody = document.querySelector('#tabelAudit tbody');
+            tbody.innerHTML = '';
+            const audit = await apiRequest('getAuditTrail', 'POST');
+            audit.data?.forEach((item, i) => {
+                tbody.innerHTML += `<tr>
+                    <td>${i + 1}</td>
+                    <td>${item.user || '-'}</td>
+                    <td>${item.aktivitas || '-'}</td>
+                    <td>${item.timestamp || '-'}</td>
+                </tr>`;
+            });
+        }
+
+        async function verifikasiPengajuan(id) {
+            const { value: action } = await Swal.fire({
+                title: 'Verifikasi Pengajuan',
+                showCancelButton: true,
+                confirmButtonText: 'Setuju',
+                denyButtonText: 'Tolak',
+                showDenyButton: true,
+                reverseButtons: true,
+                input: 'textarea',
+                inputLabel: 'Catatan (wajib)',
+                inputPlaceholder: 'Masukkan catatan verifikasi...'
+            });
+            if (action) {
+                const result = await apiRequest('updatePengajuanStatus', 'POST', { id, status: 'approved', catatan: value });
+                showToast(result.success ? 'Pengajuan disetujui' : 'Gagal memproses', result.success ? 'success' : 'error');
             }
         }
 
-        function hapusData(id) {
-            if (confirm('Yakin ingin menghapus data ini?')) {
-                showToast('Data dihapus', 'success');
-            }
+        function exportExcel() {
+            showToast('Export Excel dimulai...', 'success');
         }
 
-        function exportExcel() { showToast('Export Excel dimuat...', 'success'); }
-        function exportPDF() { showToast('Export PDF dimuat...', 'success'); }
-
-        function simpanProfil() { showToast('Profil berhasil diperbarui!', 'success'); }
-
-        function openLightbox(url) {
-            document.getElementById('lightboxFrame').src = url;
-            document.getElementById('lightboxOverlay').classList.add('active');
+        function exportPDF() {
+            showToast('Export PDF dimulai...', 'success');
         }
 
-        function closeLightbox() {
-            document.getElementById('lightboxOverlay').classList.remove('active');
-            document.getElementById('lightboxFrame').src = '';
-        }
-        
-        async function initializeSystem() {
-            showToast('Meminta struktur spreadsheet...', 'success');
-            const result = await apiRequest('createStructure');
-            if (result.success) {
-                showToast('Spreadsheet berhasil dibuat! ID: ' + result.spreadsheetId, 'success');
-                showToast('Folder ID: ' + result.driveFolderId, 'success');
-            }
+        function printReport() {
+            window.print();
         }
     </script>
 </body>
