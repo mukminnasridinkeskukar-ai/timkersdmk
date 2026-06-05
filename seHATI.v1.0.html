@@ -1352,18 +1352,18 @@
 
         // GS Integration
         const SHEET_ID = '1jcQNfrqCgITuzqsqfV_Fsbar7Cd4U45SXqmCSMo_LXM';
-        const GS_URL = 'https://script.google.com/macros/s/AKfycbx_ajYw75rah4vA2Q3Z_1lqgro4rPQka4v-zuaH1lcIlsCJLapUx6NAU2iwS9I0DAk/exec'; // Update after deploy
+        const GS_URL = 'https://script.google.com/macros/s/AKfycbyQ0NUvWzxj-nPjbD2kr4kpBzIRQvCFQJMKfdWJWbwesuS4TSB6w5OTOYLlAVJcr66z/exec'; // Update after deploy
         const UPLOAD_FOLDER = '1xjL6wr5MIiejKTTKvswfswSJG-Fk_UKg'; // Drive folder ID
 
-        // Init App
-        document.addEventListener('DOMContentLoaded', function() {
-            animateStats();
-            loadAllData();
-            setupNavigation();
-            initCharts();
-            initMap();
-            setupFormListeners();
-        });
+// Init App
+         document.addEventListener('DOMContentLoaded', function() {
+             animateStats();
+             loadAllData();
+             setupNavigation();
+             if (typeof initCharts === 'function') initCharts();
+             if (typeof initMap === 'function') initMap();
+             setupFormListeners();
+         });
 
         // Toast Notification
         function showToast(type, title, message) {
@@ -1403,21 +1403,21 @@
             }, 5000);
         }
 
-        // Enter System
-        function enterSystem() {
-            const landing = document.getElementById('landing');
-            const spa = document.getElementById('spa');
-            if (landing && spa) {
-                landing.style.display = 'none';
-                spa.classList.add('active');
-                // Initialize SPA components
-                setupNavigation();
-                initCharts();
-                initMap();
-                setupFormListeners();
-                showToast('success', 'Selamat Datang', 'Anda telah masuk ke sistem seHATI');
-            }
-        }
+// Enter System
+         function enterSystem() {
+             const landing = document.getElementById('landing');
+             const spa = document.getElementById('spa');
+             if (landing && spa) {
+                 landing.style.display = 'none';
+                 spa.classList.add('active');
+                 // Initialize SPA components
+                 setupNavigation();
+                 if (typeof initCharts === 'function') initCharts();
+                 if (typeof initMap === 'function') initMap();
+                 loadJadwalPelatihan();
+                 showToast('success', 'Selamat Datang', 'Anda telah masuk ke sistem seHATI');
+             }
+         }
 
         // Logout
         function logout() {
@@ -1445,14 +1445,16 @@
          window.jadwalPelatihan = [];
          
 async function loadJadwalPelatihan() {
+              console.log("Memuat jadwal pelatihan");
               try {
                   const url = `${GS_URL}?action=getJadwalPelatihan`;
                   const response = await fetch(url);
                   if (!response.ok) throw new Error('Fetch failed');
                   const data = await response.json();
+                  console.log("Data jadwal pelatihan:", data);
                   window.jadwalPelatihan = Array.isArray(data) ? data : [];
               } catch (error) {
-                  console.warn('Error loading jadwal pelatihan:', error);
+                  console.error("Error loading jadwal pelatihan:", error);
                   window.jadwalPelatihan = [];
               }
               
@@ -1615,23 +1617,26 @@ try {
          let jadwalCurrentPage = 1;
          const jadwalPerPage = 10;
          
-         // Load Jadwal from Sheet for listing
-         async function loadJadwalList() {
-             const loadingEl = document.getElementById('jadwalLoading');
-             const contentEl = document.getElementById('jadwalContent');
-             
-             if (loadingEl) loadingEl.style.display = 'block';
-             if (contentEl) contentEl.style.display = 'none';
-             
-             try {
-                 const url = `${GS_URL}?action=getJadwalKegiatan`;
-                 const response = await fetch(url);
-                 if (!response.ok) throw new Error('Fetch failed');
-                 const data = await response.json();
-                 jadwalList = Array.isArray(data) ? data : [];
-             } catch (error) {
-                 jadwalList = [];
-             }
+// Load Jadwal from Sheet for listing
+          async function loadJadwalList() {
+              console.log("Memuat jadwal kegiatan");
+              const loadingEl = document.getElementById('jadwalLoading');
+              const contentEl = document.getElementById('jadwalContent');
+              
+              if (loadingEl) loadingEl.style.display = 'block';
+              if (contentEl) contentEl.style.display = 'none';
+              
+              try {
+                  const url = `${GS_URL}?action=getJadwalKegiatan`;
+                  const response = await fetch(url);
+                  if (!response.ok) throw new Error('Fetch failed');
+                  const data = await response.json();
+                  console.log("Data jadwal kegiatan:", data);
+                  jadwalList = Array.isArray(data) ? data : [];
+              } catch (error) {
+                  console.error("Error loading jadwal kegiatan:", error);
+                  jadwalList = [];
+              }
              
              populateFilterJudulDropdown();
              filterJadwal();
@@ -1794,31 +1799,46 @@ try {
               document.getElementById('filterProfesi').addEventListener('change', e => renderSDMK(document.getElementById('searchSDMK').value, e.target.value));
          }
 
-        // Charts
-        function initCharts() {
-            const ctx = document.getElementById('chart1')?.getContext('2d');
-            if (ctx) {
-                // Destroy existing chart
-                if (chartInstance) {
-                    chartInstance.destroy();
-                }
-                chartInstance = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Kompeten (65%)', 'Proses (25%)', 'Belum (10%)'],
-                        datasets: [{
-                            data: [65, 25, 10],
-                            backgroundColor: ['#059669', '#f59e0b', '#dc2626'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: { legend: { position: 'bottom' } }
-                    }
-                });
-            }
-        }
+// Charts
+         function initCharts() {
+             const ctx = document.getElementById('chart1')?.getContext('2d');
+             if (ctx) {
+                 // Destroy existing chart
+                 if (chartInstance) {
+                     chartInstance.destroy();
+                 }
+                 chartInstance = new Chart(ctx, {
+                     type: 'doughnut',
+                     data: {
+                         labels: ['Kompeten (65%)', 'Proses (25%)', 'Belum (10%)'],
+                         datasets: [{
+                             data: [65, 25, 10],
+                             backgroundColor: ['#059669', '#f59e0b', '#dc2626'],
+                             borderWidth: 0
+                         }]
+                     },
+                     options: {
+                         responsive: true,
+                         plugins: { legend: { position: 'bottom' } }
+                     }
+                 });
+             }
+         }
+         
+         // Map initialization - safe stub
+         function initMap() {
+             const mapEl = document.getElementById('map');
+             if (!mapEl) return;
+             try {
+                 // Initialize Leaflet map if available
+                 if (typeof L !== 'undefined') {
+                     const map = L.map('map').setView([-6.2, 106.8], 11);
+                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                 }
+             } catch (e) {
+                 console.log("Map init skipped");
+             }
+         }
 
         // Save record to Google Sheets
         async function saveRecord(sheetName, data) {
