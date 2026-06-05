@@ -1129,14 +1129,14 @@
                                          <input type="text" id="pelaksana" readonly placeholder=" ">
                                          <label><i class="fas fa-user-tie"></i> Pelaksana</label>
                                      </div>
-                                     <div class="form-group">
-                                         <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                             <input type="text" id="kuotaPeserta" readonly placeholder=" " style="flex: 1;">
-                                             <span id="kuotaBadge" class="badge" style="white-space: nowrap;">Memuat...</span>
-                                         </div>
-                                         <label><i class="fas fa-users"></i> Kuota Peserta</label>
-                                     </div>
 <div class="form-group">
+                                          <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                              <input type="text" id="kuotaPeserta" readonly placeholder=" " style="flex: 1;">
+                                              <span id="kuotaBadge" class="badge" style="white-space: nowrap;">Memuat...</span>
+                                          </div>
+                                          <label><i class="fas fa-users"></i> Kuota Peserta</label>
+                                      </div>
+                                      <div class="form-group">
                                           <input type="text" id="sisaKuota" readonly placeholder=" ">
                                           <label>Sisa Kuota</label>
                                       </div>
@@ -1357,7 +1357,7 @@
 
         // GS Integration
         const SHEET_ID = '1jcQNfrqCgITuzqsqfV_Fsbar7Cd4U45SXqmCSMo_LXM';
-        const GS_URL = 'https://script.google.com/macros/s/AKfycbwFbRvX-Tq0Tbo2ajhe3P5e69wdqmySjRLooAhyBs86eEasPTYcJmyAHkFIy6ssEiYR/exec'; // Update after deploy
+        const GS_URL = 'https://script.google.com/macros/s/AKfycbwnsB6mHvlwJxy5vO65xLeBayGyCncN6MThynZsv28TeTaiN_WoPQMvlAgRo4ZObvwg/exec'; // Update after deploy
         const UPLOAD_FOLDER = '1xjL6wr5MIiejKTTKvswfswSJG-Fk_UKg'; // Drive folder ID
 
 // Init App
@@ -1446,21 +1446,30 @@
              showToast('success', 'Data Loaded', `Data loaded`);
          }
          
-         // Load jadwal pelatihan from Sheet Jadwal for dropdown
-         window.jadwalPelatihan = [];
-         
-async function loadJadwalPelatihan() {
-              console.log("Memuat jadwal pelatihan");
+// Load jadwal pelatihan from Sheet Jadwal for dropdown
+          window.jadwalPelatihan = [];
+          
+          async function loadJadwalPelatihan() {
+              console.log("Loading Jadwal Pelatihan...");
               try {
                   const url = `${GS_URL}?action=getJadwalPelatihan`;
+                  console.log("URL:", url);
                   const response = await fetch(url);
-                  if (!response.ok) throw new Error('Fetch failed');
+                  console.log("Response status:", response.status);
+                  if (!response.ok) throw new Error('Fetch failed: ' + response.status);
                   const data = await response.json();
                   console.log("Data jadwal pelatihan:", data);
+                  console.table(data);
+                  console.log("Jumlah Jadwal:", data ? data.length : 0);
                   window.jadwalPelatihan = Array.isArray(data) ? data : [];
+                  
+                  if (window.jadwalPelatihan.length === 0) {
+                      showToast('warning', 'Debug', `GS_URL: ${GS_URL || 'EMPTY'} - Buka browser untuk cek endpoint`);
+                  }
               } catch (error) {
-                  console.error("Error loading jadwal pelatihan:", error);
+                  console.error("Gagal memuat jadwal:", error);
                   window.jadwalPelatihan = [];
+                  showToast('error', 'Error', 'Gagal memuat jadwal dari server');
               }
               
               populateJadwalDropdown();
@@ -1479,28 +1488,32 @@ async function loadJadwalPelatihan() {
                  uniqueTitles.map(judul => `<option value="${judul}">${judul}</option>`).join('');
          }
          
-         function fillKegiatanData() {
-             const judul = document.getElementById('judulKegiatan').value;
-             const jadwal = window.jadwalPelatihan.find(j => j.judul === judul);
-             
-             if (jadwal) {
-                 document.getElementById('idJadwal').value = jadwal.id;
-                 document.getElementById('metode').value = jadwal.metode;
-                 document.getElementById('tanggalKegiatan').value = formatDate(jadwal.tanggal);
-                 document.getElementById('waktuPelaksanaan').value = jadwal.waktu;
-                 document.getElementById('tempatKegiatan').value = jadwal.tempat;
-                 document.getElementById('pelaksana').value = jadwal.pelaksana;
-                 document.getElementById('kuotaPeserta').value = jadwal.kuota;
-                 document.getElementById('sisaKuota').value = jadwal.sisaKuota;
-                 document.getElementById('penyelenggara').value = jadwal.pelaksana;
-                 if (document.getElementById('tanggalPelaksanaan')) {
-                     document.getElementById('tanggalPelaksanaan').value = jadwal.tanggal;
-                 }
-                 document.getElementById('metodePelaksanaan').value = jadwal.metode;
-                 
-                 updateKuotaBadge(jadwal.sisaKuota);
-             }
-         }
+function fillKegiatanData() {
+              const judul = document.getElementById('judulKegiatan').value;
+              const jadwal = window.jadwalPelatihan.find(j => j.judul === judul);
+              
+              if (jadwal) {
+                  document.getElementById('idJadwal').value = jadwal.id;
+                  document.getElementById('metode').value = jadwal.metode;
+                  
+                  // Format tanggal for readonly input (YYYY-MM-DD format)
+                  const formattedDate = jadwal.tanggal ? jadwal.tanggal.split('T')[0] : (jadwal.tanggal || '');
+                  document.getElementById('tanggalKegiatan').value = formattedDate;
+                  
+                  document.getElementById('waktuPelaksanaan').value = jadwal.waktu;
+                  document.getElementById('tempatKegiatan').value = jadwal.tempat;
+                  document.getElementById('pelaksana').value = jadwal.pelaksana;
+                  document.getElementById('kuotaPeserta').value = jadwal.kuota;
+                  document.getElementById('sisaKuota').value = jadwal.sisaKuota;
+                  document.getElementById('penyelenggara').value = jadwal.pelaksana;
+                  if (document.getElementById('tanggalPelaksanaan')) {
+                      document.getElementById('tanggalPelaksanaan').value = jadwal.tanggal;
+                  }
+                  document.getElementById('metodePelaksanaan').value = jadwal.metode;
+                  
+                  updateKuotaBadge(jadwal.sisaKuota);
+              }
+          }
          
          function formatDate(dateStr) {
              if (!dateStr) return '';
