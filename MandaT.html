@@ -760,19 +760,18 @@
           <input id="search-tpm" onkeyup="filterTPM()" placeholder="Cari nama, profesi, atau tempat praktik..." class="glass mb-4 px-5 py-3 rounded-3xl w-full border border-white/10 text-sm">
           <div class="glass rounded-3xl border border-white/10 overflow-hidden">
             <div class="overflow-x-auto modern-scroll max-h-[600px]">
-              <table id="tpm-table" class="data-table w-full min-w-[1100px]">
-                <thead><tr>
-                  <th>No</th>
-                  <th>Foto</th>
-                  <th>Nama Lengkap dan Gelar</th>
-                  <th>Profesi Kesehatan</th>
-                  <th>Nama Praktik Mandiri</th>
-                  <th>Alamat Praktik</th>
-                  <th>Jam Praktik</th>
-                  <th>Nomor Telpon</th>
-                </tr></thead>
-                <tbody id="tpm-tbody"></tbody>
-              </table>
+               <table id="tpm-table" class="data-table w-full min-w-[1000px]">
+                 <thead><tr>
+                   <th class="w-12">No</th>
+                   <th class="w-20">Foto</th>
+                   <th>Nama Lengkap dan Gelar</th>
+                   <th>Profesi Kesehatan</th>
+                   <th>Nama Praktik Mandiri</th>
+                   <th>Alamat Praktik</th>
+                   <th>Jam Praktik</th>
+                 </tr></thead>
+                 <tbody id="tpm-tbody"></tbody>
+               </table>
             </div>
           </div>
         </div>
@@ -1263,12 +1262,33 @@
     }
 
     // ==================== TPM FUNCTIONS ====================
+    
+    // Helper: Convert Google Drive URLs to direct image URLs
+    function convertGoogleDriveUrl(url) {
+      if (!url || url === '') return '';
+      // https://drive.google.com/file/d/FILE_ID/view?...
+      let match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+      // https://drive.google.com/open?id=FILE_ID
+      match = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
+      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+      // https://drive.google.com/uc?export=download&id=FILE_ID
+      match = url.match(/drive\.google\.com\/uc\?.*id=([^&]+)/);
+      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+      return url;
+    }
+
+    // Helper: Check if URL is a Google Drive link
+    function isGoogleDriveUrl(url) {
+      return url && (url.includes('drive.google.com') || url.includes('docs.google.com'));
+    }
+
     function renderTPMTable(filteredData = null) {
       const tbody = document.getElementById('tpm-tbody');
       const data = filteredData || DATA.tpm || [];
       
       if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-white/50"><i class="fa-solid fa-inbox text-3xl mb-2 block"></i>Tidak ada data TPM</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-white/50"><i class="fa-solid fa-inbox text-3xl mb-2 block"></i>Tidak ada data TPM</td></tr>';
         return;
       }
       
@@ -1279,18 +1299,42 @@
           <td class="font-semibold">${r.nama || ''}</td>
           <td><span class="px-2.5 py-px text-xs rounded-xl bg-white/10">${r.profesi || ''}</span></td>
           <td>${r.nama_praktik || ''}</td>
-          <td class="text-xs max-w-[200px] truncate">${r.alamat_praktik || ''}</td>
+          <td class="text-xs max-w-[200px] truncate" title="${r.alamat_praktik || ''}">${r.alamat_praktik || ''}</td>
           <td class="text-xs">${r.jam_praktik || ''}</td>
-          <td class="font-mono text-xs text-cyan-400">${r.telp || ''}</td>
         </tr>
       `).join('');
     }
 
     function renderTPMFoto(fotoUrl) {
       if (!fotoUrl || fotoUrl === '') {
-        return '<div class="w-[60px] h-[60px] rounded-2xl bg-white/10 flex items-center justify-center mx-auto"><i class="fa-solid fa-user text-2xl text-white/40"></i></div>';
+        return `<div class="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mx-auto border border-white/10">
+          <i class="fa-solid fa-user-nurse text-xl text-white/30"></i>
+        </div>`;
       }
-      return `<img src="${fotoUrl}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fa-solid fa-user text-2xl text-white/40\'></i>'" class="w-[60px] h-[60px] object-cover rounded-2xl mx-auto border border-white/10" alt="foto">`;
+      const convertedUrl = convertGoogleDriveUrl(fotoUrl);
+      return `<div class="w-[56px] h-[56px] rounded-2xl overflow-hidden mx-auto border border-white/15 bg-white/5 flex items-center justify-center relative group">
+        <img src="${convertedUrl}" 
+             loading="lazy"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" 
+             class="w-full h-full object-cover" alt="foto">
+        <div style="display:none" class="w-full h-full items-center justify-center absolute inset-0">
+          <i class="fa-solid fa-user-nurse text-xl text-white/30"></i>
+        </div>
+      </div>`;
+    }
+
+    // Convert Google Drive URL for PDF/Doc viewing
+    function convertGDriveViewUrl(url) {
+      if (!url) return '';
+      // https://drive.google.com/file/d/FILE_ID/view → preview URL
+      let match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
+      // https://drive.google.com/open?id=FILE_ID → preview URL
+      match = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
+      // If it's already a direct PDF link
+      if (url.endsWith('.pdf') || url.includes('.pdf?')) return url;
+      return url;
     }
 
     function filterTPM() {
@@ -1303,45 +1347,165 @@
       renderTPMTable(filtered);
     }
 
+    // Close TPM full-screen detail
+    function closeTPMDetail() {
+      const overlay = document.getElementById('tpm-detail-overlay');
+      if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => { overlay.style.display = 'none'; overlay.remove(); }, 300);
+      }
+    }
+
     function showTPMDetail(idx) {
       const r = DATA.tpm[idx];
       if (!r) {
         showToast('Data tidak ditemukan', 'error');
         return;
       }
-      
+
+      // Build photo HTML - large, with multiple fallback strategies
+      const fotoUrl = convertGoogleDriveUrl(r.foto || '');
       let fotoHtml = '';
-      if (r.foto && r.foto !== '') {
-        fotoHtml = `<img src="${r.foto}" onerror="this.style.display='none'" class="w-[120px] h-[120px] object-cover rounded-2xl mx-auto border-2 border-white/20 mb-4">`;
+      if (fotoUrl && fotoUrl !== '') {
+        fotoHtml = `
+          <div class="relative w-[160px] h-[160px] rounded-3xl overflow-hidden mx-auto border-2 border-white/20 bg-white/5 shadow-2xl group">
+            <img src="${fotoUrl}" 
+                 loading="lazy"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" 
+                 class="w-full h-full object-cover" alt="foto ${r.nama || ''}">
+            <div style="display:none" class="w-full h-full items-center justify-center absolute inset-0 bg-gradient-to-br from-pink-500/20 to-violet-500/20">
+              <i class="fa-solid fa-user-nurse text-5xl text-white/40"></i>
+            </div>
+          </div>`;
       } else {
-        fotoHtml = '<div class="w-[120px] h-[120px] rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-user text-5xl text-white/40"></i></div>';
+        fotoHtml = `
+          <div class="w-[160px] h-[160px] rounded-3xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center mx-auto border-2 border-white/10 shadow-2xl">
+            <i class="fa-solid fa-user-nurse text-6xl text-white/30"></i>
+          </div>`;
       }
 
-      showModal(r.nama || 'Detail TPM', `
-        <div class="text-center mb-6">
-          ${fotoHtml}
-          <div class="text-2xl font-bold">${r.nama || ''}</div>
-          <div class="text-sm text-cyan-400">${r.profesi || ''}</div>
+      // SIP Link - PDF preview in iframe
+      const sipLink = r.link_sip || r.sip || r.link_sip_mandiri || '';
+      let sipHtml = '';
+      if (sipLink && sipLink.trim() !== '') {
+        const previewUrl = convertGDriveViewUrl(sipLink.trim());
+        sipHtml = `
+          <div class="glass p-4 rounded-2xl">
+            <div class="text-[10px] text-white/50 mb-3 uppercase tracking-wider">LINK SIP MANDIRI (Preview)</div>
+            <div class="rounded-2xl overflow-hidden border border-white/10 bg-black/30" style="position:relative;">
+              <iframe src="${previewUrl}" 
+                      class="w-full" 
+                      style="height:400px; border:none;" 
+                      sandbox="allow-same-origin allow-scripts allow-popups"
+                      title="Preview SIP Mandiri"
+                      loading="lazy">
+              </iframe>
+              <!-- Overlay to prevent download interaction -->
+              <div class="absolute top-0 right-0 p-2 z-10">
+                <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" 
+                   class="px-3 py-1.5 text-[10px] bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-colors inline-flex items-center gap-1">
+                  <i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru
+                </a>
+              </div>
+            </div>
+            <div class="text-[10px] text-white/30 mt-2 text-center">Preview dokumen SIP - Klik "Buka di Tab Baru" untuk melihat lebih jelas</div>
+          </div>`;
+      }
+
+      // Create full-screen overlay
+      const overlay = document.createElement('div');
+      overlay.id = 'tpm-detail-overlay';
+      overlay.className = 'fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto';
+      overlay.style.cssText = 'background: rgba(5,15,35,0.95); backdrop-filter: blur(20px); transition: opacity 0.3s ease; opacity: 0;';
+      
+      overlay.innerHTML = `
+        <div class="w-full max-w-[900px] min-h-screen p-6 lg:p-10">
+          <!-- Close Button -->
+          <div class="flex justify-end mb-4 sticky top-0 z-10">
+            <button onclick="closeTPMDetail()" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all text-xl">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          
+          <!-- Header Card -->
+          <div class="glass rounded-3xl p-6 lg:p-8 border border-white/15 mb-6">
+            <div class="flex flex-col sm:flex-row items-center gap-6">
+              ${fotoHtml}
+              <div class="text-center sm:text-left flex-1">
+                <div class="text-2xl lg:text-3xl font-bold tracking-tight">${r.nama || ''}</div>
+                <div class="text-sm text-cyan-400 mt-1 font-medium">${r.profesi || ''}</div>
+                ${r.nama_praktik ? `<div class="text-xs text-white/50 mt-2 flex items-center gap-1.5 justify-center sm:justify-start"><i class="fa-solid fa-store"></i> ${r.nama_praktik}</div>` : ''}
+              </div>
+            </div>
+          </div>
+          
+          <!-- Detail Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="glass p-5 rounded-2xl border border-white/10">
+              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-user text-pink-400"></i> NAMA LENGKAP DAN GELAR
+              </div>
+              <div class="font-semibold text-lg">${r.nama || '-'}</div>
+            </div>
+            <div class="glass p-5 rounded-2xl border border-white/10">
+              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-stethoscope text-violet-400"></i> PROFESI KESEHATAN
+              </div>
+              <div class="font-semibold text-lg">${r.profesi || '-'}</div>
+            </div>
+            <div class="glass p-5 rounded-2xl border border-white/10">
+              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-store text-emerald-400"></i> NAMA PRAKTIK MANDIRI
+              </div>
+              <div class="font-semibold">${r.nama_praktik || '-'}</div>
+            </div>
+            <div class="glass p-5 rounded-2xl border border-white/10">
+              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-clock text-amber-400"></i> JAM PRAKTIK
+              </div>
+              <div class="font-semibold">${r.jam_praktik || '-'}</div>
+            </div>
+            <div class="glass p-5 rounded-2xl border border-white/10">
+              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-location-dot text-red-400"></i> ALAMAT PRAKTIK
+              </div>
+              <div class="font-semibold">${r.alamat_praktik || '-'}</div>
+            </div>
+            <div class="glass p-5 rounded-2xl border border-white/10">
+              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-phone text-cyan-400"></i> NOMOR TELPON
+              </div>
+              <div class="font-mono text-cyan-400 text-lg font-semibold">${r.telp || r.telepon || '-'}</div>
+            </div>
+            <div class="glass p-5 rounded-2xl border border-white/10">
+              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-calendar-check text-blue-400"></i> TANGGAL TERBIT SIP
+              </div>
+              <div class="font-semibold">${r.tanggal_sip || r.tgl_terbit_sip || r.tanggal_terbit || '-'}</div>
+            </div>
+          </div>
+          
+          <!-- SIP PDF Preview -->
+          ${sipHtml}
+          
+          <!-- Footer -->
+          <div class="text-center mt-6 mb-10">
+            <button onclick="closeTPMDetail()" class="px-8 py-3 glass rounded-3xl text-sm font-medium hover:bg-white/10 transition-colors border border-white/10">
+              <i class="fa-solid fa-arrow-left mr-2"></i> Kembali ke Daftar
+            </button>
+          </div>
         </div>
-        <div class="grid grid-cols-1 gap-4 text-sm">
-          <div class="glass p-4 rounded-2xl">
-            <div class="text-xs text-white/60 mb-1">NAMA PRAKTIK MANDIRI</div>
-            <div class="font-semibold">${r.nama_praktik || '-'}</div>
-          </div>
-          <div class="glass p-4 rounded-2xl">
-            <div class="text-xs text-white/60 mb-1">ALAMAT PRAKTIK</div>
-            <div>${r.alamat_praktik || '-'}</div>
-          </div>
-          <div class="glass p-4 rounded-2xl">
-            <div class="text-xs text-white/60 mb-1">JAM PRAKTIK</div>
-            <div>${r.jam_praktik || '-'}</div>
-          </div>
-          <div class="glass p-4 rounded-2xl">
-            <div class="text-xs text-white/60 mb-1">NOMOR TELPON</div>
-            <div class="font-mono text-cyan-400 text-lg">${r.telp || '-'}</div>
-          </div>
-        </div>
-      `, '');
+      `;
+      
+      document.body.appendChild(overlay);
+      // Trigger fade-in
+      requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+      
+      // Close on Escape key
+      const escHandler = (e) => {
+        if (e.key === 'Escape') { closeTPMDetail(); document.removeEventListener('keydown', escHandler); }
+      };
+      document.addEventListener('keydown', escHandler);
     }
 
 // In-memory data (rich sample data so the UI looks complete & professional on first open)
