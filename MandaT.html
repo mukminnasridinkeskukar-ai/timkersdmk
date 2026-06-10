@@ -345,6 +345,11 @@
             <span>Profil Unit Faskes</span>
           </div>
           
+          <div onclick="navigateTo('tpm')" class="sidebar-item flex items-center gap-x-3.5 px-4 py-3.5 rounded-3xl mb-1 cursor-pointer hover:bg-white/5 text-sm font-medium group" id="menu-tpm">
+            <i class="fa-solid fa-stethoscope w-5 text-indigo-400 group-hover:scale-110 transition"></i>
+            <span>Tempat Praktik Mandiri</span>
+          </div>
+          
           <div class="my-4 border-t border-white/10"></div>
           
           <div onclick="navigateTo('admin')" class="sidebar-item flex items-center gap-x-3.5 px-4 py-3.5 rounded-3xl mb-1 cursor-pointer hover:bg-white/5 text-sm font-medium group border border-white/10" id="menu-admin">
@@ -741,6 +746,37 @@
           </div>
         </div>
 
+        <!-- TPM SECTION -->
+        <div id="section-tpm" class="hidden">
+          <div class="flex justify-between mb-6">
+            <div>
+              <div class="font-semibold text-3xl tracking-tight">Tempat Praktik Mandiri</div>
+              <div class="text-sm text-white/50">Data Tenaga Kesehatan Praktik Mandiri</div>
+            </div>
+            <button onclick="loadTPMFromServer()" class="text-xs px-3 py-1 border border-white/20 rounded-2xl hover:bg-white/5 flex items-center gap-1">
+              <i class="fa-solid fa-sync"></i> <span>Muat Ulang</span>
+            </button>
+          </div>
+          <input id="search-tpm" onkeyup="filterTPM()" placeholder="Cari nama, profesi, atau tempat praktik..." class="glass mb-4 px-5 py-3 rounded-3xl w-full border border-white/10 text-sm">
+          <div class="glass rounded-3xl border border-white/10 overflow-hidden">
+            <div class="overflow-x-auto modern-scroll max-h-[600px]">
+              <table id="tpm-table" class="data-table w-full min-w-[1100px]">
+                <thead><tr>
+                  <th>No</th>
+                  <th>Foto</th>
+                  <th>Nama Lengkap dan Gelar</th>
+                  <th>Profesi Kesehatan</th>
+                  <th>Nama Praktik Mandiri</th>
+                  <th>Alamat Praktik</th>
+                  <th>Jam Praktik</th>
+                  <th>Nomor Telpon</th>
+                </tr></thead>
+                <tbody id="tpm-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- PANEL ADMIN -->
         <div id="section-admin" class="hidden">
           <div class="mb-6 flex items-center justify-between">
@@ -960,8 +996,8 @@
 
     // ==================== CONFIG & STATE ====================
     // Web App URL - Gunakan URL yang SAMA dengan yang terdeploy di Google Apps Script
-    // URL di code.gs: https://script.google.com/macros/s/AKfycbyABPb5lK9JxTgIby3B8azagaheW-yj6hWlI9I32G8tyF-cIBuQXRnOz5tLuDqPsFCF/exec
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbyABPb5lK9JxTgIby3B8azagaheW-yj6hWlI9I32G8tyF-cIBuQXRnOz5tLuDqPsFCF/exec';
+    // URL di code.gs: https://script.google.com/macros/s/AKfycbxrYpIJ31ZqA1l1w7eVejIyGZKPnqsMJ6oMxTD7zO7taW1EecXl1Bsxv0o-oz-ppfnT/exec
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxrYpIJ31ZqA1l1w7eVejIyGZKPnqsMJ6oMxTD7zO7taW1EecXl1Bsxv0o-oz-ppfnT/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -1199,6 +1235,115 @@
       return false;
     }
 
+    // ==================== LOAD TPM DATA FROM SERVER ====================
+    async function loadTPMFromServer() {
+      if (!API_URL) return false;
+      try {
+        const res = await callAPI('getTPM');
+        console.log('TPM API Response:', res);
+        if (res.success) {
+          DATA.tpm = res.data || [];
+          console.log('TPM: Loaded ' + DATA.tpm.length + ' records');
+          if (DATA.tpm.length > 0) {
+            console.log('TPM: Sample data:', DATA.tpm[0]);
+          }
+          renderTPMTable();
+          isApiConnected = true;
+          return true;
+        } else {
+          console.warn('TPM API failed:', res.message || res.error);
+          showToast('Gagal memuat data TPM: ' + (res.message || res.error || 'Unknown error'), 'warning');
+          return false;
+        }
+      } catch (e) {
+        console.error('Load TPM exception:', e);
+        showToast('Koneksi ke server gagal saat memuat TPM', 'error');
+      }
+      return false;
+    }
+
+    // ==================== TPM FUNCTIONS ====================
+    function renderTPMTable(filteredData = null) {
+      const tbody = document.getElementById('tpm-tbody');
+      const data = filteredData || DATA.tpm || [];
+      
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-white/50"><i class="fa-solid fa-inbox text-3xl mb-2 block"></i>Tidak ada data TPM</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = data.map((r, idx) => `
+        <tr onclick="showTPMDetail(${idx})" class="cursor-pointer hover:bg-white/5">
+          <td class="font-mono text-white/50 text-center">${idx + 1}</td>
+          <td class="text-center">${renderTPMFoto(r.foto)}</td>
+          <td class="font-semibold">${r.nama || ''}</td>
+          <td><span class="px-2.5 py-px text-xs rounded-xl bg-white/10">${r.profesi || ''}</span></td>
+          <td>${r.nama_praktik || ''}</td>
+          <td class="text-xs max-w-[200px] truncate">${r.alamat_praktik || ''}</td>
+          <td class="text-xs">${r.jam_praktik || ''}</td>
+          <td class="font-mono text-xs text-cyan-400">${r.telp || ''}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderTPMFoto(fotoUrl) {
+      if (!fotoUrl || fotoUrl === '') {
+        return '<div class="w-[60px] h-[60px] rounded-2xl bg-white/10 flex items-center justify-center mx-auto"><i class="fa-solid fa-user text-2xl text-white/40"></i></div>';
+      }
+      return `<img src="${fotoUrl}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fa-solid fa-user text-2xl text-white/40\'></i>'" class="w-[60px] h-[60px] object-cover rounded-2xl mx-auto border border-white/10" alt="foto">`;
+    }
+
+    function filterTPM() {
+      const q = document.getElementById('search-tpm').value.toLowerCase();
+      const filtered = (DATA.tpm || []).filter(r => 
+        (r.nama || '').toLowerCase().includes(q) || 
+        (r.profesi || '').toLowerCase().includes(q) || 
+        (r.nama_praktik || '').toLowerCase().includes(q)
+      );
+      renderTPMTable(filtered);
+    }
+
+    function showTPMDetail(idx) {
+      const r = DATA.tpm[idx];
+      if (!r) {
+        showToast('Data tidak ditemukan', 'error');
+        return;
+      }
+      
+      let fotoHtml = '';
+      if (r.foto && r.foto !== '') {
+        fotoHtml = `<img src="${r.foto}" onerror="this.style.display='none'" class="w-[120px] h-[120px] object-cover rounded-2xl mx-auto border-2 border-white/20 mb-4">`;
+      } else {
+        fotoHtml = '<div class="w-[120px] h-[120px] rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-user text-5xl text-white/40"></i></div>';
+      }
+
+      showModal(r.nama || 'Detail TPM', `
+        <div class="text-center mb-6">
+          ${fotoHtml}
+          <div class="text-2xl font-bold">${r.nama || ''}</div>
+          <div class="text-sm text-cyan-400">${r.profesi || ''}</div>
+        </div>
+        <div class="grid grid-cols-1 gap-4 text-sm">
+          <div class="glass p-4 rounded-2xl">
+            <div class="text-xs text-white/60 mb-1">NAMA PRAKTIK MANDIRI</div>
+            <div class="font-semibold">${r.nama_praktik || '-'}</div>
+          </div>
+          <div class="glass p-4 rounded-2xl">
+            <div class="text-xs text-white/60 mb-1">ALAMAT PRAKTIK</div>
+            <div>${r.alamat_praktik || '-'}</div>
+          </div>
+          <div class="glass p-4 rounded-2xl">
+            <div class="text-xs text-white/60 mb-1">JAM PRAKTIK</div>
+            <div>${r.jam_praktik || '-'}</div>
+          </div>
+          <div class="glass p-4 rounded-2xl">
+            <div class="text-xs text-white/60 mb-1">NOMOR TELPON</div>
+            <div class="font-mono text-cyan-400 text-lg">${r.telp || '-'}</div>
+          </div>
+        </div>
+      `, '');
+    }
+
 // In-memory data (rich sample data so the UI looks complete & professional on first open)
     let DATA = {
       dashboard: { total_sdmk: 0, total_dokter: 0, total_perawat: 0, total_bidan: 0, total_nakes: 0, total_faskes: 0 },
@@ -1209,6 +1354,7 @@
       rasioSummary: null,  // summary dari getRasioSDMK untuk dashboard
       distribusi: [],
       profil: [],
+      tpm: [],
 
       rekap_sdmk: [],
       rekap_spesialis: [],
@@ -1527,6 +1673,9 @@ currentSection = section;
       }
       if (section === 'profil') {
         loadProfilFromServer();
+      }
+      if (section === 'tpm') {
+        loadTPMFromServer();
       }
       if (section === 'distribusi') {
         // Already handled in lazy inits above
