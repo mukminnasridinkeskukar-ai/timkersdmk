@@ -996,7 +996,7 @@
     // ==================== CONFIG & STATE ====================
     // Web App URL - Gunakan URL yang SAMA dengan yang terdeploy di Google Apps Script
     // URL di code.gs: https://script.google.com/macros/s/AKfycbyABPb5lK9JxTgIby3B8azagaheW-yj6hWlI9I32G8tyF-cIBuQXRnOz5tLuDqPsFCF/exec
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbzIiq9hqY9PwkJWvrv50B8eBA_tN8PYjuxFe5esT1t0zgt0naZiUWHAY10dAuH5cAKk/exec';
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbwvZ5vXZkavyx6Mq0nUAGQzZ_HsTslQ7x6obiMZm112vo6i5jkKhYKRZpGAYOhPxZO7/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -1263,19 +1263,21 @@
 
     // ==================== TPM FUNCTIONS ====================
     
-    // Helper: Convert Google Drive URLs to direct image URLs
-    function convertGoogleDriveUrl(url) {
+    // Helper: Convert Google Drive URLs to direct image URLs (required function name)
+    function convertDriveImageUrl(url) {
       if (!url || url === '') return '';
-      // https://drive.google.com/file/d/FILE_ID/view?...
+      if (url.match(/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i)) return url;
       let match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
       if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      // https://drive.google.com/open?id=FILE_ID
       match = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
       if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      // https://drive.google.com/uc?export=download&id=FILE_ID
       match = url.match(/drive\.google\.com\/uc\?.*id=([^&]+)/);
       if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
       return url;
+    }
+
+    function convertGoogleDriveUrl(url) {
+      return convertDriveImageUrl(url);
     }
 
     // Helper: Check if URL is a Google Drive link
@@ -1295,7 +1297,7 @@
       tbody.innerHTML = data.map((r, idx) => `
         <tr onclick="showTPMDetail(${idx})" class="cursor-pointer hover:bg-white/5">
           <td class="font-mono text-white/50 text-center">${idx + 1}</td>
-          <td class="text-center">${renderTPMFoto(r.foto)}</td>
+          <td class="text-center">${renderTPMFoto(r.foto, r.nama)}</td>
           <td class="font-semibold">${r.nama || ''}</td>
           <td><span class="px-2.5 py-px text-xs rounded-xl bg-white/10">${r.profesi || ''}</span></td>
           <td>${r.nama_praktik || ''}</td>
@@ -1305,18 +1307,24 @@
       `).join('');
     }
 
-    function renderTPMFoto(fotoUrl) {
+    function renderTPMFoto(fotoUrl, nama = '') {
       if (!fotoUrl || fotoUrl === '') {
         return `<div class="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mx-auto border border-white/10">
           <i class="fa-solid fa-user-nurse text-xl text-white/30"></i>
         </div>`;
       }
-      const convertedUrl = convertGoogleDriveUrl(fotoUrl);
+      const convertedUrl = convertDriveImageUrl(fotoUrl);
+      if (!convertedUrl) {
+        return `<div class="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mx-auto border border-white/10">
+          <i class="fa-solid fa-link-slash text-xl text-red-400/50"></i>
+        </div>`;
+      }
       return `<div class="w-[56px] h-[56px] rounded-2xl overflow-hidden mx-auto border border-white/15 bg-white/5 flex items-center justify-center relative group">
         <img src="${convertedUrl}" 
              loading="lazy"
+             onclick="event.stopPropagation(); showPhotoPreview('${convertedUrl.replace(/'/g, "\\'")}', '${nama.replace(/'/g, "\\'")}')"
              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" 
-             class="w-full h-full object-cover" alt="foto">
+             class="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform duration-300" alt="foto">
         <div style="display:none" class="w-full h-full items-center justify-center absolute inset-0">
           <i class="fa-solid fa-user-nurse text-xl text-white/30"></i>
         </div>
@@ -1326,15 +1334,23 @@
     // Convert Google Drive URL for PDF/Doc viewing
     function convertGDriveViewUrl(url) {
       if (!url) return '';
-      // https://drive.google.com/file/d/FILE_ID/view → preview URL
       let match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
       if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
-      // https://drive.google.com/open?id=FILE_ID → preview URL
       match = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
       if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
-      // If it's already a direct PDF link
+      match = url.match(/drive\.google\.com\/uc\?.*id=([^&]+)/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
       if (url.endsWith('.pdf') || url.includes('.pdf?')) return url;
       return url;
+    }
+
+    function isValidUrl(string) {
+      try {
+        const parsed = new URL(string);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch (_) {
+        return false;
+      }
     }
 
     function filterTPM() {
@@ -1347,7 +1363,23 @@
       renderTPMTable(filtered);
     }
 
-    // Close TPM full-screen detail
+    function showPhotoPreview(url, nama) {
+      if (!url) return;
+      const previewUrl = convertDriveImageUrl(url);
+      showModal(`Foto: ${nama || 'Preview'}`, `
+        <div class="flex justify-center items-center bg-black/30 rounded-2xl p-4">
+          <img src="${previewUrl}" 
+               class="max-w-full max-h-[70vh] rounded-2xl object-contain shadow-2xl" 
+               alt="Preview Foto ${nama || ''}"
+               onerror="this.src=''; this.alt='Gagal memuat foto'; this.parentElement.innerHTML='<div class=\\'text-center py-12 text-white/40\\'><i class=\\'fa-solid fa-image text-6xl mb-4 block\\'></i><div>Gagal memuat foto</div></div>'">
+        </div>
+      `, `
+        <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="px-5 py-2.5 bg-white/10 rounded-3xl text-sm hover:bg-white/20 transition-colors inline-flex items-center gap-2">
+          <i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru
+        </a>
+      `);
+    }
+
     function closeTPMDetail() {
       const overlay = document.getElementById('tpm-detail-overlay');
       if (overlay) {
@@ -1384,35 +1416,60 @@
           </div>`;
       }
 
-      // SIP Link - PDF preview in iframe
-      const sipLink = r.link_sip || r.sip || r.link_sip_mandiri || '';
+      // SIP Link - from link_sip_mandiri field only
+      const sipLink = r.link_sip_mandiri || '';
       let sipHtml = '';
       if (sipLink && sipLink.trim() !== '') {
-        const previewUrl = convertGDriveViewUrl(sipLink.trim());
-        sipHtml = `
-          <div class="glass p-4 rounded-2xl">
-            <div class="text-[10px] text-white/50 mb-3 uppercase tracking-wider">LINK SIP MANDIRI (Preview)</div>
-            <div class="rounded-2xl overflow-hidden border border-white/10 bg-black/30" style="position:relative;">
-              <iframe src="${previewUrl}" 
-                      class="w-full" 
-                      style="height:400px; border:none;" 
-                      sandbox="allow-same-origin allow-scripts allow-popups"
-                      title="Preview SIP Mandiri"
-                      loading="lazy">
-              </iframe>
-              <!-- Overlay to prevent download interaction -->
-              <div class="absolute top-0 right-0 p-2 z-10">
-                <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" 
-                   class="px-3 py-1.5 text-[10px] bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-colors inline-flex items-center gap-1">
-                  <i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru
-                </a>
+        const trimmed = sipLink.trim();
+        let previewUrl = '';
+        let isGoogleDrive = trimmed.includes('drive.google.com');
+        let isPdf = false;
+
+        if (isGoogleDrive) {
+          previewUrl = convertGDriveViewUrl(trimmed);
+        } else if (trimmed.endsWith('.pdf')) {
+          previewUrl = trimmed;
+          isPdf = true;
+        } else {
+          previewUrl = trimmed;
+        }
+
+        if (isPdf || isGoogleDrive) {
+          sipHtml = `
+            <div class="glass p-4 rounded-2xl">
+              <div class="text-[10px] text-white/50 mb-3 uppercase tracking-wider">LINK SIP MANDIRI</div>
+              <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-black/30">
+                <iframe src="${previewUrl}" 
+                        class="w-full" 
+                        style="height:400px; border:none;" 
+                        sandbox="allow-same-origin allow-scripts allow-popups"
+                        title="Preview SIP Mandiri"
+                        loading="lazy">
+                </iframe>
+                <div class="absolute top-2 right-2 z-10">
+                  <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" 
+                     class="px-3 py-1.5 text-[10px] bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-colors inline-flex items-center gap-1">
+                    <i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru
+                  </a>
+                </div>
               </div>
-            </div>
-            <div class="text-[10px] text-white/30 mt-2 text-center">Preview dokumen SIP - Klik "Buka di Tab Baru" untuk melihat lebih jelas</div>
-          </div>`;
+              <div class="text-[10px] text-white/30 mt-2 text-center">Preview dokumen SIP</div>
+            </div>`;
+        } else {
+          sipHtml = `
+            <div class="glass p-4 rounded-2xl">
+              <div class="text-[10px] text-white/50 mb-3 uppercase tracking-wider">LINK SIP MANDIRI</div>
+              <a href="${trimmed}" target="_blank" rel="noopener noreferrer" 
+                 class="inline-flex items-center gap-2 px-5 py-3 bg-cyan-500/20 text-cyan-400 rounded-2xl text-sm hover:bg-cyan-500/30 transition-colors border border-cyan-500/30">
+                <i class="fa-solid fa-file-lines"></i> Buka Dokumen
+              </a>
+              <div class="text-[10px] text-white/30 mt-2">Klik untuk membuka dokumen SIP di tab baru</div>
+            </div>`;
+        }
+      } else {
+        sipHtml = `<div class="glass p-5 rounded-2xl text-center text-white/40 text-sm">-</div>`;
       }
 
-      // Create full-screen overlay
       const overlay = document.createElement('div');
       overlay.id = 'tpm-detail-overlay';
       overlay.className = 'fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto';
