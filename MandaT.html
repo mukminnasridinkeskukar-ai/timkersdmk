@@ -727,18 +727,18 @@
           <div class="glass rounded-3xl border border-white/10 overflow-hidden">
             <div class="overflow-x-auto modern-scroll">
               <table id="profil-table" class="data-table w-full min-w-[1280px]">
-                 <thead><tr>
+               <thead><tr>
                    <th>Kode</th>
-                   <th>Nama Faskes</th>
+                   <th>Nama Fasyankes</th>
                    <th>Jenis</th>
                    <th>Kecamatan</th>
-                   <th>Desa/Kel</th>
-                   <th>Alamat</th>
-                   <th>Kepala</th>
-                   <th>Jml SDMK</th>
-                   <th>Akreditasi</th>
-                   <th>Kontak</th>
-                   <th class="w-16">Aksi</th>
+                   <th>Desa/Kelurahan</th>
+                   <th>Alamat Unit</th>
+                   <th>Kepala Unit</th>
+                   <th>Maps</th>
+                   <th>Nomor Telpon</th>
+                   <th>Email</th>
+                   <th>Alamat Web</th>
                  </tr></thead>
                 <tbody id="profil-tbody"></tbody>
               </table>
@@ -996,8 +996,8 @@
 
     // ==================== CONFIG & STATE ====================
     // Web App URL - Gunakan URL yang SAMA dengan yang terdeploy di Google Apps Script
-    // URL di code.gs: https://script.google.com/macros/s/AKfycbxrYpIJ31ZqA1l1w7eVejIyGZKPnqsMJ6oMxTD7zO7taW1EecXl1Bsxv0o-oz-ppfnT/exec
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxrYpIJ31ZqA1l1w7eVejIyGZKPnqsMJ6oMxTD7zO7taW1EecXl1Bsxv0o-oz-ppfnT/exec';
+    // URL di code.gs: https://script.google.com/macros/s/AKfycbyABPb5lK9JxTgIby3B8azagaheW-yj6hWlI9I32G8tyF-cIBuQXRnOz5tLuDqPsFCF/exec
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbyABPb5lK9JxTgIby3B8azagaheW-yj6hWlI9I32G8tyF-cIBuQXRnOz5tLuDqPsFCF/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -2823,25 +2823,36 @@ function renderAnjabTable(filtered = null) {
       showToast('Filter ' + title + ' diterapkan', 'info');
     }
 
-/* ==================== MODULE: PROFIL UNIT FASKES ==================== */
+     /* ==================== MODULE: PROFIL UNIT FASKES ==================== */
      function renderProfilTable(filtered = null) {
        const tbody = document.getElementById('profil-tbody');
        const data = filtered || DATA.profil || [];
-       tbody.innerHTML = data.map(p => `
+       tbody.innerHTML = data.map((p, idx) => {
+         // Cari index asli di DATA.profil (bukan di filtered)
+         const realIdx = DATA.profil.indexOf(p);
+         // Generate Google Maps link
+         const mapsLink = (p.maps && p.maps.trim() !== '') ? p.maps.trim() 
+                        : (p.lat && p.lng) ? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`
+                        : (p.alamat ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.nama + ' ' + p.alamat + ' ' + (p.kec || '') + ' Kutai Kartanegara')}` : '#');
+         const telpDisplay = p.telp || p.telepon || p.kontak || '';
+         const emailDisplay = p.email || '';
+         const webDisplay = p.website || p.web || '';
+         
+         return `
          <tr>
            <td class="font-mono text-xs">${p.kode || ''}</td>
-           <td class="font-semibold">${p.nama || ''}</td>
+           <td class="font-semibold cursor-pointer text-cyan-400 hover:text-cyan-300 hover:underline" onclick="showProfilDetail(${realIdx})" title="Klik untuk lihat detail lengkap">${p.nama || ''}</td>
            <td><span class="text-xs px-2.5 py-0.5 rounded-xl bg-white/10">${p.jenis || ''}</span></td>
            <td>${p.kec || ''}</td>
            <td class="text-xs">${p.desa || ''}</td>
-           <td class="text-xs">${p.alamat || ''}</td>
+           <td class="text-xs max-w-[180px] truncate" title="${p.alamat || ''}">${p.alamat || ''}</td>
            <td>${p.kepala || ''}</td>
-           <td class="font-bold text-center">${p.sdmk || 0}</td>
-           <td><span class="px-3 text-xs py-px rounded-2xl ${p.akreditasi==='Paripurna'?'bg-emerald-500':'bg-amber-500'}">${p.akreditasi || ''}</span></td>
-           <td class="font-mono text-xs">${p.kontak || ''}</td>
-           <td><button onclick="showProfilDetail(${DATA.profil.indexOf(p)})" class="px-3 py-1 text-xs border border-white/20 rounded-2xl">Detail</button></td>
+           <td class="text-center">${mapsLink !== '#' ? `<a href="${mapsLink}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 hover:underline" title="Buka di Google Maps"><i class="fa-solid fa-map-location-dot"></i> Maps</a>` : '<span class="text-white/30 text-xs">-</span>'}</td>
+           <td class="font-mono text-xs">${telpDisplay}</td>
+           <td class="text-xs">${emailDisplay ? `<a href="mailto:${emailDisplay}" class="text-cyan-400 hover:underline">${emailDisplay}</a>` : '-'}</td>
+           <td class="text-xs">${webDisplay ? `<a href="${webDisplay.startsWith('http') ? webDisplay : 'https://' + webDisplay}" target="_blank" class="text-cyan-400 hover:underline truncate block max-w-[140px]" title="${webDisplay}">${webDisplay}</a>` : '-'}</td>
          </tr>
-       `).join('');
+       `}).join('');
      }
 
     // ==================== REKAP SDMK ====================
@@ -3335,53 +3346,148 @@ function showProfilDetail(idx) {
          showToast('Data profil tidak ditemukan', 'error');
          return;
        }
-       showModal(p.nama || 'Detail Faskes', `
-         <div class="grid grid-cols-2 gap-y-4 text-sm">
-           <div><span class="text-xs text-white/60">KODE</span><br><b>${p.kode || ''}</b></div>
-           <div><span class="text-xs text-white/60">JENIS</span><br><b>${p.jenis || ''}</b></div>
-           <div><span class="text-xs text-white/60">KECAMATAN</span><br><b>${p.kec || ''}</b></div>
-           <div><span class="text-xs text-white/60">DESA / KELURAHAN</span><br><b>${p.desa || ''}</b></div>
-           <div class="col-span-2"><span class="text-xs text-white/60">ALAMAT LENGKAP</span><br><b>${p.alamat || ''}</b></div>
-           <div><span class="text-xs text-white/60">KEPALA</span><br><b>${p.kepala || ''}</b></div>
-           <div><span class="text-xs text-white/60">JUMLAH SDMK</span><br><b class="text-2xl">${p.sdmk || 0}</b></div>
-           <div><span class="text-xs text-white/60">AKREDITASI</span><br><span class="font-semibold text-emerald-400">${p.akreditasi || ''}</span></div>
-           <div class="col-span-2"><span class="text-xs text-white/60">KONTAK</span><br><b>${p.kontak || ''}</b></div>
+       const telpDisplay = p.telp || p.telepon || p.kontak || '-';
+       const emailDisplay = p.email || '-';
+       const webDisplay = p.website || p.web || '-';
+       const mapsLink = (p.maps && p.maps.trim() !== '') ? p.maps.trim() 
+                      : (p.lat && p.lng) ? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`
+                      : (p.alamat ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.nama + ' ' + p.alamat + ' ' + (p.kec || '') + ' Kutai Kartanegara')}` : '');
+       
+       // Lightbox popup - layout lengkap
+       showModal(`<i class="fa-solid fa-hospital text-pink-400"></i> ${p.nama || 'Detail Faskes'}`, `
+         <div class="space-y-5">
+           <!-- Header Info -->
+           <div class="flex items-start gap-4 p-4 glass rounded-2xl">
+             <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-violet-500 flex items-center justify-center shrink-0">
+               <i class="fa-solid fa-hospital text-2xl text-white"></i>
+             </div>
+             <div class="flex-1">
+               <div class="font-bold text-xl">${p.nama || ''}</div>
+               <div class="text-xs text-white/50 mt-1">${p.jenis || ''} • ${p.kec || ''}</div>
+               <div class="flex gap-2 mt-2 flex-wrap">
+                 <span class="px-2 py-0.5 text-[10px] rounded-lg bg-white/10 font-mono">${p.kode || ''}</span>
+                 ${p.akreditasi ? `<span class="px-2 py-0.5 text-[10px] rounded-lg ${p.akreditasi==='Paripurna'?'bg-emerald-500/80':p.akreditasi==='Utama'?'bg-blue-500/80':'bg-amber-500/80'}">${p.akreditasi}</span>` : ''}
+                 ${p.sdmk ? `<span class="px-2 py-0.5 text-[10px] rounded-lg bg-cyan-500/20 text-cyan-400">SDMK: ${p.sdmk}</span>` : ''}
+               </div>
+             </div>
+           </div>
+           
+           <!-- Detail Grid -->
+           <div class="grid grid-cols-2 gap-3 text-sm">
+             <div class="glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Kode Fasyankes</div>
+               <div class="font-semibold font-mono">${p.kode || '-'}</div>
+             </div>
+             <div class="glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Jenis</div>
+               <div class="font-semibold">${p.jenis || '-'}</div>
+             </div>
+             <div class="glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Kecamatan</div>
+               <div class="font-semibold">${p.kec || '-'}</div>
+             </div>
+             <div class="glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Desa/Kelurahan</div>
+               <div class="font-semibold">${p.desa || '-'}</div>
+             </div>
+             <div class="col-span-2 glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Alamat Unit</div>
+               <div class="font-semibold">${p.alamat || '-'}</div>
+             </div>
+             <div class="glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Kepala Unit</div>
+               <div class="font-semibold">${p.kepala || '-'}</div>
+             </div>
+             <div class="glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Jumlah SDMK</div>
+               <div class="font-bold text-2xl text-cyan-400">${p.sdmk || 0}</div>
+             </div>
+             <div class="glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Akreditasi</div>
+               <div class="font-semibold ${p.akreditasi==='Paripurna'?'text-emerald-400':p.akreditasi==='Utama'?'text-blue-400':'text-amber-400'}">${p.akreditasi || '-'}</div>
+             </div>
+             <div class="glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Nomor Telpon</div>
+               <div class="font-mono text-cyan-400">${telpDisplay}</div>
+             </div>
+             <div class="col-span-2 glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Email</div>
+               <div>${emailDisplay !== '-' ? `<a href="mailto:${emailDisplay}" class="text-cyan-400 hover:underline">${emailDisplay}</a>` : '<span class="text-white/40">-</span>'}</div>
+             </div>
+             <div class="col-span-2 glass p-3 rounded-2xl">
+               <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">Alamat Web</div>
+               <div>${webDisplay !== '-' ? `<a href="${(webDisplay.startsWith('http') ? webDisplay : 'https://' + webDisplay)}" target="_blank" class="text-cyan-400 hover:underline">${webDisplay}</a>` : '<span class="text-white/40">-</span>'}</div>
+             </div>
+           </div>
+           
+           <!-- Maps Link -->
+           ${mapsLink ? `
+           <a href="${mapsLink}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 p-4 glass rounded-2xl hover:bg-white/10 transition-colors group">
+             <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
+               <i class="fa-solid fa-map-location-dot text-emerald-400 text-lg"></i>
+             </div>
+             <div>
+               <div class="text-sm font-semibold group-hover:text-emerald-400 transition-colors">Lihat di Google Maps</div>
+               <div class="text-[10px] text-white/40">Klik untuk membuka lokasi di Google Maps</div>
+             </div>
+             <i class="fa-solid fa-arrow-up-right-from-square text-white/30 ml-auto"></i>
+           </a>
+           ` : ''}
          </div>
        `, '');
      }
 
     function showProfilModal(editIdx = null) {
-      const isEdit = editIdx !== null;
-      const p = isEdit ? DATA.profil[editIdx] : {kode:'FK-' + (100 + DATA.profil.length), nama:'', jenis:'Puskesmas', kec:'', desa:'', alamat:'', kepala:'', sdmk:0, akreditasi:'Madya', kontak:''};
-      showModal(isEdit ? 'Edit Profil Faskes' : 'Tambah Unit Faskes Baru', `
-        <div class="grid grid-cols-2 gap-3 text-sm">
-          <input id="pr-kode" value="${p.kode}" class="glass px-4 py-2 rounded-2xl border border-white/10">
-          <input id="pr-nama" value="${p.nama}" placeholder="Nama Faskes" class="glass px-4 py-2 rounded-2xl border border-white/10">
-          <select id="pr-jenis" class="glass px-4 py-2 rounded-2xl border border-white/10"><option>Puskesmas</option><option>RSUD</option><option>Klinik</option><option>Posyandu</option></select>
-          <input id="pr-kec" value="${p.kec}" placeholder="Kecamatan" class="glass px-4 py-2 rounded-2xl border border-white/10">
-          <input id="pr-desa" value="${p.desa}" placeholder="Desa/Kelurahan" class="glass px-4 py-2 rounded-2xl border border-white/10 col-span-2">
-          <input id="pr-alamat" value="${p.alamat}" placeholder="Alamat lengkap" class="glass px-4 py-2 rounded-2xl border border-white/10 col-span-2">
-          <input id="pr-kepala" value="${p.kepala}" placeholder="Nama Kepala Faskes" class="glass px-4 py-2 rounded-2xl border border-white/10">
-          <input id="pr-sdmk" type="number" value="${p.sdmk}" class="glass px-4 py-2 rounded-2xl border border-white/10">
-          <select id="pr-akre" class="glass px-4 py-2 rounded-2xl border border-white/10"><option>Paripurna</option><option>Utama</option><option>Madya</option><option>Dasar</option></select>
-          <input id="pr-kontak" value="${p.kontak}" placeholder="Kontak telepon" class="glass px-4 py-2 rounded-2xl border border-white/10">
-        </div>
-      `, `<button onclick="saveProfil(${isEdit ? editIdx : 'null'})" class="px-7 py-2.5 rounded-3xl bg-pink-500 font-semibold">${isEdit ? 'UPDATE' : 'TAMBAH'}</button>`);
-    }
+       const isEdit = editIdx !== null;
+       const p = isEdit ? DATA.profil[editIdx] : {kode:'FK-' + (100 + DATA.profil.length), nama:'', jenis:'Puskesmas', kec:'', desa:'', alamat:'', kepala:'', sdmk:0, akreditasi:'Madya', kontak:'', maps:'', telp:'', email:'', website:''};
+       showModal(isEdit ? 'Edit Profil Faskes' : 'Tambah Unit Faskes Baru', `
+         <div class="space-y-3 text-sm max-h-[60vh] overflow-y-auto modern-scroll pr-2">
+           <div class="grid grid-cols-2 gap-3">
+             <div><label class="text-xs text-white/60">KODE</label><input id="pr-kode" value="${p.kode || ''}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+             <div><label class="text-xs text-white/60">NAMA FASYANKES</label><input id="pr-nama" value="${p.nama || ''}" placeholder="Nama Fasyankes" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+           </div>
+           <div class="grid grid-cols-2 gap-3">
+             <div><label class="text-xs text-white/60">JENIS</label>
+               <select id="pr-jenis" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"><option>Puskesmas</option><option>RSUD</option><option>Klinik</option><option>Posyandu</option><option>RS Swasta</option><option>Praktik Mandiri</option></select>
+             </div>
+             <div><label class="text-xs text-white/60">KECAMATAN</label><input id="pr-kec" value="${p.kec || ''}" placeholder="Kecamatan" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+           </div>
+           <div><label class="text-xs text-white/60">DESA / KELURAHAN</label><input id="pr-desa" value="${p.desa || ''}" placeholder="Desa/Kelurahan" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+           <div><label class="text-xs text-white/60">ALAMAT UNIT</label><input id="pr-alamat" value="${p.alamat || ''}" placeholder="Alamat lengkap unit" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+           <div class="grid grid-cols-2 gap-3">
+             <div><label class="text-xs text-white/60">KEPALA UNIT</label><input id="pr-kepala" value="${p.kepala || ''}" placeholder="Nama Kepala Unit" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+             <div><label class="text-xs text-white/60">JUMLAH SDMK</label><input id="pr-sdmk" type="number" value="${p.sdmk || 0}" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+           </div>
+           <div><label class="text-xs text-white/60">AKREDITASI</label>
+             <select id="pr-akre" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"><option>Paripurna</option><option>Utama</option><option>Madya</option><option>Dasar</option></select>
+           </div>
+           <div><label class="text-xs text-white/60">LINK MAPS (Google Maps URL)</label><input id="pr-maps" value="${p.maps || ''}" placeholder="https://www.google.com/maps/... atau koordinat" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+           <div class="grid grid-cols-2 gap-3">
+             <div><label class="text-xs text-white/60">NOMOR TELEPON</label><input id="pr-telp" value="${p.telp || p.telepon || p.kontak || ''}" placeholder="08xx / 05xx" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+             <div><label class="text-xs text-white/60">EMAIL</label><input id="pr-email" type="email" value="${p.email || ''}" placeholder="email@faskes.go.id" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+           </div>
+           <div><label class="text-xs text-white/60">ALAMAT WEB</label><input id="pr-website" value="${p.website || p.web || ''}" placeholder="https://www.faskes.go.id" class="mt-1 w-full glass px-4 py-2 rounded-2xl border border-white/10"></div>
+         </div>
+       `, `<button onclick="closeModal()" class="px-5 py-2.5 rounded-3xl border border-white/20 text-sm">BATAL</button><button onclick="saveProfil(${isEdit ? editIdx : 'null'})" class="px-7 py-2.5 rounded-3xl bg-pink-500 font-semibold text-sm">${isEdit ? 'UPDATE' : 'TAMBAH'}</button>`);
+     }
 
     async function saveProfil(idx) {
-      const newP = {
-        kode: document.getElementById('pr-kode').value,
-        nama: document.getElementById('pr-nama').value,
-        jenis: document.getElementById('pr-jenis').value,
-        kec: document.getElementById('pr-kec').value,
-        desa: document.getElementById('pr-desa').value,
-        alamat: document.getElementById('pr-alamat').value,
-        kepala: document.getElementById('pr-kepala').value,
-        sdmk: parseInt(document.getElementById('pr-sdmk').value),
-        akreditasi: document.getElementById('pr-akre').value,
-        kontak: document.getElementById('pr-kontak').value
-      };
+       const newP = {
+         kode: document.getElementById('pr-kode').value,
+         nama: document.getElementById('pr-nama').value,
+         jenis: document.getElementById('pr-jenis').value,
+         kec: document.getElementById('pr-kec').value,
+         desa: document.getElementById('pr-desa').value,
+         alamat: document.getElementById('pr-alamat').value,
+         kepala: document.getElementById('pr-kepala').value,
+         sdmk: parseInt(document.getElementById('pr-sdmk').value) || 0,
+         akreditasi: document.getElementById('pr-akre').value,
+         kontak: document.getElementById('pr-telp').value,
+         telp: document.getElementById('pr-telp').value,
+         email: document.getElementById('pr-email').value,
+         website: document.getElementById('pr-website').value,
+         maps: document.getElementById('pr-maps').value
+       };
 
       closeModal();
 
