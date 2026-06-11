@@ -1268,26 +1268,22 @@
       url = url.trim();
       // Already a direct image URL
       if (url.match(/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i)) return url;
-      // Google Drive /file/d/ID/view or /file/d/ID/... format
+      // Extract file ID from various Google Drive URL formats
+      let fileId = null;
       let match = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      // Google Drive open?id=ID format
-      match = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
-      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      // Google Drive uc?id=ID format
-      match = url.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
-      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      // Google Drive /d/ID/ format
-      match = url.match(/drive\.google\.com\/d\/([a-zA-Z0-9_-]+)/);
-      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      // Google Docs/Sheets/Slides preview format
-      match = url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/);
-      if (match) return `https://drive.google.com/uc?export=view&id=${match[2]}`;
-      // Google Drive with /uc?export=view&id= already - return as-is
+      if (match) fileId = match[1];
+      if (!fileId) { match = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/); if (match) fileId = match[1]; }
+      if (!fileId) { match = url.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/); if (match) fileId = match[1]; }
+      if (!fileId) { match = url.match(/drive\.google\.com\/d\/([a-zA-Z0-9_-]+)/); if (match) fileId = match[1]; }
+      if (!fileId) { match = url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/); if (match) fileId = match[2]; }
+      if (!fileId) { match = url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/); if (match) fileId = match[1]; }
+      
+      if (fileId) {
+        // Use lh3.googleusercontent.com which is more reliable for direct image display (no CORS issues)
+        return `https://lh3.googleusercontent.com/d/${fileId}=w800`;
+      }
+      // Already a uc?export=view URL
       if (url.includes('drive.google.com/uc?export=view')) return url;
-      // Try to extract ID from any Google Drive URL pattern
-      match = url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
-      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
       return url;
     }
     
@@ -1359,20 +1355,26 @@
 
     // Helper: Get SIP/Document URL from a TPM data row using headers (dynamic lookup)
     function getDocumentUrlFromRow(row, headers) {
-      const docKeywords = ['sip', 'dokumen', 'document', 'surat', 'ijin', 'izin', 'izin_praktik', 'sip_mandiri', 'link_sip', 'file', 'pdf', 'doc'];
+      // Priority: match headers that are likely document LINKS (not dates, not names)
+      const docKeywords = ['link_sip', 'link sip', 'link dokumen', 'link dok', 'dokumen', 'document', 'surat', 'ijin', 'izin', 'file', 'pdf'];
       for (const h of headers) {
         const hLower = h.toString().trim().toLowerCase();
         for (const kw of docKeywords) {
           if (hLower.includes(kw)) {
             const val = row[h];
             if (val && val !== '' && val !== undefined && val !== null) {
-              return val.toString().trim();
+              const strVal = val.toString().trim();
+              // Only return if it looks like a URL
+              if (strVal.startsWith('http')) return strVal;
             }
           }
         }
       }
-      // Fallback: check for Google Drive document links
+      // Broader fallback: check for Google Drive document links in any header
       for (const h of headers) {
+        const hLower = h.toString().trim().toLowerCase();
+        // Skip headers that are clearly not document links
+        if (hLower.includes('tanggal') || hLower.includes('nama') || hLower.includes('foto') || hLower.includes('no') || hLower.includes('alamat') || hLower.includes('telepon') || hLower.includes('jam')) continue;
         const val = row[h];
         if (val && val !== '' && typeof val === 'string') {
           const v = val.trim();
