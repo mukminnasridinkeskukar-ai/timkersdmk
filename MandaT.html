@@ -990,8 +990,8 @@
 
     // ==================== CONFIG & STATE ====================
     // Web App URL - Gunakan URL yang SAMA dengan yang terdeploy di Google Apps Script
-    // URL di code.gs: https://script.google.com/macros/s/AKfycbyABPb5lK9JxTgIby3B8azagaheW-yj6hWlI9I32G8tyF-cIBuQXRnOz5tLuDqPsFCF/exec
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbx1ZCTGB2-7sEYWyG8yhWNHG98jhILzRMxSd6R7MaFe1mm9vEpYY8fJPiLAMlX1ZpPH/exec';
+    // URL di code.gs: https://script.google.com/macros/s/AKfycbzWGHWo_wgEmYtnYL6VaUAgbDetoX-oKenGsFWeKrwHT_CJ8jrUdeF2oBZ7JFcla3Ij/exec
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbzWGHWo_wgEmYtnYL6VaUAgbDetoX-oKenGsFWeKrwHT_CJ8jrUdeF2oBZ7JFcla3Ij/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -1284,6 +1284,44 @@
       return url && (url.includes('drive.google.com') || url.includes('docs.google.com'));
     }
 
+    // Helper: Get foto URL from a TPM data row using headers (dynamic lookup)
+    function getFotoUrlFromRow(row, headers) {
+      // Try common header names for foto/photo/gambar/image
+      const fotoKeywords = ['foto', 'photo', 'gambar', 'image', 'foto/photo', 'url foto', 'link foto'];
+      for (const h of headers) {
+        const hLower = h.toString().trim().toLowerCase();
+        for (const kw of fotoKeywords) {
+          if (hLower.includes(kw)) {
+            const val = row[h];
+            if (val && val !== '' && val !== undefined && val !== null) {
+              return val.toString().trim();
+            }
+          }
+        }
+      }
+      return '';
+    }
+
+    // Helper: Get nama from a TPM data row using headers (dynamic lookup)
+    function getNamaFromRow(row, headers) {
+      const namaHeaders = ['Nama Lengkap dan Gelar', 'Nama', 'Nama Tenaga Kesehatan', 'Nama Lengkap'];
+      for (const nh of namaHeaders) {
+        const val = getCellValue(row, headers, nh);
+        if (val && val !== '-') return val;
+      }
+      // Fallback: find any header containing 'nama'
+      for (const h of headers) {
+        const hLower = h.toString().trim().toLowerCase();
+        if (hLower.includes('nama')) {
+          const val = row[h];
+          if (val && val !== '' && val !== undefined && val !== null) {
+            return val.toString().trim();
+          }
+        }
+      }
+      return '';
+    }
+
     function renderTPMTable(filteredData = null) {
       const tbody = document.getElementById('tpm-tbody');
       const headers = DATA.tpmHeaders || [];
@@ -1294,37 +1332,42 @@
         return;
       }
       
-      tbody.innerHTML = data.map((r, idx) => `
+      tbody.innerHTML = data.map((r, idx) => {
+        const fotoUrl = getFotoUrlFromRow(r, headers);
+        const nama = getNamaFromRow(r, headers);
+        return `
         <tr onclick="showTPMDetailFullscreen(${idx})" class="cursor-pointer hover:bg-white/5">
           <td class="font-mono text-white/50 text-center">${idx + 1}</td>
-          <td class="text-center">${renderTPMFoto(r.foto || (headers.find(h => h.toLowerCase().includes('foto') || h.toLowerCase().includes('photo') || h.toLowerCase().includes('gambar') || h.toLowerCase().includes('image')) ? r[headers.find(h => h.toLowerCase().includes('foto') || h.toLowerCase().includes('photo') || h.toLowerCase().includes('gambar') || h.toLowerCase().includes('image'))] : ''), r.nama || (headers.find(h => h.toLowerCase().includes('nama')) ? r[headers.find(h => h.toLowerCase().includes('nama'))] : ''))}</td>
-          <td class="font-semibold">${getCellValue(r, headers, 'Nama Lengkap dan Gelar') || getCellValue(r, headers, 'Nama') || ''}</td>
-          <td><span class="px-2.5 py-px text-xs rounded-xl bg-white/10">${getCellValue(r, headers, 'Profesi Kesehatan') || getCellValue(r, headers, 'Profesi') || ''}</span></td>
-          <td>${getCellValue(r, headers, 'Nama Praktik Mandiri') || getCellValue(r, headers, 'Tempat Praktik') || ''}</td>
-          <td class="text-xs max-w-[200px] truncate" title="${getCellValue(r, headers, 'Alamat Praktik') || ''}">${getCellValue(r, headers, 'Alamat Praktik') || ''}</td>
-          <td class="text-xs">${getCellValue(r, headers, 'Jam Praktik') || ''}</td>
+          <td class="text-center">${renderTPMFoto(fotoUrl, nama, idx)}</td>
+          <td class="font-semibold">${getCellValue(r, headers, 'Nama Lengkap dan Gelar') || getCellValue(r, headers, 'Nama') || '-'}</td>
+          <td><span class="px-2.5 py-px text-xs rounded-xl bg-white/10">${getCellValue(r, headers, 'Profesi Kesehatan') || getCellValue(r, headers, 'Profesi') || '-'}</span></td>
+          <td>${getCellValue(r, headers, 'Nama Praktik Mandiri') || getCellValue(r, headers, 'Tempat Praktik') || '-'}</td>
+          <td class="text-xs max-w-[200px] truncate" title="${getCellValue(r, headers, 'Alamat Praktik') || '-'}">${getCellValue(r, headers, 'Alamat Praktik') || '-'}</td>
+          <td class="text-xs">${getCellValue(r, headers, 'Jam Praktik') || '-'}</td>
         </tr>
-      `).join('');
+      `}).join('');
     }
 
-    function renderTPMFoto(fotoUrl, nama = '') {
+    function renderTPMFoto(fotoUrl, nama = '', idx = 0) {
       if (!fotoUrl || fotoUrl === '') {
-        return `<div class="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mx-auto border border-white/10">
+        return `<div onclick="event.stopPropagation(); showTPMDetailFullscreen(${idx})" class="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mx-auto border border-white/10 cursor-pointer">
           <i class="fa-solid fa-user-nurse text-xl text-white/30"></i>
         </div>`;
       }
       const convertedUrl = convertDriveImageUrl(fotoUrl);
       if (!convertedUrl) {
-        return `<div class="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mx-auto border border-white/10">
+        return `<div onclick="event.stopPropagation(); showTPMDetailFullscreen(${idx})" class="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center mx-auto border border-white/10 cursor-pointer">
           <i class="fa-solid fa-link-slash text-xl text-red-400/50"></i>
         </div>`;
       }
+      const safeName = (nama || 'Foto').replace(/'/g, "\\'");
+      const escapedUrl = convertedUrl.replace(/'/g, "\\'");
       return `<div class="w-[56px] h-[56px] rounded-2xl overflow-hidden mx-auto border border-white/15 bg-white/5 flex items-center justify-center relative group">
         <img src="${convertedUrl}" 
              loading="lazy"
-             onclick="event.stopPropagation(); showPhotoPreview('${convertedUrl.replace(/'/g, "\\'")}', '${nama.replace(/'/g, "\\'")}')"
+             onclick="event.stopPropagation(); showTPMDetailFullscreen(${idx})"
              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" 
-             class="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform duration-300" alt="foto">
+             class="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform duration-300" alt="${safeName}">
         <div style="display:none" class="w-full h-full items-center justify-center absolute inset-0">
           <i class="fa-solid fa-user-nurse text-xl text-white/30"></i>
         </div>
@@ -1355,11 +1398,14 @@
 
     function filterTPM() {
       const q = document.getElementById('search-tpm').value.toLowerCase();
-      const filtered = (DATA.tpm || []).filter(r => 
-        (r.nama || '').toLowerCase().includes(q) || 
-        (r.profesi || '').toLowerCase().includes(q) || 
-        (r.nama_praktik || '').toLowerCase().includes(q)
-      );
+      const headers = DATA.tpmHeaders || [];
+      const filtered = (DATA.tpm || []).filter(r => {
+        return headers.some(h => {
+          if (!h || h.toString().trim() === '') return false;
+          const val = r[h];
+          return val && val.toString().toLowerCase().includes(q);
+        });
+      });
       renderTPMTable(filtered);
     }
 
@@ -1384,177 +1430,115 @@
       const overlay = document.getElementById('tpm-detail-overlay');
       if (overlay) {
         overlay.style.opacity = '0';
-        setTimeout(() => { overlay.style.display = 'none'; overlay.remove(); }, 300);
+        overlay.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => { 
+          overlay.style.display = 'none'; 
+          overlay.remove(); 
+          document.body.style.overflow = ''; 
+        }, 300);
       }
     }
 
-    function showTPMDetail(idx) {
+    function showTPMDetailFullscreen(idx) {
+      const headers = DATA.tpmHeaders || [];
       const r = DATA.tpm[idx];
       if (!r) {
         showToast('Data tidak ditemukan', 'error');
         return;
       }
 
-      // Build photo HTML - large, with multiple fallback strategies
-      const fotoUrl = convertGoogleDriveUrl(r.foto || '');
+      // Get photo URL dynamically using header-based lookup
+      const fotoRawUrl = getFotoUrlFromRow(r, headers);
+      const fotoUrl = fotoRawUrl ? convertDriveImageUrl(fotoRawUrl) : '';
+
+      // Build photo HTML - large, responsive
       let fotoHtml = '';
       if (fotoUrl && fotoUrl !== '') {
         fotoHtml = `
-          <div class="relative w-[160px] h-[160px] rounded-3xl overflow-hidden mx-auto border-2 border-white/20 bg-white/5 shadow-2xl group">
+          <div class="w-full max-w-[280px] mx-auto sm:mx-0 shrink-0">
             <img src="${fotoUrl}" 
                  loading="lazy"
                  onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" 
-                 class="w-full h-full object-cover" alt="foto ${r.nama || ''}">
-            <div style="display:none" class="w-full h-full items-center justify-center absolute inset-0 bg-gradient-to-br from-pink-500/20 to-violet-500/20">
-              <i class="fa-solid fa-user-nurse text-5xl text-white/40"></i>
+                 class="w-full h-auto max-h-[350px] rounded-3xl object-cover border-2 border-white/20 shadow-2xl" 
+                 alt="Foto">
+            <div style="display:none" class="w-full h-[250px] rounded-3xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center border-2 border-white/10">
+              <i class="fa-solid fa-user-nurse text-6xl text-white/30"></i>
             </div>
           </div>`;
       } else {
         fotoHtml = `
-          <div class="w-[160px] h-[160px] rounded-3xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center mx-auto border-2 border-white/10 shadow-2xl">
+          <div class="w-full max-w-[280px] h-[250px] mx-auto sm:mx-0 rounded-3xl bg-gradient-to-br from-pink-500/20 to-violet-500/20 flex items-center justify-center border-2 border-white/10 shadow-2xl">
             <i class="fa-solid fa-user-nurse text-6xl text-white/30"></i>
           </div>`;
       }
 
-      // SIP Link - from link_sip_mandiri field only
-      const sipLink = r.link_sip_mandiri || '';
-      let sipHtml = '';
-      if (sipLink && sipLink.trim() !== '') {
-        const trimmed = sipLink.trim();
-        let previewUrl = '';
-        let isGoogleDrive = trimmed.includes('drive.google.com');
-        let isPdf = false;
+      // Get title name dynamically
+      const namaDisplay = getNamaFromRow(r, headers) || 'Detail Praktik Mandiri';
 
-        if (isGoogleDrive) {
-          previewUrl = convertGDriveViewUrl(trimmed);
-        } else if (trimmed.endsWith('.pdf')) {
-          previewUrl = trimmed;
-          isPdf = true;
-        } else {
-          previewUrl = trimmed;
-        }
+      // Build ALL fields from ALL headers dynamically (supports any new headers added to sheet)
+      const skipHeaders = ['id']; // headers to skip in detail display
+      const allFields = headers
+        .filter(h => h && h.toString().trim() !== '' && !skipHeaders.includes(h.toString().trim().toLowerCase()))
+        .map(h => {
+          const headerLabel = h.toString().trim();
+          const val = r[h];
+          let displayVal = '-';
+          if (val !== undefined && val !== null && val !== '') {
+            const strVal = val.toString().trim();
+            if (strVal !== '' && strVal !== 'undefined' && strVal !== 'null' && strVal !== 'NaN') {
+              // Handle photo URL - show as clickable link
+              const hLower = headerLabel.toLowerCase();
+              if (['foto', 'photo', 'gambar', 'image'].some(k => hLower.includes(k)) && strVal.startsWith('http')) {
+                const convertedUrl = convertDriveImageUrl(strVal);
+                displayVal = '<a href="' + convertedUrl + '" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline">' + convertedUrl + '</a>';
+              } else {
+                displayVal = strVal;
+              }
+            }
+          }
+          return { label: headerLabel, value: displayVal };
+        });
 
-        if (isPdf || isGoogleDrive) {
-          sipHtml = `
-            <div class="glass p-4 rounded-2xl">
-              <div class="text-[10px] text-white/50 mb-3 uppercase tracking-wider">LINK SIP MANDIRI</div>
-              <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-black/30">
-                <iframe src="${previewUrl}" 
-                        class="w-full" 
-                        style="height:400px; border:none;" 
-                        sandbox="allow-same-origin allow-scripts allow-popups"
-                        title="Preview SIP Mandiri"
-                        loading="lazy">
-                </iframe>
-                <div class="absolute top-2 right-2 z-10">
-                  <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" 
-                     class="px-3 py-1.5 text-[10px] bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-colors inline-flex items-center gap-1">
-                    <i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru
-                  </a>
-                </div>
-              </div>
-              <div class="text-[10px] text-white/30 mt-2 text-center">Preview dokumen SIP</div>
-            </div>`;
-        } else {
-          sipHtml = `
-            <div class="glass p-4 rounded-2xl">
-              <div class="text-[10px] text-white/50 mb-3 uppercase tracking-wider">LINK SIP MANDIRI</div>
-              <a href="${trimmed}" target="_blank" rel="noopener noreferrer" 
-                 class="inline-flex items-center gap-2 px-5 py-3 bg-cyan-500/20 text-cyan-400 rounded-2xl text-sm hover:bg-cyan-500/30 transition-colors border border-cyan-500/30">
-                <i class="fa-solid fa-file-lines"></i> Buka Dokumen
-              </a>
-              <div class="text-[10px] text-white/30 mt-2">Klik untuk membuka dokumen SIP di tab baru</div>
-            </div>`;
-        }
-      } else {
-        sipHtml = `<div class="glass p-5 rounded-2xl text-center text-white/40 text-sm">-</div>`;
-      }
+      // Build detail fields HTML
+      const fieldsHtml = allFields.map(f => `
+        <div class="glass rounded-2xl p-4 border border-white/10">
+          <div class="text-[10px] text-white/50 mb-1 uppercase tracking-wider">${f.label}</div>
+          <div class="font-medium text-sm break-words">${f.value}</div>
+        </div>
+      `).join('');
 
       const overlay = document.createElement('div');
       overlay.id = 'tpm-detail-overlay';
-      overlay.className = 'fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto';
-      overlay.style.cssText = 'background: rgba(5,15,35,0.95); backdrop-filter: blur(20px); transition: opacity 0.3s ease; opacity: 0;';
+      overlay.className = 'fixed inset-0 z-[200] flex flex-col';
+      overlay.style.cssText = 'width:100%; height:100%; background: rgba(5,15,35,0.97); backdrop-filter: blur(20px); transition: opacity 0.3s ease; opacity: 0;';
       
       overlay.innerHTML = `
-        <div class="w-full max-w-[900px] min-h-screen p-6 lg:p-10">
-          <!-- Close Button -->
-          <div class="flex justify-end mb-4 sticky top-0 z-10">
+        <div class="flex items-center justify-between p-4 lg:p-6 border-b border-white/10 shrink-0 bg-[#0A2540]/95 backdrop-blur-xl">
+          <div class="flex items-center gap-4">
             <button onclick="closeTPMDetail()" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all text-xl">
               <i class="fa-solid fa-xmark"></i>
             </button>
-          </div>
-          
-          <!-- Header Card -->
-          <div class="glass rounded-3xl p-6 lg:p-8 border border-white/15 mb-6">
-            <div class="flex flex-col sm:flex-row items-center gap-6">
-              ${fotoHtml}
-              <div class="text-center sm:text-left flex-1">
-                <div class="text-2xl lg:text-3xl font-bold tracking-tight">${r.nama || ''}</div>
-                <div class="text-sm text-cyan-400 mt-1 font-medium">${r.profesi || ''}</div>
-                ${r.nama_praktik ? `<div class="text-xs text-white/50 mt-2 flex items-center gap-1.5 justify-center sm:justify-start"><i class="fa-solid fa-store"></i> ${r.nama_praktik}</div>` : ''}
-              </div>
+            <div>
+              <div class="font-bold text-xl">${namaDisplay}</div>
+              <div class="text-xs text-white/50">Detail Lengkap Tempat Praktik Mandiri</div>
             </div>
           </div>
-          
-          <!-- Detail Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div class="glass p-5 rounded-2xl border border-white/10">
-              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-user text-pink-400"></i> NAMA LENGKAP DAN GELAR
-              </div>
-              <div class="font-semibold text-lg">${r.nama || '-'}</div>
+          <button onclick="window.print()" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-2xl text-sm font-medium text-white/80 hover:text-white transition-colors flex items-center gap-2">
+            <i class="fa-solid fa-print"></i> Cetak
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto modern-scroll p-4 lg:p-8 space-y-6">
+          <div class="flex flex-col sm:flex-row gap-8">
+            ${fotoHtml}
+            <div class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              ${fieldsHtml}
             </div>
-            <div class="glass p-5 rounded-2xl border border-white/10">
-              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-stethoscope text-violet-400"></i> PROFESI KESEHATAN
-              </div>
-              <div class="font-semibold text-lg">${r.profesi || '-'}</div>
-            </div>
-            <div class="glass p-5 rounded-2xl border border-white/10">
-              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-store text-emerald-400"></i> NAMA PRAKTIK MANDIRI
-              </div>
-              <div class="font-semibold">${r.nama_praktik || '-'}</div>
-            </div>
-            <div class="glass p-5 rounded-2xl border border-white/10">
-              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-clock text-amber-400"></i> JAM PRAKTIK
-              </div>
-              <div class="font-semibold">${r.jam_praktik || '-'}</div>
-            </div>
-            <div class="glass p-5 rounded-2xl border border-white/10">
-              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-location-dot text-red-400"></i> ALAMAT PRAKTIK
-              </div>
-              <div class="font-semibold">${r.alamat_praktik || '-'}</div>
-            </div>
-            <div class="glass p-5 rounded-2xl border border-white/10">
-              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-phone text-cyan-400"></i> NOMOR TELPON
-              </div>
-              <div class="font-mono text-cyan-400 text-lg font-semibold">${r.telp || r.telepon || '-'}</div>
-            </div>
-            <div class="glass p-5 rounded-2xl border border-white/10">
-              <div class="text-[10px] text-white/50 mb-2 uppercase tracking-wider flex items-center gap-2">
-                <i class="fa-solid fa-calendar-check text-blue-400"></i> TANGGAL TERBIT SIP
-              </div>
-              <div class="font-semibold">${r.tanggal_sip || r.tgl_terbit_sip || r.tanggal_terbit || '-'}</div>
-            </div>
-          </div>
-          
-          <!-- SIP PDF Preview -->
-          ${sipHtml}
-          
-          <!-- Footer -->
-          <div class="text-center mt-6 mb-10">
-            <button onclick="closeTPMDetail()" class="px-8 py-3 glass rounded-3xl text-sm font-medium hover:bg-white/10 transition-colors border border-white/10">
-              <i class="fa-solid fa-arrow-left mr-2"></i> Kembali ke Daftar
-            </button>
           </div>
         </div>
       `;
       
       document.body.appendChild(overlay);
+      document.body.style.overflow = 'hidden';
       // Trigger fade-in
       requestAnimationFrame(() => { overlay.style.opacity = '1'; });
       
@@ -1575,7 +1559,9 @@
       rasioSummary: null,  // summary dari getRasioSDMK untuk dashboard
       distribusi: [],
       profil: [],
+      profilHeaders: [],
       tpm: [],
+      tpmHeaders: [],
 
       rekap_sdmk: [],
       rekap_spesialis: [],
