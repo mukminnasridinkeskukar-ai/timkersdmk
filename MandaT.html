@@ -990,8 +990,8 @@
 
     // ==================== CONFIG & STATE ====================
     // Web App URL - Gunakan URL yang SAMA dengan yang terdeploy di Google Apps Script
-    // URL di code.gs: https://script.google.com/macros/s/AKfycbzWGHWo_wgEmYtnYL6VaUAgbDetoX-oKenGsFWeKrwHT_CJ8jrUdeF2oBZ7JFcla3Ij/exec
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbzWGHWo_wgEmYtnYL6VaUAgbDetoX-oKenGsFWeKrwHT_CJ8jrUdeF2oBZ7JFcla3Ij/exec';
+    // URL di code.gs: https://script.google.com/macros/s/AKfycbzAKCmCtCElNvOU6K0V8yjysYQsF00nzs8tOc-pA4Ux6avxr0Sa6MVUpw4J-ePjyLvp/exec
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbzAKCmCtCElNvOU6K0V8yjysYQsF00nzs8tOc-pA4Ux6avxr0Sa6MVUpw4J-ePjyLvp/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -1265,13 +1265,50 @@
     // Helper: Convert Google Drive URLs to direct image URLs (required function name)
     function convertDriveImageUrl(url) {
       if (!url || url === '') return '';
+      url = url.trim();
+      // Already a direct image URL
       if (url.match(/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i)) return url;
-      let match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+      // Google Drive /file/d/ID/view or /file/d/ID/... format
+      let match = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
       if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      match = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
+      // Google Drive open?id=ID format
+      match = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
       if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
-      match = url.match(/drive\.google\.com\/uc\?.*id=([^&]+)/);
+      // Google Drive uc?id=ID format
+      match = url.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
       if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+      // Google Drive /d/ID/ format
+      match = url.match(/drive\.google\.com\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+      // Google Docs/Sheets/Slides preview format
+      match = url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) return `https://drive.google.com/uc?export=view&id=${match[2]}`;
+      // Google Drive with /uc?export=view&id= already - return as-is
+      if (url.includes('drive.google.com/uc?export=view')) return url;
+      // Try to extract ID from any Google Drive URL pattern
+      match = url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+      if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+      return url;
+    }
+    
+    // Helper: Convert Google Drive URLs to preview/embed URLs for documents (PDF, etc.)
+    function convertGDriveViewUrl(url) {
+      if (!url) return '';
+      url = url.trim();
+      let match = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
+      match = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
+      match = url.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
+      match = url.match(/drive\.google\.com\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
+      match = url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) return `https://docs.google.com/${match[1]}/d/${match[2]}/preview`;
+      if (url.endsWith('.pdf') || url.includes('.pdf?')) return url;
+      // Try to extract ID from any Google Drive URL pattern
+      match = url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
       return url;
     }
 
@@ -1287,7 +1324,7 @@
     // Helper: Get foto URL from a TPM data row using headers (dynamic lookup)
     function getFotoUrlFromRow(row, headers) {
       // Try common header names for foto/photo/gambar/image
-      const fotoKeywords = ['foto', 'photo', 'gambar', 'image', 'foto/photo', 'url foto', 'link foto'];
+      const fotoKeywords = ['foto', 'photo', 'gambar', 'image', 'foto/photo', 'url foto', 'link foto', 'urlgambar', 'linkgambar', 'url_photo', 'link_photo', 'profile', 'profil', 'avatar', 'thumb', 'thumbnail'];
       for (const h of headers) {
         const hLower = h.toString().trim().toLowerCase();
         for (const kw of fotoKeywords) {
@@ -1296,6 +1333,54 @@
             if (val && val !== '' && val !== undefined && val !== null) {
               return val.toString().trim();
             }
+          }
+        }
+      }
+      // Fallback: check if any cell in the row contains a URL that looks like an image or Google Drive link
+      // This handles cases where the header name doesn't match any keyword
+      for (const h of headers) {
+        const val = row[h];
+        if (val && val !== '' && typeof val === 'string') {
+          const v = val.trim();
+          if (v.startsWith('http') && (
+            v.includes('drive.google.com') ||
+            v.includes('docs.google.com') ||
+            v.match(/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i) ||
+            v.includes('lh3.googleusercontent.com') ||
+            v.includes('blob:') ||
+            v.includes('imgur.com')
+          )) {
+            return v;
+          }
+        }
+      }
+      return '';
+    }
+
+    // Helper: Get SIP/Document URL from a TPM data row using headers (dynamic lookup)
+    function getDocumentUrlFromRow(row, headers) {
+      const docKeywords = ['sip', 'dokumen', 'document', 'surat', 'ijin', 'izin', 'izin_praktik', 'sip_mandiri', 'link_sip', 'file', 'pdf', 'doc'];
+      for (const h of headers) {
+        const hLower = h.toString().trim().toLowerCase();
+        for (const kw of docKeywords) {
+          if (hLower.includes(kw)) {
+            const val = row[h];
+            if (val && val !== '' && val !== undefined && val !== null) {
+              return val.toString().trim();
+            }
+          }
+        }
+      }
+      // Fallback: check for Google Drive document links
+      for (const h of headers) {
+        const val = row[h];
+        if (val && val !== '' && typeof val === 'string') {
+          const v = val.trim();
+          if (v.startsWith('http') && (
+            (v.includes('drive.google.com') && !v.match(/\.(jpg|jpeg|png|webp|gif)/i)) ||
+            (v.includes('docs.google.com') && !v.includes('uc?export=view'))
+          )) {
+            return v;
           }
         }
       }
@@ -1451,6 +1536,9 @@
       const fotoRawUrl = getFotoUrlFromRow(r, headers);
       const fotoUrl = fotoRawUrl ? convertDriveImageUrl(fotoRawUrl) : '';
 
+      // Get document/SIP URL dynamically
+      const docRawUrl = getDocumentUrlFromRow(r, headers);
+      
       // Build photo HTML - large, responsive
       let fotoHtml = '';
       if (fotoUrl && fotoUrl !== '') {
@@ -1486,17 +1574,42 @@
           if (val !== undefined && val !== null && val !== '') {
             const strVal = val.toString().trim();
             if (strVal !== '' && strVal !== 'undefined' && strVal !== 'null' && strVal !== 'NaN') {
-              // Handle photo URL - show as clickable link
               const hLower = headerLabel.toLowerCase();
+              // Handle photo URL - show as clickable link
               if (['foto', 'photo', 'gambar', 'image'].some(k => hLower.includes(k)) && strVal.startsWith('http')) {
                 const convertedUrl = convertDriveImageUrl(strVal);
                 displayVal = '<a href="' + convertedUrl + '" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline">' + convertedUrl + '</a>';
-              } else {
+              }
+              // Handle document/SIP URL - show as preview link
+              else if (['sip', 'dokumen', 'document', 'surat', 'ijin', 'izin', 'file'].some(k => hLower.includes(k)) && strVal.startsWith('http')) {
+                const previewUrl = convertGDriveViewUrl(strVal);
+                const isGDrive = isGoogleDriveUrl(strVal);
+                displayVal = '<a href="' + previewUrl + '" target="_blank" rel="noopener noreferrer" class="text-amber-400 hover:underline">' + (isGDrive ? 'Lihat Dokumen SIP' : strVal) + '</a>';
+              }
+              // Handle Google Drive links (generic)
+              else if (isGoogleDriveUrl(strVal)) {
+                const previewUrl = convertGDriveViewUrl(strVal);
+                displayVal = '<a href="' + previewUrl + '" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline">Lihat Dokumen</a>';
+              }
+              // Handle any URL
+              else if (strVal.startsWith('http')) {
+                displayVal = '<a href="' + strVal + '" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline">' + strVal + '</a>';
+              }
+              // Handle phone numbers
+              else if (['telepon', 'telp', 'phone', 'hp', 'kontak', 'wa', 'whatsapp'].some(k => hLower.includes(k))) {
+                const cleanPhone = strVal.replace(/[^0-9+]/g, '');
+                displayVal = '<a href="tel:' + cleanPhone + '" class="text-cyan-400 hover:underline font-mono">' + strVal + '</a>';
+              }
+              // Handle email
+              else if (['email', 'e-mail', 'surel'].some(k => hLower.includes(k)) && strVal.includes('@')) {
+                displayVal = '<a href="mailto:' + strVal + '" class="text-cyan-400 hover:underline">' + strVal + '</a>';
+              }
+              else {
                 displayVal = strVal;
               }
             }
           }
-          return { label: headerLabel, value: displayVal };
+          return { label: headerLabel, value: displayVal, rawVal: val };
         });
 
       // Build detail fields HTML
@@ -1506,6 +1619,49 @@
           <div class="font-medium text-sm break-words">${f.value}</div>
         </div>
       `).join('');
+
+      // Build SIP Document Preview section
+      let sipHtml = '';
+      if (docRawUrl && docRawUrl.startsWith('http')) {
+        const previewUrl = convertGDriveViewUrl(docRawUrl);
+        const isGDrive = isGoogleDriveUrl(docRawUrl);
+        
+        if (isGDrive || docRawUrl.endsWith('.pdf') || docRawUrl.includes('.pdf?')) {
+          sipHtml = `
+            <div class="glass rounded-2xl p-4 border border-white/10">
+              <div class="text-[10px] text-white/50 mb-3 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-file-lines text-amber-400"></i> DOKUMEN SIP / IJIN PRAKTIK
+              </div>
+              <div class="relative rounded-2xl overflow-hidden border border-white/10 bg-black/30">
+                <iframe src="${previewUrl}" 
+                        class="w-full" 
+                        style="height:400px; border:none;" 
+                        sandbox="allow-same-origin allow-scripts allow-popups"
+                        title="Preview Dokumen SIP"
+                        loading="lazy">
+                </iframe>
+                <div class="absolute top-2 right-2 z-10">
+                  <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" 
+                     class="px-3 py-1.5 text-[10px] bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-sm transition-colors inline-flex items-center gap-1">
+                    <i class="fa-solid fa-up-right-from-square"></i> Buka di Tab Baru
+                  </a>
+                </div>
+              </div>
+              <div class="text-[10px] text-white/30 mt-2 text-center">Preview dokumen SIP</div>
+            </div>`;
+        } else {
+          sipHtml = `
+            <div class="glass rounded-2xl p-4 border border-white/10">
+              <div class="text-[10px] text-white/50 mb-3 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-file-lines text-amber-400"></i> DOKUMEN SIP / IJIN PRAKTIK
+              </div>
+              <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" 
+                 class="inline-flex items-center gap-2 px-5 py-3 bg-amber-500/20 text-amber-400 rounded-2xl text-sm hover:bg-amber-500/30 transition-colors border border-amber-500/30">
+                <i class="fa-solid fa-file-lines"></i> Buka Dokumen SIP
+              </a>
+            </div>`;
+        }
+      }
 
       const overlay = document.createElement('div');
       overlay.id = 'tpm-detail-overlay';
@@ -1518,9 +1674,14 @@
             <button onclick="closeTPMDetail()" class="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all text-xl">
               <i class="fa-solid fa-xmark"></i>
             </button>
-            <div>
-              <div class="font-bold text-xl">${namaDisplay}</div>
-              <div class="text-xs text-white/50">Detail Lengkap Tempat Praktik Mandiri</div>
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-stethoscope text-white text-lg"></i>
+              </div>
+              <div>
+                <div class="font-bold text-xl">${namaDisplay}</div>
+                <div class="text-xs text-white/50">Detail Lengkap Tempat Praktik Mandiri</div>
+              </div>
             </div>
           </div>
           <button onclick="window.print()" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-2xl text-sm font-medium text-white/80 hover:text-white transition-colors flex items-center gap-2">
@@ -1534,6 +1695,7 @@
               ${fieldsHtml}
             </div>
           </div>
+          ${sipHtml}
         </div>
       `;
       
