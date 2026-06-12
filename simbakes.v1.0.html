@@ -1608,7 +1608,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxCFS9wea5qxgG4MnqFUdsVrcnWIWnfDa_2IhlrlZwB89t70FHFK5ltMfbPwkYF2cw/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbwwaph9bTlpd9Q7j9tnFUn-24ieTj6EcoLbCf22U--9uPy_f6rRHzzRr38YWHZq8QDo/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -2492,8 +2492,14 @@ function renderAdmin() {
       var paginationEl = document.getElementById('roadmapPagination');
       if (!tbody) return;
 
-      if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
+      // Gunakan data dari roadmapFilteredData jika parameter kosong
+      if (!data || data.length === 0) {
+        data = roadmapFilteredData || [];
+      }
+
+      // Jika data benar-benar kosong, tampilkan pesan
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fas fa-inbox" style="font-size:1.5rem;opacity:0.4;display:block;margin-bottom:0.5rem;"></i>Data tidak tersedia</td></tr>';
         if (paginationEl) paginationEl.innerHTML = '';
         return;
       }
@@ -2501,14 +2507,37 @@ function renderAdmin() {
       var pageSize = window.roadmapPageSize || 10;
       var currentPage = window.roadmapCurrentPage || 1;
       var totalPages = Math.ceil(data.length / pageSize);
-      if (currentPage > totalPages) currentPage = totalPages;
 
-      var startIdx = (currentPage - 1) * pageSize;
-      var pageData = data.slice(startIdx, startIdx + pageSize);
+      // Validasi: jika currentPage lebih besar dari totalPages, kembalikan ke halaman terakhir
+      if (currentPage > totalPages) {
+        currentPage = totalPages;
+        window.roadmapCurrentPage = currentPage;
+      }
+      if (currentPage < 1) {
+        currentPage = 1;
+        window.roadmapCurrentPage = currentPage;
+      }
 
-      tbody.innerHTML = pageData.map(function(item, i) {
+      var startIndex = (currentPage - 1) * pageSize;
+      var endIndex = startIndex + pageSize;
+      var paginatedData = data.slice(startIndex, endIndex);
+
+      // Debugging logs
+      console.log("Total Data:", data.length);
+      console.log("Current Page:", currentPage);
+      console.log("Start:", startIndex);
+      console.log("End:", endIndex);
+      console.log("Data Ditampilkan:", paginatedData);
+
+      if (paginatedData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fas fa-inbox" style="font-size:1.5rem;opacity:0.4;display:block;margin-bottom:0.5rem;"></i>Data tidak tersedia</td></tr>';
+        if (paginationEl) paginationEl.innerHTML = '';
+        return;
+      }
+
+      tbody.innerHTML = paginatedData.map(function(item, i) {
         var badgeClass = item.status_calon === 'tersedia' ? 'badge-approved' : 'badge-pending';
-        var realIndex = startIdx + i + 1;
+        var realIndex = startIndex + i + 1;
         return '<tr><td>' + realIndex + '</td><td><strong>' + escapeHtml(item.posisi) + '</strong></td>' +
           '<td>' + escapeHtml(item.jenis_pendidikan) + '</td><td>' + escapeHtml(item.kampus) + '</td>' +
           '<td><span class="badge ' + badgeClass + '">' + escapeHtml(item.status_calon) + '</span></td>' +
@@ -2569,15 +2598,24 @@ function renderAdmin() {
     }
 
     function goToRoadmapPage(page) {
+      var data = roadmapFilteredData || [];
+      var pageSize = window.roadmapPageSize || 10;
+      var totalPages = Math.ceil(data.length / pageSize);
+
+      // Validasi halaman
+      if (page < 1) page = 1;
+      if (page > totalPages) page = totalPages;
+
       window.roadmapCurrentPage = page;
-      var data = window.filteredRoadmap && window.filteredRoadmap.length ? window.filteredRoadmap : (window.roadmapData || []);
+      console.log('goToRoadmapPage: page=' + page + ', totalData=' + data.length + ', totalPages=' + totalPages);
       renderRoadmapTable(data);
     }
 
     function changeRoadmapPageSize(newSize) {
       window.roadmapPageSize = parseInt(newSize, 10) || 10;
       window.roadmapCurrentPage = 1;
-      var data = window.filteredRoadmap && window.filteredRoadmap.length ? window.filteredRoadmap : (window.roadmapData || []);
+      var data = roadmapFilteredData || [];
+      console.log('changeRoadmapPageSize: size=' + window.roadmapPageSize + ', totalData=' + data.length);
       renderRoadmapTable(data);
     }
 
