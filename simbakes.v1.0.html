@@ -1608,7 +1608,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxK8PHUPbm7uiU6D4bXceqDvfTmSvGPcSy9qi6iVIxWGNapXe9CPWDkvRaW1qWM87og/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbxSA5-iju0rBmQp3UWj20dKjsp1h1Opa1KhLPl-QTKqL1ah9OGMgqJHo1hzRLl3rg/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -2049,8 +2049,8 @@ document.addEventListener('DOMContentLoaded', function() {
             '<span id="filterCount" class="text-muted text-sm"></span>' +
           '</div>' +
         '</div>' +
-         '<div class="table-container"><table class="table"><thead><tr><th>No</th><th>Jurusan</th><th>Jenis Pendidikan</th><th>Kampus</th><th>Status</th><th>Tahun</th><th>Unit Tujuan</th></tr></thead>' +
-         '<tbody id="roadmapTable"><tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr></tbody></table></div>' +
+         '<div class="table-container"><table class="table"><thead><tr><th>Kode</th><th>Jurusan</th><th>Kualifikasi Awal</th><th>Jenis Pendidikan</th><th>Perguruan Tinggi</th><th>Status Calon</th><th>Tahun Mulai Studi</th><th>Unit Pendayaguna</th></tr></thead>' +
+         '<tbody id="roadmapTable"><tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data...</td></tr></tbody></table></div>' +
          '<div id="roadmapPagination"></div></div>';
     }
 
@@ -2431,14 +2431,14 @@ function renderAdmin() {
           renderRoadmapTable(roadmapFilteredData);
           updateRoadmapCount();
         } else {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center">Belum ada data roadmap</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center">Belum ada data roadmap</td></tr>';
           filtersDiv.style.display = 'none';
         }
       });
     }
 
     function populateRoadmapFilter() {
-      var kategoriList = [...new Set(roadmapMasterData.map(d => d.posisi || 'Umum'))].sort();
+      var kategoriList = [...new Set(roadmapMasterData.map(d => d.jurusan || 'Umum'))].sort();
       var select = document.getElementById('roadmapFilter');
       if (!select) return;
       kategoriList.forEach(function(val) {
@@ -2461,7 +2461,7 @@ function renderAdmin() {
       
       roadmapFilteredData = roadmapMasterData.filter(function(item) {
         const matchKeyword = !keyword || JSON.stringify(item).toLowerCase().includes(keyword);
-        const matchKategori = !kategori || (item.posisi === kategori);
+        const matchKategori = !kategori || (item.jurusan === kategori);
         return matchKeyword && matchKategori;
       });
       
@@ -2530,18 +2530,18 @@ function renderAdmin() {
       console.log("Data Ditampilkan:", paginatedData);
 
       if (paginatedData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fas fa-inbox" style="font-size:1.5rem;opacity:0.4;display:block;margin-bottom:0.5rem;"></i>Data tidak tersedia</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted"><i class="fas fa-inbox" style="font-size:1.5rem;opacity:0.4;display:block;margin-bottom:0.5rem;"></i>Data tidak tersedia</td></tr>';
         if (paginationEl) paginationEl.innerHTML = '';
         return;
       }
 
       tbody.innerHTML = paginatedData.map(function(item, i) {
         var badgeClass = item.status_calon === 'tersedia' ? 'badge-approved' : 'badge-pending';
-        var realIndex = startIndex + i + 1;
-        return '<tr><td>' + realIndex + '</td><td><strong>' + escapeHtml(item.posisi) + '</strong></td>' +
-          '<td>' + escapeHtml(item.jenis_pendidikan) + '</td><td>' + escapeHtml(item.kampus) + '</td>' +
+        return '<tr><td>' + escapeHtml(item.id) + '</td><td><strong>' + escapeHtml(item.jurusan) + '</strong></td>' +
+          '<td>' + escapeHtml(item.kualifikasi_awal) + '</td><td>' + escapeHtml(item.jenis_pendidikan) + '</td>' +
+          '<td>' + escapeHtml(item.perguruan_tinggi) + '</td>' +
           '<td><span class="badge ' + badgeClass + '">' + escapeHtml(item.status_calon) + '</span></td>' +
-          '<td>' + escapeHtml(item.tahun_mulai) + '</td><td>' + escapeHtml(item.unit_tujuan) + '</td></tr>';
+          '<td>' + escapeHtml(item.tahun_mulai) + '</td><td>' + escapeHtml(item.unit_pendayaguna) + '</td></tr>';
       }).join('');
 
       if (paginationEl) renderRoadmapPagination(data.length, paginationEl);
@@ -2677,7 +2677,7 @@ function renderAdmin() {
           el.innerHTML = res.data.map(function(d) {
             var repairBtn = requiresRepairStatus(d) ?
               '<button class="btn btn-warning btn-sm mt-2" onclick="showRepairFormByNik(' + quoteForOnclick(d.nik) + ')"><i class="fas fa-edit"></i> Perbaikan Data</button>' : '';
-            var notesHtml = d.admin_notes ? '<div class="alert alert-warning mt-2 mb-2"><strong>Catatan Admin:</strong><br>' + escapeHtml(d.admin_notes) + '</div>' : '';
+            var notesHtml = d.admin_notes ? '<div class="alert alert-warning mt-2 mb-2"><strong>Catatan Perbaikan:</strong><br>' + escapeHtml(d.admin_notes) + '</div>' : '';
             
             var fotoHtml = d.foto_url 
               ? createSimpleProfilePhoto(d.foto_url, d.full_name || d.nik).outerHTML
@@ -3174,15 +3174,15 @@ function showProfile(id) {
             '</select>' +
           '</div>' +
           '<div class="form-group">' +
-            '<label class="form-label">Jenis</label>' +
-            '<select id="filterJenis" class="form-control" onchange="applyPersonalRekomendasiFilter()">' +
-              '<option value="">Semua Jenis</option>' +
+            '<label class="form-label">Status Calon</label>' +
+            '<select id="filterStatusCalon" class="form-control" onchange="applyPersonalRekomendasiFilter()">' +
+              '<option value="">Semua Status</option>' +
             '</select>' +
           '</div>' +
           '<div class="form-group">' +
-            '<label class="form-label">Pilihan Center</label>' +
-            '<select id="filterPilihanCenter" class="form-control" onchange="applyPersonalRekomendasiFilter()">' +
-              '<option value="">Semua Pilihan Center</option>' +
+            '<label class="form-label">Perguruan Tinggi</label>' +
+            '<select id="filterPerguruanTinggi" class="form-control" onchange="applyPersonalRekomendasiFilter()">' +
+              '<option value="">Semua Perguruan Tinggi</option>' +
             '</select>' +
           '</div>' +
         '</div>' +
@@ -3191,19 +3191,17 @@ function showProfile(id) {
           '<span id="prFilterCount" class="text-muted text-sm"></span>' +
         '</div>' +
         '<div class="table-container"><table class="table-modern"><thead><tr>' +
-          '<th>NO</th>' +
-          '<th>JURUSAN</th>' +
-          '<th>JENIS</th>' +
-          '<th>PILIHAN CENTER</th>' +
-          '<th>NAMA</th>' +
-          '<th>STATUS</th>' +
-          '<th class="hide-md">TEMPAT/ TGL LAHIR</th>' +
-          '<th class="hide-md">DOMISILI</th>' +
-          '<th class="hide-md">TAHUN STUDI</th>' +
-          '<th class="hide-md">KETERANGAN</th>' +
+          '<th>Kode</th>' +
+          '<th>Jurusan</th>' +
+          '<th>Kualifikasi Awal</th>' +
+          '<th>Jenis Pendidikan</th>' +
+          '<th>Perguruan Tinggi</th>' +
+          '<th>Status Calon</th>' +
+          '<th>Tahun Mulai Studi</th>' +
+          '<th>Unit Pendayaguna</th>' +
           '<th>AKSI</th>' +
         '</tr></thead>' +
-        '<tbody id="prTable"><tr><td colspan="11" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div>' +
+        '<tbody id="prTable"><tr><td colspan="9" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div>' +
         '<div id="prPagination"></div>' +
         '<div id="prNoDataMsg" class="text-center p-4 text-muted hidden"><i class="fas fa-inbox fa-3x mb-3" style="opacity:0.5;"></i><h4>Belum ada data</h4><p>Gunakan filter untuk menampilkan data.</p></div></div></div>';
     }
@@ -3219,7 +3217,7 @@ function showProfile(id) {
       if (noDataMsg) noDataMsg.classList.add('hidden');
       
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr>';
       }
       
       apiCallWithData('getPersonalRekomendasi', {role: localStorage.getItem('adminRole') || 'admin'}, function(res) {
@@ -3232,22 +3230,22 @@ function showProfile(id) {
           populatePersonalRekomendasiFilters();
           applyPersonalRekomendasiFilter();
         } else {
-          if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4 text-danger">Gagal memuat data</td></tr>';
+          if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-danger">Gagal memuat data</td></tr>';
           if (noDataMsg) noDataMsg.classList.remove('hidden');
         }
       }, function(err) {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4 text-danger">Error koneksi</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-danger">Error koneksi</td></tr>';
       });
     }
 
     function populatePersonalRekomendasiFilters() {
       var jurusanList = [...new Set(personalRekomendasiMaster.map(x => x.jurusan).filter(Boolean))].sort();
-      var jenisList = [...new Set(personalRekomendasiMaster.map(x => x.jenis).filter(Boolean))].sort();
-      var centerList = [...new Set(personalRekomendasiMaster.map(x => x.pilihan_center).filter(Boolean))].sort();
+      var statusList = [...new Set(personalRekomendasiMaster.map(x => x.status_calon).filter(Boolean))].sort();
+      var ptList = [...new Set(personalRekomendasiMaster.map(x => x.perguruan_tinggi).filter(Boolean))].sort();
       
       var jurusanSelect = document.getElementById('filterJurusan');
-      var jenisSelect = document.getElementById('filterJenis');
-      var centerSelect = document.getElementById('filterPilihanCenter');
+      var statusSelect = document.getElementById('filterStatusCalon');
+      var ptSelect = document.getElementById('filterPerguruanTinggi');
       
       if (jurusanSelect) {
         jurusanSelect.innerHTML = '<option value="">Semua Jurusan</option>';
@@ -3259,40 +3257,37 @@ function showProfile(id) {
         });
       }
       
-      if (jenisSelect) {
-        jenisSelect.innerHTML = '<option value="">Semua Jenis</option>';
-        jenisList.forEach(function(val) {
+      if (statusSelect) {
+        statusSelect.innerHTML = '<option value="">Semua Status</option>';
+        statusList.forEach(function(val) {
           var opt = document.createElement('option');
           opt.value = val;
           opt.textContent = val;
-          jenisSelect.appendChild(opt);
+          statusSelect.appendChild(opt);
         });
       }
       
-      if (centerSelect) {
-        centerSelect.innerHTML = '<option value="">Semua Pilihan Center</option>';
-        centerList.forEach(function(val) {
+      if (ptSelect) {
+        ptSelect.innerHTML = '<option value="">Semua Perguruan Tinggi</option>';
+        ptList.forEach(function(val) {
           var opt = document.createElement('option');
           opt.value = val;
           opt.textContent = val;
-          centerSelect.appendChild(opt);
+          ptSelect.appendChild(opt);
         });
       }
     }
 
     function applyPersonalRekomendasiFilter() {
-      console.log('Filter berjalan');
       var jurusan = document.getElementById('filterJurusan')?.value || '';
-      var jenis = document.getElementById('filterJenis')?.value || '';
-      var pilihanCenter = document.getElementById('filterPilihanCenter')?.value || '';
-      
-      console.log('Filter values:', { jurusan, jenis, pilihanCenter });
+      var statusCalon = document.getElementById('filterStatusCalon')?.value || '';
+      var perguruanTinggi = document.getElementById('filterPerguruanTinggi')?.value || '';
       
       filteredPersonalRekomendasi = personalRekomendasiMaster.filter(function(item) {
         const matchJurusan = !jurusan || item.jurusan === jurusan;
-        const matchJenis = !jenis || item.jenis === jenis;
-        const matchCenter = !pilihanCenter || item.pilihan_center === pilihanCenter;
-        return matchJurusan && matchJenis && matchCenter;
+        const matchStatus = !statusCalon || item.status_calon === statusCalon;
+        const matchPT = !perguruanTinggi || item.perguruan_tinggi === perguruanTinggi;
+        return matchJurusan && matchStatus && matchPT;
       });
       
       window.prCurrentPage = 1;
@@ -3302,13 +3297,12 @@ function showProfile(id) {
 
     function resetPersonalRekomendasiFilters() {
       document.getElementById('filterJurusan').value = '';
-      document.getElementById('filterJenis').value = '';
-      document.getElementById('filterPilihanCenter').value = '';
+      document.getElementById('filterStatusCalon').value = '';
+      document.getElementById('filterPerguruanTinggi').value = '';
       filteredPersonalRekomendasi = [...personalRekomendasiMaster];
       window.prCurrentPage = 1;
       renderPersonalRekomendasiTable();
       updatePersonalRekomendasiCount();
-      console.log('Filter direset');
     }
 
     function updatePersonalRekomendasiCount() {
@@ -3334,7 +3328,7 @@ function showProfile(id) {
       if (!tbody) return;
       
       if (filteredPersonalRekomendasi.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="text-center p-4 text-muted">Tidak ada data yang cocok</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted">Tidak ada data yang cocok</td></tr>';
         renderPersonalRekomendasiPagination(0);
         return;
       }
@@ -3356,8 +3350,7 @@ function showProfile(id) {
       var pageData = filteredPersonalRekomendasi.slice(start, end);
       
       var rows = pageData.map(function(item) {
-        var statusBadge = item.status === 'ASN' ? '<span class="badge badge-success">ASN</span>' :
-          item.status === 'NON ASN' ? '<span class="badge badge-warning">NON ASN</span>' : '<span class="badge">' + escapeHtml(item.status || '') + '</span>';
+        var badgeClass = item.status_calon === 'tersedia' ? 'badge-approved' : 'badge-pending';
         
         var crudBtns = '<div class="flex gap-2">' +
           '<button class="btn btn-primary btn-sm" title="Detail" onclick="showPersonalRekomendasiDetail(' + item.row_id + ')"><i class="fas fa-eye"></i></button>' +
@@ -3366,16 +3359,14 @@ function showProfile(id) {
           '</div>';
         
         return '<tr>' +
-          '<td>' + escapeHtml(item.no || '-') + '</td>' +
-          '<td>' + escapeHtml(item.jurusan || '-') + '</td>' +
-          '<td>' + escapeHtml(item.jenis || '-') + '</td>' +
-          '<td>' + escapeHtml(item.pilihan_center || '-') + '</td>' +
-          '<td>' + escapeHtml(item.nama || '-') + '</td>' +
-          '<td>' + statusBadge + '</td>' +
-          '<td>' + escapeHtml(item.tempat_tgl_lahir || '-') + '</td>' +
-          '<td>' + escapeHtml(item.domisili || '-') + '</td>' +
-          '<td>' + escapeHtml(item.tahun_studi || '-') + '</td>' +
-          '<td>' + escapeHtml(item.keterangan || '-') + '</td>' +
+          '<td>' + escapeHtml(item.id || '-') + '</td>' +
+          '<td><strong>' + escapeHtml(item.jurusan || '-') + '</strong></td>' +
+          '<td>' + escapeHtml(item.kualifikasi_awal || '-') + '</td>' +
+          '<td>' + escapeHtml(item.jenis_pendidikan || '-') + '</td>' +
+          '<td>' + escapeHtml(item.perguruan_tinggi || '-') + '</td>' +
+          '<td><span class="badge ' + badgeClass + '">' + escapeHtml(item.status_calon || '') + '</span></td>' +
+          '<td>' + escapeHtml(item.tahun_mulai || '-') + '</td>' +
+          '<td>' + escapeHtml(item.unit_pendayaguna || '-') + '</td>' +
           '<td>' + crudBtns + '</td>' +
           '</tr>';
       });
@@ -3416,24 +3407,22 @@ function showProfile(id) {
     }
 
     function showPersonalRekomendasiDetail(rowId) {
-      var item = window.allPersonalRekomendasi.find(function(x) { return x.row_id === rowId; });
+      var item = filteredPersonalRekomendasi.find(function(x) { return x.row_id === rowId; });
       if (!item) return;
       
       var modal = document.createElement('div');
       modal.className = 'modal-edit-fullscreen';
       modal.innerHTML = '<div class="modal-edit-overlay"></div><div class="modal-edit-content">' +
-        '<div class="modal-edit-header"><h2 class="modal-edit-title">Detail: ' + escapeHtml(item.nama || '') + '</h2><button class="modal-edit-close-btn" onclick="this.closest(\'.modal-edit-fullscreen\').remove()">&times;</button></div>' +
+        '<div class="modal-edit-header"><h2 class="modal-edit-title">Detail: ' + escapeHtml(item.jurusan || '') + '</h2><button class="modal-edit-close-btn" onclick="this.closest(\'.modal-edit-fullscreen\').remove()">&times;</button></div>' +
         '<form class="modal-edit-form"><div class="modal-edit-form-grid" style="grid-template-columns: 1fr;">' +
-          '<div class="form-group"><label>NO</label><input type="text" value="' + escapeHtml(item.no || '') + '" readonly></div>' +
+          '<div class="form-group"><label>KODE</label><input type="text" value="' + escapeHtml(item.id || '') + '" readonly></div>' +
           '<div class="form-group"><label>JURUSAN</label><input type="text" value="' + escapeHtml(item.jurusan || '') + '" readonly></div>' +
-          '<div class="form-group"><label>JENIS</label><input type="text" value="' + escapeHtml(item.jenis || '') + '" readonly></div>' +
-          '<div class="form-group"><label>PILIHAN CENTER</label><input type="text" value="' + escapeHtml(item.pilihan_center || '') + '" readonly></div>' +
-          '<div class="form-group"><label>NAMA</label><input type="text" value="' + escapeHtml(item.nama || '') + '" readonly></div>' +
-          '<div class="form-group"><label>STATUS</label><input type="text" value="' + escapeHtml(item.status || '') + '" readonly></div>' +
-          '<div class="form-group"><label>TEMPAT/ TGL LAHIR</label><input type="text" value="' + escapeHtml(item.tempat_tgl_lahir || '') + '" readonly></div>' +
-          '<div class="form-group"><label>DOMISILI</label><textarea readonly>' + escapeHtml(item.domisili || '') + '</textarea></div>' +
-          '<div class="form-group"><label>TAHUN STUDI</label><input type="text" value="' + escapeHtml(item.tahun_studi || '') + '" readonly></div>' +
-          '<div class="form-group"><label>KETERANGAN</label><textarea readonly>' + escapeHtml(item.keterangan || '') + '</textarea></div>' +
+          '<div class="form-group"><label>KUALIFIKASI AWAL</label><input type="text" value="' + escapeHtml(item.kualifikasi_awal || '') + '" readonly></div>' +
+          '<div class="form-group"><label>JENIS PENDIDIKAN</label><input type="text" value="' + escapeHtml(item.jenis_pendidikan || '') + '" readonly></div>' +
+          '<div class="form-group"><label>PERGURUAN TINGGI</label><input type="text" value="' + escapeHtml(item.perguruan_tinggi || '') + '" readonly></div>' +
+          '<div class="form-group"><label>STATUS CALON</label><input type="text" value="' + escapeHtml(item.status_calon || '') + '" readonly></div>' +
+          '<div class="form-group"><label>TAHUN MULAI STUDI</label><input type="text" value="' + escapeHtml(item.tahun_mulai || '') + '" readonly></div>' +
+          '<div class="form-group"><label>UNIT PENDAYAGUNA</label><textarea readonly>' + escapeHtml(item.unit_pendayaguna || '') + '</textarea></div>' +
         '</div></form>' +
         '<div class="modal-edit-footer"><button class="btn btn-outline" onclick="this.closest(\'.modal-edit-fullscreen\').remove()">TUTUP</button></div>' +
         '</div>';
@@ -3443,25 +3432,23 @@ function showProfile(id) {
     }
 
     function showPersonalRekomendasiEdit(rowId) {
-      var item = window.allPersonalRekomendasi.find(function(x) { return x.row_id === rowId; });
+      var item = filteredPersonalRekomendasi.find(function(x) { return x.row_id === rowId; });
       if (!item) return;
       
       var modal = document.createElement('div');
       modal.className = 'modal-edit-fullscreen';
       modal.id = 'prEditModal';
       modal.innerHTML = '<div class="modal-edit-overlay"></div><div class="modal-edit-content">' +
-        '<div class="modal-edit-header"><h2 class="modal-edit-title">Edit: ' + escapeHtml(item.nama || '') + '</h2><button class="modal-edit-close-btn" onclick="document.getElementById(\'prEditModal\').remove()">&times;</button></div>' +
+        '<div class="modal-edit-header"><h2 class="modal-edit-title">Edit: ' + escapeHtml(item.jurusan || '') + '</h2><button class="modal-edit-close-btn" onclick="document.getElementById(\'prEditModal\').remove()">&times;</button></div>' +
         '<form class="modal-edit-form" id="prEditForm"><div class="modal-edit-form-grid">' +
-          '<div class="form-group"><label>NO <span class="required-badge">Wajib</span></label><input type="text" name="no" value="' + escapeHtml(item.no || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>KODE <span class="required-badge">Wajib</span></label><input type="text" name="id" value="' + escapeHtml(item.id || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
           '<div class="form-group"><label>JURUSAN <span class="required-badge">Wajib</span></label><input type="text" name="jurusan" value="' + escapeHtml(item.jurusan || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
-          '<div class="form-group"><label>JENIS <span class="required-badge">Wajib</span></label><input type="text" name="jenis" value="' + escapeHtml(item.jenis || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
-          '<div class="form-group"><label>PILIHAN CENTER <span class="required-badge">Wajib</span></label><input type="text" name="pilihan_center" value="' + escapeHtml(item.pilihan_center || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
-          '<div class="form-group"><label>NAMA <span class="required-badge">Wajib</span></label><input type="text" name="nama" value="' + escapeHtml(item.nama || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
-          '<div class="form-group"><label>STATUS <span class="required-badge">Wajib</span></label><select name="status"><option value="">Pilih Status</option><option value="ASN" ' + (item.status === 'ASN' ? 'selected' : '') + '>ASN</option><option value="NON ASN" ' + (item.status === 'NON ASN' ? 'selected' : '') + '>NON ASN</option></select><div class="error-msg">Wajib diisi</div></div>' +
-          '<div class="form-group"><label>TEMPAT/ TGL LAHIR</label><input type="text" name="tempat_tgl_lahir" value="' + escapeHtml(item.tempat_tgl_lahir || '') + '"></div>' +
-          '<div class="form-group"><label>DOMISILI</label><textarea name="domisili">' + escapeHtml(item.domisili || '') + '</textarea></div>' +
-          '<div class="form-group"><label>TAHUN STUDI</label><input type="text" name="tahun_studi" value="' + escapeHtml(item.tahun_studi || '') + '"></div>' +
-          '<div class="form-group"><label>KETERANGAN</label><textarea name="keterangan">' + escapeHtml(item.keterangan || '') + '</textarea></div>' +
+          '<div class="form-group"><label>KUALIFIKASI AWAL</label><input type="text" name="kualifikasi_awal" value="' + escapeHtml(item.kualifikasi_awal || '') + '"></div>' +
+          '<div class="form-group"><label>JENIS PENDIDIKAN <span class="required-badge">Wajib</span></label><input type="text" name="jenis_pendidikan" value="' + escapeHtml(item.jenis_pendidikan || '') + '"><div class="error-msg">Wajib diisi</div></div>' +
+          '<div class="form-group"><label>PERGURUAN TINGGI</label><input type="text" name="perguruan_tinggi" value="' + escapeHtml(item.perguruan_tinggi || '') + '"></div>' +
+          '<div class="form-group"><label>STATUS CALON</label><input type="text" name="status_calon" value="' + escapeHtml(item.status_calon || '') + '"></div>' +
+          '<div class="form-group"><label>TAHUN MULAI STUDI</label><input type="text" name="tahun_mulai" value="' + escapeHtml(item.tahun_mulai || '') + '"></div>' +
+          '<div class="form-group"><label>UNIT PENDAYAGUNA</label><textarea name="unit_pendayaguna">' + escapeHtml(item.unit_pendayaguna || '') + '</textarea></div>' +
         '</div></form>' +
         '<div class="modal-edit-footer">' +
           '<button type="button" class="btn btn-outline" onclick="document.getElementById(\'prEditModal\').remove()">TUTUP</button>' +
@@ -3477,7 +3464,7 @@ function showProfile(id) {
       var form = document.getElementById('prEditForm');
       if (!form) return;
       
-      var requiredFields = ['no', 'jurusan', 'jenis', 'pilihan_center', 'nama', 'status'];
+      var requiredFields = ['id', 'jurusan', 'jenis_pendidikan'];
       var hasError = false;
       
       requiredFields.forEach(function(fieldName) {
