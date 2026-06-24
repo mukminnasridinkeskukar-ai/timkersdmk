@@ -5,9 +5,499 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIMBAKES V1.0</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js">
+    // ===========================================
+    // KEPUTUSAN PENERIMA BEASISWA
+    // ===========================================
+
+    function renderKeputusanBeasiswa() {
+      var userRole = (currentUser && currentUser.role) || localStorage.getItem('adminRole') || '';
+      var allowedRoles = ['admin', 'superadmin', 'operator'];
+      var isAuthorized = allowedRoles.indexOf(String(userRole || '').toLowerCase().trim()) !== -1;
+
+      if (!isAdminLoggedIn || !isAuthorized) {
+        return '<div class="card" style="max-width:400px;margin:0 auto;">' +
+          '<div class="text-center mb-4"><i class="fas fa-user-shield" style="font-size:3rem;color:var(--primary);"></i>' +
+          '<h2 class="mt-3">Admin Dinas Kesehatan</h2><p class="text-muted">Beasiswa Tematik Kesehatan</p></div>' +
+          '<div class="form-group"><label class="form-label">Username</label><input type="text" id="loginUser" class="form-control" value="admin"></div>' +
+          '<div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div>' +
+          '<button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button>' +
+          '<div class="mt-3 text-center"><small class="text-muted">Akses hanya untuk Admin dan Operator</small></div></div>';
+      }
+
+      return '<div class="container" style="max-width:900px;margin:0 auto;">' +
+        '<div class="keputusan-hero">' +
+          '<h2><i class="fas fa-award" style="color:var(--primary);"></i> Keputusan Penerima Beasiswa</h2>' +
+          '<p>Pencarian dan verifikasi keputusan penerima beasiswa berdasarkan NIK</p>' +
+        '</div>' +
+        '<div class="card">' +
+          '<div class="keputusan-search-box">' +
+            '<label class="form-label" for="keputusanNikSearch"><strong>Cari Berdasarkan NIK</strong></label>' +
+            '<div class="input-group">' +
+              '<input type="text" id="keputusanNikSearch" class="form-control" placeholder="Masukkan 16 digit NIK" maxlength="16" pattern="[0-9]*" inputmode="numeric" onkeypress="if(event.key==='\''Enter'\'') cariKeputusan()">' +
+              '<button class="btn btn-primary" onclick="cariKeputusan()"><i class="fas fa-search"></i> Cari</button>' +
+            '</div>' +
+            '<small class="text-muted mt-1" style="display:block;">Masukkan Nomor Induk Kependudukan (NIK) untuk mencari data keputusan</small>' +
+          '</div>' +
+        '</div>' +
+        '<div id="keputusanResult"></div>' +
+      '</div>';
+    }
+
+    function initKeputusanBeasiswa() {
+      var input = document.getElementById('keputusanNikSearch');
+      if (input) {
+        input.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') cariKeputusan();
+        });
+        input.addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '');
+        });
+      }
+      // Auto-focus on input
+      if (input) setTimeout(function() { input.focus(); }, 300);
+    }
+
+    function cariKeputusan() {
+      var nik = document.getElementById('keputusanNikSearch');
+      if (!nik) return;
+      var nikVal = nik.value.trim().replace(/\s+/g, '');
+      
+      if (!/^\d{16}$/.test(nikVal)) {
+        Swal.fire({icon: 'warning', title: 'NIK Tidak Valid', text: 'NIK harus 16 digit angka', timer: 2000});
+        nik.focus();
+        return;
+      }
+
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML = '<div class="keputusan-loading"><div class="spinner"></div><p class="text-muted">Mencari data...</p></div>';
+
+      var role = localStorage.getItem('adminRole') || 'admin';
+      apiCallWithData('getBeasiswaKeputusan', {nik: nikVal, role: role}, function(res) {
+        if (res && res.success && res.data) {
+          renderKeputusanResult(res.data);
+        } else {
+          renderKeputusanNotFound(nikVal);
+        }
+      }, function() {
+        resultDiv.innerHTML = '<div class="alert alert-error mt-3"><i class="fas fa-exclamation-triangle"></i> Gagal terhubung ke server. Silakan coba lagi.</div>';
+      });
+    }
+
+    function renderKeputusanNotFound(nik) {
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML =
+        '<div class="keputusan-empty-state keputusan-result-animate">' +
+          '<i class="fas fa-search-minus"></i>' +
+          '<h3>Data Tidak Ditemukan</h3>' +
+          '<p>Data tidak ditemukan. Pastikan Nomor NIK yang dimasukkan sudah benar.</p>' +
+          '<p class="text-muted mt-2">NIK: <strong>' + escapeHtml(nik) + '</strong></p>' +
+        '</div>';
+    }
+
+    function renderKeputusanResult(data) {
+      var resultDiv = document.getElementById('keputusanResult');
+      if (!resultDiv) return;
+
+      var fotoUrl = data.foto || '';
+      var fotoFallback = data.fotoFallback || '';
+      var fotoHtml = '';
+
+      if (fotoUrl) {
+        var fileId = extractDriveFileIdFromString(fotoUrl);
+        var previewUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800' : fotoUrl;
+        fotoHtml = '<img src="' + escapeHtml(previewUrl) + '" alt="Foto ' + escapeHtml(data.nama) + '" onclick="openKeputusanFotoModal(\'' + escapeHtml(fotoUrl.replace(/'/g, "\\'")) + '\')" onerror="this.onerror=null;this.src=\'' + (fotoFallback ? escapeHtml(fotoFallback) : '') + '\';if(!this.src||this.src==='\''||this.src.indexOf(\'data:image\')===0)this.src=\'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#e2e8f0"/><text x="100" y="125" font-family="Arial" font-size="14" fill="#64748b" text-anchor="middle">Foto</text></svg>') + '\';" style="width:100%;height:250px;object-fit:contain;border-radius:var(--radius);border:3px solid var(--primary);cursor:pointer;background:var(--gray-100);">';
+      } else {
+        fotoHtml = '<div style="width:100%;height:250px;background:var(--gray-100);border-radius:var(--radius);border:3px dashed var(--gray-300);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:0.9rem;"><i class="fas fa-user" style="font-size:3rem;opacity:0.3;margin-right:0.5rem;"></i>Foto tidak tersedia</div>';
+      }
+
+      var statusLabel = '';
+      var statusIcon = '';
+      var statusClass = '';
+      var statusMsg = '';
+      if (data.status === 'DITERIMA') {
+        statusLabel = 'DITERIMA';
+        statusIcon = '&#128994;';
+        statusClass = 'keputusan-status-diterima';
+        statusMsg = 'SELAMAT! ANDA DINYATAKAN SEBAGAI PENERIMA BEASISWA TEMATIK KABUPATEN KUTAI KARTANEGARA';
+      } else if (data.status === 'CADANGAN') {
+        statusLabel = 'CADANGAN';
+        statusIcon = '&#128993;';
+        statusClass = 'keputusan-status-cadangan';
+        statusMsg = 'ANDA MASUK DALAM DAFTAR CADANGAN PENERIMA BEASISWA';
+      } else if (data.status === 'DITOLAK') {
+        statusLabel = 'DITOLAK';
+        statusIcon = '&#128308;';
+        statusClass = 'keputusan-status-ditolak';
+        statusMsg = 'MOHON MAAF, ANDA BELUM DINYATAKAN SEBAGAI PENERIMA BEASISWA';
+      }
+
+      var statusHtml = data.status ? '<div class="keputusan-status-card keputusan-result-animate">' +
+        '<div class="' + statusClass + '">' +
+          '<span class="keputusan-status-icon">' + statusIcon + '</span>' +
+          '<div class="keputusan-status-title">' + escapeHtml(statusMsg) + '</div>' +
+          '<div class="keputusan-status-subtitle">Status: <strong>' + escapeHtml(statusLabel) + '</strong></div>' +
+        '</div>' +
+      '</div>' : '';
+
+      var dokumenHtml = '';
+      if (data.buktiLulus && data.buktiLulus.trim() !== '') {
+        var fileId = extractDriveFileIdFromString(data.buktiLulus);
+        var previewUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/preview' : data.buktiLulus;
+        var downloadUrl = fileId ? 'https://drive.google.com/uc?export=download&id=' + fileId : data.buktiLulus;
+        var fullscreenUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/view' : data.buktiLulus;
+        var fileExt = (fileId || data.buktiLulus).toLowerCase();
+        var isPdf = fileExt.includes('.pdf') || false;
+        var isImage = fileExt.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) || !fileId;
+
+        if (fileId) {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">';
+
+          if (isPdf || !isImage) {
+            dokumenHtml +=
+              '<iframe src="' + escapeHtml(previewUrl) + '" allow="autoplay" title="Preview Bukti Lulus"></iframe>' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+                '<a href="' + escapeHtml(fullscreenUrl) + '" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-expand"></i> Fullscreen</a>' +
+              '</div>';
+          } else {
+            var imgPreview = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
+            dokumenHtml +=
+              '<img src="' + escapeHtml(imgPreview) + '" alt="Bukti Lulus" onclick="openKeputusanDokumenModal(\'' + escapeHtml(data.buktiLulus.replace(/'/g, "\\'")) + '\')" onerror="this.src=\'' + escapeHtml(previewUrl) + '\'">' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+              '</div>';
+          }
+
+          dokumenHtml += '</div></div></div>';
+        } else {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">' +
+              '<p class="text-muted"><i class="fas fa-external-link-alt"></i> <a href="' + escapeHtml(data.buktiLulus) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-external-link-alt"></i> Buka Dokumen</a></p>' +
+            '</div></div></div>';
+        }
+      } else {
+        dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+          '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+          '<div class="keputusan-empty-state" style="padding:1.5rem;"><i class="fas fa-file-alt" style="font-size:2rem;"></i><p class="text-muted">Belum tersedia</p></div>' +
+          '</div></div>';
+      }
+
+      resultDiv.innerHTML =
+        '<div class="keputusan-result-animate">' +
+        '<div class="keputusan-profile-card">' +
+          '<div class="foto-section">' + fotoHtml + '</div>' +
+          '<div class="info-section">' +
+            '<div class="keputusan-info-grid">' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">NIK</div><div class="keputusan-info-value">' + escapeHtml(data.nik) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Nama</div><div class="keputusan-info-value">' + escapeHtml(data.nama) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Alamat Domisili</div><div class="keputusan-info-value">' + escapeHtml(data.alamatDomisili) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Kerja</div><div class="keputusan-info-value">' + escapeHtml(data.unitKerja) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jurusan Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.jurusanTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jenis Pendidikan</div><div class="keputusan-info-value">' + escapeHtml(data.jenisPendidikan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.unitTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Rencana Tahun</div><div class="keputusan-info-value">' + escapeHtml(data.rencanaTahun) + '</div></div>' +
+              '<div class="keputusan-info-item full-width" style="grid-column:1/-1;"><div class="keputusan-info-label">No. WhatsApp</div><div class="keputusan-info-value">' + escapeHtml(data.noWhatsapp) + '</div></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        statusHtml +
+        dokumenHtml +
+        '</div>';
+    }
+
+    function openKeputusanFotoModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Foto" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function openKeputusanDokumenModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Dokumen Bukti Lulus" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function closeKeputusanModal(overlay) {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    // Add keyboard escape to close modals
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var overlays = document.querySelectorAll('.keputusan-modal-overlay');
+        overlays.forEach(function(el) { closeKeputusanModal(el); });
+      }
+    });
+</script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.20/dist/sweetalert2.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.20/dist/sweetalert2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.20/dist/sweetalert2.min.js">
+    // ===========================================
+    // KEPUTUSAN PENERIMA BEASISWA
+    // ===========================================
+
+    function renderKeputusanBeasiswa() {
+      var userRole = (currentUser && currentUser.role) || localStorage.getItem('adminRole') || '';
+      var allowedRoles = ['admin', 'superadmin', 'operator'];
+      var isAuthorized = allowedRoles.indexOf(String(userRole || '').toLowerCase().trim()) !== -1;
+
+      if (!isAdminLoggedIn || !isAuthorized) {
+        return '<div class="card" style="max-width:400px;margin:0 auto;">' +
+          '<div class="text-center mb-4"><i class="fas fa-user-shield" style="font-size:3rem;color:var(--primary);"></i>' +
+          '<h2 class="mt-3">Admin Dinas Kesehatan</h2><p class="text-muted">Beasiswa Tematik Kesehatan</p></div>' +
+          '<div class="form-group"><label class="form-label">Username</label><input type="text" id="loginUser" class="form-control" value="admin"></div>' +
+          '<div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div>' +
+          '<button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button>' +
+          '<div class="mt-3 text-center"><small class="text-muted">Akses hanya untuk Admin dan Operator</small></div></div>';
+      }
+
+      return '<div class="container" style="max-width:900px;margin:0 auto;">' +
+        '<div class="keputusan-hero">' +
+          '<h2><i class="fas fa-award" style="color:var(--primary);"></i> Keputusan Penerima Beasiswa</h2>' +
+          '<p>Pencarian dan verifikasi keputusan penerima beasiswa berdasarkan NIK</p>' +
+        '</div>' +
+        '<div class="card">' +
+          '<div class="keputusan-search-box">' +
+            '<label class="form-label" for="keputusanNikSearch"><strong>Cari Berdasarkan NIK</strong></label>' +
+            '<div class="input-group">' +
+              '<input type="text" id="keputusanNikSearch" class="form-control" placeholder="Masukkan 16 digit NIK" maxlength="16" pattern="[0-9]*" inputmode="numeric" onkeypress="if(event.key==='\''Enter'\'') cariKeputusan()">' +
+              '<button class="btn btn-primary" onclick="cariKeputusan()"><i class="fas fa-search"></i> Cari</button>' +
+            '</div>' +
+            '<small class="text-muted mt-1" style="display:block;">Masukkan Nomor Induk Kependudukan (NIK) untuk mencari data keputusan</small>' +
+          '</div>' +
+        '</div>' +
+        '<div id="keputusanResult"></div>' +
+      '</div>';
+    }
+
+    function initKeputusanBeasiswa() {
+      var input = document.getElementById('keputusanNikSearch');
+      if (input) {
+        input.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') cariKeputusan();
+        });
+        input.addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '');
+        });
+      }
+      // Auto-focus on input
+      if (input) setTimeout(function() { input.focus(); }, 300);
+    }
+
+    function cariKeputusan() {
+      var nik = document.getElementById('keputusanNikSearch');
+      if (!nik) return;
+      var nikVal = nik.value.trim().replace(/\s+/g, '');
+      
+      if (!/^\d{16}$/.test(nikVal)) {
+        Swal.fire({icon: 'warning', title: 'NIK Tidak Valid', text: 'NIK harus 16 digit angka', timer: 2000});
+        nik.focus();
+        return;
+      }
+
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML = '<div class="keputusan-loading"><div class="spinner"></div><p class="text-muted">Mencari data...</p></div>';
+
+      var role = localStorage.getItem('adminRole') || 'admin';
+      apiCallWithData('getBeasiswaKeputusan', {nik: nikVal, role: role}, function(res) {
+        if (res && res.success && res.data) {
+          renderKeputusanResult(res.data);
+        } else {
+          renderKeputusanNotFound(nikVal);
+        }
+      }, function() {
+        resultDiv.innerHTML = '<div class="alert alert-error mt-3"><i class="fas fa-exclamation-triangle"></i> Gagal terhubung ke server. Silakan coba lagi.</div>';
+      });
+    }
+
+    function renderKeputusanNotFound(nik) {
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML =
+        '<div class="keputusan-empty-state keputusan-result-animate">' +
+          '<i class="fas fa-search-minus"></i>' +
+          '<h3>Data Tidak Ditemukan</h3>' +
+          '<p>Data tidak ditemukan. Pastikan Nomor NIK yang dimasukkan sudah benar.</p>' +
+          '<p class="text-muted mt-2">NIK: <strong>' + escapeHtml(nik) + '</strong></p>' +
+        '</div>';
+    }
+
+    function renderKeputusanResult(data) {
+      var resultDiv = document.getElementById('keputusanResult');
+      if (!resultDiv) return;
+
+      var fotoUrl = data.foto || '';
+      var fotoFallback = data.fotoFallback || '';
+      var fotoHtml = '';
+
+      if (fotoUrl) {
+        var fileId = extractDriveFileIdFromString(fotoUrl);
+        var previewUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800' : fotoUrl;
+        fotoHtml = '<img src="' + escapeHtml(previewUrl) + '" alt="Foto ' + escapeHtml(data.nama) + '" onclick="openKeputusanFotoModal(\'' + escapeHtml(fotoUrl.replace(/'/g, "\\'")) + '\')" onerror="this.onerror=null;this.src=\'' + (fotoFallback ? escapeHtml(fotoFallback) : '') + '\';if(!this.src||this.src==='\''||this.src.indexOf(\'data:image\')===0)this.src=\'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#e2e8f0"/><text x="100" y="125" font-family="Arial" font-size="14" fill="#64748b" text-anchor="middle">Foto</text></svg>') + '\';" style="width:100%;height:250px;object-fit:contain;border-radius:var(--radius);border:3px solid var(--primary);cursor:pointer;background:var(--gray-100);">';
+      } else {
+        fotoHtml = '<div style="width:100%;height:250px;background:var(--gray-100);border-radius:var(--radius);border:3px dashed var(--gray-300);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:0.9rem;"><i class="fas fa-user" style="font-size:3rem;opacity:0.3;margin-right:0.5rem;"></i>Foto tidak tersedia</div>';
+      }
+
+      var statusLabel = '';
+      var statusIcon = '';
+      var statusClass = '';
+      var statusMsg = '';
+      if (data.status === 'DITERIMA') {
+        statusLabel = 'DITERIMA';
+        statusIcon = '&#128994;';
+        statusClass = 'keputusan-status-diterima';
+        statusMsg = 'SELAMAT! ANDA DINYATAKAN SEBAGAI PENERIMA BEASISWA TEMATIK KABUPATEN KUTAI KARTANEGARA';
+      } else if (data.status === 'CADANGAN') {
+        statusLabel = 'CADANGAN';
+        statusIcon = '&#128993;';
+        statusClass = 'keputusan-status-cadangan';
+        statusMsg = 'ANDA MASUK DALAM DAFTAR CADANGAN PENERIMA BEASISWA';
+      } else if (data.status === 'DITOLAK') {
+        statusLabel = 'DITOLAK';
+        statusIcon = '&#128308;';
+        statusClass = 'keputusan-status-ditolak';
+        statusMsg = 'MOHON MAAF, ANDA BELUM DINYATAKAN SEBAGAI PENERIMA BEASISWA';
+      }
+
+      var statusHtml = data.status ? '<div class="keputusan-status-card keputusan-result-animate">' +
+        '<div class="' + statusClass + '">' +
+          '<span class="keputusan-status-icon">' + statusIcon + '</span>' +
+          '<div class="keputusan-status-title">' + escapeHtml(statusMsg) + '</div>' +
+          '<div class="keputusan-status-subtitle">Status: <strong>' + escapeHtml(statusLabel) + '</strong></div>' +
+        '</div>' +
+      '</div>' : '';
+
+      var dokumenHtml = '';
+      if (data.buktiLulus && data.buktiLulus.trim() !== '') {
+        var fileId = extractDriveFileIdFromString(data.buktiLulus);
+        var previewUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/preview' : data.buktiLulus;
+        var downloadUrl = fileId ? 'https://drive.google.com/uc?export=download&id=' + fileId : data.buktiLulus;
+        var fullscreenUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/view' : data.buktiLulus;
+        var fileExt = (fileId || data.buktiLulus).toLowerCase();
+        var isPdf = fileExt.includes('.pdf') || false;
+        var isImage = fileExt.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) || !fileId;
+
+        if (fileId) {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">';
+
+          if (isPdf || !isImage) {
+            dokumenHtml +=
+              '<iframe src="' + escapeHtml(previewUrl) + '" allow="autoplay" title="Preview Bukti Lulus"></iframe>' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+                '<a href="' + escapeHtml(fullscreenUrl) + '" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-expand"></i> Fullscreen</a>' +
+              '</div>';
+          } else {
+            var imgPreview = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
+            dokumenHtml +=
+              '<img src="' + escapeHtml(imgPreview) + '" alt="Bukti Lulus" onclick="openKeputusanDokumenModal(\'' + escapeHtml(data.buktiLulus.replace(/'/g, "\\'")) + '\')" onerror="this.src=\'' + escapeHtml(previewUrl) + '\'">' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+              '</div>';
+          }
+
+          dokumenHtml += '</div></div></div>';
+        } else {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">' +
+              '<p class="text-muted"><i class="fas fa-external-link-alt"></i> <a href="' + escapeHtml(data.buktiLulus) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-external-link-alt"></i> Buka Dokumen</a></p>' +
+            '</div></div></div>';
+        }
+      } else {
+        dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+          '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+          '<div class="keputusan-empty-state" style="padding:1.5rem;"><i class="fas fa-file-alt" style="font-size:2rem;"></i><p class="text-muted">Belum tersedia</p></div>' +
+          '</div></div>';
+      }
+
+      resultDiv.innerHTML =
+        '<div class="keputusan-result-animate">' +
+        '<div class="keputusan-profile-card">' +
+          '<div class="foto-section">' + fotoHtml + '</div>' +
+          '<div class="info-section">' +
+            '<div class="keputusan-info-grid">' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">NIK</div><div class="keputusan-info-value">' + escapeHtml(data.nik) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Nama</div><div class="keputusan-info-value">' + escapeHtml(data.nama) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Alamat Domisili</div><div class="keputusan-info-value">' + escapeHtml(data.alamatDomisili) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Kerja</div><div class="keputusan-info-value">' + escapeHtml(data.unitKerja) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jurusan Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.jurusanTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jenis Pendidikan</div><div class="keputusan-info-value">' + escapeHtml(data.jenisPendidikan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.unitTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Rencana Tahun</div><div class="keputusan-info-value">' + escapeHtml(data.rencanaTahun) + '</div></div>' +
+              '<div class="keputusan-info-item full-width" style="grid-column:1/-1;"><div class="keputusan-info-label">No. WhatsApp</div><div class="keputusan-info-value">' + escapeHtml(data.noWhatsapp) + '</div></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        statusHtml +
+        dokumenHtml +
+        '</div>';
+    }
+
+    function openKeputusanFotoModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Foto" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function openKeputusanDokumenModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Dokumen Bukti Lulus" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function closeKeputusanModal(overlay) {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    // Add keyboard escape to close modals
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var overlays = document.querySelectorAll('.keputusan-modal-overlay');
+        overlays.forEach(function(el) { closeKeputusanModal(el); });
+      }
+    });
+</script>
 <style>
 :root {
         --primary: #2563eb;
@@ -1137,7 +1627,66 @@
           min-width: 100%;
         }
       }
-      </style>
+      /* ========================================
+   KEPUTUSAN PENERIMA BEASISWA
+   ======================================== */
+.keputusan-hero { text-align: center; padding: 2rem 1rem; background: linear-gradient(135deg, #eff6ff, #dbeafe); border-radius: var(--radius-lg); margin-bottom: 2rem; }
+.keputusan-hero h2 { color: var(--primary-dark); font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; }
+.keputusan-hero p { color: var(--gray-500); font-size: 1rem; }
+.keputusan-search-box { max-width: 600px; margin: 0 auto; }
+.keputusan-search-box .input-group { display: flex; gap: 0.5rem; }
+.keputusan-search-box input { flex: 1; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius); font-size: 1rem; transition: var(--transition); }
+.keputusan-search-box input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.keputusan-profile-card { display: flex; gap: 1.5rem; padding: 1.5rem; background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow-md); margin-top: 1.5rem; border: 1px solid var(--gray-200); }
+.keputusan-profile-card .foto-section { flex-shrink: 0; width: 200px; }
+.keputusan-profile-card .foto-section img { width: 100%; height: 250px; object-fit: contain; border-radius: var(--radius); border: 3px solid var(--primary); cursor: pointer; transition: var(--transition); background: var(--gray-100); }
+.keputusan-profile-card .foto-section img:hover { transform: scale(1.03); box-shadow: 0 0 30px rgba(37,99,235,0.3); }
+.keputusan-profile-card .info-section { flex: 1; min-width: 0; }
+.keputusan-info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.75rem; }
+.keputusan-info-item { padding: 0.75rem; background: var(--gray-50); border-radius: 10px; border-left: 3px solid var(--primary); }
+.keputusan-info-label { font-size: 0.7rem; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.2rem; }
+.keputusan-info-value { font-size: 0.95rem; font-weight: 500; color: var(--gray-800); word-break: break-word; }
+.keputusan-status-card { margin-top: 1.5rem; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-md); }
+.keputusan-status-diterima { background: linear-gradient(135deg, #d1fae5, #a7f3d0); border: 2px solid #059669; padding: 2rem; text-align: center; }
+.keputusan-status-cadangan { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #d97706; padding: 2rem; text-align: center; }
+.keputusan-status-ditolak { background: linear-gradient(135deg, #fee2e2, #fecaca); border: 2px solid #dc2626; padding: 2rem; text-align: center; }
+.keputusan-status-icon { font-size: 3rem; margin-bottom: 0.5rem; display: block; }
+.keputusan-status-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; }
+.keputusan-status-diterima .keputusan-status-title { color: #065f46; }
+.keputusan-status-cadangan .keputusan-status-title { color: #92400e; }
+.keputusan-status-ditolak .keputusan-status-title { color: #991b1b; }
+.keputusan-status-subtitle { color: var(--gray-700); font-size: 0.9rem; }
+.keputusan-dokumen-section { margin-top: 1.5rem; }
+.keputusan-dokumen-section h3 { font-size: 1.1rem; font-weight: 600; color: var(--gray-800); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+.keputusan-dokumen-preview { background: white; border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow); border: 1px solid var(--gray-200); }
+.keputusan-dokumen-preview iframe { width: 100%; height: 500px; border: none; border-radius: 8px; }
+.keputusan-dokumen-preview img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; cursor: pointer; transition: var(--transition); }
+.keputusan-dokumen-preview img:hover { opacity: 0.9; }
+.keputusan-empty-state { text-align: center; padding: 4rem 2rem; }
+.keputusan-empty-state i { font-size: 5rem; color: var(--gray-300); margin-bottom: 1rem; display: block; }
+.keputusan-empty-state h3 { font-size: 1.5rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.5rem; }
+.keputusan-empty-state p { color: var(--gray-500); max-width: 400px; margin: 0 auto; }
+.keputusan-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 20000; padding: 1rem; }
+.keputusan-modal-overlay.hidden { display: none; }
+.keputusan-modal-content { position: relative; max-width: 90vw; max-height: 90vh; }
+.keputusan-modal-content img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+.keputusan-modal-close { position: absolute; top: -48px; right: 0; background: rgba(255,255,255,0.2); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
+.keputusan-modal-close:hover { background: white; color: black; }
+.keputusan-loading { text-align: center; padding: 3rem; }
+.keputusan-loading .spinner { width: 48px; height: 48px; border: 4px solid var(--gray-200); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 768px) {
+  .keputusan-profile-card { flex-direction: column; }
+  .keputusan-profile-card .foto-section { width: 100%; text-align: center; }
+  .keputusan-profile-card .foto-section img { width: 180px; height: 220px; }
+  .keputusan-info-grid { grid-template-columns: 1fr; }
+  .keputusan-search-box .input-group { flex-direction: column; }
+  .keputusan-dokumen-preview iframe { height: 300px; }
+  .keputusan-hero h2 { font-size: 1.3rem; }
+}
+@keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+.keputusan-result-animate { animation: slideDown 0.4s ease-out; }
+</style>
 </head>
 <body>
   <div id="app">
@@ -1153,6 +1702,7 @@
         <li><a href="#" data-page="cek_status"><i class="fas fa-search"></i> Cek Status</a></li>
         <li><a href="#" data-page="panel_admin"><i class="fas fa-user-shield"></i> Panel Admin</a></li>
         <li><a href="#" data-page="personal_rekomendasi"><i class="fas fa-user-check"></i> Personal_Rekomendasi</a></li>
+        <li><a href="#" data-page="keputusan_beasiswa"><i class="fas fa-award"></i> Keputusan Penerima Beasiswa</a></li>
       </ul>
     </aside>
 
@@ -1605,12 +2155,257 @@
       return createSimpleProfilePhoto(rawUrl, alt || ('Foto ' + (nik||'')), 'table');
     }
 
-    </script>
+    
+    // ===========================================
+    // KEPUTUSAN PENERIMA BEASISWA
+    // ===========================================
+
+    function renderKeputusanBeasiswa() {
+      var userRole = (currentUser && currentUser.role) || localStorage.getItem('adminRole') || '';
+      var allowedRoles = ['admin', 'superadmin', 'operator'];
+      var isAuthorized = allowedRoles.indexOf(String(userRole || '').toLowerCase().trim()) !== -1;
+
+      if (!isAdminLoggedIn || !isAuthorized) {
+        return '<div class="card" style="max-width:400px;margin:0 auto;">' +
+          '<div class="text-center mb-4"><i class="fas fa-user-shield" style="font-size:3rem;color:var(--primary);"></i>' +
+          '<h2 class="mt-3">Admin Dinas Kesehatan</h2><p class="text-muted">Beasiswa Tematik Kesehatan</p></div>' +
+          '<div class="form-group"><label class="form-label">Username</label><input type="text" id="loginUser" class="form-control" value="admin"></div>' +
+          '<div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div>' +
+          '<button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button>' +
+          '<div class="mt-3 text-center"><small class="text-muted">Akses hanya untuk Admin dan Operator</small></div></div>';
+      }
+
+      return '<div class="container" style="max-width:900px;margin:0 auto;">' +
+        '<div class="keputusan-hero">' +
+          '<h2><i class="fas fa-award" style="color:var(--primary);"></i> Keputusan Penerima Beasiswa</h2>' +
+          '<p>Pencarian dan verifikasi keputusan penerima beasiswa berdasarkan NIK</p>' +
+        '</div>' +
+        '<div class="card">' +
+          '<div class="keputusan-search-box">' +
+            '<label class="form-label" for="keputusanNikSearch"><strong>Cari Berdasarkan NIK</strong></label>' +
+            '<div class="input-group">' +
+              '<input type="text" id="keputusanNikSearch" class="form-control" placeholder="Masukkan 16 digit NIK" maxlength="16" pattern="[0-9]*" inputmode="numeric" onkeypress="if(event.key==='\''Enter'\'') cariKeputusan()">' +
+              '<button class="btn btn-primary" onclick="cariKeputusan()"><i class="fas fa-search"></i> Cari</button>' +
+            '</div>' +
+            '<small class="text-muted mt-1" style="display:block;">Masukkan Nomor Induk Kependudukan (NIK) untuk mencari data keputusan</small>' +
+          '</div>' +
+        '</div>' +
+        '<div id="keputusanResult"></div>' +
+      '</div>';
+    }
+
+    function initKeputusanBeasiswa() {
+      var input = document.getElementById('keputusanNikSearch');
+      if (input) {
+        input.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') cariKeputusan();
+        });
+        input.addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '');
+        });
+      }
+      // Auto-focus on input
+      if (input) setTimeout(function() { input.focus(); }, 300);
+    }
+
+    function cariKeputusan() {
+      var nik = document.getElementById('keputusanNikSearch');
+      if (!nik) return;
+      var nikVal = nik.value.trim().replace(/\s+/g, '');
+      
+      if (!/^\d{16}$/.test(nikVal)) {
+        Swal.fire({icon: 'warning', title: 'NIK Tidak Valid', text: 'NIK harus 16 digit angka', timer: 2000});
+        nik.focus();
+        return;
+      }
+
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML = '<div class="keputusan-loading"><div class="spinner"></div><p class="text-muted">Mencari data...</p></div>';
+
+      var role = localStorage.getItem('adminRole') || 'admin';
+      apiCallWithData('getBeasiswaKeputusan', {nik: nikVal, role: role}, function(res) {
+        if (res && res.success && res.data) {
+          renderKeputusanResult(res.data);
+        } else {
+          renderKeputusanNotFound(nikVal);
+        }
+      }, function() {
+        resultDiv.innerHTML = '<div class="alert alert-error mt-3"><i class="fas fa-exclamation-triangle"></i> Gagal terhubung ke server. Silakan coba lagi.</div>';
+      });
+    }
+
+    function renderKeputusanNotFound(nik) {
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML =
+        '<div class="keputusan-empty-state keputusan-result-animate">' +
+          '<i class="fas fa-search-minus"></i>' +
+          '<h3>Data Tidak Ditemukan</h3>' +
+          '<p>Data tidak ditemukan. Pastikan Nomor NIK yang dimasukkan sudah benar.</p>' +
+          '<p class="text-muted mt-2">NIK: <strong>' + escapeHtml(nik) + '</strong></p>' +
+        '</div>';
+    }
+
+    function renderKeputusanResult(data) {
+      var resultDiv = document.getElementById('keputusanResult');
+      if (!resultDiv) return;
+
+      var fotoUrl = data.foto || '';
+      var fotoFallback = data.fotoFallback || '';
+      var fotoHtml = '';
+
+      if (fotoUrl) {
+        var fileId = extractDriveFileIdFromString(fotoUrl);
+        var previewUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800' : fotoUrl;
+        fotoHtml = '<img src="' + escapeHtml(previewUrl) + '" alt="Foto ' + escapeHtml(data.nama) + '" onclick="openKeputusanFotoModal(\'' + escapeHtml(fotoUrl.replace(/'/g, "\\'")) + '\')" onerror="this.onerror=null;this.src=\'' + (fotoFallback ? escapeHtml(fotoFallback) : '') + '\';if(!this.src||this.src==='\''||this.src.indexOf(\'data:image\')===0)this.src=\'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#e2e8f0"/><text x="100" y="125" font-family="Arial" font-size="14" fill="#64748b" text-anchor="middle">Foto</text></svg>') + '\';" style="width:100%;height:250px;object-fit:contain;border-radius:var(--radius);border:3px solid var(--primary);cursor:pointer;background:var(--gray-100);">';
+      } else {
+        fotoHtml = '<div style="width:100%;height:250px;background:var(--gray-100);border-radius:var(--radius);border:3px dashed var(--gray-300);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:0.9rem;"><i class="fas fa-user" style="font-size:3rem;opacity:0.3;margin-right:0.5rem;"></i>Foto tidak tersedia</div>';
+      }
+
+      var statusLabel = '';
+      var statusIcon = '';
+      var statusClass = '';
+      var statusMsg = '';
+      if (data.status === 'DITERIMA') {
+        statusLabel = 'DITERIMA';
+        statusIcon = '&#128994;';
+        statusClass = 'keputusan-status-diterima';
+        statusMsg = 'SELAMAT! ANDA DINYATAKAN SEBAGAI PENERIMA BEASISWA TEMATIK KABUPATEN KUTAI KARTANEGARA';
+      } else if (data.status === 'CADANGAN') {
+        statusLabel = 'CADANGAN';
+        statusIcon = '&#128993;';
+        statusClass = 'keputusan-status-cadangan';
+        statusMsg = 'ANDA MASUK DALAM DAFTAR CADANGAN PENERIMA BEASISWA';
+      } else if (data.status === 'DITOLAK') {
+        statusLabel = 'DITOLAK';
+        statusIcon = '&#128308;';
+        statusClass = 'keputusan-status-ditolak';
+        statusMsg = 'MOHON MAAF, ANDA BELUM DINYATAKAN SEBAGAI PENERIMA BEASISWA';
+      }
+
+      var statusHtml = data.status ? '<div class="keputusan-status-card keputusan-result-animate">' +
+        '<div class="' + statusClass + '">' +
+          '<span class="keputusan-status-icon">' + statusIcon + '</span>' +
+          '<div class="keputusan-status-title">' + escapeHtml(statusMsg) + '</div>' +
+          '<div class="keputusan-status-subtitle">Status: <strong>' + escapeHtml(statusLabel) + '</strong></div>' +
+        '</div>' +
+      '</div>' : '';
+
+      var dokumenHtml = '';
+      if (data.buktiLulus && data.buktiLulus.trim() !== '') {
+        var fileId = extractDriveFileIdFromString(data.buktiLulus);
+        var previewUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/preview' : data.buktiLulus;
+        var downloadUrl = fileId ? 'https://drive.google.com/uc?export=download&id=' + fileId : data.buktiLulus;
+        var fullscreenUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/view' : data.buktiLulus;
+        var fileExt = (fileId || data.buktiLulus).toLowerCase();
+        var isPdf = fileExt.includes('.pdf') || false;
+        var isImage = fileExt.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) || !fileId;
+
+        if (fileId) {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">';
+
+          if (isPdf || !isImage) {
+            dokumenHtml +=
+              '<iframe src="' + escapeHtml(previewUrl) + '" allow="autoplay" title="Preview Bukti Lulus"></iframe>' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+                '<a href="' + escapeHtml(fullscreenUrl) + '" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-expand"></i> Fullscreen</a>' +
+              '</div>';
+          } else {
+            var imgPreview = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
+            dokumenHtml +=
+              '<img src="' + escapeHtml(imgPreview) + '" alt="Bukti Lulus" onclick="openKeputusanDokumenModal(\'' + escapeHtml(data.buktiLulus.replace(/'/g, "\\'")) + '\')" onerror="this.src=\'' + escapeHtml(previewUrl) + '\'">' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+              '</div>';
+          }
+
+          dokumenHtml += '</div></div></div>';
+        } else {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">' +
+              '<p class="text-muted"><i class="fas fa-external-link-alt"></i> <a href="' + escapeHtml(data.buktiLulus) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-external-link-alt"></i> Buka Dokumen</a></p>' +
+            '</div></div></div>';
+        }
+      } else {
+        dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+          '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+          '<div class="keputusan-empty-state" style="padding:1.5rem;"><i class="fas fa-file-alt" style="font-size:2rem;"></i><p class="text-muted">Belum tersedia</p></div>' +
+          '</div></div>';
+      }
+
+      resultDiv.innerHTML =
+        '<div class="keputusan-result-animate">' +
+        '<div class="keputusan-profile-card">' +
+          '<div class="foto-section">' + fotoHtml + '</div>' +
+          '<div class="info-section">' +
+            '<div class="keputusan-info-grid">' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">NIK</div><div class="keputusan-info-value">' + escapeHtml(data.nik) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Nama</div><div class="keputusan-info-value">' + escapeHtml(data.nama) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Alamat Domisili</div><div class="keputusan-info-value">' + escapeHtml(data.alamatDomisili) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Kerja</div><div class="keputusan-info-value">' + escapeHtml(data.unitKerja) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jurusan Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.jurusanTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jenis Pendidikan</div><div class="keputusan-info-value">' + escapeHtml(data.jenisPendidikan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.unitTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Rencana Tahun</div><div class="keputusan-info-value">' + escapeHtml(data.rencanaTahun) + '</div></div>' +
+              '<div class="keputusan-info-item full-width" style="grid-column:1/-1;"><div class="keputusan-info-label">No. WhatsApp</div><div class="keputusan-info-value">' + escapeHtml(data.noWhatsapp) + '</div></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        statusHtml +
+        dokumenHtml +
+        '</div>';
+    }
+
+    function openKeputusanFotoModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Foto" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function openKeputusanDokumenModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Dokumen Bukti Lulus" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function closeKeputusanModal(overlay) {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    // Add keyboard escape to close modals
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var overlays = document.querySelectorAll('.keputusan-modal-overlay');
+        overlays.forEach(function(el) { closeKeputusanModal(el); });
+      }
+    });
+</script>
     <script>
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxpF4fCHfVgeykN-YhCN6vKE7yYl7FGGkKMiR5-SJrjDTjFQncT1HfU3ZYNfQMMsZxh/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbx13JSZmUxdCuOWzdl2NtEtpfLOb67IMk9LUFdCYRWPUnmwTNefxFDJJpKDqma5M1jx/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -1628,7 +2423,7 @@
  
 document.addEventListener('DOMContentLoaded', function() {
       var hash = window.location.hash.replace('#', '');
-      var validPages = ['dashboard', 'roadmap', 'ajukan_rekomendasi', 'cek_status', 'panel_admin', 'personal_rekomendasi'];
+      var validPages = ['dashboard', 'roadmap', 'ajukan_rekomendasi', 'cek_status', 'panel_admin', 'personal_rekomendasi', 'keputusan_beasiswa'];
       currentPage = validPages.includes(hash) ? hash : 'dashboard';
       updateCurrentDate();
       navigate(currentPage);
@@ -1691,6 +2486,7 @@ document.addEventListener('DOMContentLoaded', function() {
         case 'cek_status': html = renderStatus(); break;
         case 'panel_admin': html = renderAdmin(); break;
         case 'personal_rekomendasi': html = renderPersonalRekomendasi(); break;
+        case 'keputusan_beasiswa': html = renderKeputusanBeasiswa(); break;
         default:
           console.warn('Halaman tidak ditemukan:', page, '→ Fallback ke Dashboard');
           html = renderDashboard();
@@ -1710,7 +2506,8 @@ document.addEventListener('DOMContentLoaded', function() {
         ajukan_rekomendasi: 'Ajukan Rekomendasi',
         cek_status: 'Cek Status',
         panel_admin: 'Panel Admin',
-        'personal_rekomendasi': 'Personal_Rekomendasi'
+        'personal_rekomendasi': 'Personal_Rekomendasi',
+        'keputusan_beasiswa': 'Keputusan Penerima Beasiswa'
       };
       return titles[page] || 'Dashboard';
     }
@@ -2371,6 +3168,7 @@ function renderAdmin() {
       }
       if (page === 'panel_admin' && isAdminLoggedIn) loadApplications();
       if (page === 'personal_rekomendasi' && isAdminLoggedIn) loadPersonalRekomendasi();
+      if (page === 'keputusan_beasiswa' && isAdminLoggedIn) initKeputusanBeasiswa();
       console.log('Page initialized:', page);
     }
 
@@ -4757,7 +5555,252 @@ function showProfileAdmin(id) {
       }
 
 // Helper: close on outside click already handled in open function
-    </script>
+    
+    // ===========================================
+    // KEPUTUSAN PENERIMA BEASISWA
+    // ===========================================
+
+    function renderKeputusanBeasiswa() {
+      var userRole = (currentUser && currentUser.role) || localStorage.getItem('adminRole') || '';
+      var allowedRoles = ['admin', 'superadmin', 'operator'];
+      var isAuthorized = allowedRoles.indexOf(String(userRole || '').toLowerCase().trim()) !== -1;
+
+      if (!isAdminLoggedIn || !isAuthorized) {
+        return '<div class="card" style="max-width:400px;margin:0 auto;">' +
+          '<div class="text-center mb-4"><i class="fas fa-user-shield" style="font-size:3rem;color:var(--primary);"></i>' +
+          '<h2 class="mt-3">Admin Dinas Kesehatan</h2><p class="text-muted">Beasiswa Tematik Kesehatan</p></div>' +
+          '<div class="form-group"><label class="form-label">Username</label><input type="text" id="loginUser" class="form-control" value="admin"></div>' +
+          '<div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div>' +
+          '<button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button>' +
+          '<div class="mt-3 text-center"><small class="text-muted">Akses hanya untuk Admin dan Operator</small></div></div>';
+      }
+
+      return '<div class="container" style="max-width:900px;margin:0 auto;">' +
+        '<div class="keputusan-hero">' +
+          '<h2><i class="fas fa-award" style="color:var(--primary);"></i> Keputusan Penerima Beasiswa</h2>' +
+          '<p>Pencarian dan verifikasi keputusan penerima beasiswa berdasarkan NIK</p>' +
+        '</div>' +
+        '<div class="card">' +
+          '<div class="keputusan-search-box">' +
+            '<label class="form-label" for="keputusanNikSearch"><strong>Cari Berdasarkan NIK</strong></label>' +
+            '<div class="input-group">' +
+              '<input type="text" id="keputusanNikSearch" class="form-control" placeholder="Masukkan 16 digit NIK" maxlength="16" pattern="[0-9]*" inputmode="numeric" onkeypress="if(event.key==='\''Enter'\'') cariKeputusan()">' +
+              '<button class="btn btn-primary" onclick="cariKeputusan()"><i class="fas fa-search"></i> Cari</button>' +
+            '</div>' +
+            '<small class="text-muted mt-1" style="display:block;">Masukkan Nomor Induk Kependudukan (NIK) untuk mencari data keputusan</small>' +
+          '</div>' +
+        '</div>' +
+        '<div id="keputusanResult"></div>' +
+      '</div>';
+    }
+
+    function initKeputusanBeasiswa() {
+      var input = document.getElementById('keputusanNikSearch');
+      if (input) {
+        input.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') cariKeputusan();
+        });
+        input.addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '');
+        });
+      }
+      // Auto-focus on input
+      if (input) setTimeout(function() { input.focus(); }, 300);
+    }
+
+    function cariKeputusan() {
+      var nik = document.getElementById('keputusanNikSearch');
+      if (!nik) return;
+      var nikVal = nik.value.trim().replace(/\s+/g, '');
+      
+      if (!/^\d{16}$/.test(nikVal)) {
+        Swal.fire({icon: 'warning', title: 'NIK Tidak Valid', text: 'NIK harus 16 digit angka', timer: 2000});
+        nik.focus();
+        return;
+      }
+
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML = '<div class="keputusan-loading"><div class="spinner"></div><p class="text-muted">Mencari data...</p></div>';
+
+      var role = localStorage.getItem('adminRole') || 'admin';
+      apiCallWithData('getBeasiswaKeputusan', {nik: nikVal, role: role}, function(res) {
+        if (res && res.success && res.data) {
+          renderKeputusanResult(res.data);
+        } else {
+          renderKeputusanNotFound(nikVal);
+        }
+      }, function() {
+        resultDiv.innerHTML = '<div class="alert alert-error mt-3"><i class="fas fa-exclamation-triangle"></i> Gagal terhubung ke server. Silakan coba lagi.</div>';
+      });
+    }
+
+    function renderKeputusanNotFound(nik) {
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML =
+        '<div class="keputusan-empty-state keputusan-result-animate">' +
+          '<i class="fas fa-search-minus"></i>' +
+          '<h3>Data Tidak Ditemukan</h3>' +
+          '<p>Data tidak ditemukan. Pastikan Nomor NIK yang dimasukkan sudah benar.</p>' +
+          '<p class="text-muted mt-2">NIK: <strong>' + escapeHtml(nik) + '</strong></p>' +
+        '</div>';
+    }
+
+    function renderKeputusanResult(data) {
+      var resultDiv = document.getElementById('keputusanResult');
+      if (!resultDiv) return;
+
+      var fotoUrl = data.foto || '';
+      var fotoFallback = data.fotoFallback || '';
+      var fotoHtml = '';
+
+      if (fotoUrl) {
+        var fileId = extractDriveFileIdFromString(fotoUrl);
+        var previewUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800' : fotoUrl;
+        fotoHtml = '<img src="' + escapeHtml(previewUrl) + '" alt="Foto ' + escapeHtml(data.nama) + '" onclick="openKeputusanFotoModal(\'' + escapeHtml(fotoUrl.replace(/'/g, "\\'")) + '\')" onerror="this.onerror=null;this.src=\'' + (fotoFallback ? escapeHtml(fotoFallback) : '') + '\';if(!this.src||this.src==='\''||this.src.indexOf(\'data:image\')===0)this.src=\'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#e2e8f0"/><text x="100" y="125" font-family="Arial" font-size="14" fill="#64748b" text-anchor="middle">Foto</text></svg>') + '\';" style="width:100%;height:250px;object-fit:contain;border-radius:var(--radius);border:3px solid var(--primary);cursor:pointer;background:var(--gray-100);">';
+      } else {
+        fotoHtml = '<div style="width:100%;height:250px;background:var(--gray-100);border-radius:var(--radius);border:3px dashed var(--gray-300);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:0.9rem;"><i class="fas fa-user" style="font-size:3rem;opacity:0.3;margin-right:0.5rem;"></i>Foto tidak tersedia</div>';
+      }
+
+      var statusLabel = '';
+      var statusIcon = '';
+      var statusClass = '';
+      var statusMsg = '';
+      if (data.status === 'DITERIMA') {
+        statusLabel = 'DITERIMA';
+        statusIcon = '&#128994;';
+        statusClass = 'keputusan-status-diterima';
+        statusMsg = 'SELAMAT! ANDA DINYATAKAN SEBAGAI PENERIMA BEASISWA TEMATIK KABUPATEN KUTAI KARTANEGARA';
+      } else if (data.status === 'CADANGAN') {
+        statusLabel = 'CADANGAN';
+        statusIcon = '&#128993;';
+        statusClass = 'keputusan-status-cadangan';
+        statusMsg = 'ANDA MASUK DALAM DAFTAR CADANGAN PENERIMA BEASISWA';
+      } else if (data.status === 'DITOLAK') {
+        statusLabel = 'DITOLAK';
+        statusIcon = '&#128308;';
+        statusClass = 'keputusan-status-ditolak';
+        statusMsg = 'MOHON MAAF, ANDA BELUM DINYATAKAN SEBAGAI PENERIMA BEASISWA';
+      }
+
+      var statusHtml = data.status ? '<div class="keputusan-status-card keputusan-result-animate">' +
+        '<div class="' + statusClass + '">' +
+          '<span class="keputusan-status-icon">' + statusIcon + '</span>' +
+          '<div class="keputusan-status-title">' + escapeHtml(statusMsg) + '</div>' +
+          '<div class="keputusan-status-subtitle">Status: <strong>' + escapeHtml(statusLabel) + '</strong></div>' +
+        '</div>' +
+      '</div>' : '';
+
+      var dokumenHtml = '';
+      if (data.buktiLulus && data.buktiLulus.trim() !== '') {
+        var fileId = extractDriveFileIdFromString(data.buktiLulus);
+        var previewUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/preview' : data.buktiLulus;
+        var downloadUrl = fileId ? 'https://drive.google.com/uc?export=download&id=' + fileId : data.buktiLulus;
+        var fullscreenUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/view' : data.buktiLulus;
+        var fileExt = (fileId || data.buktiLulus).toLowerCase();
+        var isPdf = fileExt.includes('.pdf') || false;
+        var isImage = fileExt.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) || !fileId;
+
+        if (fileId) {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">';
+
+          if (isPdf || !isImage) {
+            dokumenHtml +=
+              '<iframe src="' + escapeHtml(previewUrl) + '" allow="autoplay" title="Preview Bukti Lulus"></iframe>' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+                '<a href="' + escapeHtml(fullscreenUrl) + '" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-expand"></i> Fullscreen</a>' +
+              '</div>';
+          } else {
+            var imgPreview = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
+            dokumenHtml +=
+              '<img src="' + escapeHtml(imgPreview) + '" alt="Bukti Lulus" onclick="openKeputusanDokumenModal(\'' + escapeHtml(data.buktiLulus.replace(/'/g, "\\'")) + '\')" onerror="this.src=\'' + escapeHtml(previewUrl) + '\'">' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+              '</div>';
+          }
+
+          dokumenHtml += '</div></div></div>';
+        } else {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">' +
+              '<p class="text-muted"><i class="fas fa-external-link-alt"></i> <a href="' + escapeHtml(data.buktiLulus) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-external-link-alt"></i> Buka Dokumen</a></p>' +
+            '</div></div></div>';
+        }
+      } else {
+        dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+          '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+          '<div class="keputusan-empty-state" style="padding:1.5rem;"><i class="fas fa-file-alt" style="font-size:2rem;"></i><p class="text-muted">Belum tersedia</p></div>' +
+          '</div></div>';
+      }
+
+      resultDiv.innerHTML =
+        '<div class="keputusan-result-animate">' +
+        '<div class="keputusan-profile-card">' +
+          '<div class="foto-section">' + fotoHtml + '</div>' +
+          '<div class="info-section">' +
+            '<div class="keputusan-info-grid">' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">NIK</div><div class="keputusan-info-value">' + escapeHtml(data.nik) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Nama</div><div class="keputusan-info-value">' + escapeHtml(data.nama) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Alamat Domisili</div><div class="keputusan-info-value">' + escapeHtml(data.alamatDomisili) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Kerja</div><div class="keputusan-info-value">' + escapeHtml(data.unitKerja) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jurusan Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.jurusanTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jenis Pendidikan</div><div class="keputusan-info-value">' + escapeHtml(data.jenisPendidikan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.unitTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Rencana Tahun</div><div class="keputusan-info-value">' + escapeHtml(data.rencanaTahun) + '</div></div>' +
+              '<div class="keputusan-info-item full-width" style="grid-column:1/-1;"><div class="keputusan-info-label">No. WhatsApp</div><div class="keputusan-info-value">' + escapeHtml(data.noWhatsapp) + '</div></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        statusHtml +
+        dokumenHtml +
+        '</div>';
+    }
+
+    function openKeputusanFotoModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Foto" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function openKeputusanDokumenModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Dokumen Bukti Lulus" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function closeKeputusanModal(overlay) {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    // Add keyboard escape to close modals
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var overlays = document.querySelectorAll('.keputusan-modal-overlay');
+        overlays.forEach(function(el) { closeKeputusanModal(el); });
+      }
+    });
+</script>
 
     <script>
     // ========================================
@@ -5146,6 +6189,251 @@ function showProfileAdmin(id) {
       var popup = document.getElementById('fullProfilePopup');
       if (popup) popup.remove();
     }
-    </script>
+    
+    // ===========================================
+    // KEPUTUSAN PENERIMA BEASISWA
+    // ===========================================
+
+    function renderKeputusanBeasiswa() {
+      var userRole = (currentUser && currentUser.role) || localStorage.getItem('adminRole') || '';
+      var allowedRoles = ['admin', 'superadmin', 'operator'];
+      var isAuthorized = allowedRoles.indexOf(String(userRole || '').toLowerCase().trim()) !== -1;
+
+      if (!isAdminLoggedIn || !isAuthorized) {
+        return '<div class="card" style="max-width:400px;margin:0 auto;">' +
+          '<div class="text-center mb-4"><i class="fas fa-user-shield" style="font-size:3rem;color:var(--primary);"></i>' +
+          '<h2 class="mt-3">Admin Dinas Kesehatan</h2><p class="text-muted">Beasiswa Tematik Kesehatan</p></div>' +
+          '<div class="form-group"><label class="form-label">Username</label><input type="text" id="loginUser" class="form-control" value="admin"></div>' +
+          '<div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div>' +
+          '<button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button>' +
+          '<div class="mt-3 text-center"><small class="text-muted">Akses hanya untuk Admin dan Operator</small></div></div>';
+      }
+
+      return '<div class="container" style="max-width:900px;margin:0 auto;">' +
+        '<div class="keputusan-hero">' +
+          '<h2><i class="fas fa-award" style="color:var(--primary);"></i> Keputusan Penerima Beasiswa</h2>' +
+          '<p>Pencarian dan verifikasi keputusan penerima beasiswa berdasarkan NIK</p>' +
+        '</div>' +
+        '<div class="card">' +
+          '<div class="keputusan-search-box">' +
+            '<label class="form-label" for="keputusanNikSearch"><strong>Cari Berdasarkan NIK</strong></label>' +
+            '<div class="input-group">' +
+              '<input type="text" id="keputusanNikSearch" class="form-control" placeholder="Masukkan 16 digit NIK" maxlength="16" pattern="[0-9]*" inputmode="numeric" onkeypress="if(event.key==='\''Enter'\'') cariKeputusan()">' +
+              '<button class="btn btn-primary" onclick="cariKeputusan()"><i class="fas fa-search"></i> Cari</button>' +
+            '</div>' +
+            '<small class="text-muted mt-1" style="display:block;">Masukkan Nomor Induk Kependudukan (NIK) untuk mencari data keputusan</small>' +
+          '</div>' +
+        '</div>' +
+        '<div id="keputusanResult"></div>' +
+      '</div>';
+    }
+
+    function initKeputusanBeasiswa() {
+      var input = document.getElementById('keputusanNikSearch');
+      if (input) {
+        input.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') cariKeputusan();
+        });
+        input.addEventListener('input', function() {
+          this.value = this.value.replace(/[^0-9]/g, '');
+        });
+      }
+      // Auto-focus on input
+      if (input) setTimeout(function() { input.focus(); }, 300);
+    }
+
+    function cariKeputusan() {
+      var nik = document.getElementById('keputusanNikSearch');
+      if (!nik) return;
+      var nikVal = nik.value.trim().replace(/\s+/g, '');
+      
+      if (!/^\d{16}$/.test(nikVal)) {
+        Swal.fire({icon: 'warning', title: 'NIK Tidak Valid', text: 'NIK harus 16 digit angka', timer: 2000});
+        nik.focus();
+        return;
+      }
+
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML = '<div class="keputusan-loading"><div class="spinner"></div><p class="text-muted">Mencari data...</p></div>';
+
+      var role = localStorage.getItem('adminRole') || 'admin';
+      apiCallWithData('getBeasiswaKeputusan', {nik: nikVal, role: role}, function(res) {
+        if (res && res.success && res.data) {
+          renderKeputusanResult(res.data);
+        } else {
+          renderKeputusanNotFound(nikVal);
+        }
+      }, function() {
+        resultDiv.innerHTML = '<div class="alert alert-error mt-3"><i class="fas fa-exclamation-triangle"></i> Gagal terhubung ke server. Silakan coba lagi.</div>';
+      });
+    }
+
+    function renderKeputusanNotFound(nik) {
+      var resultDiv = document.getElementById('keputusanResult');
+      resultDiv.innerHTML =
+        '<div class="keputusan-empty-state keputusan-result-animate">' +
+          '<i class="fas fa-search-minus"></i>' +
+          '<h3>Data Tidak Ditemukan</h3>' +
+          '<p>Data tidak ditemukan. Pastikan Nomor NIK yang dimasukkan sudah benar.</p>' +
+          '<p class="text-muted mt-2">NIK: <strong>' + escapeHtml(nik) + '</strong></p>' +
+        '</div>';
+    }
+
+    function renderKeputusanResult(data) {
+      var resultDiv = document.getElementById('keputusanResult');
+      if (!resultDiv) return;
+
+      var fotoUrl = data.foto || '';
+      var fotoFallback = data.fotoFallback || '';
+      var fotoHtml = '';
+
+      if (fotoUrl) {
+        var fileId = extractDriveFileIdFromString(fotoUrl);
+        var previewUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800' : fotoUrl;
+        fotoHtml = '<img src="' + escapeHtml(previewUrl) + '" alt="Foto ' + escapeHtml(data.nama) + '" onclick="openKeputusanFotoModal(\'' + escapeHtml(fotoUrl.replace(/'/g, "\\'")) + '\')" onerror="this.onerror=null;this.src=\'' + (fotoFallback ? escapeHtml(fotoFallback) : '') + '\';if(!this.src||this.src==='\''||this.src.indexOf(\'data:image\')===0)this.src=\'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#e2e8f0"/><text x="100" y="125" font-family="Arial" font-size="14" fill="#64748b" text-anchor="middle">Foto</text></svg>') + '\';" style="width:100%;height:250px;object-fit:contain;border-radius:var(--radius);border:3px solid var(--primary);cursor:pointer;background:var(--gray-100);">';
+      } else {
+        fotoHtml = '<div style="width:100%;height:250px;background:var(--gray-100);border-radius:var(--radius);border:3px dashed var(--gray-300);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:0.9rem;"><i class="fas fa-user" style="font-size:3rem;opacity:0.3;margin-right:0.5rem;"></i>Foto tidak tersedia</div>';
+      }
+
+      var statusLabel = '';
+      var statusIcon = '';
+      var statusClass = '';
+      var statusMsg = '';
+      if (data.status === 'DITERIMA') {
+        statusLabel = 'DITERIMA';
+        statusIcon = '&#128994;';
+        statusClass = 'keputusan-status-diterima';
+        statusMsg = 'SELAMAT! ANDA DINYATAKAN SEBAGAI PENERIMA BEASISWA TEMATIK KABUPATEN KUTAI KARTANEGARA';
+      } else if (data.status === 'CADANGAN') {
+        statusLabel = 'CADANGAN';
+        statusIcon = '&#128993;';
+        statusClass = 'keputusan-status-cadangan';
+        statusMsg = 'ANDA MASUK DALAM DAFTAR CADANGAN PENERIMA BEASISWA';
+      } else if (data.status === 'DITOLAK') {
+        statusLabel = 'DITOLAK';
+        statusIcon = '&#128308;';
+        statusClass = 'keputusan-status-ditolak';
+        statusMsg = 'MOHON MAAF, ANDA BELUM DINYATAKAN SEBAGAI PENERIMA BEASISWA';
+      }
+
+      var statusHtml = data.status ? '<div class="keputusan-status-card keputusan-result-animate">' +
+        '<div class="' + statusClass + '">' +
+          '<span class="keputusan-status-icon">' + statusIcon + '</span>' +
+          '<div class="keputusan-status-title">' + escapeHtml(statusMsg) + '</div>' +
+          '<div class="keputusan-status-subtitle">Status: <strong>' + escapeHtml(statusLabel) + '</strong></div>' +
+        '</div>' +
+      '</div>' : '';
+
+      var dokumenHtml = '';
+      if (data.buktiLulus && data.buktiLulus.trim() !== '') {
+        var fileId = extractDriveFileIdFromString(data.buktiLulus);
+        var previewUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/preview' : data.buktiLulus;
+        var downloadUrl = fileId ? 'https://drive.google.com/uc?export=download&id=' + fileId : data.buktiLulus;
+        var fullscreenUrl = fileId ? 'https://drive.google.com/file/d/' + fileId + '/view' : data.buktiLulus;
+        var fileExt = (fileId || data.buktiLulus).toLowerCase();
+        var isPdf = fileExt.includes('.pdf') || false;
+        var isImage = fileExt.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i) || !fileId;
+
+        if (fileId) {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">';
+
+          if (isPdf || !isImage) {
+            dokumenHtml +=
+              '<iframe src="' + escapeHtml(previewUrl) + '" allow="autoplay" title="Preview Bukti Lulus"></iframe>' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+                '<a href="' + escapeHtml(fullscreenUrl) + '" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-expand"></i> Fullscreen</a>' +
+              '</div>';
+          } else {
+            var imgPreview = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1000';
+            dokumenHtml +=
+              '<img src="' + escapeHtml(imgPreview) + '" alt="Bukti Lulus" onclick="openKeputusanDokumenModal(\'' + escapeHtml(data.buktiLulus.replace(/'/g, "\\'")) + '\')" onerror="this.src=\'' + escapeHtml(previewUrl) + '\'">' +
+              '<div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                '<a href="' + escapeHtml(downloadUrl) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-download"></i> Download</a>' +
+              '</div>';
+          }
+
+          dokumenHtml += '</div></div></div>';
+        } else {
+          dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+            '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+            '<div class="keputusan-dokumen-preview">' +
+              '<p class="text-muted"><i class="fas fa-external-link-alt"></i> <a href="' + escapeHtml(data.buktiLulus) + '" target="_blank" class="btn btn-primary btn-sm"><i class="fas fa-external-link-alt"></i> Buka Dokumen</a></p>' +
+            '</div></div></div>';
+        }
+      } else {
+        dokumenHtml = '<div class="keputusan-dokumen-section keputusan-result-animate">' +
+          '<div class="card"><h3><i class="fas fa-graduation-cap" style="color:var(--primary);"></i> Bukti Lulus Masuk Perguruan Tinggi</h3>' +
+          '<div class="keputusan-empty-state" style="padding:1.5rem;"><i class="fas fa-file-alt" style="font-size:2rem;"></i><p class="text-muted">Belum tersedia</p></div>' +
+          '</div></div>';
+      }
+
+      resultDiv.innerHTML =
+        '<div class="keputusan-result-animate">' +
+        '<div class="keputusan-profile-card">' +
+          '<div class="foto-section">' + fotoHtml + '</div>' +
+          '<div class="info-section">' +
+            '<div class="keputusan-info-grid">' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">NIK</div><div class="keputusan-info-value">' + escapeHtml(data.nik) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Nama</div><div class="keputusan-info-value">' + escapeHtml(data.nama) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Alamat Domisili</div><div class="keputusan-info-value">' + escapeHtml(data.alamatDomisili) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Kerja</div><div class="keputusan-info-value">' + escapeHtml(data.unitKerja) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jurusan Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.jurusanTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Jenis Pendidikan</div><div class="keputusan-info-value">' + escapeHtml(data.jenisPendidikan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Unit Tujuan</div><div class="keputusan-info-value">' + escapeHtml(data.unitTujuan) + '</div></div>' +
+              '<div class="keputusan-info-item"><div class="keputusan-info-label">Rencana Tahun</div><div class="keputusan-info-value">' + escapeHtml(data.rencanaTahun) + '</div></div>' +
+              '<div class="keputusan-info-item full-width" style="grid-column:1/-1;"><div class="keputusan-info-label">No. WhatsApp</div><div class="keputusan-info-value">' + escapeHtml(data.noWhatsapp) + '</div></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        statusHtml +
+        dokumenHtml +
+        '</div>';
+    }
+
+    function openKeputusanFotoModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Foto" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function openKeputusanDokumenModal(url) {
+      if (!url) return;
+      var fileId = extractDriveFileIdFromString(url);
+      var imgUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1600' : url;
+      var overlay = document.createElement('div');
+      overlay.className = 'keputusan-modal-overlay';
+      overlay.onclick = function(e) { if (e.target === overlay) closeKeputusanModal(overlay); };
+      overlay.innerHTML =
+        '<div class="keputusan-modal-content">' +
+          '<button class="keputusan-modal-close" onclick="closeKeputusanModal(this.parentElement.parentElement)"><i class="fas fa-times"></i></button>' +
+          '<img src="' + escapeHtml(imgUrl) + '" alt="Dokumen Bukti Lulus" style="cursor:zoom-in;" onclick="this.style.cursor=\'zoom-out\';this.style.transform=this.style.transform===\'scale(1.5)\'?\'scale(1)\':\'scale(1.5)\';this.style.transition=\'transform 0.3s\'" onerror="this.onerror=null;this.src=\'' + escapeHtml(url) + '\'">' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+
+    function closeKeputusanModal(overlay) {
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+
+    // Add keyboard escape to close modals
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var overlays = document.querySelectorAll('.keputusan-modal-overlay');
+        overlays.forEach(function(el) { closeKeputusanModal(el); });
+      }
+    });
+</script>
   </body>
 </html>
