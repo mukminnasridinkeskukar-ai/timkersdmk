@@ -1610,7 +1610,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbzHfr6APxMQFAqcJfFf0qYXMQxbD6WzVaorTFKe8ohbFpTC3a31GtaGoVMI1zooO4s/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbx-qzI33f7fmbXvm53dm9fFqqNRlUJOF_eFjp6sNzfBbymm6rfiHSDhYfO_kwF7sPat/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -2731,71 +2731,18 @@ function renderAdmin() {
         if (el) el.innerHTML = '<div class="alert alert-error mt-2">Gagal cek status</div>';
         showToast('Gagal cek status', 'error');
       });
-    }
-      if (el) el.innerHTML = '<div class="text-center mt-3"><i class="fas fa-spinner fa-spin"></i> Memuat status...</div>';
-
-      var data = {};
-      if (nik) data.nik = nik;
-      if (email) data.email = email;
-      apiCallWithData('checkStatus', data, function(res) {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-search"></i> Cek Status';
-        }
-        if (res && res.success && res.data && res.data.length > 0) {
-          el.innerHTML = res.data.map(function(d) {
-            var repairBtn = requiresRepairStatus(d) ?
-              '<button class="btn btn-warning btn-sm mt-2" onclick="showRepairFormByNik(' + quoteForOnclick(d.nik) + ')"><i class="fas fa-edit"></i> Perbaikan Data</button>' : '';
-            var notesHtml = d.admin_notes ? '<div class="alert alert-warning mt-2 mb-2"><strong>Catatan Perbaikan:</strong><br>' + escapeHtml(d.admin_notes) + '</div>' : '';
-            
-            var fotoHtml = d.foto_url 
-              ? createSimpleProfilePhoto(d.foto_url, d.full_name || d.nik).outerHTML
-              : createDefaultAvatar(d.full_name || d.nik, 100);
-            
-            var dokumenBtn = d.document_links ? 
-              '<a href="' + escapeHtml(d.document_links) + '" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-folder-open"></i> Buka Dokumen</a>' :
-              '<span class="badge badge-pending">Belum Ada Dokumen</span>';
-            
-            return '<div id="statusResultCard" class="card text-left mt-2">' +
-              '<div class="flex gap-3">' +
-                '<div>' + fotoHtml + '</div>' +
-                '<div style="flex:1">' +
-                  '<div class="flex justify-between items-center mb-1"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + getStatusBadgeClass(d.status) + '">' + escapeHtml(getStatusText(d.status)) + '</span></div>' +
-                  '<p class="text-sm mb-1">No. Pengajuan: <code>' + escapeHtml(d.application_number) + '</code></p>' +
-                  '<p class="text-sm mb-1">NIK: ' + escapeHtml(d.nik || '-') + '</p>' +
-                  notesHtml +
-                   '<div class="flex gap-2 mt-2">' +
-                   '<button class="btn btn-primary btn-sm" onclick="showProfile(' + d.id + ')"><i class="fas fa-user"></i> Lihat Profil Lengkap</button>' +
-                     repairBtn +
-                   '</div>' +
-                  '<div class="mt-2">' + dokumenBtn + '</div>' +
-                '</div>' +
-              '</div>' +
-            '</div>';
-          }).join('');
-        } else {
-          el.innerHTML = '<div class="alert alert-error mt-2">' + escapeHtml((res && res.message) || 'Data permohonan tidak ditemukan.') + '</div>';
+}
+    
+    function showProfile(id) {
+      apiCallWithData('getApplicationDetail', {id: id}, function(res) {
+        if (res && res.success && res.data) {
+          showFullProfilePopup(res.data);
         }
       }, function() {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-search"></i> Cek Status';
-        }
-        if (el) el.innerHTML = '<div class="alert alert-error mt-2">Gagal cek status</div>';
-        showToast('Gagal cek status', 'error');
+        showToast('Gagal memuat profil', 'error');
       });
     }
-
-function showProfile(id) {
-        apiCallWithData('getApplicationDetail', {id: id}, function(res) {
-          if (res && res.success && res.data) {
-            showFullProfilePopup(res.data);
-          }
-        }, function() {
-          showToast('Gagal memuat profil', 'error');
-        });
-    }
-
+    
     function parseDocumentLinks(linksStr) {
       var docs = {};
       if (!linksStr) return docs;
