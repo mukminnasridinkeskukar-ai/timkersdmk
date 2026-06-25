@@ -1585,17 +1585,25 @@
 
     // SAFE DOCUMENT PREVIEW POPUP for Kolom AD links (no sandbox=allow-scripts+allow-same-origin to avoid escape warning + access fail)
     // MANDATORY FIX: Pop-up "Buka Dokumen" sekarang LANGSUNG BUKA FOLDER (no iframe, no sandbox error)
-    function showDocumentPreview(fileId, label) {
+    function showDocumentPreview(docLinks, label) {
+      if (!docLinks || docLinks.trim() === '') {
+        showToast('Dokumen tidak tersedia', 'error');
+        return;
+      }
+      // Parse document links and open the folder if available
       var folderId = window.lastFolderId || '';
       if (folderId) {
         window.open('https://drive.google.com/drive/folders/' + folderId + '?usp=sharing', '_blank');
         showToast('Membuka folder dokumen applicant...', 'info');
       } else {
-        // fallback ke file jika tidak ada folderId
+        // Try to extract file ID from docLinks
+        var fileId = extractDriveFileIdFromString(docLinks);
         if (fileId) {
           window.open('https://drive.google.com/file/d/' + fileId + '/view?usp=sharing', '_blank');
+        } else if (docLinks.includes('/folders/')) {
+          window.open(docLinks, '_blank');
         } else {
-          showToast('Folder ID tidak tersedia untuk dokumen ini', 'error');
+          showToast('Link dokumen tidak valid', 'error');
         }
       }
     }
@@ -1610,7 +1618,7 @@
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbxpF4fCHfVgeykN-YhCN6vKE7yYl7FGGkKMiR5-SJrjDTjFQncT1HfU3ZYNfQMMsZxh/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbynJlzMcEoZRdoq4PNthNGtcu6nB--L4CNWVh3aA-yERfox5PH9FJOzehaURgBNiyCV/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -2634,24 +2642,27 @@ function renderAdmin() {
     }
 
     function getStatusBadgeClass(status) {
-      return status === 'approved' ? 'badge-approved' :
-        status === 'rejected' ? 'badge-rejected' :
-        status === 'processed' ? 'badge-processed' :
-        status === 'revision' ? 'badge-revision' :
-        status === 'Perbaikan Telah Dikirim' ? 'badge-revision' :
+      if (!status) return 'badge-pending';
+      var s = String(status).toLowerCase();
+      return s === 'approved' ? 'badge-approved' :
+        s === 'rejected' ? 'badge-rejected' :
+        s === 'processed' ? 'badge-processed' :
+        s === 'revision' || s === 'perbaikan telah dikirim' ? 'badge-revision' :
         'badge-pending';
     }
 
     function getStatusText(status) {
+      if (!status) return 'Menunggu';
+      var s = String(status).toLowerCase();
       var map = {
         pending: 'Menunggu',
         processed: 'Diproses',
         approved: 'Disetujui',
         rejected: 'Ditolak',
         revision: 'Perlu Perbaikan',
-        'Perbaikan Telah Dikirim': 'Perbaikan Telah Dikirim'
+        'perbaikan telah dikirim': 'Perbaikan Telah Dikirim'
       };
-      return map[status] || status || 'Menunggu';
+      return map[s] || status;
     }
 
     function checkStatus() {
@@ -2684,36 +2695,61 @@ function renderAdmin() {
               var d = res.data[i];
               
               var repairBtn = '';
-              if (d.status === 'Diperbaiki' || d.status === 'Ditolak') {
-                repairBtn = '<button class="btn btn-warning btn-sm mt-2" onclick="showRepairFormByNik(' + escapeHtml(d.nik) + ')"><i class="fas fa-edit"></i> Perbaikan Data</button>';
+              if (d.penetapan === 'Diperbaiki' || d.penetapan === 'Ditolak') {
+                repairBtn = '<button class="btn btn-warning btn-sm mt-2" onclick="showRepairFormByNik(\'' + escapeHtml(d.nik) + '\')"><i class="fas fa-edit"></i> Perbaikan Data</button>';
               }
               
-              var notesHtml = d.admin_notes ? '<div class="alert alert-warning mt-2 mb-2"><strong>Catatan Admin:</strong><br>' + escapeHtml(d.admin_notes) + '</div>' : '';
+              var notesHtml = d.catatan_admin ? '<div class="alert alert-warning mt-2 mb-2"><strong>Catatan Admin:</strong><br>' + escapeHtml(d.catatan_admin) + '</div>' : '';
               
               var fotoHtml = d.foto_url 
                 ? createSimpleProfilePhoto(d.foto_url, d.full_name || d.nik).outerHTML
                 : createDefaultAvatar(d.full_name || d.nik, 100);
               
               var dokumenBtn = d.document_links ? 
-                '<a href="' + escapeHtml(d.document_links) + '" target="_blank" class="btn btn-outline btn-sm"><i class="fas fa-folder-open"></i> Buka Dokumen</a>' :
+                '<button class="btn btn-outline btn-sm" onclick="showDocumentPreview(\'' + escapeHtml(d.document_links) + '\')"><i class="fas fa-folder-open"></i> Buka Dokumen</button>' :
                 '<span class="badge badge-pending">Belum Ada Dokumen</span>';
               
               html += '<div id="statusResultCard" class="card text-left mt-2">' +
                 '<div class="flex gap-3">' +
                   '<div>' + fotoHtml + '</div>' +
                   '<div style="flex:1">' +
-                    '<div class="flex justify-between items-center mb-1"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + getStatusBadgeClass(d.status) + '">' + escapeHtml(getStatusText(d.status)) + '</span></div>' +
+                    '<div class="flex justify-between items-center mb-1"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + getStatusBadgeClass(d.status) + '">' + escapeHtml(getStatusText(d.status_v)) + '</span></div>' +
                     '<p class="text-sm mb-1">No. Pengajuan: <code>' + escapeHtml(d.application_number) + '</code></p>' +
                     '<p class="text-sm mb-1">NIK: ' + escapeHtml(d.nik || '-') + '</p>' +
-                    '<div class="mt-2"><strong>Penetapan Penerima Beasiswa Tematik:</strong> ' + escapeHtml(d.status || '-') + '</div>' +
-                    '<div class="mt-2"><strong>Catatan Admin:</strong> ' + escapeHtml(d.admin_notes || 'Tidak ada catatan') + '</div>' +
-                    notesHtml +
-                    '<div class="flex gap-2 mt-2">' +
-                      '<button class="btn btn-primary btn-sm" onclick="showProfile(' + d.id + ')"><i class="fas fa-user"></i> Lihat Profil Lengkap</button>' +
-                      repairBtn +
-                    '</div>' +
-                    '<div class="mt-2">' + dokumenBtn + '</div>' +
                   '</div>' +
+                '</div>' +
+                
+                <!-- BAGIAN 1: STATUS VERIFIKASI BERKAS -->
+                '<div class="card p-3 mb-3" style="background:#f8fafc;">' +
+                  '<h4 class="mb-2"><i class="fas fa-file-check"></i> STATUS VERIFIKASI BERKAS</h4>' +
+                  '<div class="grid-2">' +
+                    '<div class="form-group">' +
+                      '<label class="form-label">Status</label>' +
+                      '<div class="form-control" style="min-height:38px;display:flex;align-items:center;background:#fff;">' + getStatusBadgeClass(d.status_v) + ' ' + escapeHtml(d.status_v || 'Menunggu') + '</div>' +
+                    '</div>' +
+                    '<div class="form-group">' +
+                      '<label class="form-label">Catatan Admin</label>' +
+                      '<div class="form-control" style="min-height:38px;background:#fff;">' + (d.catatan_admin || '<span class="text-muted">Tidak ada catatan</span>') + '</div>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>' +
+                
+                <!-- BAGIAN 2: HASIL PENETAPAN BEASISWA TEMATIK -->
+                '<div class="card p-3 mb-3" style="background:#f0fdf4;border-left:4px solid #22c55e;">' +
+                  '<h4 class="mb-2"><i class="fas fa-trophy"></i> HASIL PENETAPAN BEASISWA TEMATIK</h4>' +
+                  '<div class="form-group mb-2">' +
+                    '<label class="form-label">Penetapan Penerima Beasiswa Tematik</label>' +
+                    '<div class="form-control" style="min-height:38px;background:#fff;font-weight:600;color:#065f46;">' + escapeHtml(d.penetapan || 'Belum ada penetapan') + '</div>' +
+                  '</div>' +
+                  '<div class="form-group">' +
+                    '<label class="form-label">Tindak Lanjut</label>' +
+                    '<div class="form-control" style="min-height:38px;background:#fff;">' + (d.tindaklanjut || '<span class="text-muted">Belum ada tindak lanjut</span>') + '</div>' +
+                  '</div>' +
+                '</div>' +
+                
+                '<div class="flex gap-2 mt-2">' +
+                  '<button class="btn btn-primary btn-sm" onclick="showProfile(' + d.id + ')"><i class="fas fa-user"></i> Lihat Profil Lengkap</button>' +
+                  '<button class="btn btn-outline btn-sm" onclick="showDocumentPreview(\'' + escapeHtml(d.document_links || '') + '\')"><i class="fas fa-folder-open"></i> Buka Dokumen</button>' +
                 '</div>' +
               '</div>';
             }
