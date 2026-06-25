@@ -377,28 +377,122 @@ tr:hover { background:#F8FAFC; }
 </div>
 
 <script>
-// ==================== CONFIG ====================
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxhHtY5bwKmnWHUzptV1BNPP1_cN6JMJduG585DR_xCxxQ_BUktU1lu02Hl1RuBw-ID/exec'; // <-- ISI DENGAN URL WEB APP SETELAH DEPLOY (lihat README)
-const USE_GAS = GAS_WEB_APP_URL && GAS_WEB_APP_URL.length > 20;
-
-// ==================== GLOBAL STATE ====================
-let currentUser = null;
-let currentPage = 'dashboard';
-let charts = {};
-let pengumumanData = [];          // live data for Pengumuman menu
-let profilData = [];              // live data for Profil SDMK menu (from profil_sdmk sheet)
-let dataStore = {
-  profil: [],
-  izin: [],
-  pengumuman: [],
-  users: [],
-  logs: []
-};
-
 // ==================== UTILITIES ====================
 function showLoading(show = true) {
   const el = document.getElementById('loading-screen');
   el.style.display = show ? 'flex' : 'none';
+}
+
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+  toast.innerHTML = `
+    <i class="fas ${icon} icon" style="color:${type==='success'?'#16A34A':type==='error'?'#DC2626':'#D97706'}"></i>
+    <div class="msg">${message}</div>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;font-size:18px;color:#94A3B8;cursor:pointer;">&times;</button>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 4800);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function generateId(prefix = 'ID') {
+  return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+// ==================== LOCALSTORAGE PERSISTENCE ====================
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem('simantri_data');
+    if (saved) {
+      dataStore = JSON.parse(saved);
+    }
+    // No seedDemoData() - all data must come from Google Sheets
+  } catch (e) {
+    showToast('Gagal memuat data lokal, mencoba terhubung ke Google Sheet...', 'warning');
+    // Initialize with empty arrays, will load from Google Sheet
+    dataStore.profil = [];
+    dataStore.izin = [];
+    dataStore.pengumuman = [];
+    dataStore.users = [];
+    dataStore.logs = [];
+  }
+}
+
+function saveToStorage() {
+  try {
+    localStorage.setItem('simantri_data', JSON.stringify(dataStore));
+  } catch (e) {}
+}
+
+// ==================== API LAYER (GAS + LOCAL FALLBACK) ====================
+// Read-only actions that work reliably with GET (avoids CORS preflight)
+const READ_ACTIONS = new Set([
+  'ping', 'health', 'getPengumuman', 'getProfil', 'getIzin', 
+  'searchByNik', 'searchProfil', 'getUsers', 'getLogs'
+]);
+
+async function apiCall(action, payload = {}, method = 'POST') {
+  if (!USE_GAS) {
+    showToast('Backend tidak tersedia, menggunakan mode demo offline', 'error');
+    return mockApi(action, payload);
+  }
+  
+  if (!USE_GAS) {
+    showToast('Backend tidak tersedia, menggunakan mode demo offline', 'error');
+    return mockApi(action, payload);
+  }
+
+  try {
+    const isRead = READ_ACTIONS.has(action);
+    const finalMethod = isRead ? 'GET' : method;
+
+    const url = new URL(GAS_WEB_APP_URL);
+    url.searchParams.set('action', action);
+
+    const options = {
+      method: finalMethod,
+      mode: 'cors',
+      redirect: 'follow',
+      credentials: 'omit'
+    };
+
+    if (finalMethod === 'GET') {
+      // Append all payload as query params — this is the most CORS-friendly way for GAS
+      Object.keys(payload).forEach(key => {
+        if (payload[key] !== undefined && payload[key] !== null) {
+          url.searchParams.set(key, payload[key]);
+        }
+      });
+    } else {
+      // For writes: use text/plain to reduce preflight problems with GAS Web Apps
+      options.headers = {
+        'Content-Type': 'text/plain;charset=utf-8'
+      };
+      options.body = JSON.stringify({ action, ...payload });
+    }
+
+    const res = await fetchWithRetry(url.toString(), options, 3);
+    return await res.json();
+
+  } catch (err) {
+    console.error('API Error (CORS / network), falling back to local demo data:', err);
+    showToast('Tidak dapat terhubung ke Google Apps Script (CORS). Menggunakan data lokal.', 'warning');
+    return mockApi(action, payload);
+  }
 }
 
 function showToast(message, type = 'success') {
@@ -456,7 +550,7 @@ function seedDemoData() {
   dataStore.profil = [
     { no:1, kode_unit:'FK-001', nama_unit:'RSUD Dr. Soetomo', nik:'3275012345678901', nama_lengkap:'dr. Andi Wijaya, Sp.PD', jenis_kelamin:'Laki-laki', jenis_tenaga:'Dokter', status_pegawai:'PNS', nomor_str:'STR.12345.2023', status_str:'Aktif', nomor_sip:'SIP/2024/001234', tgl_terbit_sip:'2024-01-15', tgl_berakhir_sip:'2027-01-15', keterangan:'Spesialis Penyakit Dalam' },
     { no:2, kode_unit:'FK-002', nama_unit:'Puskesmas Sukamaju', nik:'3275023456789012', nama_lengkap:'Ns. Siti Rahayu, S.Kep', jenis_kelamin:'Perempuan', jenis_tenaga:'Perawat', status_pegawai:'PPPK', nomor_str:'STR.23456.2022', status_str:'Aktif', nomor_sip:'SIP/2024/005678', tgl_terbit_sip:'2024-03-01', tgl_berakhir_sip:'2026-03-01', keterangan:'' },
-    { no:3, kode_unit:'FK-001', nama_unit:'RSUD Dr. Soetomo', nik:'3275034567890123', nama_lengkap:'drg. Budi Santoso', jenis_kelamin:'Laki-laki', jenis_tenaga:'Dokter Gigi', status_pegawai:'Kontrak', nomor_str:'STR.34567.2021', status_str:'Aktif', nomor_sip:'SIP/2023/009012', tgl_terbit_sip:'2023-06-20', tgl_berakhir_sip:'2025-06-20', keterangan:'Pelayanan Gigi & Mulut' },
+    { no:3, kode_unit:'FK-001', nama_unit:'RSUD Dr. Soetomo', nik:'3275034567890123', nama_lengkap:'drg. Budi Santoso', jenis_kelamin:'Laki-laki', jenis_tenaga:'Dokter Gigi', status_pegawai:'PPPK', nomor_str:'STR.34567.2021', status_str:'Aktif', nomor_sip:'SIP/2023/009012', tgl_terbit_sip:'2023-06-20', tgl_berakhir_sip:'2025-06-20', keterangan:'Pelayanan Gigi & Mulut' },
     { no:4, kode_unit:'FK-003', nama_unit:'Klinik Pratama Sehat', nik:'3275045678901234', nama_lengkap:'Bdn. Rina Marlina, S.Tr.Keb', jenis_kelamin:'Perempuan', jenis_tenaga:'Bidan', status_pegawai:'PNS', nomor_str:'STR.45678.2023', status_str:'Aktif', nomor_sip:'SIP/2024/012345', tgl_terbit_sip:'2024-02-10', tgl_berakhir_sip:'2027-02-10', keterangan:'' },
     { no:5, kode_unit:'FK-002', nama_unit:'Puskesmas Sukamaju', nik:'3275056789012345', nama_lengkap:'Apt. Hendra Kusuma, S.Farm', jenis_kelamin:'Laki-laki', jenis_tenaga:'Apoteker', status_pegawai:'PPPK', nomor_str:'STR.56789.2020', status_str:'Aktif', nomor_sip:'SIP/2024/015678', tgl_terbit_sip:'2024-04-05', tgl_berakhir_sip:'2026-04-05', keterangan:'Kepala Instalasi Farmasi' }
   ];
@@ -683,33 +777,32 @@ function logout() {
   showToast('Anda telah logout');
 }
 
-// ==================== NAVIGATION ====================
-function navigateTo(page) {
+async function navigateTo(page) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const navEl = document.querySelector(`.nav-item[data-page="${page}"]`);
   if (navEl) navEl.classList.add('active');
-  
+
   currentPage = page;
   document.getElementById('page-title').textContent = getPageTitle(page);
   document.getElementById('page-subtitle').textContent = getPageSubtitle(page);
-  
+
   const content = document.getElementById('content');
   content.innerHTML = '';
-  
+
   // Destroy old charts
   Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
   charts = {};
-  
+
   switch(page) {
-    case 'dashboard': renderDashboard(content); break;
+    case 'dashboard': await renderDashboard(content); break;
     case 'pengumuman': renderPengumuman(content); break;
     case 'verval': renderVerval(content); break;
     case 'profil': renderProfil(content); break;
     case 'cek': renderCekIzin(content); break;
     case 'admin': renderAdmin(content); break;
-    default: renderDashboard(content);
+    default: await renderDashboard(content);
   }
-  
+
   // Close mobile sidebar
   document.getElementById('sidebar').classList.remove('open');
 }
@@ -727,8 +820,20 @@ function toggleMobileSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
 }
 
-// ==================== DASHBOARD ====================
-function renderDashboard(container) {
+async function renderDashboard(container) {
+  // Force fresh load from profil_sdmk sheet via GAS if available
+  if (USE_GAS) {
+    try {
+      const res = await apiCall('getProfil', {}, 'GET');
+      if (res.success && Array.isArray(res.data)) {
+        dataStore.profil = res.data;
+        profilData = res.data;
+      }
+    } catch (e) {
+      console.warn('Gagal load profil dari GAS, menggunakan data lokal');
+    }
+  }
+
   const totalSDMK = dataStore.profil.length;
   const totalSIPAktif = dataStore.profil.filter(p => p.status_str === 'Aktif' && new Date(p.tgl_berakhir_sip) > new Date()).length;
   const totalSIPExpired = dataStore.profil.filter(p => new Date(p.tgl_berakhir_sip) <= new Date()).length;
@@ -751,18 +856,6 @@ function renderDashboard(container) {
   }).length;
 
   container.innerHTML = `
-    <!-- QUICK SEARCH -->
-    <div class="card" style="padding:14px 18px;margin-bottom:14px;">
-      <div style="display:flex;gap:10px;align-items:center;">
-        <div class="search-box" style="flex:1;max-width:none;">
-          <i class="fas fa-search"></i>
-          <input id="dash-search" type="text" placeholder="Cari nama, NIK, nomor STR, atau nomor SIP..." oninput="handleDashSearch(this.value)" onfocus="handleDashSearch(this.value)">
-        </div>
-        <button onclick="clearDashSearch()" class="btn btn-outline btn-sm">Reset</button>
-      </div>
-      <div id="dash-search-results" style="margin-top:10px;display:none;"></div>
-    </div>
-
     <!-- STATISTICS CARDS 2x4 -->
     <div class="grid-4-stats">
       <div class="card stat-card glow-blue" onclick="showStatDetail('sdmk')" style="cursor:pointer;">
@@ -1323,19 +1416,17 @@ function renderPengumuman(container) {
         <input id="search-pengumuman" type="text" placeholder="Cari pengumuman..." onkeyup="filterPengumuman()">
       </div>
       
+        <div style="margin-left:auto;display:flex;align-items:center;gap:14px;">
+          <div style="margin-left:auto;font-size:12px;color:#64748B;">
+            ${USE_GAS ? 'Connected to Google Sheet' : 'Local Mode'}
+          </div>
+        </div>
+      </div>
       ${isAdmin ? `
-        <button onclick="showAddPengumumanModal()" class="btn btn-primary btn-glow">
-          <i class="fas fa-plus"></i> Tambah Pengumuman
+        <button onclick="navigateTo('admin')" class="btn btn-sm btn-primary">
+          <i class="fas fa-cog"></i> Panel Admin
         </button>
       ` : ''}
-      
-      <button onclick="refreshPengumuman()" class="btn btn-sm btn-outline">
-        <i class="fas fa-sync-alt"></i> Refresh
-      </button>
-      
-      <div style="margin-left:auto;font-size:12px;color:#64748B;">
-        ${USE_GAS ? 'Data dari Google Sheet' : 'Mode Demo'}
-      </div>
     </div>
     <div id="pengumuman-list"></div>
   `;
@@ -2127,7 +2218,7 @@ function renderProfil(container) {
   const isAdmin = currentUser && currentUser.role === 'admin';
 
   container.innerHTML = `
-    <div class="flex" style="margin-bottom:16px;gap:10px;flex-wrap:wrap;">
+    <div class="flex" style="margin-bottom:16px;gap:10px;flex-wrap:wrap;align-items:center;">
       <div class="search-box">
         <i class="fas fa-search"></i>
         <input id="search-profil" placeholder="Cari nama, NIK, unit..." onkeyup="filterProfilTable()">
@@ -2147,6 +2238,8 @@ function renderProfil(container) {
       ` : ''}
       
       <button onclick="refreshProfilData()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i> Refresh</button>
+      <button onclick="exportProfilCSV()" class="btn btn-sm btn-outline"><i class="fas fa-download"></i> Export CSV</button>
+      <button onclick="exportProfilPDF()" class="btn btn-sm btn-outline"><i class="fas fa-file-pdf"></i> Export PDF</button>
     </div>
     <div class="table-wrapper">
       <table id="profil-table" style="min-width: 1100px;">
