@@ -471,7 +471,7 @@ tr:hover { background:#F8FAFC; }
 <script>
 // ==================== GLOBALS ====================
 const USE_GAS = true;
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby7Crc5L8_EttZYQdU1ioZT1UKCVZpFZoIJcH2d-7ncF-RS8DQzVVaHna7TMLOBLtoy/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwJHI8Zpow2kwGuME4VIE8_wIrypwXtf-MOOAR1SRYEydPVc8lVXA4QrH0B0mvz2DGF/exec';
 
 let dataStore = { profil: [], izin: [], pengumuman: [], users: [], logs: [], verval: [] };
 let currentUser = null;
@@ -587,7 +587,8 @@ function seedDemoData() {
 const READ_ACTIONS = new Set([
   'ping', 'health', 'getPengumuman', 'getProfil', 'getIzin', 
   'searchByNik', 'searchProfil', 'getUsers', 'getLogs',
-  'searchNamaVerval', 'getVervalByNik', 'getAllVerval'
+  'searchNamaVerval', 'searchNamaFasyankes', 'getVervalByNik', 'getAllVerval',
+  'getAllVervalFasyankes'
 ]);
 
 async function apiCall(action, payload = {}, method = 'POST') {
@@ -841,16 +842,17 @@ async function navigateTo(page) {
   Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
   charts = {};
 
-  switch(page) {
-    case 'dashboard': await renderDashboard(content); break;
-    case 'pengumuman': renderPengumuman(content); break;
-    case 'verval': renderVerval(content); break;
-    case 'verval-fasyankes': renderVervalFasyankes(content); break;
-    case 'profil': renderProfil(content); break;
-    case 'cek': renderCekVerval(content); break;
-    case 'admin': renderAdmin(content); break;
-    default: await renderDashboard(content);
-  }
+switch(page) {
+     case 'dashboard': await renderDashboard(content); break;
+     case 'pengumuman': renderPengumuman(content); break;
+     case 'verval': renderVerval(content); break;
+     case 'verval-fasyankes': renderVervalFasyankes(content); break;
+     case 'profil': renderProfil(content); break;
+     case 'cek': renderCekVerval(content); break;
+     case 'admin': renderAdmin(content); break;
+     case 'data-verval-fasyankes': renderDataVervalFasyankes(content); break;
+     default: await renderDashboard(content);
+   }
 
   // Close mobile sidebar
   document.getElementById('sidebar').classList.remove('open');
@@ -2567,64 +2569,286 @@ function getStatusVerifikasiBadge(status) {
 }
 
 function renderDataVervalFasyankes(container) {
+  // Initialize global variable for edit/delete functions
+  dataVervalFasyankes = [];
   container.innerHTML = `
-    <div class="grid-4-stats" style="margin-bottom:16px;">
-      <div class="card stat-card"><div class="icon" style="background:#DBEAFE;color:#0A66C2;"><i class="fas fa-file-alt"></i></div><div class="value" id="dvf-total">0</div><div class="label">Total Permohonan</div></div>
-      <div class="card stat-card"><div class="icon" style="background:#FEF3C7;color:#D97706;"><i class="fas fa-hourglass-half"></i></div><div class="value" id="dvf-belum">0</div><div class="label">Belum Diverifikasi</div></div>
-      <div class="card stat-card"><div class="icon" style="background:#DCFCE7;color:#16A34A;"><i class="fas fa-check-circle"></i></div><div class="value" id="dvf-memenuhi">0</div><div class="label">Memenuhi Syarat</div></div>
-      <div class="card stat-card"><div class="icon" style="background:#DBEAFE;color:#0A66C2;"><i class="fas fa-clipboard-check"></i></div><div class="value" id="dvf-terverifikasi">0</div><div class="label">Sudah Diverifikasi</div></div>
-      <div class="card stat-card"><div class="icon" style="background:#FEE2E2;color:#DC2626;"><i class="fas fa-exclamation-triangle"></i></div><div class="value" id="dvf-belum-syarat">0</div><div class="label">Belum Memenuhi Syarat</div></div>
-      <div class="card stat-card"><div class="icon" style="background:#FEE2E2;color:#991B1B;"><i class="fas fa-ban"></i></div><div class="value" id="dvf-ditolak">0</div><div class="label">Ditolak</div></div>
-    </div>
-    <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+    <div class="card" style="padding:16px 18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <div style="font-weight:700;font-size:15px;color:#0A66C2;"><i class="fas fa-chart-bar"></i> Jumlah Permohonan per Bulan</div>
+        <div style="font-weight:700;font-size:15px;color:#0A66C2;"><i class="fas fa-hospital"></i> Data Verval Fasyankes</div>
       </div>
-      <div style="height:220px;"><canvas id="dvf-chart"></canvas></div>
-    </div>
-    <div class="card" style="padding:16px 18px;margin-bottom:16px;">
-      <div class="flex" style="gap:10px;flex-wrap:wrap;">
-        <div class="search-box" style="max-width:300px;"><i class="fas fa-search"></i><input id="dvf-search" placeholder="Cari..." onkeyup="filterDataVervalFasyankes()"></div>
-        <select id="dvf-filter-kecamatan" onchange="filterDataVervalFasyankes()" style="padding:8px 12px;border-radius:10px;border:1px solid #E2E8F0;font-size:13px;"><option value="">Semua Kecamatan</option></select>
-        <select id="dvf-filter-jenis" onchange="filterDataVervalFasyankes()" style="padding:8px 12px;border-radius:10px;border:1px solid #E2E8F0;font-size:13px;"><option value="">Semua Jenis Fasyankes</option></select>
-        <select id="dvf-filter-status" onchange="filterDataVervalFasyankes()" style="padding:8px 12px;border-radius:10px;border:1px solid #E2E8F0;font-size:13px;">
-          <option value="">Semua Status</option>
-          <option value="Memenuhi Syarat">Memenuhi Syarat</option>
-          <option value="Memenuhi Syarat Dengan Catatan">Memenuhi Syarat Dengan Catatan</option>
-          <option value="Belum Memenuhi Syarat">Belum Memenuhi Syarat</option>
-          <option value="Ditolak">Ditolak</option>
-          <option value="UNVERIFIED">Belum Verifikasi</option>
-        </select>
-        <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
-          <button onclick="loadDataVervalFasyankes()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i> Refresh</button>
-          <button onclick="exportVervalFasyankesExcel()" class="btn btn-sm btn-cyan"><i class="fas fa-file-excel"></i> Export Excel</button>
-          <button onclick="cetakVervalFasyankes()" class="btn btn-sm btn-primary"><i class="fas fa-print"></i> Cetak</button>
-        </div>
+      <div class="search-box" style="max-width:400px;margin-bottom:16px;">
+        <i class="fas fa-search"></i>
+        <input id="dvf-search" placeholder="Ketik nama fasyankes (minimal 2 karakter)..." type="text">
       </div>
-    </div>
-    <div class="table-wrapper">
-      <table id="dvf-table" style="min-width:1200px;">
-        <thead><tr>
-          <th onclick="sortDataVervalFasyankes(0)" style="width:50px;">No</th>
-          <th onclick="sortDataVervalFasyankes(1)">Tanggal</th>
-          <th onclick="sortDataVervalFasyankes(2)">No. Permohonan</th>
-          <th onclick="sortDataVervalFasyankes(3)">Nama Fasyankes</th>
-          <th onclick="sortDataVervalFasyankes(4)">Jenis Fasyankes</th>
-          <th onclick="sortDataVervalFasyankes(5)">Kecamatan</th>
-          <th onclick="sortDataVervalFasyankes(6)">Status Verifikasi</th>
-          <th onclick="sortDataVervalFasyankes(7)">Verifikator</th>
-          <th onclick="sortDataVervalFasyankes(8)">Tgl Verifikasi</th>
-          <th style="width:200px;">Aksi</th>
-        </tr></thead>
-        <tbody id="dvf-tbody"><tr><td colspan="10" style="text-align:center;padding:30px;color:#94A3B8;">Memuat data...</td></tr></tbody>
-      </table>
-    </div>
-    <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#64748B;">
-      <div id="dvf-info">Memuat...</div>
-      <div id="dvf-pagination"></div>
+      <div id="dvf-message" style="text-align:center;color:#64748B;padding:20px;">
+        Silakan ketik nama fasyankes untuk mencari data.
+      </div>
+      <div class="table-wrapper" id="dvf-table-wrapper" style="display:none;">
+        <table id="dvf-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th style="width:50px;">No</th>
+              <th>Nama Fasyankes</th>
+              <th>Jenis Fasyankes</th>
+              <th>Pemilik</th>
+              <th>Penanggung Jawab</th>
+              <th>Alamat</th>
+              <th>Kecamatan</th>
+              <th>SDMK</th>
+              <th>Hasil Verifikasi</th>
+              <th>Catatan Verifikasi</th>
+              <th style="width:120px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="dvf-tbody"></tbody>
+        </table>
+      </div>
     </div>
   `;
-  loadDataVervalFasyankes();
+  
+// Debounce variables
+  let debounceTimer = null;
+  const debounceDelay = 300; // ms
+  
+  // Search input event listener
+  const searchInput = document.getElementById('dvf-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const query = this.value.trim();
+        if (query.length >= 2) {
+          searchVervalFasyankes(query);
+        } else {
+          dataVervalFasyankes = [];
+          window.showSearchMessage();
+        }
+      }, debounceDelay);
+    });
+  }
+  
+  // Initial state: show message, hide table
+  window.showSearchMessage = function() {
+    const messageDiv = document.getElementById('dvf-message');
+    const tableWrapper = document.getElementById('dvf-table-wrapper');
+    if (messageDiv) messageDiv.style.display = 'block';
+    if (tableWrapper) tableWrapper.style.display = 'none';
+  };
+  window.showSearchResults = function() {
+    const messageDiv = document.getElementById('dvf-message');
+    const tableWrapper = document.getElementById('dvf-table-wrapper');
+    if (messageDiv) messageDiv.style.display = 'none';
+    if (tableWrapper) tableWrapper.style.display = 'block';
+  };
+  window.showSearchMessage();
+}
+
+function showSearchMessage() {
+  const messageDiv = document.getElementById('dvf-message');
+  const tableWrapper = document.getElementById('dvf-table-wrapper');
+  if (messageDiv) messageDiv.style.display = 'block';
+  if (tableWrapper) tableWrapper.style.display = 'none';
+}
+
+function showSearchResults() {
+  const messageDiv = document.getElementById('dvf-message');
+  const tableWrapper = document.getElementById('dvf-table-wrapper');
+  if (messageDiv) messageDiv.style.display = 'none';
+  if (tableWrapper) tableWrapper.style.display = 'block';
+}
+
+async function searchVervalFasyankes(query) {
+  window.showSearchResults();
+  const tbody = document.getElementById('dvf-tbody');
+  if (!tbody) return;
+  
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#94A3B8;"><i class="fas fa-spinner fa-spin"></i> Sedang mencari...</td></tr>';
+  
+  let res;
+  if (USE_GAS) {
+    res = await apiCall('searchNamaFasyankes', { q: query }, 'GET');
+  } else {
+    res = await mockApi('searchNamaFasyankes', { q: query });
+  }
+  
+  const data = res.success ? (res.data || []) : [];
+  // Store globally for edit/delete functions
+  dataVervalFasyankes = data;
+  
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:#64748B;">Tidak ada data yang sesuai dengan pencarian.</td></tr>';
+    return;
+  }
+  
+  renderVervalFasyankesTable(data);
+}
+
+function renderVervalFasyankesTable(data) {
+  const tbody = document.getElementById('dvf-tbody');
+  if (!tbody) return;
+  
+  tbody.innerHTML = data.map((row, index) => {
+    const id = row['ID'] || row.id || '';
+    const namaFasyankes = escapeHtml(row['Nama Fasyankes'] || '');
+    const jenisFasyankes = escapeHtml(row['Jenis Fasyankes'] || '');
+    const pemilik = escapeHtml(row['Pemilik'] || '');
+    const penanggungJawab = escapeHtml(row['Penanggung Jawab'] || '');
+    const alamat = escapeHtml(row['Alamat'] || '');
+    const kecamatan = escapeHtml(row['Kecamatan'] || '');
+    const statusVerifikasi = escapeHtml(row['Status Verifikasi'] || '');
+    const catatanVerifikasi = escapeHtml(row['Catatan Verifikasi'] || '');
+    
+    // Compute SDMK summary
+    let sdmkSummary = '-';
+    let sdmkTooltip = '';
+    try {
+      const sdmkData = JSON.parse(row['Data SDMK'] || '{}');
+      const profesiList = [
+        'Dokter','Dokter Gigi','Perawat','Bidan','Apoteker',
+        'Tenaga Teknis Kefarmasian','Nutrisionis','Sanitarian','ATLM','Radiografer',
+        'Fisioterapis','Rekam Medis','Elektromedis','Psikolog Klinis','Okupasi Terapis',
+        'Terapis Wicara','Ortotis Prostetis','Profesi Lainnya'
+      ];
+      let total = 0;
+      let met = 0;
+      profesiList.forEach(p => {
+        const d = sdmkData[p] || {};
+        if (d.kebutuhan_minimal !== undefined) {
+          total++;
+          if (d.status === 'Memenuhi') {
+            met++;
+          }
+        }
+      }
+      });
+      if (total > 0) {
+        sdmkSummary = `${met} dari ${total} memenuhi`;
+        sdmkTooltip = `Total Kekurangan: ${profesiList.reduce((sum, p) => {
+          const d = sdmkData[p] || {};
+          return sum + Math.max(0, (d.kebutuhan_minimal || 0) - (d.jumlah_tersedia || 0));
+        }, 0)}`;
+      } else {
+        sdmkSummary = 'Tidak ada data SDMK';
+      }
+    } catch (e) {
+      sdmkSummary = 'Gagal memuat data SDMK';
+    }
+    
+    return `
+      <tr>
+        <td style="text-align:center;">${index + 1}</td>
+        <td>${namaFasyankes}</td>
+        <td><span class="pill">${jenisFasyankes}</span></td>
+        <td>${pemilik}</td>
+        <td>${penanggungJawab}</td>
+        <td>${alamat}</td>
+        <td>${kecamatan}</td>
+        <td>
+          <span class="badge ${met === total ? 'badge-success' : 'badge-danger'}" 
+                title="${sdmkTooltip}"
+                onclick="showSDMKModal('${id}')"
+                style="cursor:pointer;">
+            ${sdmkSummary}
+          </span>
+        </td>
+        <td><span class="badge ${getStatusVerifikasiBadge(statusVerifikasi)}">${statusVerifikasi || 'Belum Verifikasi'}</span></td>
+        <td>${catatanVerifikasi}</td>
+        <td>
+${currentUser && currentUser.role === 'admin' ? `
+              <button onclick="detailVF('${id}')" class="btn btn-sm btn-outline" style="margin-right:5px;" title="Lihat Detail"><i class="fas fa-eye"></i></button>
+              <button onclick="editVF('${id}')" class="btn btn-sm btn-cyan" style="margin-right:5px;" title="Edit"><i class="fas fa-edit"></i></button>
+              <button onclick="deleteVF('${id}')" class="btn btn-sm btn-danger" title="Hapus"><i class="fas fa-trash"></i></button>
+            ` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Function to show SDMK modal (similar to detailVF but only showing SDMK table and summary)
+function showSDMKModal(id) {
+  const row = dataVervalFasyankes.find(r => (r['ID'] || r.id) === id);
+  if (!row) {
+    showToast('Data tidak ditemukan', 'error');
+    return;
+  }
+  
+  let sdmkData = {};
+  try {
+    sdmkData = JSON.parse(row['Data SDMK'] || '{}');
+  } catch (e) {
+    sdmkData = {};
+  }
+  
+  const profesiList = [
+    'Dokter','Dokter Gigi','Perawat','Bidan','Apoteker',
+    'Tenaga Teknis Kefarmasian','Nutrisionis','Sanitarian','ATLM','Radiografer',
+    'Fisioterapis','Rekam Medis','Elektromedis','Psikolog Klinis','Okupasi Terapis',
+    'Terapis Wicara','Ortotis Prostetis','Profesi Lainnya'
+  ];
+  
+  let totalProfesi = 0;
+  let memenuhi = 0;
+  let totalKekurangan = 0;
+  
+  const profesiRows = profesiList.map(p => {
+    const d = sdmkData[p] || {};
+    const kebutuhan = d.kebutuhan_minimal || 0;
+    const tersedia = d.jumlah_tersedia || 0;
+    const kekurangan = Math.max(0, kebutuhan - tersedia);
+    const status = d.status || 'Belum Diisi';
+    const bc = status === 'Memenuhi' ? 'badge-success' : (status === 'Belum Memenuhi' ? 'badge-danger' : 'badge-warning');
+    
+    if (kebutuhan !== undefined) {
+      totalProfesi++;
+      if (status === 'Memenuhi') memenuhi++;
+      totalKekurangan += kekurangan;
+    }
+    
+    return `<tr>
+      <td><strong>${p}</strong></td>
+      <td style="text-align:center;">${kebutuhan}</td>
+      <td style="text-align:center;">${tersedia}</td>
+      <td style="text-align:center;">${kekurangan}</td>
+      <td><span class="badge ${bc}">${status}</span></td>
+    </tr>`;
+  });
+  
+  const summaryHTML = `
+    <div style="font-size:13px; margin-bottom:10px;">
+      <div><strong>Total Jenis SDMK:</strong> ${totalProfesi}</div>
+      <div><strong>Jumlah Profesi Memenuhi:</strong> ${memenuhi}</div>
+      <div><strong>Jumlah Profesi Belum Memenuhi:</strong> ${totalProfesi - memenuhi}</div>
+      <div><strong>Total Kekurangan SDMK:</strong> ${totalKekurangan}</div>
+    </div>
+  `;
+  
+  const tableHTML = `
+    <div class="table-wrapper">
+      <table style="font-size:12px;">
+        <thead>
+          <tr>
+            <th>Jenis Profesi</th>
+            <th>Kebutuhan</th>
+            <th>Tersedia</th>
+            <th>Kekurangan</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${profesiRows}
+        </tbody>
+      </table>
+    </div>
+  `;
+  
+  showModal('Detail SDMK Fasyankes', `
+    <div style="font-size:13px;">
+      ${summaryHTML}
+      <div style="font-weight:700;font-size:16px;color:#0A66C2;margin:16px 0 8px;">Detail SDMK per Profesi</div>
+      ${tableHTML}
+    </div>
+  `, null, `<button onclick="closeModal()" class="btn btn-primary">Tutup</button>`);
 }
 
 async function loadDataVervalFasyankes() {
@@ -2665,14 +2889,32 @@ function filterDataVervalFasyankes() {
     if (statusF !== '' && statusF !== 'UNVERIFIED' && (r['Status Verifikasi']||'') !== statusF) return false;
     if (kecF && (r['Kecamatan']||'') !== kecF) return false;
     if (jenisF && (r['Jenis Fasyankes']||'') !== jenisF) return false;
-    if (q) {
+      const fileName = document.getElementById('dvf-search') ? document.getElementById('dvf-search').value : '';
+      if (q.length < 2) { dataVervalFasyankesFiltered = [...dataVervalFasyankes]; dataVervalFasyankesPage = 1; renderDVFTable(); return; }
+      if (USE_GAS) { res = await apiCall('searchNamaFasyankes', { q }, 'GET'); }
+      else { res = await mockApi('searchNamaFasyankes', { q }); }
+      const filtered = res.success ? (res.data || []) : [];
+      dataVervalFasyankesFiltered = filtered.length > 0 ? filtered : dataVervalFasyankes;
+      dataVervalFasyankesPage = 1;
+      renderDVFTable();
+    }
+  } else if (q.length < 2) {
+    dataVervalFasyankesFiltered = [...dataVervalFasyankes];
+    dataVervalFasyankesPage = 1;
+    renderDVFTable();
+    return;
+  } else {
+    dataVervalFasyankesFiltered = dataVervalFasyankes.filter(r => {
+      if (statusF === 'UNVERIFIED' && r['Status Verifikasi'] && r['Status Verifikasi'] !== '') return false;
+      if (statusF !== '' && statusF !== 'UNVERIFIED' && (r['Status Verifikasi']||'') !== statusF) return false;
+      if (kecF && (r['Kecamatan']||'') !== kecF) return false;
+      if (jenisF && (r['Jenis Fasyankes']||'') !== jenisF) return false;
       const s = (r['Nama Fasyankes']||'') + (r['Nomor Permohonan']||'') + (r['Pemilik']||'') + (r['Kecamatan']||'');
       return s.toLowerCase().includes(q);
-    }
-    return true;
-  });
-  dataVervalFasyankesPage = 1;
-  renderDVFTable();
+    });
+    dataVervalFasyankesPage = 1;
+    renderDVFTable();
+  }
 }
 
 function sortDataVervalFasyankes(col) {
