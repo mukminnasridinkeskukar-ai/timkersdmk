@@ -863,7 +863,7 @@ function getPageTitle(page) {
   return titles[page] || 'SIMANTRI';
 }
 function getPageSubtitle(page) {
-  const subs = { dashboard:'Ringkasan kinerja & statistik real-time', pengumuman:'Informasi resmi & pengumuman penting', verval:'Formulir pengajuan & perpanjangan izin praktik', 'verval-fasyankes':'Input verifikasi SDM Kesehatan pada permohonan izin fasilitas pelayanan kesehatan', 'data-verval-fasyankes':'Manajemen dan monitoring verval fasilitas pelayanan kesehatan', profil:'Data lengkap Sumber Daya Manusia Kesehatan', cek:'Verifikasi & edit data verval izin praktik berdasarkan nama', admin:'Manajemen data & konfigurasi sistem' };
+  const subs = { dashboard:'Ringkasan kinerja & statistik real-time', pengumuman:'Informasi resmi & pengumuman penting', verval:'Formulir pengajuan & perpanjangan izin praktik', 'verval-fasyankes':'Input verifikasi SDM Kesehatan pada permohonan izin fasilitas pelayanan kesehatan', 'data-verval-fasyankes':'Manajemen dan monitoring verval fasilitas pelayanan kesehatan', profil:'Data lengkap Sumber Daya Manusia Kesehatan', cek:'Cari dan lihat data verval Fasyankes berdasarkan nama fasilitas kesehatan', admin:'Manajemen data & konfigurasi sistem' };
   return subs[page] || '';
 }
 
@@ -3487,72 +3487,142 @@ function exportProfilPDF() {
   showToast('PDF berhasil dibuat');
 }
 
-// ==================== CEK DATA VERVAL (NEW) ====================
-// Search by Nama SDMK with autocomplete, display full data in large modal, editable
+// ==================== CEK DATA VERVAL ====================
+// Search by Nama Fasyankes — reuse existing components from Data Verval Fasyankes
+// untuk konsistensi UI/UX
+
+let cekVervalSelectedIndex2 = -1;
+let cekVervalResults2 = [];
+let cekVervalDebounceTimer2 = null;
 
 function renderCekVerval(container) {
   container.innerHTML = `
-    <div class="card" style="max-width:780px;margin:0 auto;padding:26px;">
+    <div class="card" style="max-width:1100px;margin:0 auto;padding:26px;">
       <div style="margin-bottom:16px;">
-        <div style="font-size:17px;font-weight:700;">Cek Data Verval</div>
-        <div style="color:#64748B;font-size:13px;">Ketik nama SDMK untuk mencari dan mengedit data verval izin praktik</div>
+        <div style="font-size:17px;font-weight:700;">Cek Data Verval Fasyankes</div>
+        <div style="color:#64748B;font-size:13px;">Ketik nama Fasyankes untuk mencari dan melihat data verval fasilitas pelayanan kesehatan</div>
       </div>
       
       <div class="autocomplete-wrapper">
-        <div style="display:flex;gap:10px;">
-          <div class="search-box" style="flex:1;max-width:none;">
-            <i class="fas fa-search"></i>
-            <input id="cek-nama" type="text" placeholder="Ketik minimal 2 huruf nama SDMK..." style="padding-left:48px;"
-                   oninput="cekVervalAutocomplete(this.value)" onkeydown="cekVervalKeydown(event)">
-          </div>
+        <div class="search-box" style="max-width:500px;">
+          <i class="fas fa-search"></i>
+          <input id="cek-vf-nama" type="text" placeholder="Ketik minimal 2 huruf nama Fasyankes..."
+                 style="padding-left:48px;" autocomplete="off">
         </div>
-        <div class="autocomplete-dropdown" id="cek-autocomplete-dropdown"></div>
+        <div class="autocomplete-dropdown" id="cek-vf-autocomplete-dropdown"></div>
       </div>
       
-      <div id="cek-result" style="margin-top:24px;"></div>
+      <div id="cek-vf-search-info" style="text-align:center;color:#64748B;padding:40px 20px;margin-top:16px;">
+        <i class="fas fa-search" style="font-size:40px;opacity:0.4;display:block;margin-bottom:10px;"></i>
+        Silakan ketik nama Fasyankes (minimal 2 karakter) untuk mencari data verval.
+      </div>
+      
+      <div id="cek-vf-table-wrapper" class="table-wrapper" style="display:none;margin-top:16px;">
+        <table id="cek-vf-table" style="width:100%;font-size:13px;">
+          <thead>
+            <tr>
+              <th style="width:50px;">No</th>
+              <th>Nama Fasyankes</th>
+              <th>Jenis Fasyankes</th>
+              <th>Pemilik</th>
+              <th>Penanggung Jawab</th>
+              <th>Alamat</th>
+              <th>Kecamatan</th>
+              <th>SDMK</th>
+              <th>Hasil Verifikasi</th>
+              <th>Catatan Verifikasi</th>
+              <th style="width:120px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="cek-vf-tbody"></tbody>
+        </table>
+      </div>
     </div>
   `;
-  
-  setTimeout(() => {
-    const input = document.getElementById('cek-nama');
-    if (input) input.addEventListener('keyup', e => { if (e.key === 'Enter') cekVervalAutocomplete(input.value); });
-  }, 100);
+
+  // Setup autocomplete with debounce
+  const searchInput = document.getElementById('cek-vf-nama');
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      clearTimeout(cekVervalDebounceTimer2);
+      cekVervalDebounceTimer2 = setTimeout(() => {
+        const query = this.value.trim();
+        if (query.length >= 2) {
+          cekVervalAutocomplete2(query);
+        } else {
+          cekVervalHideSearchResults();
+          cekVervalResults2 = [];
+        }
+      }, 350);
+    });
+    
+    // Arrow keys + enter + escape navigation
+    searchInput.addEventListener('keydown', function(e) {
+      const dropdown = document.getElementById('cek-vf-autocomplete-dropdown');
+      if (!dropdown || dropdown.style.display !== 'block') return;
+      const items = dropdown.querySelectorAll('.item');
+      
+      if (e.key === 'ArrowDown') { e.preventDefault(); cekVervalSelectedIndex2 = Math.min(cekVervalSelectedIndex2 + 1, items.length - 1); cekVervalHighlightItems(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); cekVervalSelectedIndex2 = Math.max(cekVervalSelectedIndex2 - 1, 0); cekVervalHighlightItems(); }
+      else if (e.key === 'Enter' && cekVervalSelectedIndex2 >= 0) { e.preventDefault(); cekVervalSelect2(cekVervalSelectedIndex2); }
+      else if (e.key === 'Escape') { dropdown.style.display = 'none'; }
+    });
+  }
 }
 
-let cekVervalSelectedIndex = -1;
-let cekVervalResults = [];
+function cekVervalHighlightItems() {
+  document.querySelectorAll('#cek-vf-autocomplete-dropdown .item').forEach((el, i) => {
+    el.classList.toggle('active', i === cekVervalSelectedIndex2);
+  });
+}
 
-function cekVervalAutocomplete(query) {
-  const dropdown = document.getElementById('cek-autocomplete-dropdown');
+function cekVervalHideSearchResults() {
+  const searchInfo = document.getElementById('cek-vf-search-info');
+  const tableWrapper = document.getElementById('cek-vf-table-wrapper');
+  const dropdown = document.getElementById('cek-vf-autocomplete-dropdown');
+  if (searchInfo) searchInfo.style.display = 'block';
+  if (tableWrapper) tableWrapper.style.display = 'none';
+  if (dropdown) dropdown.style.display = 'none';
+}
+
+function cekVervalShowSearchResults() {
+  const searchInfo = document.getElementById('cek-vf-search-info');
+  const tableWrapper = document.getElementById('cek-vf-table-wrapper');
+  if (searchInfo) searchInfo.style.display = 'none';
+  if (tableWrapper) tableWrapper.style.display = 'block';
+}
+
+function cekVervalAutocomplete2(query) {
+  const dropdown = document.getElementById('cek-vf-autocomplete-dropdown');
   if (!dropdown) return;
   
   if (!query || query.length < 2) {
     dropdown.style.display = 'none';
-    cekVervalSelectedIndex = -1;
+    cekVervalSelectedIndex2 = -1;
     return;
   }
   
-  apiCall('searchNamaVerval', { q: query }, 'GET').then(res => {
+  apiCall('searchNamaFasyankes', { q: query }, 'GET').then(res => {
     if (!res.success || !res.data || res.data.length === 0) {
       dropdown.innerHTML = '<div class="no-result">Tidak ada hasil</div>';
       dropdown.style.display = 'block';
-      cekVervalResults = [];
-      cekVervalSelectedIndex = -1;
+      cekVervalResults2 = [];
+      cekVervalSelectedIndex2 = -1;
       return;
     }
     
-    cekVervalResults = res.data;
-    cekVervalSelectedIndex = -1;
+    cekVervalResults2 = res.data;
+    cekVervalSelectedIndex2 = -1;
     
     dropdown.innerHTML = res.data.map((item, idx) => {
-      const nama = item['Nama Lengkap'] || item.nama_lengkap || '';
-      const nik = item.NIK || item.nik || '';
+      const nama = item['Nama Fasyankes'] || item.nama_fasyankes || '';
+      const jenis = item['Jenis Fasyankes'] || item.jenis_fasyankes || '';
       const highlight = nama.replace(new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<strong style="color:#0A66C2;">$1</strong>');
-      return `<div class="item" data-index="${idx}" onclick="cekVervalSelect(${idx})" onmouseover="cekVervalHover(${idx})">
-        <i class="fas fa-user-md" style="color:#0A66C2;width:18px;"></i>
+      return `<div class="item" data-index="${idx}" onclick="cekVervalSelect2(${idx})" onmouseover="cekVervalSelectedIndex2=${idx};cekVervalHighlightItems()">
+        <i class="fas fa-hospital" style="color:#0A66C2;width:18px;"></i>
         <div>
           <div class="nama">${highlight}</div>
-          <div class="nik">${escapeHtml(nik)}</div>
+          <div class="nik">${escapeHtml(jenis)}</div>
         </div>
       </div>`;
     }).join('');
@@ -3561,207 +3631,19 @@ function cekVervalAutocomplete(query) {
   });
 }
 
-function cekVervalHover(idx) {
-  cekVervalSelectedIndex = idx;
-  document.querySelectorAll('#cek-autocomplete-dropdown .item').forEach((el, i) => {
-    el.classList.toggle('active', i === idx);
-  });
-}
-
-function cekVervalKeydown(e) {
-  const dropdown = document.getElementById('cek-autocomplete-dropdown');
-  if (!dropdown || dropdown.style.display !== 'block') return;
-  
-  const items = dropdown.querySelectorAll('.item');
-  
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    cekVervalSelectedIndex = Math.min(cekVervalSelectedIndex + 1, items.length - 1);
-    items.forEach((el, i) => el.classList.toggle('active', i === cekVervalSelectedIndex));
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    cekVervalSelectedIndex = Math.max(cekVervalSelectedIndex - 1, 0);
-    items.forEach((el, i) => el.classList.toggle('active', i === cekVervalSelectedIndex));
-  } else if (e.key === 'Enter' && cekVervalSelectedIndex >= 0) {
-    e.preventDefault();
-    cekVervalSelect(cekVervalSelectedIndex);
-  } else if (e.key === 'Escape') {
-    dropdown.style.display = 'none';
-  }
-}
-
-function cekVervalSelect(idx) {
-  const dropdown = document.getElementById('cek-autocomplete-dropdown');
+function cekVervalSelect2(idx) {
+  const dropdown = document.getElementById('cek-vf-autocomplete-dropdown');
   if (dropdown) dropdown.style.display = 'none';
   
-  const item = cekVervalResults[idx];
+  const item = cekVervalResults2[idx];
   if (!item) return;
   
-  const nama = item['Nama Lengkap'] || item.nama_lengkap || '';
-  const nik = item.NIK || item.nik || '';
+  const nama = item['Nama Fasyankes'] || item.nama_fasyankes || '';
+  document.getElementById('cek-vf-nama').value = nama;
   
-  document.getElementById('cek-nama').value = nama;
-  
-  // Tampilkan data lengkap dalam popup
-  showCekVervalDetailModal(item);
-}
-
-function showCekVervalDetailModal(data) {
-  if (!data) { showToast('Data tidak ditemukan', 'error'); return; }
-  
-  const nama = data['Nama Lengkap'] || data.nama_lengkap || '';
-  const nik = data.NIK || data.nik || '';
-  
-  // Build form fields matching the exact same structure as Verval Izin Praktik
-  const fieldDefs = [
-    { label: 'NIK', id: 'cv-nik', type: 'text', value: nik, readonly: true },
-    { label: 'Nama Lengkap', id: 'cv-nama', type: 'text', value: data['Nama Lengkap'] || data.nama_lengkap || '' },
-    { label: 'Jenis Kelamin', id: 'cv-jk', type: 'select', value: data['Jenis Kelamin'] || data.jenis_kelamin || 'Laki-laki', options: ['Laki-laki', 'Perempuan'] },
-    { label: 'Tempat Lahir', id: 'cv-tempat-lahir', type: 'text', value: data['Tempat Lahir'] || '' },
-    { label: 'Tanggal Lahir', id: 'cv-tgl-lahir', type: 'date', value: data['Tanggal Lahir'] || '' },
-    { label: 'Alamat Sesuai KTP', id: 'cv-alamat-ktp', type: 'textarea', value: data['Alamat Sesuai KTP'] || '', full: true },
-    { label: 'Nomor STR', id: 'cv-nomor-str', type: 'text', value: data['Nomor STR'] || data.nomor_str || '' },
-    { label: 'Status STR', id: 'cv-status-str', type: 'select', value: data['Status STR'] || data.status_str || 'Aktif', options: ['Aktif', 'Tidak Aktif', 'Expired'] },
-    { label: 'Status SIP', id: 'cv-status-sip', type: 'select', value: data['Status SIP'] || data.status_sip || 'Aktif', options: ['Aktif', 'Proses', 'Expired', 'Tidak Ada'] },
-    { label: 'Nomor SIP', id: 'cv-nomor-sip', type: 'text', value: data['Nomor SIP'] || data.nomor_sip || '' },
-    { label: 'Masa Berlaku SIP', id: 'cv-masa-sip', type: 'date', value: data['Masa Berlaku SIP'] || '' },
-    { label: 'Unit Kerja / Fasyankes', id: 'cv-unit-kerja', type: 'text', value: data['Unit Kerja'] || data.unit_kerja || '' },
-    { label: 'Alamat Unit Kerja', id: 'cv-alamat-unit', type: 'textarea', value: data['Alamat Unit Kerja'] || '', full: true },
-    { label: 'Desa / Kelurahan Unit Kerja', id: 'cv-desa', type: 'text', value: data['Desa Kelurahan Unit Kerja'] || '' },
-    { label: 'Status Unit Praktik di SatuSehat SDMK', id: 'cv-satu-sehat', type: 'select', value: data['Status Unit Praktik di SatuSehat SDMK'] || 'Sudah', options: ['Sudah', 'Belum'] },
-    { label: 'SOP Pelayanan', id: 'cv-sop-pelayanan', type: 'select', value: data['SOP Pelayanan'] || 'Ada', options: ['Ada', 'Tidak Ada'] },
-    { label: 'SOP Profesi', id: 'cv-sop-profesi', type: 'select', value: data['SOP Profesi'] || 'Ada', options: ['Ada', 'Tidak Ada'] },
-    { label: 'SOP Etika', id: 'cv-sop-etika', type: 'select', value: data['SOP Etika'] || 'Ada', options: ['Ada', 'Tidak Ada'] },
-    { label: 'SDMK Named', id: 'cv-sdmk-named', type: 'select', value: data['SDMK Named'] || 'Ada', options: ['Ada', 'Tidak Ada'] },
-    { label: 'SDMK Nakes', id: 'cv-sdmk-nakes', type: 'select', value: data['SDMK Nakes'] || 'Ada', options: ['Ada', 'Tidak Ada'] },
-    { label: 'SDMK Admin', id: 'cv-sdmk-admin', type: 'select', value: data['SDMK Admin'] || 'Ada', options: ['Ada', 'Tidak Ada'] },
-    { label: 'Jam Operasional / Praktik', id: 'cv-jam', type: 'text', value: data['Jam Operasional Praktik'] || '' },
-    { label: 'Pendidikan Sesuai STR', id: 'cv-pendidikan-str', type: 'text', value: data['Pendidikan Sesuai STR'] || '', full: true },
-    { label: 'Catatan Rekomendasi', id: 'cv-catatan', type: 'textarea', value: data['Catatan Rekomendasi'] || '', full: true }
-  ];
-  
-  let bodyHTML = `<div class="modal-verval-grid">`;
-  fieldDefs.forEach(f => {
-    const span = f.full ? ' style="grid-column:1/-1;"' : '';
-    bodyHTML += `<div class="modal-verval-field"${span}>`;
-    bodyHTML += `<label>${f.label}</label>`;
-    
-    if (f.type === 'select') {
-      bodyHTML += `<select id="${f.id}">`;
-      (f.options || []).forEach(o => {
-        bodyHTML += `<option value="${o}" ${o === f.value ? 'selected' : ''}>${o}</option>`;
-      });
-      bodyHTML += `</select>`;
-    } else if (f.type === 'textarea') {
-      bodyHTML += `<textarea id="${f.id}" rows="2">${escapeHtml(f.value)}</textarea>`;
-    } else if (f.type === 'date') {
-      bodyHTML += `<input type="date" id="${f.id}" value="${f.value}" ${f.readonly ? 'readonly class="readonly"' : ''}>`;
-    } else {
-      bodyHTML += `<input type="text" id="${f.id}" value="${escapeHtml(f.value)}" ${f.readonly ? 'readonly class="readonly"' : ''}>`;
-    }
-    
-    bodyHTML += `</div>`;
-  });
-  bodyHTML += `</div>`;
-  
-  // Hidden field for original NIK
-  bodyHTML += `<input type="hidden" id="cv-original-nik" value="${escapeHtml(nik)}">`;
-  
-  // Add modal-large class to backdrop
-  document.getElementById('modal-backdrop').classList.add('modal-large');
-  
-  const footer = `
-    <button onclick="closeCekVervalModal()" class="btn btn-outline">Batal</button>
-    <button onclick="cekVervalSave('${escapeHtml(nik)}')" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Perubahan</button>
-  `;
-  
-  showModal('Detail Data Verval — ' + escapeHtml(nama), bodyHTML, null, footer);
-}
-
-function closeCekVervalModal() {
-  document.getElementById('modal-backdrop').classList.remove('modal-large');
-  closeModal();
-}
-
-function cekVervalSave(originalNik) {
-  // Collect all field values
-  const data = {};
-  const fieldIds = [
-    'cv-nik', 'cv-nama', 'cv-jk', 'cv-tempat-lahir', 'cv-tgl-lahir', 'cv-alamat-ktp',
-    'cv-nomor-str', 'cv-status-str', 'cv-status-sip', 'cv-nomor-sip', 'cv-masa-sip',
-    'cv-unit-kerja', 'cv-alamat-unit', 'cv-desa', 'cv-satu-sehat',
-    'cv-sop-pelayanan', 'cv-sop-profesi', 'cv-sop-etika',
-    'cv-sdmk-named', 'cv-sdmk-nakes', 'cv-sdmk-admin',
-    'cv-jam', 'cv-pendidikan-str', 'cv-catatan'
-  ];
-  
-  // Map field IDs to sheet headers
-  const fieldMap = {
-    'cv-nik': 'NIK',
-    'cv-nama': 'Nama Lengkap',
-    'cv-jk': 'Jenis Kelamin',
-    'cv-tempat-lahir': 'Tempat Lahir',
-    'cv-tgl-lahir': 'Tanggal Lahir',
-    'cv-alamat-ktp': 'Alamat Sesuai KTP',
-    'cv-nomor-str': 'Nomor STR',
-    'cv-status-str': 'Status STR',
-    'cv-status-sip': 'Status SIP',
-    'cv-nomor-sip': 'Nomor SIP',
-    'cv-masa-sip': 'Masa Berlaku SIP',
-    'cv-unit-kerja': 'Unit Kerja',
-    'cv-alamat-unit': 'Alamat Unit Kerja',
-    'cv-desa': 'Desa Kelurahan Unit Kerja',
-    'cv-satu-sehat': 'Status Unit Praktik di SatuSehat SDMK',
-    'cv-sop-pelayanan': 'SOP Pelayanan',
-    'cv-sop-profesi': 'SOP Profesi',
-    'cv-sop-etika': 'SOP Etika',
-    'cv-sdmk-named': 'SDMK Named',
-    'cv-sdmk-nakes': 'SDMK Nakes',
-    'cv-sdmk-admin': 'SDMK Admin',
-    'cv-jam': 'Jam Operasional Praktik',
-    'cv-pendidikan-str': 'Pendidikan Sesuai STR',
-    'cv-catatan': 'Catatan Rekomendasi'
-  };
-  
-  Object.keys(fieldMap).forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      data[fieldMap[id]] = el.value;
-    }
-  });
-  
-  // Validation
-  let errors = [];
-  if (!data['Nama Lengkap'] || data['Nama Lengkap'].trim() === '') errors.push('Nama tidak boleh kosong');
-  if (!data['NIK'] || data['NIK'].length !== 16) errors.push('NIK harus 16 digit');
-  if (!data['Nomor STR'] || data['Nomor STR'].trim() === '') errors.push('STR tidak boleh kosong');
-  if (!data['Nomor SIP'] || data['Nomor SIP'].trim() === '') errors.push('SIP tidak boleh kosong');
-  
-  if (errors.length > 0) {
-    showToast(errors.join(', '), 'error');
-    return;
-  }
-  
-  // Add NIK for matching the record
-  data.nik = originalNik;
-  
-  // Show saving indicator
-  const btns = document.querySelectorAll('#modal-footer .btn');
-  btns.forEach(b => b.disabled = true);
-  
-  apiCall('updateVervalByNik', data, 'POST').then(res => {
-    btns.forEach(b => b.disabled = false);
-    
-    if (res.success) {
-      showToast('Data berhasil diperbarui', 'success');
-      closeCekVervalModal();
-    } else {
-      showToast('Gagal memperbarui data: ' + (res.error || 'unknown error'), 'error');
-    }
-  }).catch(err => {
-    btns.forEach(b => b.disabled = false);
-    showToast('Gagal memperbarui data', 'error');
-  });
+  // Show table with this single result (reuse existing renderVervalFasyankesTable)
+  cekVervalShowSearchResults();
+  renderVervalFasyankesTable([item]);
 }
 
 // ==================== PANEL ADMIN ====================
