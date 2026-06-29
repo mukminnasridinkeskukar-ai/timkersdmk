@@ -863,7 +863,7 @@ function getPageTitle(page) {
   return titles[page] || 'SIMANTRI';
 }
 function getPageSubtitle(page) {
-  const subs = { dashboard:'Ringkasan kinerja & statistik real-time', pengumuman:'Informasi resmi & pengumuman penting', verval:'Formulir pengajuan & perpanjangan izin praktik', 'verval-fasyankes':'Input verifikasi SDM Kesehatan pada permohonan izin fasilitas pelayanan kesehatan', 'data-verval-fasyankes':'Manajemen dan monitoring verval fasilitas pelayanan kesehatan', profil:'Data lengkap Sumber Daya Manusia Kesehatan', cek:'Cari dan lihat data verval Fasyankes berdasarkan nama fasilitas kesehatan', admin:'Manajemen data & konfigurasi sistem' };
+  const subs = { dashboard:'Ringkasan kinerja & statistik real-time', pengumuman:'Informasi resmi & pengumuman penting', verval:'Formulir pengajuan & perpanjangan izin praktik', 'verval-fasyankes':'Input verifikasi SDM Kesehatan pada permohonan izin fasilitas pelayanan kesehatan', 'data-verval-fasyankes':'Manajemen dan monitoring verval fasilitas pelayanan kesehatan', profil:'Data lengkap Sumber Daya Manusia Kesehatan', cek:'Cari data verval izin praktik berdasarkan Nama Lengkap SDMK', admin:'Manajemen data & konfigurasi sistem' };
   return subs[page] || '';
 }
 
@@ -3488,141 +3488,137 @@ function exportProfilPDF() {
 }
 
 // ==================== CEK DATA VERVAL ====================
-// Search by Nama Fasyankes — reuse existing components from Data Verval Fasyankes
-// untuk konsistensi UI/UX
+// Search by Nama Lengkap from verval_izin_praktik sheet
+// User: limited view (Nama, Unit Kerja, Alamat, Jam, Catatan)
+// Admin: full CRUD in Panel Admin
 
-let cekVervalSelectedIndex2 = -1;
-let cekVervalResults2 = [];
-let cekVervalDebounceTimer2 = null;
+let cekDataVervalCache = [];
+let cekDataSelectedIndex = -1;
+let cekDataDebounceTimer = null;
 
 function renderCekVerval(container) {
+  const isAdmin = currentUser && currentUser.role === 'admin';
+  
   container.innerHTML = `
     <div class="card" style="max-width:1100px;margin:0 auto;padding:26px;">
       <div style="margin-bottom:16px;">
-        <div style="font-size:17px;font-weight:700;">Cek Data Verval Fasyankes</div>
-        <div style="color:#64748B;font-size:13px;">Ketik nama Fasyankes untuk mencari dan melihat data verval fasilitas pelayanan kesehatan</div>
+        <div style="font-size:17px;font-weight:700;">Cek Data Verval Izin Praktik</div>
+        <div style="color:#64748B;font-size:13px;">Ketik Nama Lengkap SDMK untuk mencari data verval izin praktik</div>
       </div>
       
       <div class="autocomplete-wrapper">
         <div class="search-box" style="max-width:500px;">
           <i class="fas fa-search"></i>
-          <input id="cek-vf-nama" type="text" placeholder="Ketik minimal 2 huruf nama Fasyankes..."
+          <input id="cek-data-nama" type="text" placeholder="Ketik minimal 2 huruf Nama Lengkap..."
                  style="padding-left:48px;" autocomplete="off">
         </div>
-        <div class="autocomplete-dropdown" id="cek-vf-autocomplete-dropdown"></div>
+        <div class="autocomplete-dropdown" id="cek-data-autocomplete-dropdown"></div>
       </div>
       
-      <div id="cek-vf-search-info" style="text-align:center;color:#64748B;padding:40px 20px;margin-top:16px;">
-        <i class="fas fa-search" style="font-size:40px;opacity:0.4;display:block;margin-bottom:10px;"></i>
-        Silakan ketik nama Fasyankes (minimal 2 karakter) untuk mencari data verval.
+      <div id="cek-data-search-info" style="text-align:center;color:#64748B;padding:40px 20px;margin-top:16px;">
+        <i class="fas fa-user-md" style="font-size:40px;opacity:0.4;display:block;margin-bottom:10px;"></i>
+        Silakan ketik Nama Lengkap SDMK (minimal 2 karakter) untuk mencari data verval izin praktik.
       </div>
       
-      <div id="cek-vf-table-wrapper" class="table-wrapper" style="display:none;margin-top:16px;">
-        <table id="cek-vf-table" style="width:100%;font-size:13px;">
+      <div id="cek-data-table-wrapper" class="table-wrapper" style="display:none;margin-top:16px;">
+        <table id="cek-data-table" style="width:100%;font-size:13px;">
           <thead>
             <tr>
-              <th style="width:50px;">No</th>
-              <th>Nama Fasyankes</th>
-              <th>Jenis Fasyankes</th>
-              <th>Pemilik</th>
-              <th>Penanggung Jawab</th>
-              <th>Alamat</th>
-              <th>Kecamatan</th>
-              <th>SDMK</th>
-              <th>Hasil Verifikasi</th>
-              <th>Catatan Verifikasi</th>
-              <th style="width:120px;">Aksi</th>
+              <th style="width:40px;">No</th>
+              <th>Nama Lengkap</th>
+              <th>Unit Kerja</th>
+              <th>Alamat Unit Kerja</th>
+              <th>Jam Operasional/Praktik</th>
+              <th>Catatan Rekomendasi</th>
+              ${isAdmin ? '<th style="width:90px;">Aksi</th>' : ''}
             </tr>
           </thead>
-          <tbody id="cek-vf-tbody"></tbody>
+          <tbody id="cek-data-tbody"></tbody>
         </table>
+        <div id="cek-data-count" style="padding:10px;text-align:center;font-size:12px;color:#64748B;"></div>
       </div>
     </div>
   `;
 
-  // Setup autocomplete with debounce
-  const searchInput = document.getElementById('cek-vf-nama');
+  const searchInput = document.getElementById('cek-data-nama');
   if (searchInput) {
     searchInput.addEventListener('input', function() {
-      clearTimeout(cekVervalDebounceTimer2);
-      cekVervalDebounceTimer2 = setTimeout(() => {
+      clearTimeout(cekDataDebounceTimer);
+      cekDataDebounceTimer = setTimeout(() => {
         const query = this.value.trim();
         if (query.length >= 2) {
-          cekVervalAutocomplete2(query);
+          cekDataAutocomplete(query);
         } else {
-          cekVervalHideSearchResults();
-          cekVervalResults2 = [];
+          cekDataHideResults();
+          cekDataVervalCache = [];
         }
       }, 350);
     });
-    
-    // Arrow keys + enter + escape navigation
     searchInput.addEventListener('keydown', function(e) {
-      const dropdown = document.getElementById('cek-vf-autocomplete-dropdown');
+      const dropdown = document.getElementById('cek-data-autocomplete-dropdown');
       if (!dropdown || dropdown.style.display !== 'block') return;
       const items = dropdown.querySelectorAll('.item');
-      
-      if (e.key === 'ArrowDown') { e.preventDefault(); cekVervalSelectedIndex2 = Math.min(cekVervalSelectedIndex2 + 1, items.length - 1); cekVervalHighlightItems(); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); cekVervalSelectedIndex2 = Math.max(cekVervalSelectedIndex2 - 1, 0); cekVervalHighlightItems(); }
-      else if (e.key === 'Enter' && cekVervalSelectedIndex2 >= 0) { e.preventDefault(); cekVervalSelect2(cekVervalSelectedIndex2); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); cekDataSelectedIndex = Math.min(cekDataSelectedIndex + 1, items.length - 1); cekDataHighlight(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); cekDataSelectedIndex = Math.max(cekDataSelectedIndex - 1, 0); cekDataHighlight(); }
+      else if (e.key === 'Enter' && cekDataSelectedIndex >= 0) { e.preventDefault(); cekDataSelect(cekDataSelectedIndex); }
       else if (e.key === 'Escape') { dropdown.style.display = 'none'; }
     });
   }
 }
 
-function cekVervalHighlightItems() {
-  document.querySelectorAll('#cek-vf-autocomplete-dropdown .item').forEach((el, i) => {
-    el.classList.toggle('active', i === cekVervalSelectedIndex2);
+function cekDataHighlight() {
+  document.querySelectorAll('#cek-data-autocomplete-dropdown .item').forEach((el, i) => {
+    el.classList.toggle('active', i === cekDataSelectedIndex);
   });
 }
 
-function cekVervalHideSearchResults() {
-  const searchInfo = document.getElementById('cek-vf-search-info');
-  const tableWrapper = document.getElementById('cek-vf-table-wrapper');
-  const dropdown = document.getElementById('cek-vf-autocomplete-dropdown');
-  if (searchInfo) searchInfo.style.display = 'block';
-  if (tableWrapper) tableWrapper.style.display = 'none';
-  if (dropdown) dropdown.style.display = 'none';
+function cekDataHideResults() {
+  const si = document.getElementById('cek-data-search-info');
+  const tw = document.getElementById('cek-data-table-wrapper');
+  const dd = document.getElementById('cek-data-autocomplete-dropdown');
+  if (si) si.style.display = 'block';
+  if (tw) tw.style.display = 'none';
+  if (dd) dd.style.display = 'none';
 }
 
-function cekVervalShowSearchResults() {
-  const searchInfo = document.getElementById('cek-vf-search-info');
-  const tableWrapper = document.getElementById('cek-vf-table-wrapper');
-  if (searchInfo) searchInfo.style.display = 'none';
-  if (tableWrapper) tableWrapper.style.display = 'block';
+function cekDataShowResults() {
+  const si = document.getElementById('cek-data-search-info');
+  const tw = document.getElementById('cek-data-table-wrapper');
+  if (si) si.style.display = 'none';
+  if (tw) tw.style.display = 'block';
 }
 
-function cekVervalAutocomplete2(query) {
-  const dropdown = document.getElementById('cek-vf-autocomplete-dropdown');
+function cekDataAutocomplete(query) {
+  const dropdown = document.getElementById('cek-data-autocomplete-dropdown');
   if (!dropdown) return;
   
   if (!query || query.length < 2) {
     dropdown.style.display = 'none';
-    cekVervalSelectedIndex2 = -1;
+    cekDataSelectedIndex = -1;
     return;
   }
   
-  apiCall('searchNamaFasyankes', { q: query }, 'GET').then(res => {
+  apiCall('searchNamaVerval', { q: query }, 'GET').then(res => {
     if (!res.success || !res.data || res.data.length === 0) {
       dropdown.innerHTML = '<div class="no-result">Tidak ada hasil</div>';
       dropdown.style.display = 'block';
-      cekVervalResults2 = [];
-      cekVervalSelectedIndex2 = -1;
+      cekDataVervalCache = [];
+      cekDataSelectedIndex = -1;
       return;
     }
     
-    cekVervalResults2 = res.data;
-    cekVervalSelectedIndex2 = -1;
+    cekDataVervalCache = res.data;
+    cekDataSelectedIndex = -1;
     
     dropdown.innerHTML = res.data.map((item, idx) => {
-      const nama = item['Nama Fasyankes'] || item.nama_fasyankes || '';
-      const jenis = item['Jenis Fasyankes'] || item.jenis_fasyankes || '';
+      const nama = item['Nama Lengkap'] || item.nama_lengkap || '';
+      const unit = item['Unit Kerja'] || item.unit_kerja || '';
       const highlight = nama.replace(new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<strong style="color:#0A66C2;">$1</strong>');
-      return `<div class="item" data-index="${idx}" onclick="cekVervalSelect2(${idx})" onmouseover="cekVervalSelectedIndex2=${idx};cekVervalHighlightItems()">
-        <i class="fas fa-hospital" style="color:#0A66C2;width:18px;"></i>
+      return `<div class="item" data-index="${idx}" onclick="cekDataSelect(${idx})" onmouseover="cekDataSelectedIndex=${idx};cekDataHighlight()">
+        <i class="fas fa-user-md" style="color:#0A66C2;width:18px;"></i>
         <div>
           <div class="nama">${highlight}</div>
-          <div class="nik">${escapeHtml(jenis)}</div>
+          <div class="nik">${escapeHtml(unit)}</div>
         </div>
       </div>`;
     }).join('');
@@ -3631,19 +3627,201 @@ function cekVervalAutocomplete2(query) {
   });
 }
 
-function cekVervalSelect2(idx) {
-  const dropdown = document.getElementById('cek-vf-autocomplete-dropdown');
+function cekDataSelect(idx) {
+  const dropdown = document.getElementById('cek-data-autocomplete-dropdown');
   if (dropdown) dropdown.style.display = 'none';
   
-  const item = cekVervalResults2[idx];
+  const item = cekDataVervalCache[idx];
   if (!item) return;
   
-  const nama = item['Nama Fasyankes'] || item.nama_fasyankes || '';
-  document.getElementById('cek-vf-nama').value = nama;
+  document.getElementById('cek-data-nama').value = item['Nama Lengkap'] || item.nama_lengkap || '';
   
-  // Show table with this single result (reuse existing renderVervalFasyankesTable)
-  cekVervalShowSearchResults();
-  renderVervalFasyankesTable([item]);
+  // Render table with matching data — fetch full detail for this nama
+  const nama = item['Nama Lengkap'] || item.nama_lengkap || '';
+  cekDataSearchFull(nama);
+}
+
+function cekDataSearchFull(nama) {
+  const tbody = document.getElementById('cek-data-tbody');
+  const count = document.getElementById('cek-data-count');
+  if (!tbody) return;
+  
+  cekDataShowResults();
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas fa-spinner fa-spin"></i> Memuat detail...</td></tr>';
+  
+  // Get all data and filter by nama
+  apiCall('getAllVerval', {}, 'GET').then(res => {
+    if (!res.success || !res.data) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#DC2626;">Gagal memuat data.</td></tr>';
+      return;
+    }
+    
+    const query = nama.toLowerCase().trim();
+    const matches = res.data.filter(r => {
+      const n = String(r['Nama Lengkap'] || r.nama_lengkap || '').toLowerCase().trim();
+      return n === query;
+    });
+    
+    if (matches.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#64748B;">Tidak ditemukan data verval untuk nama tersebut.</td></tr>';
+      return;
+    }
+    
+    const isAdmin = currentUser && currentUser.role === 'admin';
+    tbody.innerHTML = matches.map((r, i) => {
+      const id = r._row || r.id || i;
+      const namaLengkap = escapeHtml(r['Nama Lengkap'] || r.nama_lengkap || '');
+      const unitKerja = escapeHtml(r['Unit Kerja'] || r.unit_kerja || '');
+      const alamatUnit = escapeHtml(r['Alamat Unit Kerja'] || r.alamat_unit || '');
+      const jam = escapeHtml(r['Jam Operasional Praktik'] || r.jam_operasional || '-');
+      const catatan = escapeHtml(r['Catatan Rekomendasi'] || r.catatan_rekomendasi || '-');
+      return `<tr>
+        <td style="text-align:center;">${i + 1}</td>
+        <td><strong>${namaLengkap}</strong></td>
+        <td>${unitKerja}</td>
+        <td>${alamatUnit}</td>
+        <td>${jam}</td>
+        <td>${catatan}</td>
+        ${isAdmin ? `<td><button onclick="cekDataEditModal('${escapeHtml(r.NIK || r.nik || '').replace(/'/g, "\\'")}', ${i})" class="btn btn-sm btn-outline" style="padding:3px 7px;" title="Edit"><i class="fas fa-edit"></i></button></td>` : ''}
+      </tr>`;
+    }).join('');
+    
+    if (count) count.textContent = `Menampilkan ${matches.length} data untuk "${escapeHtml(nama)}"`;
+  });
+}
+
+// ==================== CEK DATA VERVAL — ADMIN EDIT MODAL ====================
+// Full CRUD on verval_izin_praktik — shows all fields matching the sheet structure
+
+function cekDataEditModal(nik, idx) {
+  if (!currentUser || currentUser.role !== 'admin') {
+    showToast('Akses ditolak. Hanya admin.', 'error');
+    return;
+  }
+  
+  // Find the full row data from the cache
+  let row = null;
+  const nama = document.getElementById('cek-data-nama')?.value || '';
+  const stored = cekDataVervalCache.find(r => (r.NIK || r.nik) === nik);
+  if (stored) row = stored;
+  
+  if (!row) {
+    // Fetch from API if not in cache
+    apiCall('getVervalByNik', { nik }, 'GET').then(res => {
+      if (res.success && res.latest) {
+        cekDataShowEditForm(res.latest);
+      } else {
+        showToast('Data tidak ditemukan', 'error');
+      }
+    });
+  } else {
+    cekDataShowEditForm(row);
+  }
+}
+
+function cekDataShowEditForm(data) {
+  const fieldDefs = [
+    { label: 'Timestamp', id: 'ce-timestamp', type: 'text', value: data['Timestamp'] || data.timestamp || '', ro: true },
+    { label: 'NIK', id: 'ce-nik', type: 'text', value: data['NIK'] || data.nik || '', ro: true },
+    { label: 'Nama Lengkap', id: 'ce-nama', type: 'text', value: data['Nama Lengkap'] || data.nama_lengkap || '' },
+    { label: 'Jenis Kelamin', id: 'ce-jk', type: 'select', value: data['Jenis Kelamin'] || data.jenis_kelamin || 'Laki-laki', opts: ['Laki-laki', 'Perempuan'] },
+    { label: 'Tempat Lahir', id: 'ce-tempat-lahir', type: 'text', value: data['Tempat Lahir'] || '' },
+    { label: 'Tanggal Lahir', id: 'ce-tgl-lahir', type: 'date', value: data['Tanggal Lahir'] || '' },
+    { label: 'Alamat Sesuai KTP', id: 'ce-alamat-ktp', type: 'textarea', value: data['Alamat Sesuai KTP'] || '', full: true },
+    { label: 'Nomor STR', id: 'ce-nomor-str', type: 'text', value: data['Nomor STR'] || data.nomor_str || '' },
+    { label: 'Status STR', id: 'ce-status-str', type: 'select', value: data['Status STR'] || data.status_str || 'Aktif', opts: ['Aktif', 'Tidak Aktif', 'Expired'] },
+    { label: 'Status SIP', id: 'ce-status-sip', type: 'select', value: data['Status SIP'] || data.status_sip || 'Aktif', opts: ['Aktif', 'Proses', 'Expired', 'Tidak Ada'] },
+    { label: 'Nomor SIP', id: 'ce-nomor-sip', type: 'text', value: data['Nomor SIP'] || data.nomor_sip || '' },
+    { label: 'Masa Berlaku SIP', id: 'ce-masa-sip', type: 'date', value: data['Masa Berlaku SIP'] || '' },
+    { label: 'Unit Kerja', id: 'ce-unit-kerja', type: 'text', value: data['Unit Kerja'] || data.unit_kerja || '' },
+    { label: 'Alamat Unit Kerja', id: 'ce-alamat-unit', type: 'textarea', value: data['Alamat Unit Kerja'] || '', full: true },
+    { label: 'Desa/Kelurahan Unit Kerja', id: 'ce-desa', type: 'text', value: data['Desa Kelurahan Unit Kerja'] || '' },
+    { label: 'Status SatuSehat SDMK', id: 'ce-satu-sehat', type: 'select', value: data['Status Unit Praktik di SatuSehat SDMK'] || 'Sudah', opts: ['Sudah', 'Belum'] },
+    { label: 'SOP Pelayanan', id: 'ce-sop1', type: 'select', value: data['SOP Pelayanan'] || 'Ada', opts: ['Ada', 'Tidak Ada'] },
+    { label: 'SOP Profesi', id: 'ce-sop2', type: 'select', value: data['SOP Profesi'] || 'Ada', opts: ['Ada', 'Tidak Ada'] },
+    { label: 'SOP Etika', id: 'ce-sop3', type: 'select', value: data['SOP Etika'] || 'Ada', opts: ['Ada', 'Tidak Ada'] },
+    { label: 'SDMK Named', id: 'ce-sdmk-named', type: 'select', value: data['SDMK Named'] || 'Ada', opts: ['Ada', 'Tidak Ada'] },
+    { label: 'SDMK Nakes', id: 'ce-sdmk-nakes', type: 'select', value: data['SDMK Nakes'] || 'Ada', opts: ['Ada', 'Tidak Ada'] },
+    { label: 'SDMK Admin', id: 'ce-sdmk-admin', type: 'select', value: data['SDMK Admin'] || 'Ada', opts: ['Ada', 'Tidak Ada'] },
+    { label: 'Jam Operasional/Praktik', id: 'ce-jam', type: 'text', value: data['Jam Operasional Praktik'] || '' },
+    { label: 'Pendidikan Sesuai STR', id: 'ce-pendidikan', type: 'text', value: data['Pendidikan Sesuai STR'] || '', full: true },
+    { label: 'Catatan Rekomendasi', id: 'ce-catatan', type: 'textarea', value: data['Catatan Rekomendasi'] || '', full: true }
+  ];
+  
+  let html = `<div class="modal-verval-grid">`;
+  fieldDefs.forEach(f => {
+    const span = f.full ? ' style="grid-column:1/-1;"' : '';
+    html += `<div class="modal-verval-field"${span}><label>${f.label}</label>`;
+    if (f.type === 'select') {
+      html += `<select id="${f.id}">${(f.opts || []).map(o => `<option ${o === f.value ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+    } else if (f.type === 'textarea') {
+      html += `<textarea id="${f.id}" rows="2" ${f.ro ? 'readonly class="readonly"' : ''}>${escapeHtml(f.value)}</textarea>`;
+    } else {
+      html += `<input type="${f.type === 'date' ? 'date' : 'text'}" id="${f.id}" value="${escapeHtml(f.value)}" ${f.ro ? 'readonly class="readonly"' : ''}>`;
+    }
+    html += `</div>`;
+  });
+  html += `<input type="hidden" id="ce-original-nik" value="${escapeHtml(data.NIK || data.nik || '')}">`;
+  html += `<input type="hidden" id="ce-original-row" value="${data._row || ''}">`;
+  html += `</div>`;
+  
+  document.getElementById('modal-backdrop').classList.add('modal-large');
+  
+  showModal('Edit Data Verval Izin Praktik', html, null, `
+    <button onclick="closeModal()" class="btn btn-outline">Batal</button>
+    <button onclick="cekDataSaveEdit()" class="btn btn-primary"><i class="fas fa-save"></i> Simpan Perubahan</button>
+  `);
+}
+
+function cekDataSaveEdit() {
+  const originalNik = document.getElementById('ce-original-nik').value;
+  
+  const payload = {
+    nik: originalNik,
+    username: currentUser?.username || 'admin',
+    'Nama Lengkap': document.getElementById('ce-nama').value,
+    'Jenis Kelamin': document.getElementById('ce-jk').value,
+    'Tempat Lahir': document.getElementById('ce-tempat-lahir').value,
+    'Tanggal Lahir': document.getElementById('ce-tgl-lahir').value,
+    'Alamat Sesuai KTP': document.getElementById('ce-alamat-ktp').value,
+    'Nomor STR': document.getElementById('ce-nomor-str').value,
+    'Status STR': document.getElementById('ce-status-str').value,
+    'Status SIP': document.getElementById('ce-status-sip').value,
+    'Nomor SIP': document.getElementById('ce-nomor-sip').value,
+    'Masa Berlaku SIP': document.getElementById('ce-masa-sip').value,
+    'Unit Kerja': document.getElementById('ce-unit-kerja').value,
+    'Alamat Unit Kerja': document.getElementById('ce-alamat-unit').value,
+    'Desa Kelurahan Unit Kerja': document.getElementById('ce-desa').value,
+    'Status Unit Praktik di SatuSehat SDMK': document.getElementById('ce-satu-sehat').value,
+    'SOP Pelayanan': document.getElementById('ce-sop1').value,
+    'SOP Profesi': document.getElementById('ce-sop2').value,
+    'SOP Etika': document.getElementById('ce-sop3').value,
+    'SDMK Named': document.getElementById('ce-sdmk-named').value,
+    'SDMK Nakes': document.getElementById('ce-sdmk-nakes').value,
+    'SDMK Admin': document.getElementById('ce-sdmk-admin').value,
+    'Jam Operasional Praktik': document.getElementById('ce-jam').value,
+    'Pendidikan Sesuai STR': document.getElementById('ce-pendidikan').value,
+    'Catatan Rekomendasi': document.getElementById('ce-catatan').value
+  };
+  
+  const btns = document.querySelectorAll('#modal-footer .btn');
+  btns.forEach(b => b.disabled = true);
+  
+  apiCall('updateVervalByNik', payload, 'POST').then(res => {
+    btns.forEach(b => b.disabled = false);
+    if (res.success) {
+      showToast('Data verval berhasil diperbarui!', 'success');
+      closeModal();
+      // Re-trigger search to refresh view
+      const nama = document.getElementById('cek-data-nama')?.value;
+      if (nama && nama.length >= 2) cekDataSearchFull(nama);
+    } else {
+      showToast(res.error || 'Gagal memperbarui data', 'error');
+    }
+  }).catch(() => {
+    btns.forEach(b => b.disabled = false);
+    showToast('Gagal menyimpan perubahan', 'error');
+  });
 }
 
 // ==================== PANEL ADMIN ====================
