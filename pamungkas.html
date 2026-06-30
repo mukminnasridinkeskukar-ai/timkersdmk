@@ -1474,9 +1474,137 @@
         </div>
     </div>
 
-    <script src="js/config.js"></script>
-    <script src="js/api.js"></script>
     <script>
+        const CONFIG = {
+            WEB_APP_URL: "https://script.google.com/macros/s/AKfycbwAv9WXD49UCcSk3H94hy08zqEGwkpTlUXWQUhLtqe2kmZc8vvQ29jSj-Q-BapqWX5S_w/exec",
+
+            SHEETS: {
+                DASHBOARD: "Dashboard",
+                PENDAFTARAN: "Pendaftaran",
+                USER: "Admin_User",
+                UNIT_KERJA: "Master_Unit_Kerja",
+                PROFESI: "Master_Profesi",
+                SDMK: "Master_Jenis_SDMK"
+            }
+        };
+
+        async function apiRequest(action, params = {}) {
+            const url = CONFIG.WEB_APP_URL + '?action=' + action;
+            const options = {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(params)
+            };
+            
+            try {
+                const response = await fetch(url, options);
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('API Error:', error);
+                return { success: false, message: 'Terjadi kesalahan koneksi: ' + error.message };
+            }
+        }
+
+        async function apiGet(action, params = {}) {
+            const url = new URL(CONFIG.WEB_APP_URL);
+            url.searchParams.append('action', action);
+            Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+            
+            try {
+                const response = await fetch(url.toString(), { method: 'GET', mode: 'cors' });
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('API Error:', error);
+                return { success: false, message: 'Terjadi kesalahan koneksi: ' + error.message };
+            }
+        }
+
+        async function getDashboard() {
+            return await apiGet('getDashboard');
+        }
+
+        async function getPendaftaran(id = null) {
+            if (id) {
+                return await apiGet('getPendaftaran', { id });
+            }
+            return await apiGet('refreshPendaftaran');
+        }
+
+        async function savePendaftaran(payload) {
+            return await apiRequest('savePendaftaran', payload);
+        }
+
+        async function updatePendaftaran(id, payload) {
+            return await apiRequest('updatePendaftaran', { id, ...payload });
+        }
+
+        async function deletePendaftaran(id) {
+            return await apiRequest('deletePendaftaran', { id });
+        }
+
+        async function searchPendaftaran(query) {
+            return await apiGet('searchPendaftaran', { query });
+        }
+
+        async function filterPendaftaran(filters) {
+            return await apiRequest('filterPendaftaran', filters);
+        }
+
+        async function getMasterUnitKerja() {
+            return await apiGet('getMasterUnitKerja');
+        }
+
+        async function getMasterJenisSdmk() {
+            return await apiGet('getMasterJenisSdmk');
+        }
+
+        async function getMasterProfesi() {
+            return await apiGet('getMasterProfesi');
+        }
+
+        async function uploadFile(file, fileName) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('fileName', fileName);
+            
+            const url = CONFIG.WEB_APP_URL + '?action=uploadFile';
+            const options = {
+                method: 'POST',
+                body: formData
+            };
+            
+            try {
+                const response = await fetch(url, options);
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Upload Error:', error);
+                return { success: false, message: 'Upload gagal: ' + error.message };
+            }
+        }
+
+        async function exportExcelPendaftaran() {
+            return await apiGet('exportExcelPendaftaran');
+        }
+
+        async function importExcelPendaftaran(csvText) {
+            return await apiRequest('importExcelPendaftaran', { csv: csvText });
+        }
+
+        function showLoading(show = true) {
+            const loader = document.getElementById('loadingIndicator');
+            if (loader) loader.style.display = show ? 'block' : 'none';
+        }
+
+        function showNotification(message, isSuccess = true) {
+            alert(message);
+        }
+    </script>
         // ============================================================
         //  SCRIPT – PAMUNGKAS
         // ============================================================
