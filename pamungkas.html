@@ -1570,171 +1570,7 @@
             if (e.target === this) closeDashboardModal();
         });
 
-        // ---- FORM SUBMISSIONS (demo) ----
-        // ---- helpers google.script.run wrapper ----
-        function gsCall_(fnName, params = {}, onSuccess, onError) {
-            try {
-                google.script.run
-                    .withSuccessHandler(onSuccess)
-                    .withFailureHandler(onError || function(err){ console.error(err); alert('Gagal: ' + (err && err.message ? err.message : err)); })
-                    [fnName](params);
-            } catch (e) {
-                console.error(e);
-                alert('Error pemanggilan backend: ' + e.message);
-            }
-        }
-
-        function fillDashboard_() {
-            if (typeof google === 'undefined' || !google.script || !google.script.run) return;
-            gsCall_('getDashboard', {}, function(res) {
-                if (!res || !res.ok) return;
-                document.getElementById('statPeserta').textContent = res.stats.totalPeserta;
-                document.getElementById('statKegiatan').textContent = res.stats.kegiatanAktif;
-                document.getElementById('statSDMK').textContent = res.stats.totalSDMK;
-                document.getElementById('statSertifikat').textContent = res.stats.sertifikatTerbit;
-
-                // Modal summary (tetap dengan struktur HTML yang ada)
-                const modal = document.getElementById('dashboardModal');
-                const nums = modal.querySelectorAll('.mini-stat .num');
-                if (nums && nums.length >= 6) {
-                    nums[0].textContent = res.stats.totalPeserta;
-                    nums[1].textContent = res.stats.kegiatanAktif;
-                    nums[2].textContent = res.stats.totalSDMK;
-                    nums[3].textContent = res.stats.sertifikatTerbit;
-                    // placeholder untuk materi/admin (karena HTML modal label tetap)
-                    nums[4].textContent = res.stats.materiTersedia;
-                    nums[5].textContent = res.stats.adminTerdaftar;
-                }
-            });
-        }
-
-        function refreshTables_() {
-            // Jadwal
-            if (typeof google !== 'undefined' && google.script && google.script.run) {
-                google.script.run.withSuccessHandler(function(res){
-                    if (!res || !res.ok) return;
-                    renderTable_('page-jadwal', res.rows, ['#','namaKegiatan','tanggalMulai','tanggalSelesai','lokasi','status']);
-                }).withFailureHandler(function(e){ console.error(e); }).refreshJadwal();
-
-                // Peserta
-                const pesertaInput = document.querySelector('#page-cek-peserta input');
-                const qPeserta = pesertaInput ? pesertaInput.value : '';
-                google.script.run.withSuccessHandler(function(res){
-                    if (!res || !res.ok) return;
-                    const rows = res.rows || [];
-                    renderTable_('page-cek-peserta', rows, ['nama','nik','profesi','kegiatan','status'], function(i){ return i; });
-                }).withFailureHandler(function(e){ console.error(e); }).searchPeserta(qPeserta);
-
-                // Sertifikat
-                const sertInput = document.querySelector('#page-cek-sertifikat input');
-                const qSert = sertInput ? sertInput.value : '';
-                google.script.run.withSuccessHandler(function(res){
-                    if (!res || !res.ok) return;
-                    const rows = res.rows || [];
-                    renderTableSertifikat_('page-cek-sertifikat', rows);
-                }).withFailureHandler(function(e){ console.error(e); }).searchSertifikat(qSert);
-
-                // Materi
-                google.script.run.withSuccessHandler(function(res){
-                    if (!res || !res.ok) return;
-                    renderTableMateri_('page-cek-materi', res.rows || []);
-                }).withFailureHandler(function(e){ console.error(e); }).refreshMateri();
-            }
-        }
-
-        function statusBadge_(status) {
-            const s = String(status || '').toLowerCase();
-            if (s === 'aktif') return '<span class="status-badge aktif">Aktif</span>';
-            if (s === 'pending') return '<span class="status-badge pending">Pending</span>';
-            if (s === 'selesai') return '<span class="status-badge selesai">Selesai</span>';
-            if (s === 'draft') return '<span class="status-badge draft">Draft</span>';
-            // kasus untuk sertifikat
-            if (s === 'diterbitkan') return '<span class="status-badge selesai">Diterbitkan</span>';
-            if (s === 'proses') return '<span class="status-badge pending">Proses</span>';
-            return '<span class="status-badge draft">' + String(status || '-') + '</span>';
-        }
-
-        function renderTable_(pageId, rows, fieldKeys) {
-            const page = document.getElementById(pageId);
-            if (!page) return;
-            const tbody = page.querySelector('tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            rows.forEach((r, idx) => {
-                const tr = document.createElement('tr');
-                const tds = [];
-                // khusus: untuk jadwal tabel ada kolom #
-                if (fieldKeys.length === 6 && pageId === 'page-jadwal') {
-                    tds.push(String(idx+1));
-                    tds.push(r[fieldKeys[1]] || '');
-                    tds.push(r[fieldKeys[2]] ? String(r[fieldKeys[2]]).replace('T',' ') : '');
-                    tds.push(r[fieldKeys[3]] ? String(r[fieldKeys[3]]).replace('T',' ') : '');
-                    tds.push(r[fieldKeys[4]] || '');
-                    tds.push(statusBadge_(r[fieldKeys[5]]));
-                } else {
-                    // cek peserta: [nama, nik, profesi, kegiatan, status]
-                    tds.push(String(idx+1));
-                    tds.push(r[fieldKeys[0]] || '');
-                    tds.push(r[fieldKeys[1]] || '');
-                    tds.push(r[fieldKeys[2]] || '');
-                    tds.push(r[fieldKeys[3]] || '');
-                    tds.push(statusBadge_(r[fieldKeys[4]]));
-                }
-                tr.innerHTML = tds.map(x => '<td>'+ x +'</td>').join('');
-                tbody.appendChild(tr);
-            });
-        }
-
-        function renderTableSertifikat_(pageId, rows) {
-            const page = document.getElementById(pageId);
-            const tbody = page.querySelector('tbody');
-            tbody.innerHTML = '';
-            rows.forEach((r, idx) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = [
-                    idx+1,
-                    r.namaPenerima || '',
-                    r.nomorSertifikat || '',
-                    r.kegiatan || '',
-                    r.tanggalTerbit || '',
-                    statusBadge_(r.status)
-                ].map(x => '<td>'+x+'</td>').join('');
-                tbody.appendChild(tr);
-            });
-        }
-
-        function renderTableMateri_(pageId, rows) {
-            const page = document.getElementById(pageId);
-            const tbody = page.querySelector('tbody');
-            tbody.innerHTML = '';
-            rows.forEach((r, idx) => {
-                const tr = document.createElement('tr');
-                const downloadBtn = '<button class="btn btn-sm btn-outline" onclick="window.__downloadMateri && window.__downloadMateri(\'' + (r.materiId||'') + '\')"><i class="fas fa-download"></i> Download</button>';
-                tr.innerHTML = [
-                    idx+1,
-                    r.judul || '',
-                    r.kategori || '',
-                    r.penyusun || '',
-                    r.tanggalUpload || '',
-                    downloadBtn
-                ].map(x => '<td>'+x+'</td>').join('');
-                tbody.appendChild(tr);
-            });
-        }
-
-        window.__downloadMateri = function(materiId) {
-            if (!google || !google.script || !google.script.run) return;
-            google.script.run.withSuccessHandler(function(res){
-                if (!res || !res.ok) { alert('Materi tidak ditemukan'); return; }
-                if (res.materi && res.materi.fileUrl) {
-                    window.open(res.materi.fileUrl, '_blank');
-                } else {
-                    alert('Materi tersedia tapi fileUrl belum diisi.');
-                }
-            }).withFailureHandler(function(e){ alert('Gagal download: ' + (e && e.message ? e.message : e)); }).downloadMateri(materiId);
-        };
-
-// ---- FORM SUBMISSIONS (backend) ----
+        // ---- FORM SUBMISSIONS (backend) ----
         // ---- helpers google.script.run wrapper ----
         function gsCall_(fnName, params = {}, onSuccess, onError) {
             try {
@@ -1762,6 +1598,10 @@
 
         function renderStatusBadge_(status) {
             const s = String(status || '').toLowerCase();
+            if (s === 'terverifikasi') return '<span class="status-badge selesai">Terverifikasi</span>';
+            if (s === 'belum_verifikasi') return '<span class="status-badge pending">Belum Verifikasi</span>';
+            return '<span class="status-badge draft">' + (status || '-') + '</span>';
+        }
             if (s === 'terverifikasi') return '<span class="status-badge selesai">Terverifikasi</span>';
             if (s === 'belum_verifikasi') return '<span class="status-badge pending">Belum Verifikasi</span>';
             return '<span class="status-badge draft">' + (status || '-') + '</span>';
