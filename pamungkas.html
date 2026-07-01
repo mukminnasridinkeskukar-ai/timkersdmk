@@ -1489,7 +1489,7 @@ function levelIcon(){
 // GANTI INI dengan URL Web App Google Apps Script Anda.
 // Format: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 // Dapatkan dari: Deploy > Manage deployments > salin URL Web App
-var APP_URL = 'https://script.google.com/macros/s/AKfycbx8s62Yxs69-6jef31cWhw2myg-arm1kSXbNhvfBkGJreLcGF1Hc9ii3GrS5yIwpPLheg/exec';
+var APP_URL = 'https://script.google.com/macros/s/AKfycbyaRb4X13OM2gu6LJaRPWmjHs0Dksh3D1NnBA0NunimQBgTJNwMvx6asnSOguJuwttCuw/exec';
 
 /* ========== API HELPER — callServer() via JSONP ==========
  * Menggunakan JSONP (dynamic <script> tag) bukan fetch().
@@ -2338,6 +2338,117 @@ function generateBuktiPendaftaran(){
   showToast('Bukti pendaftaran berhasil didownload.','success');
 }
 
+/* ========== BUKTI PENDAFTARAN PDF ========== */
+function generateBuktiPendaftaran(regID, data){
+  try {
+    var nama = data['Nama Lengkap dengan Gelar'] || '-';
+    var unit = data['Unit Kerja'] || '-';
+    var judul = data['Judul Kegiatan'] || '-';
+    var tanggal = data['Tanggal'] || '-';
+    var tanggalJam = data['Tanggal & Jam Daftar'] || '-';
+
+    var { jsPDF } = window.jspdf;
+    var doc = new jsPDF('p', 'mm', 'a4');
+    var pw = doc.internal.pageSize.getWidth();
+    var ph = doc.internal.pageSize.getHeight();
+    var lm = 25; // left margin
+    var rm = 25; // right margin
+    var cw = pw - lm - rm; // content width
+
+    // ===== HEADER BORDER =====
+    doc.setDrawColor(0, 70, 140);
+    doc.setLineWidth(1.2);
+    doc.rect(15, 12, pw - 30, ph - 24);
+    doc.setLineWidth(0.4);
+    doc.rect(17, 14, pw - 34, ph - 28);
+
+    // ===== TITLE =====
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(0, 70, 140);
+    doc.text('BUKTI PENDAFTARAN', pw / 2, 30, { align: 'center' });
+
+    // ===== SUBTITLE =====
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text('Dokumen ini merupakan bukti resmi pendaftaran kegiatan.', pw / 2, 37, { align: 'center' });
+
+    // ===== SEPARATOR LINE =====
+    doc.setDrawColor(0, 70, 140);
+    doc.setLineWidth(0.6);
+    doc.line(lm, 42, pw - rm, 42);
+
+    // ===== DATA TABLE using autoTable =====
+    var tableData = [
+      ['ID Pendaftaran', regID],
+      ['Nama Lengkap dengan Gelar', nama],
+      ['Unit Kerja', unit],
+      ['Judul Kegiatan', judul],
+      ['Tanggal Kegiatan', tanggal],
+      ['Tanggal & Jam Daftar', tanggalJam],
+      ['Status', 'Pending (Menunggu Verifikasi)']
+    ];
+
+    doc.autoTable({
+      startY: 48,
+      margin: { left: lm, right: rm },
+      body: tableData,
+      theme: 'plain',
+      styles: {
+        fontSize: 11,
+        cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
+        lineColor: [200, 200, 200],
+        lineWidth: 0.2,
+        font: 'helvetica',
+        textColor: [30, 30, 30]
+      },
+      columnStyles: {
+        0: {
+          fontStyle: 'bold',
+          cellWidth: 58,
+          textColor: [0, 70, 140],
+          halign: 'left'
+        },
+        1: {
+          cellWidth: cw - 58,
+          halign: 'left'
+        }
+      },
+      didDrawCell: function(data) {
+        // Draw bottom border on last row
+        if (data.row.index === tableData.length - 1 && data.section === 'body') {
+          doc.setDrawColor(0, 70, 140);
+          doc.setLineWidth(0.3);
+          doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+        }
+      }
+    });
+
+    // ===== FOOTER NOTE =====
+    var finalY = doc.lastAutoTable.finalY + 12;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 100, 100);
+    doc.text('Bukti pendaftaran ini digenerate secara otomatis pada saat pendaftaran berhasil disubmit.', lm, finalY, { maxWidth: cw });
+    doc.text('Simpan dokumen ini sebagai bukti pendaftaran Anda.', lm, finalY + 5, { maxWidth: cw });
+
+    // ===== TIMESTAMP BOTTOM-RIGHT =====
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Generated: ' + new Date().toLocaleString('id-ID'), pw - rm, ph - 18, { align: 'right' });
+
+    // ===== SAVE =====
+    var filename = 'Bukti_Pendaftaran_' + regID.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf';
+    doc.save(filename);
+    showToast('Bukti pendaftaran berhasil diunduh!', 'success');
+  } catch(err) {
+    console.error('PDF generation error:', err);
+    showToast('Gagal membuat bukti pendaftaran: ' + (err.message || err), 'error');
+  }
+}
+
 function submitPendaftaran(e){e.preventDefault();
   /* ===== VALIDASI SEMUA FIELD WAJIB DIISI ===== */
   var requiredFields=[
@@ -2398,6 +2509,7 @@ function submitPendaftaran(e){e.preventDefault();
     btn.disabled=false;btn.innerHTML='<i class=\'fas fa-paper-plane\'></i> Kirim Pendaftaran';
     showToast(res.message,res.success?'success':'error');
     if(res.success){
+      generateBuktiPendaftaran(regID, data);
       document.getElementById('pendaftaranForm').reset();
       document.getElementById('regFotoPreview').classList.remove('has-image');
       document.getElementById('regFotoPreview').innerHTML='<i class=\'fas fa-camera\'></i><span>Preview Foto</span>';
