@@ -645,7 +645,24 @@
 .crud-status.pending,.crud-status.menunggu{background:rgba(245,158,11,.1);color:#D97706;}
 
 
-    /* ===== CEK PENDAFTARAN ===== */
+    /* ===== BUKTI PENDAFTARAN MODAL ===== */
+  .bukti-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:10001;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeIn .3s ease;}
+  .bukti-modal-box{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-xl);max-width:480px;width:90%;padding:0;overflow:hidden;animation:fadeSlideUp .4s ease;}
+  .bukti-modal-header{background:linear-gradient(135deg,#0D6EFD,#0A58CA);color:#fff;padding:24px 28px;text-align:center;}
+  .bukti-modal-header h3{font-size:1.15rem;font-weight:700;margin-bottom:4px;}
+  .bukti-modal-header p{font-size:.82rem;opacity:.85;}
+  .bukti-modal-body{padding:28px;}
+  .bukti-icon{width:64px;height:64px;border-radius:50%;background:var(--secondary-light);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .bukti-icon i{font-size:1.6rem;color:var(--secondary);}
+  .bukti-fields{margin-top:16px;}
+  .bukti-field{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border-color);}
+  .bukti-field:last-child{border-bottom:none;}
+  .bukti-field .bf-label{font-size:.78rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;min-width:120px;}
+  .bukti-field .bf-value{font-size:.88rem;color:var(--text-primary);font-weight:500;text-align:right;flex:1;margin-left:12px;word-break:break-word;}
+  .bukti-modal-footer{padding:16px 28px 24px;display:flex;gap:10px;justify-content:center;}
+  .bukti-modal-footer .btn{flex:1;justify-content:center;}
+
+/* ===== CEK PENDAFTARAN ===== */
     .cek-reg-search{max-width:560px;margin:0 auto 24px;text-align:center;}
     .cek-reg-search p{margin-bottom:12px;color:var(--text-secondary);font-size:.9rem;}
     .cek-reg-search-box{position:relative;display:flex;align-items:center;gap:0;}
@@ -1472,7 +1489,7 @@ function levelIcon(){
 // GANTI INI dengan URL Web App Google Apps Script Anda.
 // Format: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 // Dapatkan dari: Deploy > Manage deployments > salin URL Web App
-var APP_URL = 'https://script.google.com/macros/s/AKfycbwmrZ23n5svOdB0Wn5V5sxT_lkcjCZ-ZnxbLBw0vc8pLbnntFdpGY0ocNYSScc9Iz51ww/exec';
+var APP_URL = 'https://script.google.com/macros/s/AKfycbx8s62Yxs69-6jef31cWhw2myg-arm1kSXbNhvfBkGJreLcGF1Hc9ii3GrS5yIwpPLheg/exec';
 
 /* ========== API HELPER — callServer() via JSONP ==========
  * Menggunakan JSONP (dynamic <script> tag) bukan fetch().
@@ -2201,6 +2218,126 @@ function renderPendaftaranTable(data){
   });
 }
 function filterPendaftaran(){var el=document.getElementById('searchPendaftaran');if(!el)return;var q=el.value.toLowerCase();var f=_allPendaftaran.filter(function(r){return Object.values(r).some(function(v){return String(v).toLowerCase().indexOf(q)!==-1;});});renderPendaftaranTable(f);}
+
+/* ========== BUKTI PENDAFTARAN (PDF) ========== */
+function showBuktiModal(d){
+  var id=d['ID Pendaftaran']||d['ID']||'-';
+  var nama=d['Nama Lengkap dengan Gelar']||'-';
+  var unit=d['Unit Kerja']||'-';
+  var judul=d['Judul Kegiatan']||'-';
+  var tgl=d['Tanggal']||d['Tanggal & Jam Daftar']||new Date().toLocaleDateString('id-ID');
+
+  var h='<div class="bukti-modal-overlay" id="buktiModalOverlay" onclick="if(event.target===this)closeBuktiModal()">';
+  h+='<div class="bukti-modal-box">';
+  h+='<div class="bukti-modal-header"><h3>Pendaftaran Berhasil!</h3><p>Data Anda telah tersimpan di sistem.</p></div>';
+  h+='<div class="bukti-modal-body">';
+  h+='<div class="bukti-icon"><i class="fas fa-check-circle"></i></div>';
+  h+='<div class="bukti-fields">';
+  h+='<div class="bukti-field"><span class="bf-label">ID Pendaftaran</span><span class="bf-value">'+escHTML(id)+'</span></div>';
+  h+='<div class="bukti-field"><span class="bf-label">Nama</span><span class="bf-value">'+escHTML(nama)+'</span></div>';
+  h+='<div class="bukti-field"><span class="bf-label">Unit Kerja</span><span class="bf-value">'+escHTML(unit)+'</span></div>';
+  h+='<div class="bukti-field"><span class="bf-label">Judul Kegiatan</span><span class="bf-value">'+escHTML(judul)+'</span></div>';
+  h+='<div class="bukti-field"><span class="bf-label">Tanggal</span><span class="bf-value">'+escHTML(tgl)+'</span></div>';
+  h+='</div></div>';
+  h+='<div class="bukti-modal-footer">';
+  h+='<button class="btn btn-secondary" onclick="closeBuktiModal()"><i class="fas fa-times"></i> Tutup</button>';
+  h+='<button class="btn btn-primary" onclick="generateBuktiPendaftaran()"><i class="fas fa-file-pdf"></i> Download Bukti</button>';
+  h+='</div></div></div>';
+
+  // Store data for PDF generation
+  window._buktiData={id:id,nama:nama,unit:unit,judul:judul,tgl:tgl};
+  document.body.insertAdjacentHTML('beforeend',h);
+}
+
+function closeBuktiModal(){
+  var el=document.getElementById('buktiModalOverlay');
+  if(el)el.remove();
+}
+
+function generateBuktiPendaftaran(){
+  if(typeof jspdf==='undefined'){showToast('Library jsPDF belum dimuat.','error');return;}
+  var d=window._buktiData;
+  if(!d){showToast('Data bukti tidak tersedia.','error');return;}
+
+  var {jsPDF}=jspdf;
+  var doc=new jsPDF('p','mm','a4');
+  var pw=doc.internal.pageSize.getWidth();
+  var ph=doc.internal.pageSize.getHeight();
+  var lm=20,rm=20,tm=15;
+
+  /* ===== BORDER FRAME ===== */
+  doc.setDrawColor(13,110,253);
+  doc.setLineWidth(1.2);
+  doc.roundedRect(lm-4,tm-4,pw-lm-rm+8,ph-tm-15+8,4,4,'S');
+  doc.setLineWidth(0.3);
+  doc.roundedRect(lm-1.5,tm-1.5,pw-lm-rm+3,ph-tm-15+3,2,2,'S');
+
+  /* ===== HEADER ===== */
+  doc.setFillColor(13,110,253);
+  doc.roundedRect(lm,tm,pw-lm-rm,28,3,3,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica','bold');
+  doc.text('PAMUNGKAS',pw/2,tm+12,{align:'center'});
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  doc.text('Pengelolaan Pengembangan Mutu dan Peningkatan Kompetensi SDM Kesehatan',pw/2,tm+19,{align:'center'});
+
+  /* ===== TITLE ===== */
+  var y=tm+40;
+  doc.setTextColor(30,41,59);
+  doc.setFontSize(14);
+  doc.setFont('helvetica','bold');
+  doc.text('BUKTI PENDAFTARAN',pw/2,y,{align:'center'});
+  doc.setDrawColor(13,110,253);
+  doc.setLineWidth(0.6);
+  doc.line(lm+20,y+3,rm+20,y+3);
+
+  /* ===== DATA FIELDS ===== */
+  y+=16;
+  doc.autoTable({
+    startY:y,
+    margin:{left:lm+8,right:rm+8},
+    body:[
+      ['ID Pendaftaran',d.id],
+      ['Nama Lengkap dengan Gelar',d.nama],
+      ['Unit Kerja',d.unit],
+      ['Judul Kegiatan',d.judul],
+      ['Tanggal',d.tgl]
+    ],
+    columnStyles:{
+      0:{fontStyle:'bold',cellWidth:55,fontSize:9.5,textColor:[100,116,139]},
+      1:{cellWidth:'auto',fontSize:10,textColor:[30,41,59]}
+    },
+    theme:'plain',
+    styles:{cellPadding:{top:5,bottom:5,left:4,right:4},lineColor:[226,232,240],lineWidth:0.2},
+    alternateRowStyles:{fillColor:[248,250,252]}
+  });
+
+  /* ===== STATUS BADGE ===== */
+  y=doc.lastAutoTable.finalY+14;
+  doc.setFillColor(16,185,129);
+  doc.roundedRect(pw/2-22,y-4,44,8,2,2,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(8);
+  doc.setFont('helvetica','bold');
+  doc.text('STATUS: PENDING',pw/2,y+1.5,{align:'center'});
+
+  /* ===== FOOTER ===== */
+  doc.setTextColor(148,163,184);
+  doc.setFontSize(7);
+  doc.setFont('helvetica','normal');
+  var footerY=ph-22;
+  doc.setDrawColor(226,232,240);
+  doc.setLineWidth(0.3);
+  doc.line(lm,footerY-3,pw-rm,footerY-3);
+  doc.text('Dokumen ini digenerate secara otomatis oleh sistem PAMUNGKAS.',pw/2,footerY+2,{align:'center'});
+  doc.text('Waktu cetak: '+new Date().toLocaleString('id-ID'),pw/2,footerY+7,{align:'center'});
+
+  doc.save('Bukti_Pendaftaran_'+d.id+'.pdf');
+  showToast('Bukti pendaftaran berhasil didownload.','success');
+}
+
 function submitPendaftaran(e){e.preventDefault();
   /* ===== VALIDASI SEMUA FIELD WAJIB DIISI ===== */
   var requiredFields=[
