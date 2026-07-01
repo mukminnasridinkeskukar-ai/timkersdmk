@@ -764,6 +764,41 @@ var currentPage = 'dashboard';
 var _dataCache = {}; // cache data per sheet
 var _allPengumuman = [], _allSDMK = [], _allPendaftaran = [], _allSertifikat = [], _allMateri = [], _allAdmin = [];
 
+
+/* ========== KONFIGURASI API ========== */
+// GANTI INI dengan URL Web App Google Apps Script Anda.
+// Format: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
+// Dapatkan dari: Deploy > Manage deployments > salin URL Web App
+var APP_URL = 'https://script.google.com/macros/s/AKfycbyaBE5znZhGomeQE9M6_WPkef5duPyT51XugvelFvEkpF4STcz0NoX-Np7JccR3cw5Brg/exec';
+
+/* ========== API HELPER — callServer() ========== */
+/**
+ * Mengirim request ke backend Google Apps Script.
+ * Menggantikan google.script.run yang hanya bekerja di dalam Apps Script.
+ *
+ * @param {string} action - Nama fungsi backend (contoh: 'getPengumuman')
+ * @param {*} data - Data yang dikirim (object, string, number, atau null)
+ * @returns {Promise<Object>} Response dari server {success, message, [data]}
+ */
+async function callServer(action, data) {
+  var payload = { action: action };
+  if (data !== undefined && data !== null) payload.data = data;
+
+  var response = await fetch(APP_URL, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+
+  var text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(text || 'Response bukan JSON valid');
+  }
+}
+
 var pageConfig = {
   'dashboard':{title:'Dashboard',subtitle:'Ringkasan data dan statistik'},
   'pengumuman':{title:'Pengumuman',subtitle:'Informasi dan pengumuman resmi'},
@@ -824,12 +859,13 @@ function showAdminButtons(){if(isAdmin){document.getElementById('btnTambahPengum
 /* ========== DASHBOARD ========== */
 function loadDashboard(){
   showLoading('Memuat data dashboard...');
-  google.script.run.withSuccessHandler(function(data){
+  callServer('getDashboardData').then(function(res){
     hideLoading();
-    if(!data){showToast('Data tidak tersedia. Pastikan Spreadsheet terhubung.','error');renderEmptyDashboard();return;}
+    if(!res||!res.success){showToast(res?res.message:'Data tidak tersedia. Pastikan Spreadsheet terhubung.','error');renderEmptyDashboard();return;}
+    var data=res.data;
     renderStatCards(data.summary||{});
     renderDashboardTable(data.recentRegistrations||[]);
-  }).withFailureHandler(function(e){hideLoading();showToast('Gagal memuat data: '+(e.message||e),'error');renderEmptyDashboard();}).getDashboardData();
+  }).catch(function(e){hideLoading();showToast('Gagal memuat data: '+(e.message||e),'error');renderEmptyDashboard();});
 }
 function renderStatCards(s){
   var g=document.getElementById('statsGrid');
@@ -882,11 +918,11 @@ function openDetailModal(title,content){
 /* ========== PENGUMUMAN ========== */
 function loadPengumuman(){
   showLoading('Memuat pengumuman...');
-  google.script.run.withSuccessHandler(function(res){
+  callServer('getPengumuman').then(function(res){
     hideLoading();
     if(!res||!res.success){showToast(res?res.message:'Gagal memuat pengumuman','error');return;}
     _allPengumuman=res.data||[];renderPengumuman(_allPengumuman);showAdminButtons();
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getPengumuman();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 function renderPengumuman(data){
   var g=document.getElementById('pengumumanGrid'),em=document.getElementById('pengumumanEmpty');
@@ -905,17 +941,17 @@ function submitPengumuman(e){e.preventDefault();var idx=parseInt(document.getEle
   showLoading('Menyimpan...');
   var done=function(res){hideLoading();closeModal('pengumumanFormModal');showToast(res.message,res.success?'success':'error');if(res.success)loadPengumuman();};
   var fail=function(e){hideLoading();showToast('Error: '+(e.message||e),'error');};
-  if(idx>=0)google.script.run.withSuccessHandler(done).withFailureHandler(fail).updatePengumuman(idx,data);
-  else google.script.run.withSuccessHandler(done).withFailureHandler(fail).tambahPengumuman(data);
+  if(idx>=0)callServer('updatePengumuman',{idx:idx,data:data}).then(done).catch(fail);
+  else callServer('tambahPengumuman',data).then(done).catch(fail);
 }
 
 /* ========== PROFIL SDMK ========== */
 function loadSDMK(){
   showLoading('Memuat data SDMK...');
-  google.script.run.withSuccessHandler(function(res){
+  callServer('getSDMK').then(function(res){
     hideLoading();if(!res||!res.success){showToast(res?res.message:'Gagal memuat SDMK','error');return;}
     _allSDMK=res.data||[];renderSDMKTable(_allSDMK);showAdminButtons();
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getSDMK();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 function renderSDMKTable(data){
   var tb=document.getElementById('sdmkTableBody'),hd=document.getElementById('sdmkTableHead'),em=document.getElementById('sdmkEmpty');
@@ -938,17 +974,17 @@ function submitSDMK(e){e.preventDefault();var idx=parseInt(document.getElementBy
   showLoading('Menyimpan...');
   var done=function(res){hideLoading();closeModal('sdmkFormModal');showToast(res.message,res.success?'success':'error');if(res.success)loadSDMK();};
   var fail=function(e){hideLoading();showToast('Error: '+(e.message||e),'error');};
-  if(idx>=0)google.script.run.withSuccessHandler(done).withFailureHandler(fail).updateSDMK(idx,data);
-  else google.script.run.withSuccessHandler(done).withFailureHandler(fail).tambahSDMK(data);
+  if(idx>=0)callServer('updateSDMK',{idx:idx,data:data}).then(done).catch(fail);
+  else callServer('tambahSDMK',data).then(done).catch(fail);
 }
 
 /* ========== PENDAFTARAN ========== */
 function loadPendaftaran(){
   showLoading('Memuat data pendaftaran...');
-  google.script.run.withSuccessHandler(function(res){
+  callServer('getPendaftaran').then(function(res){
     hideLoading();if(!res||!res.success){showToast(res?res.message:'Gagal memuat pendaftaran','error');return;}
     _allPendaftaran=res.data||[];renderPendaftaranTable(_allPendaftaran);
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getPendaftaran();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 function renderPendaftaranTable(data){
   var tb=document.getElementById('pendaftaranTableBody'),hd=document.getElementById('pendaftaranTableHead'),em=document.getElementById('pendaftaranEmpty');
@@ -986,7 +1022,7 @@ function submitPendaftaran(e){e.preventDefault();
     'Status':'Pending'
   };
   var btn=document.getElementById('btnSubmitPendaftaran');btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Mengirim...';
-  google.script.run.withSuccessHandler(function(res){btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i> Kirim Pendaftaran';showToast(res.message,res.success?'success':'error');if(res.success){document.getElementById('pendaftaranForm').reset();loadPendaftaran();}}).withFailureHandler(function(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i> Kirim Pendaftaran';showToast('Error: '+(e.message||e),'error');}).tambahPendaftaran(data);
+  callServer('tambahPendaftaran',data).then(function(res){btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i> Kirim Pendaftaran';showToast(res.message,res.success?'success':'error');if(res.success){document.getElementById('pendaftaranForm').reset();loadPendaftaran();}}).catch(function(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane"></i> Kirim Pendaftaran';showToast('Error: '+(e.message||e),'error');});
 }
 function editPendaftaran(i){
   var r=_allPendaftaran[i];
@@ -1013,7 +1049,7 @@ function editPendaftaran(i){
 }
 function saveEditPendaftaran(i){
   var r=_allPendaftaran[i],data={};Object.keys(r).forEach(function(k){var el=document.getElementById('editReg_'+k.replace(/[^a-zA-Z0-9]/g,'_'));if(el)data[k]=el.value;});
-  showLoading('Menyimpan...');google.script.run.withSuccessHandler(function(res){hideLoading();closeModal('detailModal');showToast(res.message,res.success?'success':'error');if(res.success)loadPendaftaran();resetDetailFooter();}).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).updatePendaftaran(i,data);
+  showLoading('Menyimpan...');callServer('updatePendaftaran',{idx:i,data:data}).then(function(res){hideLoading();closeModal('detailModal');showToast(res.message,res.success?'success':'error');if(res.success)loadPendaftaran();resetDetailFooter();}).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 function resetDetailFooter(){document.getElementById('detailModal').querySelector('.modal-footer').innerHTML='<button class="btn btn-secondary" onclick="closeModal(\'detailModal\')">Tutup</button>';}
 
@@ -1021,22 +1057,22 @@ function resetDetailFooter(){document.getElementById('detailModal').querySelecto
 function cariSertifikatAction(){
   var q=document.getElementById('searchSertifikat').value.trim();if(!q){showToast('Masukkan nomor sertifikat.','error');return;}
   var rc=document.getElementById('sertifikatResult');rc.innerHTML='<div class="empty-state"><div class="spinner" style="margin:0 auto 12px;"></div><p>Mencari sertifikat...</p></div>';
-  google.script.run.withSuccessHandler(function(res){
+  callServer('cariSertifikat',{nomor:q}).then(function(res){
     if(!res||!res.success){rc.innerHTML='<div class="sert-result notfound"><i class="fas fa-times-circle"></i><h3>Tidak Ditemukan</h3><p>'+escHTML(res?res.message:'Sertifikat tidak ditemukan')+'</p></div>';return;}
     var r=res.data[0];rc.innerHTML='<div class="sert-result found"><i class="fas fa-check-circle"></i><h3>Sertifikat Valid</h3><p>Sertifikat dengan nomor <strong>'+escHTML(q)+'</strong> terverifikasi.</p></div><div class="card-box" style="margin-top:16px;"><div class="modal-body"><div class="detail-grid">';
     Object.keys(r).forEach(function(k){rc.querySelector('.detail-grid').innerHTML+='<div class="detail-item"><label>'+escHTML(k.replace(/_/g,' '))+'</label><span>'+escHTML(r[k]||'-')+'</span></div>';});
     rc.innerHTML+='</div></div></div>';
-  }).withFailureHandler(function(e){rc.innerHTML='<div class="sert-result notfound"><i class="fas fa-exclamation-circle"></i><h3>Error</h3><p>'+escHTML(e.message||e)+'</p></div>';}).cariSertifikat(q);
+  }).catch(function(e){rc.innerHTML='<div class="sert-result notfound"><i class="fas fa-exclamation-circle"></i><h3>Error</h3><p>'+escHTML(e.message||e)+'</p></div>';});
 }
 
 /* ========== CEK MATERI ========== */
 var _activeMateriCat='Semua';
 function loadMateri(){
   showLoading('Memuat materi...');
-  google.script.run.withSuccessHandler(function(res){
+  callServer('getMateri').then(function(res){
     hideLoading();if(!res||!res.success){showToast(res?res.message:'Gagal memuat materi','error');return;}
     _allMateri=res.data||[];renderMateriCategoryTabs();renderMateriList(_allMateri);showAdminButtons();
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getMateri();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 function renderMateriCategoryTabs(){
   var cats=['Semua'];_allMateri.forEach(function(r){var c=r.Kategori||r.kategori||'Lainnya';if(cats.indexOf(c)===-1)cats.push(c);});
@@ -1061,8 +1097,8 @@ function submitMateri(e){e.preventDefault();var idx=parseInt(document.getElement
   showLoading('Menyimpan...');
   var done=function(res){hideLoading();closeModal('materiFormModal');showToast(res.message,res.success?'success':'error');if(res.success)loadMateri();};
   var fail=function(e){hideLoading();showToast('Error: '+(e.message||e),'error');};
-  if(idx>=0)google.script.run.withSuccessHandler(done).withFailureHandler(fail).updateMateri(idx,data);
-  else google.script.run.withSuccessHandler(done).withFailureHandler(fail).tambahMateri(data);
+  if(idx>=0)callServer('updateMateri',{idx:idx,data:data}).then(done).catch(fail);
+  else callServer('tambahMateri',data).then(done).catch(fail);
 }
 
 /* ========== SERTIFIKAT CRUD (Admin) ========== */
@@ -1071,8 +1107,8 @@ function submitSertifikat(e){e.preventDefault();var idx=parseInt(document.getEle
   showLoading('Menyimpan...');
   var done=function(res){hideLoading();closeModal('sertifikatFormModal');showToast(res.message,res.success?'success':'error');if(res.success){_allSertifikat=[];if(typeof loadAdminSertifikat==='function')loadAdminSertifikat();}};
   var fail=function(e){hideLoading();showToast('Error: '+(e.message||e),'error');};
-  if(idx>=0)google.script.run.withSuccessHandler(done).withFailureHandler(fail).updateSertifikat(idx,data);
-  else google.script.run.withSuccessHandler(done).withFailureHandler(fail).tambahSertifikat(data);
+  if(idx>=0)callServer('updateSertifikat',{idx:idx,data:data}).then(done).catch(fail);
+  else callServer('tambahSertifikat',data).then(done).catch(fail);
 }
 
 /* ========== KONFIRMASI HAPUS ========== */
@@ -1087,7 +1123,7 @@ function executeDelete(sheet,idx){
   var fn=fnMap[sheet];if(!fn){hideLoading();showToast('Sheet tidak dikenali.','error');return;}
   var reloadFn=null;
   switch(sheet){case 'Pengumuman':reloadFn=loadPengumuman;break;case 'SDMK':reloadFn=loadSDMK;break;case 'Pendaftaran':reloadFn=loadPendaftaran;break;case 'Sertifikat':reloadFn=function(){if(typeof loadAdminSertifikat==='function')loadAdminSertifikat();};break;case 'Materi':reloadFn=loadMateri;break;case 'Admin':reloadFn=function(){if(typeof loadAdminList==='function')loadAdminList();};break;}
-  google.script.run.withSuccessHandler(function(res){hideLoading();showToast(res.message,res.success?'success':'error');if(res.success&&reloadFn)reloadFn();}).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');})[fn](idx);
+  callServer(fn,{idx:idx}).then(function(res){hideLoading();showToast(res.message,res.success?'success':'error');if(res.success&&reloadFn)reloadFn();}).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 
 /* ========== ADMIN: LOGIN/LOGOUT ========== */
@@ -1096,7 +1132,7 @@ function handleLogin(e){
   e.preventDefault();var u=document.getElementById('loginUsername').value.trim(),p=document.getElementById('loginPassword').value;
   if(!u||!p){showToast('Username dan password wajib diisi.','error');return;}
   var btn=document.getElementById('btnSubmitLogin');btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Memverifikasi...';
-  google.script.run.withSuccessHandler(function(res){btn.disabled=false;btn.innerHTML='<i class="fas fa-sign-in-alt"></i> Masuk';if(res&&res.success){isAdmin=true;adminUsername=res.username||u;closeModal('loginModal');showToast('Login berhasil! Selamat datang, '+adminUsername+'.','success');updateAdminUI();navigateTo('panel-admin');}else{showToast('Login gagal. '+(res?res.message:'Username atau password salah.'),'error');}}).withFailureHandler(function(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-sign-in-alt"></i> Masuk';showToast('Error: '+(e.message||e),'error');}).validateAdminLogin(u,p);
+  callServer('validateAdminLogin',{username:u,password:p}).then(function(res){btn.disabled=false;btn.innerHTML='<i class="fas fa-sign-in-alt"></i> Masuk';if(res&&res.success){isAdmin=true;adminUsername=res.username||u;closeModal('loginModal');showToast('Login berhasil! Selamat datang, '+adminUsername+'.','success');updateAdminUI();navigateTo('panel-admin');}else{showToast('Login gagal. '+(res?res.message:'Username atau password salah.'),'error');}}).catch(function(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-sign-in-alt"></i> Masuk';showToast('Error: '+(e.message||e),'error');});
 }
 function updateAdminUI(){
   document.getElementById('topbarRight').innerHTML='<button class="btn-logout" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i><span>Logout ('+escHTML(adminUsername)+')</span></button>';
@@ -1134,37 +1170,37 @@ function closeAdminCrud(){
 
 /* Admin: Pengumuman */
 function loadAdminPengumuman(){
-  showLoading('Memuat...');google.script.run.withSuccessHandler(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
+  showLoading('Memuat...');callServer('getPengumuman').then(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
   _allPengumuman=res.data||[];renderAdminTable('adminCrudTable',_allPengumuman,'Pengumuman',['Tambah Pengumuman','openPengumumanForm()']);
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getPengumuman();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 /* Admin: SDMK */
 function loadAdminSDMK(){
-  showLoading('Memuat...');google.script.run.withSuccessHandler(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
+  showLoading('Memuat...');callServer('getSDMK').then(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
   _allSDMK=res.data||[];renderAdminTable('adminCrudTable',_allSDMK,'SDMK',['Tambah SDMK','openSDMKForm()']);
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getSDMK();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 /* Admin: Pendaftaran */
 function loadAdminPendaftaran(){
-  showLoading('Memuat...');google.script.run.withSuccessHandler(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
+  showLoading('Memuat...');callServer('getPendaftaran').then(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
   _allPendaftaran=res.data||[];renderAdminTable('adminCrudTable',_allPendaftaran,'Pendaftaran',null);
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getPendaftaran();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 /* Admin: Sertifikat */
 function loadAdminSertifikat(){
-  showLoading('Memuat...');google.script.run.withSuccessHandler(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
+  showLoading('Memuat...');callServer('getSertifikat').then(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
   _allSertifikat=res.data||[];renderAdminTable('adminCrudTable',_allSertifikat,'Sertifikat',['Tambah Sertifikat','openSertifikatForm()']);
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getSertifikat();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 /* Admin: Materi */
 function loadAdminMateri(){
-  showLoading('Memuat...');google.script.run.withSuccessHandler(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
+  showLoading('Memuat...');callServer('getMateri').then(function(res){hideLoading();if(!res||!res.success){document.getElementById('adminCrudTable').innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
   _allMateri=res.data||[];renderAdminTable('adminCrudTable',_allMateri,'Materi',['Tambah Materi','openMateriForm()']);
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getMateri();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 /* Admin: Admin List */
 function loadAdminList(){
-  showLoading('Memuat...');google.script.run.withSuccessHandler(function(res){hideLoading();
+  showLoading('Memuat...');callServer('getAdmin').then(function(res){hideLoading();
   var ct=document.getElementById('adminCrudTable');
   if(!res||!res.success){ct.innerHTML='<div class="empty-state"><p>'+escHTML(res?res.message:'Gagal memuat')+'</p></div>';return;}
   _allAdmin=res.data||[];
@@ -1173,12 +1209,12 @@ function loadAdminList(){
   html+='<div class="card-box"><div class="table-wrap"><table><thead><tr><th>No</th><th>Username</th><th>Password</th><th>Aksi</th></tr></thead><tbody>';
   _allAdmin.forEach(function(r,i){html+='<tr><td>'+(i+1)+'</td><td>'+escHTML(r.Username||'-')+'</td><td>********</td><td><button class="btn btn-sm btn-danger" onclick="confirmDelete(\'Admin\','+i+')"><i class="fas fa-trash"></i> Hapus</button></td></tr>';});
   html+='</tbody></table></div></div>';ct.innerHTML=html;
-  }).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).getAdmin();
+  }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 /* Admin: submit admin */
 function submitAdmin(e){
   e.preventDefault();var data={Username:document.getElementById('admUsername').value,Password:document.getElementById('admPassword').value};
-  showLoading('Menyimpan...');google.script.run.withSuccessHandler(function(res){hideLoading();closeModal('adminFormModal');document.getElementById('adminForm').reset();showToast(res.message,res.success?'success':'error');if(res.success)loadAdminList();}).withFailureHandler(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');}).tambahAdmin(data);
+  showLoading('Menyimpan...');callServer('tambahAdmin',data).then(function(res){hideLoading();closeModal('adminFormModal');document.getElementById('adminForm').reset();showToast(res.message,res.success?'success':'error');if(res.success)loadAdminList();}).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 
 /* ========== ADMIN: RENDER TABLE GENERIK ========== */
