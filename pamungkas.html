@@ -815,34 +815,48 @@ function levelIcon(){
 // GANTI INI dengan URL Web App Google Apps Script Anda.
 // Format: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 // Dapatkan dari: Deploy > Manage deployments > salin URL Web App
-var APP_URL = 'https://script.google.com/macros/s/AKfycbzBCOK1AwyIYfHlsbktukFUPTrsl8_goNRVdTF82Y8-TKUbyWkWz9MLaGI1Ruvb8QCWGA/exec';
+var APP_URL = 'https://script.google.com/macros/s/AKfycbxGkYneFwQjobVpvbsKnzYq8u0xU1EqwRwA1A4X01sAdnZvMxj5-EBapLuL3kiUD5I4Mg/exec';
 
-/* ========== API HELPER — callServer() ========== */
-/**
- * Mengirim request ke backend Google Apps Script.
- * Menggantikan google.script.run yang hanya bekerja di dalam Apps Script.
- *
- * @param {string} action - Nama fungsi backend (contoh: 'getPengumuman')
- * @param {*} data - Data yang dikirim (object, string, number, atau null)
- * @returns {Promise<Object>} Response dari server {success, message, [data]}
+/* ========== API HELPER — callServer() via JSONP ==========
+ * Menggunakan JSONP (dynamic <script> tag) bukan fetch().
+ * JSONP bebas dari CORS karena <script> tag tidak dibatasi same-origin policy.
+ * Backend (Code.gs) mengembalikan: callbackName({"success":true, ...})
  */
-async function callServer(action, data) {
-  var payload = { action: action };
-  if (data !== undefined && data !== null) payload.data = data;
+var _jsonpCounter = 0;
 
-  var response = await fetch(APP_URL, {
-    method: 'POST',
-    redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
+function callServer(action, data) {
+  return new Promise(function(resolve, reject) {
+    var cbName = '__pam_' + (++_jsonpCounter) + '_' + Date.now();
+    var timeoutId = setTimeout(function() {
+      _jsonpCleanup(cbName, script);
+      reject(new Error('Request timeout — periksa koneksi internet'));
+    }, 30000);
+
+    window[cbName] = function(result) {
+      clearTimeout(timeoutId);
+      _jsonpCleanup(cbName, script);
+      resolve(result);
+    };
+
+    var url = APP_URL + '?action=' + encodeURIComponent(action) + '&callback=' + cbName;
+    if (data !== undefined && data !== null) {
+      url += '&data=' + encodeURIComponent(JSON.stringify(data));
+    }
+
+    var script = document.createElement('script');
+    script.src = url;
+    script.onerror = function() {
+      clearTimeout(timeoutId);
+      _jsonpCleanup(cbName, script);
+      reject(new Error('Gagal memuat data dari server'));
+    };
+    document.head.appendChild(script);
   });
+}
 
-  var text = await response.text();
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    throw new Error(text || 'Response bukan JSON valid');
-  }
+function _jsonpCleanup(cbName, script) {
+  delete window[cbName];
+  if (script && script.parentNode) script.parentNode.removeChild(script);
 }
 
 var pageConfig = {
