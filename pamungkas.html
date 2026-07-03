@@ -559,7 +559,7 @@
 /* Modern Data Table */
 .crud-table-container{background:rgba(255,255,255,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(13,110,253,.08);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-md);}
 .crud-table-scroll{overflow-x:auto;overflow-y:auto;max-height:65vh;}
-.crud-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.84rem;}
+.crud-table{width:100%;min-width:max-content;border-collapse:separate;border-spacing:0;font-size:.84rem;}
 .crud-table thead{position:sticky;top:0;z-index:10;}
 .crud-table thead th{background:linear-gradient(135deg,#0D6EFD,#0A58CA);color:#fff;padding:12px 14px;text-align:left;font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;cursor:pointer;user-select:none;transition:background .2s;position:relative;border-bottom:2px solid rgba(0,0,0,.1);}
 .crud-table thead th:hover{background:linear-gradient(135deg,#0A58CA,#084298);}
@@ -574,13 +574,29 @@
 .crud-table tbody tr:hover{background:rgba(13,110,253,.07);}
 .crud-table tbody td{padding:10px 14px;border-bottom:1px solid var(--border-color);color:var(--text-primary);max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;}
 .crud-table tbody tr:last-child td{border-bottom:none;}
-.crud-table .td-no{font-weight:600;color:var(--primary);text-align:center;min-width:45px;position:sticky;left:0;background:inherit;z-index:5;}
+.crud-table .td-no{font-weight:600;color:var(--primary);text-align:center;min-width:45px;position:sticky;left:0;background:inherit;z-index:5;border-right:2px solid rgba(13,110,253,.15);}
 .crud-table tbody tr:nth-child(even) .td-no{background:rgba(13,110,253,.06);}
 .crud-table tbody tr:hover .td-no{background:rgba(13,110,253,.1);}
-.crud-table .td-aksi{position:sticky;right:0;background:inherit;z-index:5;min-width:110px;}
+.crud-table .td-aksi{position:sticky;left:50px;background:inherit;z-index:6;min-width:120px;text-align:center;border-right:2px solid rgba(13,110,253,.15);}
 .crud-table tbody tr:nth-child(even) .td-aksi{background:rgba(13,110,253,.06);}
-.crud-table tbody tr:hover .td-aksi{background:rgba(13,110,253,.1);}
+.crud-table tbody tr:hover .td-aksi{background:rgba(13,110,253,.12);}
 .crud-table .td-aksi .btn{padding:5px 8px;font-size:.75rem;margin:1px;}
+/* CRUD Photo Thumbnail */
+.crud-photo-thumb{width:44px;height:44px;object-fit:cover;border-radius:6px;border:2px solid var(--border-color);cursor:pointer;transition:transform .2s,border-color .2s;background:#f0f2f5;}
+.crud-photo-thumb:hover{transform:scale(2.5);z-index:100;position:relative;border-color:var(--primary);box-shadow:0 8px 24px rgba(0,0,0,.25);}
+.crud-foto-cell{width:60px;min-width:60px;}
+.crud-link-cell a{color:var(--primary);text-decoration:none;font-weight:500;}
+.crud-link-cell a:hover{text-decoration:underline;}
+/* Scroll shadow indicator */
+.crud-table-scroll{scrollbar-width:thin;scrollbar-color:var(--primary) transparent;}
+.crud-table-scroll::-webkit-scrollbar{width:8px;height:8px;}
+.crud-table-scroll::-webkit-scrollbar-thumb{background:var(--primary);border-radius:4px;}
+.crud-table-scroll::-webkit-scrollbar-track{background:transparent;}
+.crud-table-scroll{position:relative;}
+.crud-table-scroll.shadow-left::before,.crud-table-scroll.shadow-right::after{content:'';position:absolute;top:0;bottom:0;width:24px;z-index:20;pointer-events:none;}
+.crud-table-scroll.shadow-right::after{right:0;background:linear-gradient(to left,rgba(13,110,253,.08),transparent);}
+.crud-table-scroll.shadow-left::before{left:0;background:linear-gradient(to right,rgba(13,110,253,.08),transparent);}
+
 
 /* Pagination */
 .crud-pagination{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:rgba(255,255,255,.9);border-top:1px solid var(--border-color);font-size:.82rem;}
@@ -1489,7 +1505,7 @@ function levelIcon(){
 // GANTI INI dengan URL Web App Google Apps Script Anda.
 // Format: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 // Dapatkan dari: Deploy > Manage deployments > salin URL Web App
-var APP_URL = 'https://script.google.com/macros/s/AKfycbyaRb4X13OM2gu6LJaRPWmjHs0Dksh3D1NnBA0NunimQBgTJNwMvx6asnSOguJuwttCuw/exec';
+var APP_URL = 'https://script.google.com/macros/s/AKfycbxVbuCms7rPBwNd845nraC_PKVlrI3AvDTBZ1IPIrRcqotuj02qHaZvLLTiXN733YFfwg/exec';
 
 /* ========== API HELPER — callServer() via JSONP ==========
  * Menggunakan JSONP (dynamic <script> tag) bukan fetch().
@@ -1753,10 +1769,30 @@ function openDetailModal(title,content){
     var b='<div class="detail-grid">';
     Object.keys(content).forEach(function(k){
       var v=String(content[k]||'-');
-      // Deteksi link (Surat Pernyataan, Link/File) dan buat clickable
-      if((k==='Surat Pernyataan'||k==='Link/File'||k==='Link') && v!=='-' && v.indexOf('http')===0){
+      var kl=k.toLowerCase();
+      // Foto column: show image
+      if(kl.indexOf('foto')!==-1 && v!=='-' && v){
+        var imgSrc=v;
+        if(v.indexOf('drive.google.com')!==-1){
+          var fid='';
+          var fm=v.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          if(fm)fid=fm[1];else{var fm2=v.match(/id=([a-zA-Z0-9_-]+)/);if(fm2)fid=fm2[1];}
+          if(fid)imgSrc='https://drive.google.com/thumbnail?sz=w400&id='+fid;
+        } else if(v.indexOf('http')!==0 && v.indexOf('lh3.googleusercontent.com')===-1){
+          imgSrc='https://drive.google.com/thumbnail?sz=w400&id='+v;
+        }
+        b+='<div class="detail-item full"><label>'+escHTML(k)+'</label><div style="margin-top:6px;"><img src="'+escHTML(imgSrc)+'" style="max-width:200px;max-height:200px;object-fit:cover;border-radius:10px;border:2px solid var(--border-color);cursor:pointer;" onclick="window.open(\x27'+escHTML(v)+'\x27,\x27_blank\x27)" onerror="this.outerHTML=\x27<span style=color:var(--text-muted);>Gagal memuat foto</span>\x27" /></div></div>';
+      }
+      // Link columns: clickable
+      else if((k==='Surat Pernyataan'||k==='Link/File'||k==='Link'||kl.indexOf('surat')!==-1||kl.indexOf('link')!==-1||kl.indexOf('url')!==-1) && v!=='-' && v.indexOf('http')===0){
         b+='<div class="detail-item full"><label>'+escHTML(k.replace(/_/g,' '))+'</label><a href="'+escHTML(v)+'" target="_blank" class="materi-link"><i class="fas fa-external-link-alt"></i> Buka/Download Dokumen</a></div>';
-      } else {
+      }
+      // ID Pendaftaran: highlight
+      else if(k==='ID Pendaftaran' && v!=='-'){
+        b+='<div class="detail-item"><label>'+escHTML(k)+'</label><span style="font-weight:700;color:var(--primary);font-size:1rem;">'+escHTML(v)+'</span></div>';
+      }
+      // Normal fields
+      else {
         b+='<div class="detail-item"><label>'+escHTML(k.replace(/_/g,' '))+'</label><span>'+escHTML(v)+'</span></div>';
       }
     });
@@ -3012,35 +3048,67 @@ function renderCrudTable(){
   }
 
   var html='';
+  var fotoCol=null;
+  _crud.visibleCols.forEach(function(c){if(c.toLowerCase().indexOf('foto')!==-1)fotoCol=c;});
+  var linkCols=[];
+  _crud.visibleCols.forEach(function(c){var cl=c.toLowerCase();if(cl.indexOf('surat')!==-1||cl.indexOf('link')!==-1||cl.indexOf('url')!==-1)linkCols.push(c);});
   pageData.forEach(function(r,rowIdx){
     var origIdx=_crud.allData.indexOf(r);
     html+='<tr>';
     html+='<td class="td-no">'+(start+rowIdx+1)+'</td>';
-    _crud.visibleCols.forEach(function(col){
-      var val=r[col]||'';
-      // Render status-like values as badges
-      var vl=String(val).toLowerCase();
-      if(vl==='aktif'||vl==='lulus'||vl==='diterima'||vl==='verified'||vl==='asn'||vl==='pppk'||vl==='kontrak'||vl==='pns'){
-        html+='<td><span class="crud-status aktif">'+escHTML(val)+'</span></td>';
-      } else if(vl==='nonaktif'||vl==='ditolak'){
-        html+='<td><span class="crud-status nonaktif">'+escHTML(val)+'</span></td>';
-      } else if(vl==='pending'||vl==='menunggu'||vl==='proses'){
-        html+='<td><span class="crud-status pending">'+escHTML(val)+'</span></td>';
-      } else {
-        html+='<td title="'+escHTML(val)+'">'+escHTML(val)+'</td>';
-      }
-    });
     html+='<td class="td-aksi">';
     html+='<button class="btn btn-sm btn-primary" onclick="viewCrudRow('+origIdx+')" title="Lihat Detail"><i class="fas fa-eye"></i></button> ';
     if(_crud.writable){
       html+='<button class="btn btn-sm btn-warning" onclick="openDynForm('+origIdx+')" title="Edit"><i class="fas fa-edit"></i></button> ';
       html+='<button class="btn btn-sm btn-danger" onclick="confirmDeleteCrud('+origIdx+')" title="Hapus"><i class="fas fa-trash"></i></button>';
     }
-    html+='</td></tr>';
+    html+='</td>';
+    _crud.visibleCols.forEach(function(col){
+      var val=r[col]||'';
+      if(fotoCol && col===fotoCol && val){
+        var thumbUrl=val;
+        if(val.indexOf('drive.google.com')!==-1){
+          var fid='';
+          var m=val.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          if(m)fid=m[1];
+          else{var m2=val.match(/id=([a-zA-Z0-9_-]+)/);if(m2)fid=m2[1];}
+          if(fid)thumbUrl='https://drive.google.com/thumbnail?sz=w80&id='+fid;
+        } else if(val.indexOf('lh3.googleusercontent.com')===-1 && val.indexOf('http')!==0){
+          thumbUrl='https://drive.google.com/thumbnail?sz=w80&id='+val;
+        }
+        html+='<td class="crud-foto-cell"><img class="crud-photo-thumb" src="'+escHTML(thumbUrl)+'" onerror="this.style.display=\x27none\x27" onclick="window.open(\x27'+escHTML(val).replace(/\x27/g,"\\x27")+'\x27,\x27_blank\x27)" title="Klik untuk memperbesar" /></td>';
+      } else if(linkCols.indexOf(col)!==-1 && val && String(val).indexOf('http')===0){
+        html+='<td class="crud-link-cell"><a href="'+escHTML(val)+'" target="_blank" title="'+escHTML(val)+'"><i class="fas fa-external-link-alt" style="margin-right:4px;"></i>Buka Dokumen</a></td>';
+      } else {
+        var vl=String(val).toLowerCase();
+        if(vl==='aktif'||vl==='lulus'||vl==='diterima'||vl==='verified'||vl==='asn'||vl==='pppk'||vl==='kontrak'||vl==='pns'){
+          html+='<td><span class="crud-status aktif">'+escHTML(val)+'</span></td>';
+        } else if(vl==='nonaktif'||vl==='ditolak'){
+          html+='<td><span class="crud-status nonaktif">'+escHTML(val)+'</span></td>';
+        } else if(vl==='pending'||vl==='menunggu'||vl==='proses'){
+          html+='<td><span class="crud-status pending">'+escHTML(val)+'</span></td>';
+        } else {
+          html+='<td title="'+escHTML(val)+'">'+escHTML(val)+'</td>';
+        }
+      }
+    });
+    html+='</tr>';
   });
   tbody.innerHTML=html;
   updateCrudPagination(start+1,end,total);
   renderCrudPageBtns(totalPages);
+  // Update scroll shadow indicators
+  var scrollEl=document.querySelector('.crud-table-scroll');
+  if(scrollEl){
+    function updateScrollShadow(){
+      var sl=scrollEl.scrollLeft>4;
+      var sr=scrollEl.scrollWidth-scrollEl.scrollLeft-scrollEl.clientWidth>4;
+      scrollEl.classList.toggle('shadow-left',sl);
+      scrollEl.classList.toggle('shadow-right',sr);
+    }
+    scrollEl.addEventListener('scroll',updateScrollShadow);
+    setTimeout(updateScrollShadow,100);
+  }
 }
 
 function updateCrudPagination(start,end,total){
