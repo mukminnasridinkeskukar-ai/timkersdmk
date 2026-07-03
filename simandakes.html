@@ -340,9 +340,7 @@
       border-radius: 28px;
       padding: 34px;
       color: #ffffff;
-      background:
-        linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(2, 132, 199, 0.82)),
-        url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1600&q=80') center/cover;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(2, 132, 199, 0.9));
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
     }
 
@@ -463,6 +461,14 @@
       width: 100%;
       filter: saturate(1.08);
     }
+    .card-photo.placeholder {
+      display: grid;
+      place-items: center;
+      min-height: 150px;
+      background: rgba(15, 23, 42, 0.08);
+      color: rgba(15, 23, 42, 0.55);
+      font-size: 2rem;
+    }
 
     .card-body-custom {
       padding: 20px;
@@ -528,9 +534,7 @@
       border-radius: 28px;
       padding: 30px;
       color: #ffffff;
-      background:
-        linear-gradient(135deg, rgba(17, 24, 39, 0.94), rgba(79, 70, 229, 0.86)),
-        url('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1600&q=80') center/cover;
+      background: linear-gradient(135deg, rgba(17, 24, 39, 0.94), rgba(79, 70, 229, 0.86));
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
       overflow: hidden;
       position: relative;
@@ -929,80 +933,13 @@
     let adminModules = [];
     let activeAdminModule = null;
     let adminEditingRow = null;
-    const dashboardCards = [
-      {
-        id: 'sdmk',
-        name: 'SDMK',
-        shortName: 'SDMK',
-        icon: 'fas fa-user-md',
-        pageType: 'sdmk',
-        theme: 'card-theme-blue',
-        photo: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=900&q=80',
-        desc: 'Kelola data tenaga kesehatan, profesi, STR, tempat kerja, dan status aktif.',
-        stat: 'Tenaga Kesehatan',
-        meta: 'SDM & Profesi'
-      },
-      {
-        id: 'fasyankes',
-        name: 'Fasyankes',
-        shortName: 'Fasyankes',
-        icon: 'fas fa-hospital',
-        pageType: 'fasyankes',
-        theme: 'card-theme-green',
-        photo: 'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=900&q=80',
-        desc: 'Informasi fasilitas kesehatan, jenis layanan, pimpinan, alamat, dan status operasional.',
-        stat: 'Fasilitas',
-        meta: 'Layanan Kesehatan'
-      },
-      {
-        id: 'praktik_nakes',
-        name: 'Praktik Mandiri Nakes',
-        shortName: 'Praktik Nakes',
-        icon: 'fas fa-user-nurse',
-        pageType: 'praktik',
-        theme: 'card-theme-orange',
-        photo: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=900&q=80',
-        desc: 'Catatan praktik mandiri tenaga kesehatan dengan SIP, alamat, dan kontak layanan.',
-        stat: 'Praktik',
-        meta: 'Mandiri'
-      },
-      {
-        id: 'dokter_spesialis',
-        name: 'Praktik Dokter Spesialis',
-        shortName: 'Dokter Spesialis',
-        icon: 'fas fa-stethoscope',
-        pageType: 'dokter',
-        theme: 'card-theme-violet',
-        photo: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=900&q=80',
-        desc: 'Data praktik dokter spesialis, SIP, fasyankes mitra, dan jadwal pelayanan.',
-        stat: 'Spesialis',
-        meta: 'Jadwal'
-      },
-      {
-        id: 'kotak_saran',
-        name: 'Kotak Saran',
-        shortName: 'Kotak Saran',
-        icon: 'fas fa-envelope',
-        pageType: 'saran',
-        theme: 'card-theme-slate',
-        photo: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80',
-        desc: 'Terima aspirasi, kritik, dan saran masyarakat untuk peningkatan layanan kesehatan.',
-        stat: 'Aspirasi',
-        meta: 'Masyarakat'
-      },
-      {
-        id: 'admin',
-        name: 'Panel Admin',
-        shortName: 'Admin',
-        icon: 'fas fa-user-shield',
-        pageType: 'admin',
-        theme: 'card-theme-dark',
-        photo: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=900&q=80',
-        desc: 'Kelola data, role admin, upload foto, export Excel/PDF, dan pantau AuditTrail.',
-        stat: 'Admin',
-        meta: 'CRUD'
-      }
-    ];
+    const pageTypeMethodMap = {
+      sdmk: 'getSDMK',
+      fasyankes: 'getFasyankes',
+      praktik: 'getPraktikMandiri',
+      dokter: 'getDokterSpesialis',
+      saran: 'getKotakSaran'
+    };
 
     // 1. Landing Page Handler (Exactly 2 seconds)
     function runLandingPage() {
@@ -1057,36 +994,23 @@
       if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run
           .withSuccessHandler(function(menus) {
-            buildUI(menus);
+            buildUI(Array.isArray(menus) ? menus : []);
           })
           .withFailureHandler(function(err) {
             console.error('Gagal mengambil menu dari server:', err);
-            buildUI(getMockMenus());
+            buildUI([]);
           })
           .getMenu();
       } else {
-        setTimeout(() => {
-          buildUI(getMockMenus());
-        }, 100);
+        buildUI([]);
       }
-    }
-
-    function getMockMenus() {
-      return dashboardCards.map(card => ({
-        id: card.id,
-        parent: '',
-        name: card.name,
-        icon: card.icon,
-        pageType: card.pageType,
-        order: dashboardCards.findIndex(item => item.id === card.id) + 1
-      }));
     }
 
     function buildUI(menus) {
-      appMenus = menus.filter(menu => dashboardCards.some(card => card.id === menu.id));
-      if (!appMenus.some(menu => menu.id === 'admin')) {
-        appMenus.push({ id: 'admin', parent: '', name: 'Panel Admin', icon: 'fas fa-user-shield', pageType: 'admin', order: 99 });
-      }
+      appMenus = Array.isArray(menus)
+        ? menus.filter(menu => menu && String(menu.id || '').trim())
+        : [];
+
       renderSidebar(appMenus);
       renderHeaderNav(appMenus);
       renderDashboard(appMenus);
@@ -1100,26 +1024,30 @@
       const container = document.getElementById('dynamic-sidebar-menu');
       container.innerHTML = '';
 
-      const rootMenus = menus.filter(m => !m.parent);
+      const rootMenus = menus.filter(m => !String(m.parent || '').trim());
+
+      if (rootMenus.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-4 text-muted small">
+            <i class="fas fa-exclamation-circle"></i> Menu belum tersedia.
+          </div>
+        `;
+        return;
+      }
 
       rootMenus.forEach(menu => {
         const li = document.createElement('li');
         li.className = 'menu-item';
-        if (menu.id === 'admin') {
-          li.innerHTML = `
-            <a href="javascript:void(0)" class="menu-link" id="menu-link-${menu.id}" onclick="navigateToAdmin()">
-              <i class="${menu.icon}"></i>
-              <span>${menu.name}</span>
-            </a>
-          `;
-        } else {
-          li.innerHTML = `
-            <a href="javascript:void(0)" class="menu-link" id="menu-link-${menu.id}" onclick="openDataModal('${menu.id}')">
-              <i class="${menu.icon}"></i>
-              <span>${menu.name}</span>
-            </a>
-          `;
-        }
+        const icon = String(menu.icon || 'fas fa-circle').trim();
+        const label = String(menu.MenuName || menu.name || menu.MenuName || '').trim() || String(menu.name || '').trim();
+        const action = menu.pageType === 'admin' ? `navigateToAdmin()` : `openDataModal('${menu.id}')`;
+
+        li.innerHTML = `
+          <a href="javascript:void(0)" class="menu-link" id="menu-link-${menu.id}" onclick="${action}">
+            <i class="${icon}"></i>
+            <span>${escapeHtml(label)}</span>
+          </a>
+        `;
         container.appendChild(li);
       });
     }
@@ -1131,8 +1059,10 @@
       menus.forEach(menu => {
         const btn = document.createElement('button');
         btn.className = 'btn btn-sm btn-outline-primary d-none d-md-inline-flex align-items-center gap-1';
-        btn.innerHTML = `<i class="${menu.icon} small"></i> ${menu.name}`;
-        if (menu.id === 'admin') {
+        const label = String(menu.MenuName || menu.name || '').trim();
+        const icon = String(menu.Icon || menu.icon || 'fas fa-circle').trim();
+        btn.innerHTML = `<i class="${icon} small"></i> ${escapeHtml(label)}`;
+        if (String(menu.PageType || menu.pageType || '').trim().toLowerCase() === 'admin') {
           btn.onclick = () => navigateToAdmin();
         } else {
           btn.onclick = () => openDataModal(menu.id);
@@ -1157,20 +1087,23 @@
     function renderDashboard(menus) {
       const container = document.getElementById('view-dashboard') || document.getElementById('view-container');
       if (!container) return;
+      const activeMenus = Array.isArray(menus) ? menus : [];
+      const totalMenus = activeMenus.length;
+      const isAdminAvailable = activeMenus.some(menu => String(menu.PageType || menu.pageType || '').trim().toLowerCase() === 'admin');
+
       container.innerHTML = `
         <div class="dashboard-shell">
           <section class="dashboard-hero animate__animated animate__fadeInUp">
-            <span class="hero-badge"><i class="fas fa-heart-pulse"></i> SIMANDAKES Entrepreneur Dashboard</span>
-            <h1 class="mt-4 mb-3">Platform Data Kesehatan Modern</h1>
+            <span class="hero-badge"><i class="fas fa-heart-pulse"></i> SIMANDAKES</span>
+            <h1 class="mt-4 mb-3">Platform Data Kesehatan Terpadu</h1>
             <p class="mb-0" style="max-width: 760px; color: rgba(255,255,255,0.82); font-size: 1.05rem; line-height: 1.7;">
-              Akses SDMK, Fasyankes, Praktik Mandiri Nakes, Praktik Dokter Spesialis, dan Kotak Saran dalam satu tampilan interaktif modern.
-              Setiap menu dapat dibuka melalui card atau sidebar.
+              Akses semua sumber data kesehatan langsung dari Google Sheets. Menu dan gambar dikendalikan lewat konfigurasi sheet tanpa konten mock.
             </p>
             <div class="hero-stats">
-              <div class="hero-stat"><strong>6</strong><span>Menu Utama</span></div>
-              <div class="hero-stat"><strong>100%</strong><span>Card Interaktif</span></div>
+              <div class="hero-stat"><strong>${totalMenus}</strong><span>Menu Aktif</span></div>
+              <div class="hero-stat"><strong>${isAdminAvailable ? 'Ya' : 'Tidak'}</strong><span>Panel Admin</span></div>
               <div class="hero-stat"><strong>DataTables</strong><span>Semua Tabel</span></div>
-              <div class="hero-stat"><strong>Lightbox</strong><span>Semua Foto</span></div>
+              <div class="hero-stat"><strong>Google Sheets</strong><span>Sumber Data</span></div>
             </div>
           </section>
 
@@ -1178,36 +1111,51 @@
             <div class="d-flex align-items-end justify-content-between gap-3">
               <div>
                 <h2 class="section-title mb-1">Menu SIMANDAKES</h2>
-                <p class="text-muted mb-0">Pilih card untuk melihat detail data dalam modal popup.</p>
+                <p class="text-muted mb-0">Pilih card untuk melihat data langsung dari Google Sheets.</p>
               </div>
               <span class="badge rounded-pill text-bg-light border px-3 py-2 text-muted">
-                <i class="fas fa-layer-group me-1"></i> 6 Modul Aktif
+                <i class="fas fa-layer-group me-1"></i> ${totalMenus} Modul
               </span>
             </div>
 
             <div class="menu-grid">
-              ${dashboardCards.map(card => `
-                <article class="entrepreneur-card ${card.theme} animate__animated animate__fadeInUp"
-                  data-menu-id="${card.id}"
-                  tabindex="0"
-                  role="button"
-                  aria-label="Buka modal ${card.name}">
-                  <img class="card-photo" src="${card.photo}" alt="${escapeHtml(card.name)}" data-lightbox="${card.id}-hero" data-title="${escapeHtml(card.name)}">
-                  <div class="card-body-custom">
-                    <div class="card-icon-pill"><i class="${card.icon}"></i></div>
-                    <h3>${card.name}</h3>
-                    <p>${card.desc}</p>
-                    <div class="card-meta">
-                      <span>${card.stat}</span>
-                      <span>Buka <i class="fas fa-arrow-right"></i></span>
+              ${activeMenus.map(menu => {
+                const pageType = String(menu.PageType || menu.pageType || '').trim();
+                const icon = String(menu.Icon || menu.icon || 'fas fa-circle').trim();
+                const photo = String(menu.Photo || menu.photo || '').trim();
+                const desc = String(menu.Desc || menu.desc || '').trim() || 'Akses data terpusat dan visualisasi cepat.';
+                const stat = String(menu.Stat || menu.stat || '').trim() || 'Data Kesehatan';
+                const meta = String(menu.Meta || menu.meta || '').trim() || 'Langsung dari Sheet';
+                const title = String(menu.MenuName || menu.name || '').trim() || 'Menu';
+                const menuId = String(menu.id || '').trim();
+                const action = pageType === 'admin' ? 'navigateToAdmin()' : `openDataModal('${menuId}')`;
+                const imageBlock = photo
+                  ? `<img class="card-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(title)}" data-lightbox="${escapeHtml(menuId)}-hero" data-title="${escapeHtml(title)}">`
+                  : `<div class="card-photo placeholder"><i class="fas fa-image"></i></div>`;
+
+                return `
+                  <article class="entrepreneur-card card-theme-slate animate__animated animate__fadeInUp"
+                    data-menu-id="${escapeHtml(menuId)}"
+                    tabindex="0"
+                    role="button"
+                    aria-label="Buka modal ${escapeHtml(title)}">
+                    ${imageBlock}
+                    <div class="card-body-custom">
+                      <div class="card-icon-pill"><i class="${escapeHtml(icon)}"></i></div>
+                      <h3>${escapeHtml(title)}</h3>
+                      <p>${escapeHtml(desc)}</p>
+                      <div class="card-meta">
+                        <span>${escapeHtml(stat)}</span>
+                        <span>Buka <i class="fas fa-arrow-right"></i></span>
+                      </div>
+                      <div class="card-meta mt-3">
+                        <span><i class="fas fa-chart-line me-1"></i> ${escapeHtml(meta)}</span>
+                        <span><i class="fas fa-database me-1"></i> Live</span>
+                      </div>
                     </div>
-                    <div class="card-meta mt-3">
-                      <span><i class="fas fa-chart-line me-1"></i> ${card.meta}</span>
-                      <span><i class="fas fa-database me-1"></i> Live</span>
-                    </div>
-                  </div>
-                </article>
-              `).join('')}
+                  </article>
+                `;
+              }).join('')}
             </div>
           </section>
         </div>
@@ -1235,18 +1183,29 @@
     }
 
     function openDataModal(menuId) {
-      if (menuId === 'admin') {
+      const menu = appMenus.find(item => String(item.id || '').trim() === String(menuId || '').trim());
+      if (!menu) return;
+      const pageType = String(menu.PageType || menu.pageType || '').trim();
+      if (pageType.toLowerCase() === 'admin') {
         navigateToAdmin();
         return;
       }
-      const card = dashboardCards.find(item => item.id === menuId);
-      if (!card) return;
 
       const modalId = `modal-${menuId}`;
       const existingModal = document.getElementById(modalId);
       if (existingModal) {
         existingModal.remove();
       }
+
+      const photo = String(menu.Photo || menu.photo || '').trim();
+      const title = String(menu.MenuName || menu.name || '').trim() || 'Detail Menu';
+      const desc = String(menu.Desc || menu.desc || '').trim() || 'Lihat informasi data langsung dari Google Sheets.';
+      const meta = String(menu.Meta || menu.meta || '').trim() || 'Live Data';
+      const icon = String(menu.Icon || menu.icon || 'fas fa-circle').trim();
+
+      const imageBlock = photo
+        ? `<img class="modal-hero" src="${escapeHtml(photo)}" alt="${escapeHtml(title)}" data-lightbox="${escapeHtml(menuId)}-modal-hero" data-title="${escapeHtml(title)}">`
+        : `<div class="modal-hero placeholder"><i class="fas fa-image"></i></div>`;
 
       const modal = document.createElement('div');
       modal.className = 'modal fade modal-custom';
@@ -1259,16 +1218,16 @@
             <div class="modal-header">
               <div>
                 <span class="badge rounded-pill text-bg-light border mb-2">
-                  <i class="${card.icon} me-1"></i> ${card.meta}
+                  <i class="${escapeHtml(icon)} me-1"></i> ${escapeHtml(meta)}
                 </span>
-                <h5 class="modal-title fw-bold">${card.name}</h5>
-                <p class="text-muted small mb-0">${card.desc}</p>
+                <h5 class="modal-title fw-bold">${escapeHtml(title)}</h5>
+                <p class="text-muted small mb-0">${escapeHtml(desc)}</p>
               </div>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
             <div class="modal-body">
-              <img class="modal-hero" src="${card.photo}" alt="${escapeHtml(card.name)}" data-lightbox="${card.id}-modal-hero" data-title="${escapeHtml(card.name)}">
-              ${renderModalContent(card)}
+              ${imageBlock}
+              ${renderModalContent(menu)}
             </div>
           </div>
         </div>
@@ -1346,37 +1305,23 @@
       const table = document.getElementById(tableId);
       if (!table || activeDataTables[tableId]) return;
 
-      const pageType = menuId === 'dokter_spesialis' ? 'dokter' : menuId;
-      const loader = typeof google !== 'undefined' && google.script && google.script.run
-        ? google.script.run
-        : null;
+      const menu = appMenus.find(item => String(item.id || '').trim() === String(menuId || '').trim());
+      const pageType = menu ? String(menu.PageType || menu.pageType || '').trim().toLowerCase() : '';
+      const loader = typeof google !== 'undefined' && google.script && google.script.run ? google.script.run : null;
+      const methodName = pageTypeMethodMap[pageType];
 
-      if (loader) {
-        const methodMap = {
-          sdmk: 'getSDMK',
-          fasyankes: 'getFasyankes',
-          praktik_nakes: 'getPraktikMandiri',
-          dokter: 'getDokterSpesialis',
-          saran: 'getKotakSaran'
-        };
-
-        const success = function(data) {
-          createDataTable(table, tableColumns(pageType), normalizeData(unpackJsonData(data), pageType));
-        };
-
-        const failure = function(err) {
-          console.error('Gagal mengambil data:', err);
-          createDataTable(table, tableColumns(pageType), normalizeData(getFallbackData(pageType), pageType));
-        };
-
-        if (methodMap[pageType] === 'getSDMK') loader.withSuccessHandler(success).withFailureHandler(failure).getSDMK();
-        if (methodMap[pageType] === 'getFasyankes') loader.withSuccessHandler(success).withFailureHandler(failure).getFasyankes();
-        if (methodMap[pageType] === 'getPraktikMandiri') loader.withSuccessHandler(success).withFailureHandler(failure).getPraktikMandiri();
-        if (methodMap[pageType] === 'getDokterSpesialis') loader.withSuccessHandler(success).withFailureHandler(failure).getDokterSpesialis();
-        if (methodMap[pageType] === 'getKotakSaran') loader.withSuccessHandler(success).withFailureHandler(failure).getKotakSaran();
-      } else {
-        createDataTable(table, tableColumns(pageType), normalizeData(getFallbackData(pageType), pageType));
+      if (!loader || !methodName) {
+        console.error('Google Apps Script method tidak tersedia atau pageType tidak dikenali:', pageType);
+        createDataTable(table, tableColumns(pageType), normalizeData([], pageType));
+        return;
       }
+
+      loader.withSuccessHandler(function(data) {
+        createDataTable(table, tableColumns(pageType), normalizeData(unpackJsonData(data), pageType));
+      }).withFailureHandler(function(err) {
+        console.error('Gagal mengambil data:', err);
+        createDataTable(table, tableColumns(pageType), normalizeData([], pageType));
+      })[methodName]();
     }
 
     function createDataTable(table, columns, data) {
@@ -1511,61 +1456,11 @@
       }).format(date);
     }
 
-    function getFallbackData(pageType) {
-      if (pageType === 'sdmk') return getSDMKFallback();
-      if (pageType === 'fasyankes') return getFasyankesFallback();
-      if (pageType === 'praktik') return getPraktikFallback();
-      if (pageType === 'dokter') return getDokterSpesialisFallback();
-      return getSaranFallback();
-    }
-
     function unpackJsonData(result) {
       if (!result) return [];
       if (Array.isArray(result)) return result;
       if (result.data !== undefined) return result.data || [];
       return result;
-    }
-
-    function getSDMKFallback() {
-      return [
-        { id: 'SDM001', nama: 'dr. Ahmad Fauzi, Sp.PD', nik: '3171012345670001', profesi: 'Dokter Spesialis', tempat_kerja: 'RSUD IA Moeis', no_str: 'STR-123456-PD', status_aktif: 'Aktif', foto: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=300&q=80' },
-        { id: 'SDM002', nama: 'Ners. Siti Rahma, S.Kep', nik: '3171012345670002', profesi: 'Perawat', tempat_kerja: 'Puskesmas Loa Janan', no_str: 'STR-789012-PR', status_aktif: 'Aktif', foto: 'https://images.unsplash.com/photo-1594824813573-246434de83fb?auto=format&fit=crop&w=300&q=80' },
-        { id: 'SDM003', nama: 'Bdn. Sri Wahyuni, A.Md.Keb', nik: '3171012345670003', profesi: 'Bidan', tempat_kerja: 'Klinik Medika Utama', no_str: 'STR-345678-BD', status_aktif: 'Aktif', foto: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=300&q=80' },
-        { id: 'SDM004', nama: 'Apt. Roni Wijaya, S.Farm', nik: '3171012345670004', profesi: 'Apoteker', tempat_kerja: 'Apotek Sehat Jaya', no_str: 'STR-901234-AP', status_aktif: 'Aktif', foto: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=300&q=80' },
-        { id: 'SDM005', nama: 'drg. Shinta Amelia', nik: '3171012345670005', profesi: 'Dokter Gigi', tempat_kerja: 'Puskesmas Mangkurawang', no_str: 'STR-567890-DG', status_aktif: 'Tidak Aktif', foto: 'https://images.unsplash.com/photo-1594824813573-246434de83fb?auto=format&fit=crop&w=300&q=80' }
-      ];
-    }
-
-    function getFasyankesFallback() {
-      return [
-        { id: 'FAS001', nama: 'RSUD IA Moeis Samarinda', jenis: 'Rumah Sakit', alamat: 'Jl. Harun Nafsi, Samarinda Seberang', pimpinan: 'dr. Syarifah Rahimah', status_operasional: 'Aktif', foto: 'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&w=400&q=80' },
-        { id: 'FAS002', nama: 'Puskesmas Loa Janan', jenis: 'Puskesmas', alamat: 'Jl. Soekarno-Hatta, Loa Janan', pimpinan: 'H. Supriyadi, S.KM', status_operasional: 'Aktif', foto: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=400&q=80' },
-        { id: 'FAS003', nama: 'Klinik Pratama Medika Utama', jenis: 'Klinik Swasta', alamat: 'Jl. Timbau, Tenggarong', pimpinan: 'dr. Hendra Setiawan', status_operasional: 'Aktif', foto: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=400&q=80' },
-        { id: 'FAS004', nama: 'Apotek Sehat Keluarga', jenis: 'Apotek', alamat: 'Jl. KH. Ahmad Dahlan, Tenggarong', pimpinan: 'Apt. Lisa Anggraini', status_operasional: 'Aktif', foto: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=400&q=80' }
-      ];
-    }
-
-    function getPraktikFallback() {
-      return [
-        { id: 'PMN001', nama: 'Bidan Mandiri Sri Hartati', profesi: 'Bidan Mandiri', sip: 'SIPB-123/2024', alamat: 'Jl. Wolter Monginsidi, Kel. Timbau, Tenggarong', kontak: '0812-3456-7890', foto: 'https://images.unsplash.com/photo-1579684389782-64d84b5e905d?auto=format&fit=crop&w=400&q=80' },
-        { id: 'PMN002', nama: 'Praktik Perawat Mandiri Budi Santoso', profesi: 'Perawat Mandiri', sip: 'SIPP-567/2023', alamat: 'Jl. Pesut, Kel. Tenggarong', kontak: '0813-9876-5432', foto: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=400&q=80' },
-        { id: 'PMN003', nama: 'Praktik Fisioterapi Sehat Prima', profesi: 'Fisioterapis', sip: 'SIPF-901/2025', alamat: 'Jl. KH. Dewantara, Tenggarong', kontak: '0852-4433-2211', foto: 'https://images.unsplash.com/photo-1598256989800-fe5f95da9787?auto=format&fit=crop&w=400&q=80' }
-      ];
-    }
-
-    function getDokterSpesialisFallback() {
-      return [
-        { id: 'PDS001', nama: 'dr. H. Muh. Yusuf, Sp.A', spesialisasi: 'Spesialis Anak', sip: 'SIPD-888/2024', fasyankes_mitra: 'RSUD AM Parikesit', jadwal: 'Senin - Kamis (16.00 - 20.00 WITA)', foto: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=400&q=80' },
-        { id: 'PDS002', nama: 'dr. Maria Christina, Sp.OG', spesialisasi: 'Spesialis Kandungan', sip: 'SIPD-999/2023', fasyankes_mitra: 'Klinik Bersalin Melati', jadwal: 'Selasa & Jumat (17.00 - 21.00 WITA)', foto: 'https://images.unsplash.com/photo-1594824813573-246434de83fb?auto=format&fit=crop&w=400&q=80' },
-        { id: 'PDS003', nama: 'dr. Handoko, Sp.OT', spesialisasi: 'Spesialis Bedah Tulang', sip: 'SIPD-777/2025', fasyankes_mitra: 'RS Prima Medika', jadwal: 'Rabu & Sabtu (14.00 - 18.00 WITA)', foto: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=400&q=80' }
-      ];
-    }
-
-    function getSaranFallback() {
-      return [
-        { id: 'SRN101', nama: 'Andi Wijaya', email: 'andi@gmail.com', saran: 'Pelayanan di Puskesmas Loa Janan sangat cepat dan ramah lingkungan.', tanggal: '2026-06-15T09:30:00.000Z' },
-        { id: 'SRN102', nama: 'Siti Aminah', email: 'siti@yahoo.com', saran: 'Mohon ditambahkan jadwal dokter spesialis anak di klinik timbau.', tanggal: '2026-06-16T14:15:00.000Z' }
-      ];
     }
 
     function escapeHtml(value) {
