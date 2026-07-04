@@ -313,6 +313,26 @@
     .search-bar input{width:100%;height:44px;padding:0 16px 0 42px;border:1.5px solid var(--border-color);border-radius:var(--radius-sm);font-family:inherit;font-size:.88rem;color:var(--text-primary);outline:none;transition:var(--transition);background:#fff}
     .search-bar input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(13,110,253,.12)}
     .search-bar i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted)}
+    /* Stat Card Click & Popup */
+    .stat-card{cursor:pointer!important}
+    .stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+    .stat-popup-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease}
+    .stat-popup-overlay.active{display:flex}
+    .stat-popup-box{background:var(--bg-card);border-radius:var(--radius-lg);box-shadow:var(--shadow-xl);width:100%;max-width:720px;max-height:80vh;display:flex;flex-direction:column;animation:slideUp .25s ease}
+    .stat-popup-header{padding:18px 22px;border-bottom:1px solid var(--border-color);display:flex;align-items:center;justify-content:space-between}
+    .stat-popup-header h3{font-size:1rem;font-weight:700}
+    .stat-popup-header .sp-count{font-weight:800;margin-left:8px}
+    .stat-popup-close{width:34px;height:34px;border-radius:8px;border:none;background:var(--bg-body);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:var(--transition)}
+    .stat-popup-close:hover{background:var(--danger-light);color:var(--danger)}
+    .stat-popup-body{overflow-y:auto;flex:1;padding:0}
+    .stat-popup-table{width:100%;border-collapse:collapse;font-size:.82rem}
+    .stat-popup-table thead{position:sticky;top:0;z-index:2}
+    .stat-popup-table thead th{background:#F1F5F9;padding:10px 14px;text-align:left;font-size:.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;border-bottom:2px solid var(--border-color)}
+    .stat-popup-table tbody td{padding:9px 14px;border-bottom:1px solid var(--border-color);white-space:nowrap;vertical-align:middle}
+    .stat-popup-table tbody tr:hover{background:#F8FAFC}
+    .stat-popup-table tbody tr:last-child td{border-bottom:none}
+    .stat-popup-empty{padding:40px 20px;text-align:center;color:var(--text-muted)}
+    .stat-popup-empty i{font-size:2rem;margin-bottom:10px;display:block}
     /* SDMK REKAP DATA */
     .sdmk-rekap-section{margin-bottom:24px}
     .sdmk-rekap-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
@@ -1580,7 +1600,7 @@ function levelIcon(){
 // GANTI INI dengan URL Web App Google Apps Script Anda.
 // Format: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 // Dapatkan dari: Deploy > Manage deployments > salin URL Web App
-var APP_URL = 'https://script.google.com/macros/s/AKfycbw4iU4MTlrjFLJyAFEG4Xax--xpNHBwf4Ykb8lv3ET9Ri9M7Jx_K1drA3mep9FFAMbn/exec';
+var APP_URL = 'https://script.google.com/macros/s/AKfycbwoWyj0_uo4hR9e-K0VsevKOHaLaoV_Ro5t9eqEjOSjWAgP71bN78q6mJFaWz3XB3oGgQ/exec';
 
 /* ========== API HELPER — callServer() via JSONP ==========
  * Menggunakan JSONP (dynamic <script> tag) bukan fetch().
@@ -1725,7 +1745,7 @@ function loadDashboard(){
     var data=res.data;
     renderIKP();
     renderStatCards(data.summary||{});
-    renderDashboardTable(data.recentRegistrations||[]);
+    _dashAllPendaftaran=data.allPendaftaran||[];_dashAllSdmk=data.allSdmk||[];renderDashboardTable(data.recentRegistrations||[]);
   }).catch(function(e){hideLoading();showToast('Gagal memuat data: '+(e.message||e),'error');renderEmptyDashboard();});
 }
 /* ========== INDIKATOR KINERJA PROGRAM ========== */
@@ -1762,22 +1782,103 @@ function renderIKP(){
   },80);
 }
 
+var _dashAllPendaftaran=[];
+var _dashAllSdmk=[];
+function _getColVal(row,colNames){
+  for(var i=0;i<colNames.length;i++){var v=row[colNames[i]];if(v!==undefined&&v!=='')return v;}
+  return '';
+}
+function openStatPopup(card){
+  var title=card.label;
+  var rows=[];
+  var src=card.src||'';
+  var displayCols=[];
+  if(src==='sdmk'||src==='sdmk-exclude'){
+    var data=_dashAllSdmk||[];
+    var colNames=['Jenis Profesi','Profesi'];
+    if(src==='sdmk-exclude'&&card.excludeVals){
+      var exVals=card.excludeVals.map(function(v){return v.toLowerCase();});
+      rows=data.filter(function(r){
+        var prof=(_getColVal(r,colNames)||'').toLowerCase();
+        for(var i=0;i<exVals.length;i++){if(prof.indexOf(exVals[i])!==-1)return false;}
+        return true;
+      });
+    } else if(card.filterCol){
+      var fColNames=[card.filterCol];
+      var fVal=(card.filterVal||'').toLowerCase();
+      rows=data.filter(function(r){return (_getColVal(r,fColNames)||'').toLowerCase().indexOf(fVal)!==-1;});
+    } else {
+      rows=data;
+    }
+    displayCols=[{h:'Nama',k:['Nama','Nama Lengkap dengan Gelar']},{h:'Profesi',k:['Jenis Profesi','Profesi']},{h:'Unit Kerja',k:['Unit Kerja','Unit_Kerja','Unit']},{h:'Status Pekerjaan',k:['Status Pekerjaan','Status_Pekerjaan']},{h:'Kegiatan',k:['Judul Kegiatan','Judul Pelatihan']}];
+  } else if(src==='pendaftaran'||src==='pendaftaran-exclude'){
+    var data=_dashAllPendaftaran||[];
+    if(src==='pendaftaran-exclude'&&card.excludeVals){
+      var exVals=card.excludeVals.map(function(v){return v.toLowerCase();});
+      var exColNames=[card.excludeCol];
+      rows=data.filter(function(r){
+        var val=(_getColVal(r,exColNames)||'').toLowerCase();
+        for(var i=0;i<exVals.length;i++){if(val.indexOf(exVals[i])!==-1)return false;}
+        return true;
+      });
+    } else if(card.filterCol){
+      var fColNames=[card.filterCol];
+      var fVal=(card.filterVal||'').toLowerCase();
+      rows=data.filter(function(r){return (_getColVal(r,fColNames)||'').toLowerCase().indexOf(fVal)!==-1;});
+    } else {
+      rows=data;
+    }
+    displayCols=[{h:'Nama',k:['Nama Lengkap dengan Gelar','Nama']},{h:'Profesi',k:['Jenis Profesi','Profesi']},{h:'Status Pekerjaan',k:['Status Pekerjaan','Status_Pekerjaan']},{h:'Kegiatan',k:['Judul Kegiatan','Judul Pelatihan']}];
+  } else if(src==='sertifikat'){
+    displayCols=[{h:'Nama',k:['Nama Penerima','Nama']},{h:'No. Sertifikat',k:['No. Sertifikat','Nomor Sertifikat']},{h:'Pelatihan',k:['Nama Pelatihan','Judul Kegiatan']}];
+  } else if(src==='pengumuman'){
+    displayCols=[{h:'Judul',k:['Judul','Title']},{h:'Tanggal',k:['Tanggal','Date']}];
+  }
+  var countEl=rows.length;
+  document.getElementById('statPopupTitle').innerHTML=title+' <span class="sp-count" style="color:var(--primary)">('+countEl+' data)</span>';
+  var body=document.getElementById('statPopupBody');
+  if(!rows.length){body.innerHTML='<div class="stat-popup-empty"><i class="fas fa-inbox"></i><p>Tidak ada data.</p></div>';}
+  else{
+    var html='<table class="stat-popup-table"><thead><tr><th>No</th>';
+    displayCols.forEach(function(c){html+='<th>'+escHTML(c.h)+'</th>';});
+    html+='</tr></thead><tbody>';
+    var show=rows.slice(0,200);
+    show.forEach(function(r,idx){
+      html+='<tr><td>'+(idx+1)+'</td>';
+      displayCols.forEach(function(c){
+        html+='<td>'+escHTML(_getColVal(r,c.k)||'-')+'</td>';
+      });
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    if(rows.length>200) html+='<div style="padding:10px 14px;text-align:center;color:var(--text-muted);font-size:.8rem;">Menampilkan 200 dari '+rows.length+' data</div>';
+    body.innerHTML=html;
+  }
+  document.getElementById('statPopupOverlay').classList.add('active');
+  document.body.style.overflow='hidden';
+}
+function closeStatPopup(){
+  document.getElementById('statPopupOverlay').classList.remove('active');
+  document.body.style.overflow='';
+}
+
+
 function renderStatCards(s){
   var g=document.getElementById('statsGrid');
   var cards=[
-    {icon:'fa-user-md',label:'Total SDMK',value:s.totalSDMK||0,hint:'Tenaga kesehatan terlatih',color:'var(--primary)'},
-    {icon:'fa-clipboard-list',label:'Total Pendaftar',value:s.totalPendaftar||0,hint:'Pendaftaran pelatihan',color:'var(--secondary)'},
-    {icon:'fa-certificate',label:'Sertifikat Terbit',value:s.totalSertifikat||0,hint:'Sertifikat yang telah diterbitkan',color:'var(--accent)'},
-    {icon:'fa-bullhorn',label:'Pengumuman',value:s.totalPengumuman||0,hint:'Pengumuman aktif',color:'#8B5CF6'},
-    {icon:'fa-user-md',label:'Dokter',value:s.dokter||0,hint:'Tenaga medis dokter',color:'#EC4899'},
-    {icon:'fa-user-nurse',label:'Perawat',value:s.perawat||0,hint:'Tenaga keperawatan',color:'#06B6D4'},
-    {icon:'fa-baby',label:'Bidan',value:s.bidan||0,hint:'Tenaga kebidanan',color:'#F59E0B'},
-    {icon:'fa-pills',label:'Apoteker',value:s.apoteker||0,hint:'Tenaga kefarmasian',color:'#10B981'},
-    {icon:'fa-building',label:'ASN',value:s.asn||0,hint:'Aparatur Sipil Negara',color:'#3B82F6'},
-    {icon:'fa-file-contract',label:'PPPK',value:s.pppk||0,hint:'Pegawai Pemerintah dengan Perjanjian Kerja',color:'#8B5CF6'},
-    {icon:'fa-handshake',label:'Kontrak',value:s.kontrak||0,hint:'Tenaga kontrak',color:'#F97316'},
-    {icon:'fa-mars',label:'Laki-laki',value:s.laki||0,hint:'SDMK berjenis kelamin laki-laki',color:'#0EA5E9'},
-    {icon:'fa-venus',label:'Perempuan',value:s.perempuan||0,hint:'SDMK berjenis kelamin perempuan',color:'#EC4899'}
+    {icon:'fa-user-md',label:'Total SDMK',value:s.totalSDMK||0,hint:'Tenaga kesehatan terlatih',color:'var(--primary)',src:'sdmk'},
+    {icon:'fa-clipboard-list',label:'Total Pendaftar',value:s.totalPendaftar||0,hint:'Pendaftaran pelatihan',color:'var(--secondary)',src:'pendaftaran'},
+    {icon:'fa-certificate',label:'Sertifikat Terbit',value:s.totalSertifikat||0,hint:'Sertifikat yang telah diterbitkan',color:'var(--accent)',src:'sertifikat'},
+    {icon:'fa-bullhorn',label:'Pengumuman',value:s.totalPengumuman||0,hint:'Pengumuman aktif',color:'#8B5CF6',src:'pengumuman'},
+    {icon:'fa-user-md',label:'Dokter',value:s.dokter||0,hint:'Tenaga medis dokter',color:'#EC4899',src:'sdmk',filterCol:'Jenis Profesi',filterVal:'dokter'},
+    {icon:'fa-user-nurse',label:'Perawat',value:s.perawat||0,hint:'Tenaga keperawatan',color:'#06B6D4',src:'sdmk',filterCol:'Jenis Profesi',filterVal:'perawat'},
+    {icon:'fa-baby',label:'Bidan',value:s.bidan||0,hint:'Tenaga kebidanan',color:'#F59E0B',src:'sdmk',filterCol:'Jenis Profesi',filterVal:'bidan'},
+    {icon:'fa-pills',label:'Nakes Lainnya',value:s.nakesLainnya||0,hint:'Tenaga kesehatan lainnya',color:'#10B981',src:'sdmk-exclude',excludeVals:['dokter','perawat','bidan'],excludeCol:'Jenis Profesi'},
+    {icon:'fa-building',label:'PNS',value:s.pns||0,hint:'Pegawai Negeri Sipil',color:'#3B82F6',src:'pendaftaran',filterCol:'Status Pekerjaan',filterVal:'pns'},
+    {icon:'fa-file-contract',label:'PPPK',value:s.pppk||0,hint:'Pegawai Pemerintah dengan Perjanjian Kerja',color:'#8B5CF6',src:'pendaftaran',filterCol:'Status Pekerjaan',filterVal:'pppk'},
+    {icon:'fa-handshake',label:'Non ASN',value:s.nonAsn||0,hint:'Selain PNS dan PPPK',color:'#F97316',src:'pendaftaran-exclude',excludeVals:['pns','pppk'],excludeCol:'Status Pekerjaan'},
+    {icon:'fa-mars',label:'Laki-laki',value:s.laki||0,hint:'Jenis kelamin laki-laki',color:'#0EA5E9',src:'pendaftaran',filterCol:'Jenis Kelamin',filterVal:'laki'},
+    {icon:'fa-venus',label:'Perempuan',value:s.perempuan||0,hint:'Jenis kelamin perempuan',color:'#EC4899',src:'pendaftaran',filterCol:'Jenis Kelamin',filterVal:'perempuan'}
   ];
   g.innerHTML='';
   g.style.display='grid';
@@ -1787,6 +1888,7 @@ function renderStatCards(s){
     var d=document.createElement('div');d.className='stat-card';
     d.style.borderTop='3px solid '+(c.color||'var(--primary)');
     d.innerHTML='<div class="stat-card-top"><div class="stat-card-icon" style="background:'+(c.color||'var(--primary)')+'15;color:'+(c.color||'var(--primary)')+'"><i class="fas '+c.icon+'"></i></div></div><div class="stat-card-value" style="color:'+(c.color||'var(--primary)')+'">'+c.value+'</div><div class="stat-card-label">'+c.label+'</div><div class="stat-card-hint"><i class="fas fa-database"></i> '+c.hint+'</div>';
+    d.addEventListener('click',function(){openStatPopup(c);});
     g.appendChild(d);
   });
 }
@@ -3991,5 +4093,15 @@ function closeSDMKLightbox(){
   document.body.style.overflow='';
 }
 </script>
+<!-- Stat Card Popup -->
+<div class="stat-popup-overlay" id="statPopupOverlay" onclick="if(event.target===this)closeStatPopup()">
+  <div class="stat-popup-box">
+    <div class="stat-popup-header">
+      <h3 id="statPopupTitle">Detail Data</h3>
+      <button class="stat-popup-close" onclick="closeStatPopup()">&times;</button>
+    </div>
+    <div class="stat-popup-body" id="statPopupBody"></div>
+  </div>
+</div>
 </body>
 </html>
