@@ -1720,7 +1720,7 @@ table.table-modern tbody tr:hover, table.table tbody tr:hover {
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbwRbr0-hVbS3OGl5S-tQ9qgmObO4HioF0smGF0xLjijsA8ElpFH1zQSaCsymzlQNSjz/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbwaM0uRhA7rmTUrYrSed_WOlpb55sjeueX7VkJaD1sljKvD_CatPM6bJ2FcIuKsBBRW/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -2270,9 +2270,9 @@ function renderAdmin() {
             '<select id="adminStatusFilter" class="form-control" onchange="applyAdminFilters()">' +
               '<option value="">Semua Status</option>' +
               '<option value="pending">Menunggu</option>' +
-              '<option value="processed">Diperiksa</option>' +
+              '<option value="process">Diproses</option>' +
               '<option value="approved">Disetujui</option>' +
-              '<option value="revision">Diperbaiki</option>' +
+              '<option value="requires improvements">Perlu Perbaikan</option>' +
               '<option value="rejected">Ditolak</option>' +
             '</select>' +
           '</div>' +
@@ -2349,7 +2349,7 @@ function renderAdmin() {
         var matchesSearch = !search || 
           (app.full_name && app.full_name.toLowerCase().includes(search)) ||
           (app.nik && app.nik.toLowerCase().includes(search));
-        var matchesStatus = !status || app.status === status;
+        var matchesStatus = !status || (app.status || '').toLowerCase() === status.toLowerCase();
         var matchesInstansi = !instansi || app.unit_tujuan === instansi;
         var matchesJurusan = !jurusan || app.jurusan_tujuan === jurusan;
         return matchesSearch && matchesStatus && matchesInstansi && matchesJurusan;
@@ -2385,18 +2385,19 @@ function renderAdmin() {
       var pageData = apps.slice(startIdx, startIdx + pageSize);
 
       var rows = pageData.map(function(app) {
-        var badge = app.status === 'approved' ? 'badge-approved'
-          : app.status === 'rejected' ? 'badge-rejected'
-          : app.status === 'processed' ? 'badge-processed'
-          : app.status === 'revision' ? 'badge-revision' : 'badge-pending';
+        var st = (app.status || '').toLowerCase();
+        var badge = st === 'approved' ? 'badge-approved'
+          : st === 'rejected' ? 'badge-rejected'
+          : st === 'processed' || st === 'process' ? 'badge-processed'
+          : st === 'revision' || st === 'requires improvements' || st === 'requires improvement' || st === 'perlu perbaikan' ? 'badge-revision' : 'badge-pending';
 
         var statusDD = '<select class="status-dropdown" onchange="changeStatusQuick(' + app.id + ', this.value)">' +
           '<option value="">Ubah Status</option>' +
-          '<option value="pending" ' + (app.status === 'pending' ? 'selected' : '') + '>Menunggu</option>' +
-          '<option value="processed" ' + (app.status === 'processed' ? 'selected' : '') + '>Diperiksa</option>' +
-          '<option value="approved" ' + (app.status === 'approved' ? 'selected' : '') + '>Disetujui</option>' +
-          '<option value="revision" ' + (app.status === 'revision' ? 'selected' : '') + '>Diperbaiki</option>' +
-          '<option value="rejected" ' + (app.status === 'rejected' ? 'selected' : '') + '>Ditolak</option>' +
+          '<option value="pending" ' + (st === 'pending' ? 'selected' : '') + '>Menunggu</option>' +
+          '<option value="process" ' + (st === 'processed' || st === 'process' ? 'selected' : '') + '>Diproses</option>' +
+          '<option value="approved" ' + (st === 'approved' ? 'selected' : '') + '>Disetujui</option>' +
+          '<option value="requires improvements" ' + (st === 'revision' || st === 'requires improvements' || st === 'requires improvement' || st === 'perlu perbaikan' ? 'selected' : '') + '>Perlu Perbaikan</option>' +
+          '<option value="rejected" ' + (st === 'rejected' ? 'selected' : '') + '>Ditolak</option>' +
           '</select>';
 
         var key = (app.nik || app.id || '').toString().replace(/'/g, "\\'");
@@ -2564,7 +2565,7 @@ function renderAdmin() {
           if (st === 'pending') counts.pending++;
           else if (st === 'approved') counts.approved++;
           else if (st === 'rejected') counts.rejected++;
-          else if (st === 'processed') counts.processed++;
+          else if (st === 'processed' || st === 'process') counts.processed++;
           else if (st === 'revision' || st === 'requires improvement' || st === 'requires improvements' || st === 'perlu perbaikan') counts.revision++;
           var jur = (app.jurusan_tujuan || 'Lainnya').trim();
           if (!jur) jur = 'Lainnya';
@@ -2884,7 +2885,8 @@ function renderAdmin() {
     }
 
     function requiresRepairStatus(d) {
-      return d.status === 'revision' || d.status === 'rejected';
+      var s = (d.status || '').toLowerCase();
+      return s === 'revision' || s === 'rejected' || s === 'requires improvements' || s === 'requires improvement';
     }
 
     function getStatusBadgeClass(status) {
@@ -2892,8 +2894,8 @@ function renderAdmin() {
       var s = String(status).toLowerCase();
       return s === 'approved' ? 'badge-approved' :
         s === 'rejected' ? 'badge-rejected' :
-        s === 'processed' ? 'badge-processed' :
-        s === 'revision' || s === 'perbaikan telah dikirim' ? 'badge-revision' :
+        s === 'processed' || s === 'process' ? 'badge-processed' :
+        s === 'revision' || s === 'requires improvements' || s === 'requires improvement' || s === 'perlu perbaikan' || s === 'perbaikan telah dikirim' ? 'badge-revision' :
         'badge-pending';
     }
 
@@ -2903,9 +2905,13 @@ function renderAdmin() {
       var map = {
         pending: 'Menunggu',
         processed: 'Diproses',
+        process: 'Diproses',
         approved: 'Disetujui',
         rejected: 'Ditolak',
         revision: 'Perlu Perbaikan',
+        'requires improvements': 'Perlu Perbaikan',
+        'requires improvement': 'Perlu Perbaikan',
+        'perlu perbaikan': 'Perlu Perbaikan',
         'perbaikan telah dikirim': 'Perbaikan Telah Dikirim'
       };
       return map[s] || status;
@@ -5219,7 +5225,8 @@ function showProfileAdmin(id) {
         function processApps(allApps) {
           var filtered = allApps.filter(function(app) {
             var s = (app.status || '').toLowerCase().trim();
-            if (statusType === 'revision') return s === 'revision' || s === 'perlu perbaikan';
+            if (statusType === 'processed') return s === 'processed' || s === 'process';
+            if (statusType === 'revision') return s === 'revision' || s === 'requires improvements' || s === 'requires improvement' || s === 'perlu perbaikan';
             return s === statusType;
           });
 
