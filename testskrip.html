@@ -894,7 +894,6 @@ table.table-modern tbody tr:hover, table.table tbody tr:hover {
 .p-3 { padding: 12px; }
 .p-4 { padding: 16px; }
 .hidden { display: none !important; }
-.hiden { display: none !important; }
 .btn-drive {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 14px; border-radius: 8px;
@@ -1040,8 +1039,15 @@ table.table-modern tbody tr:hover, table.table tbody tr:hover {
 .status-app-badge.badge-revision-sm { background: #ede9fe; color: #5b21b6; }
 
 /* ============ MODAL EDIT FULLSCREEN ============ */
-.modal-edit-fullscreen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 1rem; animation: fadeIn 0.2s ease-out; }
+.modal-edit-fullscreen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10001; padding: 1rem; opacity: 0; transition: opacity 0.2s ease; }
+.modal-edit-fullscreen.show { opacity: 1; }
 .modal-edit-fullscreen.hidden { display: none; }
+.profile-popup-foto { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary-light); }
+.profile-fields-grid { display: grid; gap: 10px; }
+.profile-field-row { display: flex; gap: 12px; padding: 8px 12px; background: var(--bg-body); border-radius: 8px; border: 1px solid var(--border-color); }
+.profile-field-label { min-width: 140px; font-weight: 600; color: var(--text-secondary); font-size: 0.82rem; }
+.profile-field-value { flex: 1; color: var(--text-primary); font-size: 0.85rem; word-break: break-word; }
+.profile-docs { margin-top: 16px; padding: 12px; background: var(--bg-body); border-radius: 8px; border: 1px solid var(--border-color); }
 .modal-edit-content { background: white; border-radius: var(--radius-lg); width: 95%; max-width: 1000px; max-height: 95vh; display: flex; flex-direction: column; box-shadow: var(--shadow-xl); animation: slideUp 0.3s ease-out; }
 .modal-edit-header { background: var(--primary-gradient); color: white; padding: 1.5rem; border-radius: var(--radius-lg) var(--radius-lg) 0 0; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
 .modal-edit-title { font-size: 1.2rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem; }
@@ -1736,16 +1742,23 @@ document.addEventListener('DOMContentLoaded', function() {
       currentPage = validPages.includes(hash) ? hash : 'dashboard';
       updateCurrentDate();
       navigate(currentPage);
-      
-      document.querySelectorAll('.sidebar-menu a').forEach(function(link) {
+
+      // Hide skeleton loader, reveal app
+      setTimeout(function() {
+        var sk = document.getElementById('skeletonScreen');
+        if (sk) sk.classList.add('hidden');
+        var appEl = document.getElementById('app');
+        if (appEl) appEl.style.opacity = '1';
+      }, 600);
+
+      document.querySelectorAll('.sidebar-nav a.sidebar-link').forEach(function(link) {
         link.addEventListener('click', function(e) {
           e.preventDefault();
           var page = this.dataset.page;
           if (page) navigate(page);
         });
       });
-      document.querySelector('.menu-toggle').addEventListener('click', toggleSidebar);
-      
+
       window.addEventListener('hashchange', function() {
         var h = window.location.hash.replace('#', '');
         if (validPages.includes(h)) navigate(h);
@@ -1820,7 +1833,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateActiveMenu() {
-      document.querySelectorAll('.sidebar-menu a').forEach(function(link) {
+      document.querySelectorAll('.sidebar-nav a.sidebar-link').forEach(function(link) {
         link.classList.remove('active');
         if (link.dataset.page === currentPage) link.classList.add('active');
       });
@@ -2564,6 +2577,7 @@ function renderAdmin() {
         // Counter animation
         function animateCounter(el, target) {
           if (!el) return;
+          if (target === 0) { el.textContent = '0'; return; }
           var current = 0;
           var step = Math.max(1, Math.ceil(target / 30));
           var interval = setInterval(function() {
@@ -2945,7 +2959,7 @@ function renderAdmin() {
                 '<div class="flex gap-3">' +
                   '<div>' + fotoHtml + '</div>' +
                   '<div style="flex:1">' +
-                    '<div class="flex justify-between items-center mb-1"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + getStatusBadgeClass(d.status) + '">' + escapeHtml(getStatusText(d.status_v)) + '</span></div>' +
+                    '<div class="flex justify-between items-center mb-1"><strong>' + escapeHtml(d.full_name) + '</strong><span class="badge ' + getStatusBadgeClass(d.status_v) + '">' + escapeHtml(getStatusText(d.status_v)) + '</span></div>' +
                     '<p class="text-sm mb-1">No. Pengajuan: <code>' + escapeHtml(d.application_number) + '</code></p>' +
                     '<p class="text-sm mb-1">NIK: ' + escapeHtml(d.nik || '-') + '</p>' +
                   '</div>' +
@@ -4364,7 +4378,56 @@ function exportApplications() {
       });
     }
 
-function viewApplication(key) {
+// ========================================
+    // FULL PROFILE POPUP
+    // ========================================
+    function showFullProfilePopup(app) {
+      if (!app) { showToast('Data tidak tersedia', 'error'); return; }
+      var s = app.status || app.status_v || '-';
+      var badgeCls = s === 'approved' ? 'badge-approved-sm' : s === 'rejected' ? 'badge-rejected-sm' : 'badge-pending-sm';
+      var statusTxt = s === 'approved' ? 'Disetujui' : s === 'rejected' ? 'Ditolak' : 'Menunggu';
+
+      var fields = [
+        ['NIK', app.nik], ['Nama Lengkap', app.full_name], ['Jenis Kelamin', app.jenis_kelamin],
+        ['Tempat Lahir', app.tempat_lahir], ['Tanggal Lahir', app.tanggal_lahir],
+        ['Email', app.email], ['No. HP', app.no_hp],
+        ['Alamat', app.alamat], ['Jurusan Tujuan', app.jurusan_tujuan],
+        ['Unit Tujuan', app.unit_tujuan], ['Jenjang Pendidikan', app.jenjang_pendidikan],
+        ['Nama Institusi', app.nama_institusi], ['Tahun Lulus', app.tahun_lulus],
+        ['Status', '<span class="' + badgeCls + '">' + statusTxt + '</span>'],
+        ['Tanggal Pengajuan', app.timestamp || app.created_at || '-'],
+        ['Catatan', app.catatan || app.notes || '-']
+      ];
+
+      var rowsHtml = fields.map(function(f) {
+        if (!f[1] || f[1] === '-') return '';
+        return '<div class="profile-field-row"><div class="profile-field-label">' + f[0] + '</div><div class="profile-field-value">' + (f[0] === 'Status' ? f[1] : escapeHtml(String(f[1]))) + '</div></div>';
+      }).join('');
+
+      var fotoHtml = app.foto_url
+        ? '<img src="' + escapeHtml(app.foto_url) + '" class="profile-popup-foto" onerror="handleFotoError(this)" /><div class="status-app-foto-placeholder" style="display:none;"><i class="fas fa-user"></i></div>'
+        : '<div class="status-app-foto-placeholder" style="width:80px;height:80px;font-size:2rem;"><i class="fas fa-user"></i></div>';
+
+      var docHtml = '';
+      if (app.document_links) {
+        docHtml = '<div class="profile-docs"><strong><i class="fas fa-folder-open"></i> Dokumen:</strong><br>' + formatDocumentLinks(app.document_links) + '</div>';
+      }
+
+      var modal = document.createElement('div');
+      modal.className = 'modal-edit-fullscreen';
+      modal.innerHTML =
+        '<div class="modal-edit-header"><h2 class="modal-edit-title"><i class="fas fa-user-circle"></i> Profil: ' + escapeHtml(app.full_name || app.nik || '') + '</h2><button class="modal-edit-close-btn" onclick="this.closest(\'.modal-edit-fullscreen\').remove()">&times;</button></div>' +
+        '<div class="modal-edit-body" style="max-width:600px;margin:0 auto;">' +
+          '<div style="text-align:center;margin-bottom:20px;">' + fotoHtml + '</div>' +
+          '<div class="profile-fields-grid">' + rowsHtml + '</div>' +
+          docHtml +
+        '</div>' +
+        '<div class="modal-edit-footer"><button class="btn btn-outline" onclick="this.closest(\'.modal-edit-fullscreen\').remove()">TUTUP</button></div>';
+      document.body.appendChild(modal);
+      setTimeout(function() { modal.classList.add('show'); }, 10);
+    }
+
+    function viewApplication(key) {
         apiCallWithData('getApplicationDetail', {id: key}, function(res) {
           if (res && res.success && res.data) {
             showFullProfilePopup(res.data);
@@ -4634,7 +4697,7 @@ function showModal(title, content) {
     }
 
     function quoteForOnclick(val) {
-      return '"' + String(val).replace(/"/g, '&quot;') + '"';
+      return "'" + String(val).replace(/'/g, "\\'") + "'";
     }
 
     function showToast(msg, type) {
