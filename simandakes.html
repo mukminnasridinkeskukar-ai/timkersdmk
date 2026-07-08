@@ -230,7 +230,7 @@
     .scrolly::-webkit-scrollbar{width:6px}
     .scrolly::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
   </style>
-  <?!= include('CSS') ?>
+  <!-- CSS inline above -->
 </head>
 <body>
 
@@ -410,16 +410,30 @@
   // ---------- STATE ----------
   var state = {
     session: null,
+    token: localStorage.getItem('simandakes_token') || null,
     modules: [],
     currentPublicView: 'beranda',
     currentAdminView: 'dashboard',
     currentModule: null,
     tableState: { page:1, pageSize:10, search:'', sortKey:null, sortDir:'asc' },
+    auditState: { page:1, pageSize:10, search:'' },
     formData: {},
     editingId: null,
     pendingDelete: null,
     stats: { sdmk:0, fasyankes:0, praktik:0, dokter:0 }
   };
+
+  // ==========================================================
+  // KONFIGURASI API
+  // Ganti dengan URL Web App Anda setelah deploy ke Google Apps Script.
+  // Format: https://script.google.com/macros/s/SCRIPT_ID/exec
+  // Bila dikosongkan / tidak valid, frontend otomatis pakai DEMO MODE.
+  // ==========================================================
+  var API_URL = 'https://script.google.com/macros/s/AKfycbxIzWOlWyEIxtl0DxdbcEkysP7vvz91XbmAX93_cyYMadVdDXo-KQTopuZHyPYGlIs1aw/exec'; // <-- ISI DI SINI setelah deploy
+
+  // Deteksi mode: production (ada API_URL) atau demo (kosong)
+  var MODE = API_URL && API_URL.indexOf('PASTE_') === -1 && API_URL.length > 40 ? 'production' : 'demo';
+  var DEMO_DB = null;
 
   // ---------- TOAST ----------
   function toast(msg, type){
@@ -462,19 +476,398 @@
     return date.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   }
 
-  // ---------- API WRAPPER (Promise) ----------
+  // ==========================================================
+  // API WRAPPER
+  // - Production mode: fetch() POST ke API_URL dengan body text/plain (hindari CORS preflight)
+  // - Demo mode: panggil mockBackend() secara synchronous
+  // ==========================================================
   function api(fn){
     var args = Array.prototype.slice.call(arguments, 1);
     return new Promise(function(resolve, reject){
-      var cb = function(res){
-        if (res && res.ok === false) reject(new Error(res.message || 'Gagal'));
-        else resolve(res);
-      };
-      var errCb = function(err){ reject(new Error(err.message || 'Server error')); };
-      try {
-        google.script.run.withSuccessHandler(cb).withFailureHandler(errCb)[fn].apply(null, args);
-      } catch(e) { reject(e); }
+      if (MODE === 'production') {
+        // Susun payload sesuai signature fungsi
+        var payload = buildPayload(fn, args);
+        payload.token = state.token || '';
+        payload.action = fn;
+
+        fetch(API_URL, {
+          method: 'POST',
+          // Penting: text/plain supaya tidak trigger CORS preflight
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        })
+        .then(function(r){
+          if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
+          return r.json();
+        })
+        .then(function(res){
+          if (res && res.ok === false) reject(new Error(res.message || 'Gagal'));
+          else resolve(res);
+        })
+        .catch(function(err){
+          // Fallback ke demo mode bila fetch gagal (mis. URL salah / belum deploy)
+          console.warn('[SIMANDAKES] API call gagal, fallback ke demo:', err.message);
+          try {
+            var result = mockBackend(fn, args);
+            if (result && result.__reject) reject(new Error(result.message));
+            else resolve(result);
+          } catch(e) { reject(e); }
+        });
+      } else {
+        // Demo mode
+        setTimeout(function(){
+          try {
+            var result = mockBackend(fn, args);
+            if (result && result.__reject) reject(new Error(result.message));
+            else resolve(result);
+          } catch(e) { reject(e); }
+        }, 150 + Math.random()*250);
+      }
     });
+  }
+
+  // Bangun payload data sesuai signature fungsi backend
+  function buildPayload(fn, args){
+    var p = { data: {} };
+    switch(fn){
+      case 'getPublicDirectory':
+        p.data = { type: args[0] };
+        Object.assign(p.data, args[1] || {});
+        break;
+      case 'getAdminData':
+        p.data = { moduleId: args[0] };
+        Object.assign(p.data, args[1] || {});
+        break;
+      case 'saveAdminData':
+        p.data = { moduleId: args[0], payload: args[1] };
+        break;
+      case 'updateAdminData':
+        p.data = { moduleId: args[0], id: args[1], payload: args[2] };
+        break;
+      case 'deleteAdminData':
+        p.data = { moduleId: args[0], id: args[1] };
+        break;
+      case 'exportAdminExcel':
+      case 'exportAdminPdf':
+        p.data = { moduleId: args[0] };
+        break;
+      case 'getMenu':
+      case 'getKotakSaran':
+      case 'checkSession':
+      case 'logout':
+        break;
+      case 'login':
+      case 'saveKotakSaran':
+      case 'uploadAdminPhoto':
+        p.data = args[0] || {};
+        break;
+      case 'getAdminModules':
+        break;
+      case 'getAuditTrail':
+        p.data = args[0] || {};
+        break;
+      default:
+        p.data = args[0] || {};
+    }
+    return p;
+  }
+
+  // ============== MOCK BACKEND (DEMO MODE) ==============
+  function mockBackend(fn, args){
+    if (!DEMO_DB) initDemoDb();
+
+    switch(fn){
+      case 'getMenu':
+        return DEMO_DB.menu;
+
+      case 'getPublicDirectory': {
+        var type = args[0], opts = args[1] || {};
+        return { ok: true, data: paginateMock(DEMO_DB[type], opts) };
+      }
+
+      case 'getKotakSaran':
+        return DEMO_DB.saran;
+
+      case 'saveKotakSaran': {
+        var d = args[0];
+        if (!d.nama || !d.nama.trim()) return {__reject:true, message:'Nama wajib diisi.'};
+        if (!d.saran || !d.saran.trim()) return {__reject:true, message:'Saran wajib diisi.'};
+        d.id = 'SRN' + String(DEMO_DB.saran.length+1).padStart(3,'0');
+        d.tanggal = new Date().toISOString();
+        DEMO_DB.saran.unshift(d);
+        return { ok:true, data:d };
+      }
+
+      case 'checkSession':
+        return DEMO_DB.session ? { ok:true, data: DEMO_DB.session } : { ok:true, data: null };
+
+      case 'login': {
+        var p = args[0];
+        var u = String(p.username||'').toLowerCase();
+        var acc = DEMO_DB.adminUsers.find(function(a){ return a.username===u && a.password===p.password; });
+        if (!acc) return {__reject:true, message:'Username atau password salah.'};
+        var sess = { username:acc.username, nama:acc.nama, role:acc.role, email:acc.email||'', loginTime:new Date().toISOString() };
+        var token = 'demo_token_' + Date.now();
+        DEMO_DB.session = sess;
+        DEMO_DB.token = token;
+        DEMO_DB.audit.unshift({timestamp:new Date().toISOString(),action:'login',by:acc.username,username:acc.username,role:acc.role,module:'Auth',description:'Login berhasil',record_id:''});
+        return { ok:true, data: sess, token: token };
+      }
+
+      case 'logout':
+        DEMO_DB.session = null;
+        DEMO_DB.token = null;
+        return { ok:true };
+
+      case 'getAdminModules': {
+        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir. Silakan login kembali.'};
+        var mods = DEMO_DB.modules.filter(function(m){
+          return roleCanAccessMock(DEMO_DB.session.role, m.id);
+        }).map(function(m){ return {id:m.id,name:m.name,icon:m.icon,headers:m.headers,sheetName:m.sheetName,idPrefix:m.idPrefix}; });
+        return { ok:true, session: DEMO_DB.session, data: mods };
+      }
+
+      case 'getAdminData': {
+        var mid = args[0], opts = args[1] || {};
+        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
+        var mod = DEMO_DB.modules.find(function(m){ return m.id===mid; });
+        if (!mod) return {__reject:true, message:'Modul tidak ditemukan.'};
+        if (!roleCanAccessMock(DEMO_DB.session.role, mid)) return {__reject:true, message:'Akses ditolak untuk role ini.'};
+        return { ok:true, data: paginateMock(DEMO_DB[mid], opts), session: DEMO_DB.session };
+      }
+
+      case 'saveAdminData': {
+        var mid = args[0], pl = args[1];
+        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
+        var mod = DEMO_DB.modules.find(function(m){ return m.id===mid; });
+        if (!mod) return {__reject:true, message:'Modul tidak ditemukan.'};
+        var errs = validateMock(mod, pl);
+        if (errs.length) return {__reject:true, message:'Validasi gagal: '+errs.join(' ')};
+        var newId = mod.idPrefix + String(DEMO_DB[mid].length+1).padStart(3,'0');
+        pl.id = newId;
+        pl._row = DEMO_DB[mid].length+2;
+        DEMO_DB[mid].push(pl);
+        DEMO_DB.audit.unshift({timestamp:new Date().toISOString(),action:'create',by:DEMO_DB.session.username,username:DEMO_DB.session.username,role:DEMO_DB.session.role,module:mod.name,description:mod.name+' - '+(pl.nama||pl.id),record_id:pl.id});
+        return { ok:true, data: pl };
+      }
+
+      case 'updateAdminData': {
+        var mid = args[0], id = args[1], pl = args[2];
+        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
+        var mod = DEMO_DB.modules.find(function(m){ return m.id===mid; });
+        if (!mod) return {__reject:true, message:'Modul tidak ditemukan.'};
+        var errs = validateMock(mod, pl);
+        if (errs.length) return {__reject:true, message:'Validasi gagal: '+errs.join(' ')};
+        var idx = DEMO_DB[mid].findIndex(function(r){ return r.id===id; });
+        if (idx===-1) return {__reject:true, message:'Data tidak ditemukan.'};
+        pl.id = id;
+        pl._row = DEMO_DB[mid][idx]._row;
+        DEMO_DB[mid][idx] = pl;
+        DEMO_DB.audit.unshift({timestamp:new Date().toISOString(),action:'update',by:DEMO_DB.session.username,username:DEMO_DB.session.username,role:DEMO_DB.session.role,module:mod.name,description:mod.name+' - '+(pl.nama||id),record_id:id});
+        return { ok:true, data: pl };
+      }
+
+      case 'deleteAdminData': {
+        var mid = args[0], id = args[1];
+        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
+        var mod = DEMO_DB.modules.find(function(m){ return m.id===mid; });
+        if (!mod) return {__reject:true, message:'Modul tidak ditemukan.'};
+        var idx = DEMO_DB[mid].findIndex(function(r){ return r.id===id; });
+        if (idx===-1) return {__reject:true, message:'Data tidak ditemukan.'};
+        DEMO_DB[mid].splice(idx,1);
+        DEMO_DB.audit.unshift({timestamp:new Date().toISOString(),action:'delete',by:DEMO_DB.session.username,username:DEMO_DB.session.username,role:DEMO_DB.session.role,module:mod.name,description:mod.name+' - '+id,record_id:id});
+        return { ok:true };
+      }
+
+      case 'uploadAdminPhoto':
+        return { ok:true, url:'https://ui-avatars.com/api/?name=Foto&size=200&background=3282b8&color=fff' };
+
+      case 'exportAdminExcel':
+        return { ok:true, url:'data:text/csv;charset=utf-8,'+encodeURIComponent('id,nama\nDEMO001,Data Demo\n'), filename:'export_demo.csv' };
+
+      case 'exportAdminPdf':
+        return { ok:true, url:'data:text/html;charset=utf-8,'+encodeURIComponent('<h1>DEMO PDF</h1><p>Preview mode</p>'), filename:'export_demo.pdf' };
+
+      case 'getAuditTrail': {
+        var opts = args[0] || {};
+        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
+        if (DEMO_DB.session.role !== 'Super Admin') return {__reject:true, message:'Hanya Super Admin.'};
+        return { ok:true, data: paginateMock(DEMO_DB.audit, opts) };
+      }
+
+      default:
+        return {__reject:true, message:'Fungsi tidak dikenal di demo mode: ' + fn};
+    }
+  }
+
+  function roleCanAccessMock(role, moduleId){
+    if (role==='Super Admin') return true;
+    if (role==='Admin SDMK' && moduleId==='sdmk') return true;
+    if (role==='Admin Fasyankes' && moduleId==='fasyankes') return true;
+    if (role==='Admin Praktik' && (moduleId==='praktik_nakes'||moduleId==='dokter_spesialis')) return true;
+    return false;
+  }
+
+  function validateMock(mod, pl){
+    var errs = [];
+    mod.headers.forEach(function(h){
+      var v = String(pl[h.key]==null?'':pl[h.key]).trim();
+      if (h.required && !v) { errs.push(h.label+' wajib diisi.'); return; }
+      if (!v) return;
+      if (h.minLen && v.length<h.minLen) errs.push(h.label+' minimal '+h.minLen+' karakter.');
+      if (h.maxLen && v.length>h.maxLen) errs.push(h.label+' maksimal '+h.maxLen+' karakter.');
+      if (h.pattern && !(new RegExp(h.pattern).test(v))) errs.push(h.label+' format tidak valid.');
+      if (h.type==='select' && h.options && h.options.indexOf(v)===-1) errs.push(h.label+' tidak valid.');
+    });
+    return errs;
+  }
+
+  function paginateMock(arr, opts){
+    opts = opts || {};
+    var page = Math.max(1, parseInt(opts.page||1,10)||1);
+    var pageSize = Math.min(100, Math.max(1, parseInt(opts.pageSize||10,10)||10));
+    var search = String(opts.search||'').toLowerCase().trim();
+    var sortKey = opts.sortKey || null;
+    var sortDir = opts.sortDir==='desc'?'desc':'asc';
+    var filtered = arr.slice();
+    if (search){
+      filtered = filtered.filter(function(row){
+        return Object.keys(row).some(function(k){
+          if (k==='_row') return false;
+          return String(row[k]||'').toLowerCase().indexOf(search)!==-1;
+        });
+      });
+    }
+    if (sortKey){
+      filtered.sort(function(a,b){
+        var av=String(a[sortKey]||'').toLowerCase(), bv=String(b[sortKey]||'').toLowerCase();
+        if (av<bv) return sortDir==='asc'?-1:1;
+        if (av>bv) return sortDir==='asc'?1:-1;
+        return 0;
+      });
+    }
+    var total = filtered.length;
+    var totalPages = Math.max(1, Math.ceil(total/pageSize));
+    if (page>totalPages) page = totalPages;
+    var start = (page-1)*pageSize;
+    var rows = filtered.slice(start, start+pageSize);
+    return { rows:rows, page:page, pageSize:pageSize, total:total, totalPages:totalPages, search:search, sortKey:sortKey, sortDir:sortDir };
+  }
+
+  function initDemoDb(){
+    DEMO_DB = {
+      session: null,
+      token: null,
+      menu: [
+        {id:'M001',parent:'',name:'Beranda',icon:'fas fa-home',pageType:'beranda',photo:'',desc:'Halaman utama',stat:'',meta:'',order:1,status:'Aktif'},
+        {id:'M002',parent:'',name:'SDMK',icon:'fas fa-user-md',pageType:'sdmk',photo:'',desc:'Sumber Daya Manusia Kesehatan',stat:'total',meta:'0',order:2,status:'Aktif'},
+        {id:'M003',parent:'',name:'Fasyankes',icon:'fas fa-hospital',pageType:'fasyankes',photo:'',desc:'Fasilitas Pelayanan Kesehatan',stat:'total',meta:'0',order:3,status:'Aktif'},
+        {id:'M004',parent:'',name:'Praktik Mandiri',icon:'fas fa-user-nurse',pageType:'praktik',photo:'',desc:'Praktik Mandiri Nakes',stat:'total',meta:'0',order:4,status:'Aktif'},
+        {id:'M005',parent:'',name:'Dokter Spesialis',icon:'fas fa-stethoscope',pageType:'dokter',photo:'',desc:'Praktik Dokter Spesialis',stat:'total',meta:'0',order:5,status:'Aktif'},
+        {id:'M006',parent:'',name:'Kotak Saran',icon:'fas fa-comment',pageType:'saran',photo:'',desc:'Kotak Saran Publik',stat:'',meta:'',order:6,status:'Aktif'}
+      ],
+      adminUsers: [
+        {username:'superadmin',password:'simandakes123',role:'Super Admin',nama:'Super Admin',email:''},
+        {username:'sdmk',password:'sdmk123',role:'Admin SDMK',nama:'Admin SDMK',email:''},
+        {username:'fasyankes',password:'fasyankes123',role:'Admin Fasyankes',nama:'Admin Fasyankes',email:''},
+        {username:'praktik',password:'praktik123',role:'Admin Praktik',nama:'Admin Praktik',email:''}
+      ],
+      modules: [
+        {id:'sdmk',name:'SDMK',icon:'fas fa-user-md',sheetName:'SDMK',idPrefix:'SDM',headers:[
+          {key:'foto',label:'Foto',type:'text',required:false},
+          {key:'id',label:'ID',type:'text',required:true,readonly:true},
+          {key:'nama',label:'Nama',type:'text',required:true,minLen:3,maxLen:120},
+          {key:'nik',label:'NIK',type:'text',required:true,pattern:'^\\d{16}$',hint:'16 digit angka'},
+          {key:'profesi',label:'Profesi',type:'text',required:true},
+          {key:'tempat_kerja',label:'Tempat Kerja',type:'text',required:false},
+          {key:'no_str',label:'No STR',type:'text',required:false},
+          {key:'status_aktif',label:'Status Aktif',type:'select',required:true,options:['Aktif','Tidak Aktif','Pending']}
+        ]},
+        {id:'fasyankes',name:'Fasyankes',icon:'fas fa-hospital',sheetName:'Fasyankes',idPrefix:'FAS',headers:[
+          {key:'foto',label:'Foto',type:'text',required:false},
+          {key:'id',label:'ID',type:'text',required:true,readonly:true},
+          {key:'nama',label:'Nama',type:'text',required:true,minLen:3,maxLen:150},
+          {key:'jenis',label:'Jenis',type:'select',required:true,options:['Puskesmas','RSUD','RS Swasta','Klinik','Praktik Mandiri','Lainnya']},
+          {key:'alamat',label:'Alamat',type:'textarea',required:true,minLen:5},
+          {key:'pimpinan',label:'Pimpinan',type:'text',required:false},
+          {key:'status_operasional',label:'Status Operasional',type:'select',required:true,options:['Aktif','Nonaktif','Pending']}
+        ]},
+        {id:'praktik_nakes',name:'Praktik Mandiri Nakes',icon:'fas fa-user-nurse',sheetName:'PraktikMandiri',idPrefix:'PMN',headers:[
+          {key:'foto',label:'Foto',type:'text',required:false},
+          {key:'id',label:'ID',type:'text',required:true,readonly:true},
+          {key:'nama',label:'Nama',type:'text',required:true,minLen:3},
+          {key:'profesi',label:'Profesi',type:'select',required:true,options:['Perawat','Bidan','Apoteker','Nakes Lainnya']},
+          {key:'sip',label:'SIP',type:'text',required:true,minLen:3},
+          {key:'alamat',label:'Alamat',type:'textarea',required:true,minLen:5},
+          {key:'kontak',label:'Kontak',type:'text',required:false,hint:'No HP / email'}
+        ]},
+        {id:'dokter_spesialis',name:'Praktik Dokter Spesialis',icon:'fas fa-stethoscope',sheetName:'DokterSpesialis',idPrefix:'PDS',headers:[
+          {key:'foto',label:'Foto',type:'text',required:false},
+          {key:'id',label:'ID',type:'text',required:true,readonly:true},
+          {key:'nama',label:'Nama',type:'text',required:true,minLen:3},
+          {key:'spesialisasi',label:'Spesialisasi',type:'select',required:true,options:['Umum','Anak','Penyakit Dalam','Bedah','Kandungan','Jantung','Mata','THT','Kulit & Kelamin','Syaraf','Lainnya']},
+          {key:'sip',label:'SIP',type:'text',required:true,minLen:3},
+          {key:'fasyankes_mitra',label:'Fasyankes Mitra',type:'text',required:false},
+          {key:'jadwal',label:'Jadwal',type:'textarea',required:false}
+        ]}
+      ],
+      sdmk: [
+        {id:'SDM001',nama:'dr. Andi Wijaya',nik:'3201234567890123',profesi:'Dokter Umum',tempat_kerja:'Puskesmas Cipayung',no_str:'STR/DU/2023/001',status_aktif:'Aktif',foto:'',_row:2},
+        {id:'SDM002',nama:'Siti Nurhaliza, S.Kep',nik:'3201234567890124',profesi:'Perawat',tempat_kerja:'RSUD Pasar Minggu',no_str:'STR/PR/2023/002',status_aktif:'Aktif',foto:'',_row:3},
+        {id:'SDM003',nama:'Budi Santoso, Amd.Keb',nik:'3201234567890125',profesi:'Bidan',tempat_kerja:'Klinik Bunda Sehat',no_str:'STR/BD/2023/003',status_aktif:'Aktif',foto:'',_row:4},
+        {id:'SDM004',nama:'dr. Maya Sari',nik:'3201234567890126',profesi:'Dokter Gigi',tempat_kerja:'Puskesmas Pasar Minggu',no_str:'STR/DG/2023/004',status_aktif:'Pending',foto:'',_row:5},
+        {id:'SDM005',nama:'Rudi Hartono, S.Farm',nik:'3201234567890127',profesi:'Apoteker',tempat_kerja:'Apotek Kimia Farma',no_str:'STR/AP/2023/005',status_aktif:'Aktif',foto:'',_row:6},
+        {id:'SDM006',nama:'Dewi Lestari, S.Kep',nik:'3201234567890128',profesi:'Perawat',tempat_kerja:'RS Premier Bintaro',no_str:'STR/PR/2023/006',status_aktif:'Tidak Aktif',foto:'',_row:7},
+        {id:'SDM007',nama:'dr. Hendra Gunawan',nik:'3201234567890129',profesi:'Dokter Umum',tempat_kerja:'Klinik Sehat Sentosa',no_str:'STR/DU/2023/007',status_aktif:'Aktif',foto:'',_row:8},
+        {id:'SDM008',nama:'Fitri Anggraini, Amd.Keb',nik:'3201234567890130',profesi:'Bidan',tempat_kerja:'BPM Fitri Sehat',no_str:'STR/BD/2023/008',status_aktif:'Aktif',foto:'',_row:9}
+      ],
+      fasyankes: [
+        {id:'FAS001',nama:'Puskesmas Cipayung',jenis:'Puskesmas',alamat:'Jl. Cipayung Raya No. 1, Jakarta Timur',pimpinan:'dr. Andi Wijaya',status_operasional:'Aktif',foto:'',_row:2},
+        {id:'FAS002',nama:'RSUD Pasar Minggu',jenis:'RSUD',alamat:'Jl. Jendral Gatot Subroto No. 30, Jakarta Selatan',pimpinan:'dr. Ratna Dewi, Sp.PD',status_operasional:'Aktif',foto:'',_row:3},
+        {id:'FAS003',nama:'Klinik Bunda Sehat',jenis:'Klinik',alamat:'Jl. Margonda Raya No. 88, Depok',pimpinan:'dr. Sri Wahyuni',status_operasional:'Aktif',foto:'',_row:4},
+        {id:'FAS004',nama:'RS Premier Bintaro',jenis:'RS Swasta',alamat:'Jl. MH Thamrin No. 1, Tangerang',pimpinan:'dr. Bambang Sutrisno',status_operasional:'Aktif',foto:'',_row:5},
+        {id:'FAS005',nama:'Puskesmas Pasar Minggu',jenis:'Puskesmas',alamat:'Jl. Pasar Minggu Raya No. 50, Jakarta Selatan',pimpinan:'dr. Maya Sari',status_operasional:'Pending',foto:'',_row:6},
+        {id:'FAS006',nama:'Klinik Sehat Sentosa',jenis:'Klinik',alamat:'Jl. Lenteng Agung No. 12, Jakarta Selatan',pimpinan:'dr. Hendra Gunawan',status_operasional:'Aktif',foto:'',_row:7}
+      ],
+      praktik_nakes: [
+        {id:'PMN001',nama:'BPM Fitri Sehat',profesi:'Bidan',sip:'SIP/BD/2023/001',alamat:'Jl. Tanjung Barat No. 5, Jakarta Selatan',kontak:'0812-3456-7890',foto:'',_row:2},
+        {id:'PMN002',nama:'Praktik Perawat Dewi',profesi:'Perawat',sip:'SIP/PR/2023/002',alamat:'Jl. Cipedak No. 10, Jakarta Selatan',kontak:'0813-9876-5432',foto:'',_row:3},
+        {id:'PMN003',nama:'Apotek Praktik Rudi',profesi:'Apoteker',sip:'SIP/AP/2023/003',alamat:'Jl. Pondok Labu No. 7, Jakarta Selatan',kontak:'0815-1111-2222',foto:'',_row:4},
+        {id:'PMN004',nama:'BPM Sumber Rejeki',profesi:'Bidan',sip:'SIP/BD/2023/004',alamat:'Jl. Srengseng Sawah No. 3, Jakarta Selatan',kontak:'0817-3333-4444',foto:'',_row:5}
+      ],
+      dokter_spesialis: [
+        {id:'PDS001',nama:'dr. Ratna Dewi, Sp.PD',spesialisasi:'Penyakit Dalam',sip:'SIP/SP/2023/001',fasyankes_mitra:'RSUD Pasar Minggu',jadwal:'Senin-Jumat 09:00-14:00',foto:'',_row:2},
+        {id:'PDS002',nama:'dr. Agus Setiawan, Sp.B',spesialisasi:'Bedah',sip:'SIP/SP/2023/002',fasyankes_mitra:'RS Premier Bintaro',jadwal:'Selasa-Kamis 13:00-17:00',foto:'',_row:3},
+        {id:'PDS003',nama:'dr. Lina Marlina, Sp.A',spesialisasi:'Anak',sip:'SIP/SP/2023/003',fasyankes_mitra:'RSUD Pasar Minggu',jadwal:'Senin-Rabu-Jumat 10:00-15:00',foto:'',_row:4},
+        {id:'PDS004',nama:'dr. Tirta Andriana, Sp.JP',spesialisasi:'Jantung',sip:'SIP/SP/2023/004',fasyankes_mitra:'RS Premier Bintaro',jadwal:'Sabtu 08:00-12:00',foto:'',_row:5},
+        {id:'PDS005',nama:'dr. Rina Kusuma, Sp.M',spesialisasi:'Mata',sip:'SIP/SP/2023/005',fasyankes_mitra:'Klinik Bunda Sehat',jadwal:'Senin-Jumat 14:00-19:00',foto:'',_row:6}
+      ],
+      saran: [
+        {id:'SRN001',nama:'Warga A',email:'warga@example.com',saran:'Terima kasih untuk pelayanan kesehatan yang baik di Puskesmas Cipayung.',tanggal:new Date(Date.now()-86400000).toISOString()},
+        {id:'SRN002',nama:'Warga B',email:'',saran:'Mohon informasi jadwal praktik dokter spesialis lebih detail.',tanggal:new Date(Date.now()-172800000).toISOString()}
+      ],
+      audit: [
+        {timestamp:new Date().toISOString(),action:'login',by:'superadmin',username:'superadmin',role:'Super Admin',module:'Auth',description:'Login berhasil',record_id:''}
+      ]
+    };
+  }
+
+  // Tampilkan banner mode
+  function showModeBanner(){
+    var b = document.createElement('div');
+    b.id = 'modeBanner';
+    b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:.5rem 1rem;text-align:center;font-size:.82rem;font-weight:600;z-index:9999;font-family:Inter,sans-serif';
+    if (MODE === 'production') {
+      b.style.background = '#16a34a';
+      b.style.color = '#fff';
+      b.innerHTML = '<i class="fas fa-cloud me-1"></i>LIVE MODE — Terhubung ke Google Sheets via API';
+    } else {
+      b.style.background = '#f59e0b';
+      b.style.color = '#1e293b';
+      b.innerHTML = '<i class="fas fa-info-circle me-1"></i>DEMO MODE — Tambahkan <code>API_URL</code> di bagian atas &lt;script&gt; untuk pakai data Google Sheets asli. Login demo: <strong>superadmin / simandakes123</strong>';
+    }
+    document.body.appendChild(b);
+    document.body.style.paddingBottom = '2rem';
   }
 
   // ---------- PUBLIC ROUTER ----------
@@ -766,10 +1159,10 @@
 
   function loadPublicStats(){
     Promise.all([
-      ('getPublicDirectory','sdmk',{page:1,pageSize:1}).then(function(r){ state.stats.sdmk = r.data.total; }).catch(function(){}),
-      ('getPublicDirectory','fasyankes',{page:1,pageSize:1}).then(function(r){ state.stats.fasyankes = r.data.total; }).catch(function(){}),
-      ('getPublicDirectory','praktik',{page:1,pageSize:1}).then(function(r){ state.stats.praktik = r.data.total; }).catch(function(){}),
-      ('getPublicDirectory','dokter',{page:1,pageSize:1}).then(function(r){ state.stats.dokter = r.data.total; }).catch(function(){})
+      api('getPublicDirectory','sdmk',{page:1,pageSize:1}).then(function(r){ state.stats.sdmk = r.data.total; }).catch(function(){}),
+      api('getPublicDirectory','fasyankes',{page:1,pageSize:1}).then(function(r){ state.stats.fasyankes = r.data.total; }).catch(function(){}),
+      api('getPublicDirectory','praktik',{page:1,pageSize:1}).then(function(r){ state.stats.praktik = r.data.total; }).catch(function(){}),
+      api('getPublicDirectory','dokter',{page:1,pageSize:1}).then(function(r){ state.stats.dokter = r.data.total; }).catch(function(){})
     ]).then(function(){
       if (state.currentPublicView==='beranda'){
         var upd = function(id, v){ var e=document.getElementById(id); if(e) e.textContent = v; };
@@ -800,8 +1193,10 @@
     errEl.style.display = 'none';
     if (!username || !password){ errEl.textContent = 'Username dan password wajib diisi.'; errEl.style.display='block'; return; }
     showLoading(true);
-    ('login', { username: username, password: password }).then(function(res){
+    api('login', { username: username, password: password }).then(function(res){
       state.session = res.data;
+      state.token  = res.token || null;
+      if (state.token) localStorage.setItem('simandakes_token', state.token);
       bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
       enterAdmin();
       toast('Selamat datang, ' + state.session.nama + '!', 'success');
@@ -817,9 +1212,11 @@
     loadAdminModules();
   }
   function adminLogout(){
-    ('logout').then(function(){}).catch(function(){});
+    api('logout').then(function(){}).catch(function(){});
     state.session = null;
+    state.token = null;
     state.modules = [];
+    localStorage.removeItem('simandakes_token');
     document.getElementById('adminApp').style.display = 'none';
     document.getElementById('publicApp').style.display = 'block';
     routerGo('beranda');
@@ -827,7 +1224,7 @@
   }
 
   function loadAdminModules(){
-    ('getAdminModules').then(function(res){
+    api('getAdminModules').then(function(res){
       state.session = res.session;
       state.modules = res.data;
       renderAdminSidebar();
@@ -923,13 +1320,13 @@
 
   function loadDashboardStats(){
     state.modules.forEach(function(m){
-      ('getAdminData', m.id, { page:1, pageSize:1 }).then(function(res){
+      api('getAdminData', m.id, { page:1, pageSize:1 }).then(function(res){
         var el = document.getElementById('stat-'+m.id);
         if (el) el.textContent = res.data.total;
       }).catch(function(){});
     });
     if (state.session.role === 'Super Admin'){
-      ('getAuditTrail', { page:1, pageSize:5 }).then(function(res){
+      api('getAuditTrail', { page:1, pageSize:5 }).then(function(res){
         var el = document.getElementById('recentAudit');
         if (!el) return;
         if (!res.data.rows.length){ el.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><div>Belum ada aktivitas.</div></div>'; return; }
@@ -997,7 +1394,7 @@
   function loadModuleData(){
     var m = state.currentModule;
     showLoading(true);
-    ('getAdminData', m.id, state.tableState).then(function(res){
+    api('getAdminData', m.id, state.tableState).then(function(res){
       renderAdminTable(res.data);
       renderAdminPagination(res.data);
     }).catch(function(e){
@@ -1072,7 +1469,7 @@
 
     if (id){
       showLoading(true);
-      ('getAdminData', m.id, { page:1, pageSize:PAGE_SIZE_MAX_SAFE(), search:id }).then(function(res){
+      api('getAdminData', m.id, { page:1, pageSize:PAGE_SIZE_MAX_SAFE(), search:id }).then(function(res){
         var row = res.data.rows.find(function(r){ return r.id === id; });
         if (!row){ toast('Data tidak ditemukan', 'error'); showLoading(false); return; }
         renderForm(row);
@@ -1136,7 +1533,7 @@
     reader.onload = function(ev){
       var base64 = ev.target.result.split(',')[1];
       showLoading(true);
-      ('uploadAdminPhoto', { filename: file.name, file: base64, mimeType: file.type }).then(function(res){
+      api('uploadAdminPhoto', { filename: file.name, file: base64, mimeType: file.type }).then(function(res){
         document.getElementById('field-foto').value = res.url;
         var prev = document.getElementById('photoPreview');
         prev.innerHTML = '<img src="'+escapeHtml(res.url)+'">';
@@ -1165,9 +1562,9 @@
     var promise;
     if (state.editingId){
       payload.id = state.editingId;
-      promise = ('updateAdminData', m.id, state.editingId, payload);
+      promise = api('updateAdminData', m.id, state.editingId, payload);
     } else {
-      promise = ('saveAdminData', m.id, payload);
+      promise = api('saveAdminData', m.id, payload);
     }
     promise.then(function(){
       bootstrap.Modal.getInstance(document.getElementById('formModal')).hide();
@@ -1192,7 +1589,7 @@
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
     document.getElementById('confirmDeleteBtn').onclick = function(){
       showLoading(true);
-      ('deleteAdminData', m.id, id).then(function(){
+      api('deleteAdminData', m.id, id).then(function(){
         bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
         toast('Data berhasil dihapus','success');
         if (state.tableState.page > 1 && state.tableState.total === 1) state.tableState.page--;
@@ -1207,7 +1604,7 @@
     var m = state.currentModule;
     showLoading(true);
     var fn = type === 'pdf' ? 'exportAdminPdf' : 'exportAdminExcel';
-    (fn, m.id).then(function(res){
+    api(fn, m.id).then(function(res){
       var a = document.createElement('a');
       a.href = res.url;
       a.download = res.filename || (m.name + '_' + type);
@@ -1259,7 +1656,7 @@
     var pageSize = parseInt(((document.getElementById('auditPageSize')||{}).value)||'10',10);
     state.auditState = { page: state.auditState.page, pageSize: pageSize, search: search };
     showLoading(true);
-    ('getAuditTrail', state.auditState).then(function(res){
+    api('getAuditTrail', state.auditState).then(function(res){
       renderAuditTable(res.data);
       renderAuditPagination(res.data);
     }).catch(function(e){
@@ -1312,8 +1709,9 @@
 
   // ---------- INIT ----------
   function init(){
+    showModeBanner();
     // load menu
-    ('getMenu').then(function(menus){
+    api('getMenu').then(function(menus){
       state.publicMenus = menus;
       renderPublicMenu(menus);
       renderPublicView();
@@ -1325,19 +1723,27 @@
       toast('Gagal memuat menu: ' + e.message, 'error');
     });
 
-    // check existing session
-    ('checkSession').then(function(res){
-      if (res.data){
-        state.session = res.data;
-        enterAdmin();
-      }
-    }).catch(function(){});
+    // check existing session (via token in localStorage)
+    if (state.token) {
+      api('checkSession').then(function(res){
+        if (res.data){
+          state.session = res.data;
+          enterAdmin();
+        } else {
+          // token invalid/expired
+          state.token = null;
+          localStorage.removeItem('simandakes_token');
+        }
+      }).catch(function(){
+        state.token = null;
+        localStorage.removeItem('simandakes_token');
+      });
+    }
   }
 
   // run on load
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 </script>
-<?!= include('JS') ?>
 </body>
 </html>
