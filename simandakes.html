@@ -1378,9 +1378,8 @@
     state.token = null;
     state.modules = [];
     localStorage.removeItem('simandakes_token');
-    document.getElementById('adminApp').style.display = 'none';
-    document.getElementById('publicApp').style.display = 'block';
-    routerGo('beranda');
+    // Setelah logout: tetap di admin shell, tampilkan login modal
+    showLoginScreen();
     toast('Anda telah keluar.', 'info');
   }
 
@@ -1869,37 +1868,68 @@
   }
 
   // ---------- INIT ----------
+  // Setelah landing page, LANGSUNG masuk ke admin shell.
+  // - Bila token valid → load modules → tampil dashboard
+  // - Bila tidak ada token / invalid → tampil admin shell + login modal
   function init(){
     showModeBanner();
-    // load menu
-    api('getMenu').then(function(menus){
-      state.publicMenus = menus;
-      renderPublicMenu(menus);
-      renderPublicView();
-      renderMenuGrid();
-      loadPublicStats();
-      if (state.currentPublicView === 'saran') loadSaranList();
-    }).catch(function(e){
-      renderPublicView();
-      toast('Gagal memuat menu: ' + e.message, 'error');
-    });
 
-    // check existing session (via token in localStorage)
+    // Load menu di background (untuk public menu bila dibutuhkan nanti)
+    api('getMenu').then(function(menus){
+      state.publicMenus = menus || [];
+    }).catch(function(){ /* ignore */ });
+
+    // Sembunyikan public page, tampilkan admin shell
+    document.getElementById('publicApp').style.display = 'none';
+    document.getElementById('adminApp').style.display = 'block';
+
+    // Cek token: bila valid → masuk dashboard; bila tidak → tampilkan login modal
     if (state.token) {
       api('checkSession').then(function(res){
-        if (res.data){
+        if (res.data) {
           state.session = res.data;
-          enterAdmin();
+          loadAdminModules();
         } else {
           // token invalid/expired
           state.token = null;
           localStorage.removeItem('simandakes_token');
+          showLoginScreen();
         }
       }).catch(function(){
         state.token = null;
         localStorage.removeItem('simandakes_token');
+        showLoginScreen();
       });
+    } else {
+      // Belum login → tampil login modal di atas admin shell
+      showLoginScreen();
     }
+  }
+
+  // Tampilkan admin shell kosong + login modal
+  function showLoginScreen(){
+    // Render sidebar minimal (tanpa modul, hanya brand + logout)
+    var userCard = document.getElementById('userCard');
+    if (userCard) userCard.innerHTML = '<div class="avatar">?</div><div class="meta"><div class="n">Guest</div><div class="r">Belum login</div></div>';
+    document.getElementById('adminModuleNav').innerHTML = '';
+    document.getElementById('navAudit').style.display = 'none';
+
+    // Tampilkan pesan di content area
+    var content = document.getElementById('adminContent');
+    document.getElementById('adminPageTitle').textContent = 'Masuk ke Sistem';
+    document.getElementById('adminBreadcrumb').textContent = 'Admin / Login';
+    content.innerHTML = '' +
+      '<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;flex-direction:column;text-align:center;padding:2rem">' +
+        '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-light));display:flex;align-items:center;justify-content:center;color:#fff;font-size:2rem;margin-bottom:1.5rem;box-shadow:0 8px 24px rgba(15,76,117,.25)">' +
+          '<i class="fas fa-lock"></i>' +
+        '</div>' +
+        '<h2 style="color:var(--primary);font-weight:800;margin-bottom:.5rem">Selamat Datang di SIMANDAKES</h2>' +
+        '<p style="color:var(--muted);max-width:480px;margin-bottom:2rem">Silakan login untuk mengakses dashboard admin dan mengelola data kesehatan.</p>' +
+        '<button class="btn btn-primary btn-lg px-5" onclick="openLoginModal()"><i class="fas fa-sign-in-alt me-2"></i>Masuk Sekarang</button>' +
+      '</div>';
+
+    // Auto-buka login modal
+    setTimeout(function(){ openLoginModal(); }, 300);
   }
 
   // ==========================================================
