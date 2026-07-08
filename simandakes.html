@@ -40,16 +40,16 @@
     .navbar-public .nav-link{color:rgba(255,255,255,.85);font-weight:500;padding:.5rem 1rem;border-radius:8px;transition:.2s}
     .navbar-public .nav-link:hover,.navbar-public .nav-link.active{color:#fff;background:rgba(255,255,255,.12)}
 
-    .hero{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);color:#fff;padding:4.5rem 0 5rem;position:relative;overflow:hidden}
+    .hero{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);color:#fff;padding:2rem 0 2.5rem;position:relative;overflow:hidden}
     .hero::before{content:'';position:absolute;top:-50px;right:-50px;width:300px;height:300px;background:rgba(255,255,255,.08);border-radius:50%}
     .hero::after{content:'';position:absolute;bottom:-80px;left:-30px;width:200px;height:200px;background:rgba(255,255,255,.06);border-radius:50%}
-    .hero h1{font-weight:800;font-size:2.6rem;margin-bottom:1rem;letter-spacing:-.5px}
-    .hero p{font-size:1.1rem;opacity:.92;max-width:640px;margin:0 auto 1.75rem}
+    .hero h1{font-weight:800;font-size:2rem;margin-bottom:.5rem;letter-spacing:-.5px}
+    .hero p{font-size:.95rem;opacity:.92;max-width:640px;margin:0 auto 1rem}
     .hero .stat-box{background:rgba(255,255,255,.12);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);padding:1.25rem;border-radius:var(--radius)}
     .hero .stat-box .num{font-size:2rem;font-weight:800}
     .hero .stat-box .lbl{font-size:.85rem;opacity:.85}
 
-    .section{padding:3.5rem 0}
+    .section{padding:2rem 0}
     .section-title{font-weight:800;font-size:1.75rem;color:var(--primary);margin-bottom:.4rem;text-align:center}
     .section-subtitle{text-align:center;color:var(--muted);margin-bottom:2.5rem;max-width:680px;margin-left:auto;margin-right:auto}
 
@@ -617,7 +617,7 @@
   // Ganti dengan URL Web App Anda setelah deploy ke Google Apps Script.
   // Format: https://script.google.com/macros/s/SCRIPT_ID/exec
   // ==========================================================
-  var API_URL = 'https://script.google.com/macros/s/AKfycbx9jxWPcf7ng8VC22sEieR3UPs-Q8_Iyo5dHNXHxH6ALf4bAYQsGlk-pA0Lyw-k4pU6MA/exec'; // <-- ISI DI SINI setelah deploy
+  var API_URL = 'https://script.google.com/macros/s/AKfycbxmQKoCaxhbnaetjNfaD_evUlQickS3EDIn57AzZ_RfLt2eQFhE-BFdr9tqfA3U6SibYQ/exec'; // <-- ISI DI SINI setelah deploy
 
   // ---------- TOAST ----------
   function toast(msg, type){
@@ -685,9 +685,17 @@
       })
       .then(function(r){
         if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
-        return r.json();
+        return r.text();
       })
-      .then(function(res){
+      .then(function(text){
+        var res;
+        try { res = JSON.parse(text); } catch(e) {
+          // Jika response bukan JSON (biasanya halaman login Google), beri pesan yang jelas
+          if (text.indexOf('<!DOCTYPE') !== -1 || text.indexOf('<html') !== -1) {
+            throw new Error('Response bukan JSON. Pastikan: (1) Web App di-deploy dengan akses "Siapa saja", (2) URL menggunakan /exec bukan /dev.');
+          }
+          throw new Error('Gagal parse response: ' + text.substring(0, 120));
+        }
         if (res && res.ok === false) reject(new Error(res.message || 'Gagal'));
         else resolve(res);
       })
@@ -1044,7 +1052,7 @@
 
   function loadSaranList(){
     api('getKotakSaran').then(function(res){
-      var rows = res || [];
+      var rows = (res && res.data) || [];
       var el = document.getElementById('saranList');
       if (!rows.length){ el.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><div>Belum ada saran.</div></div>'; return; }
       el.innerHTML = rows.slice(0,10).map(function(r){
@@ -1215,7 +1223,8 @@
     var topbarActions = document.getElementById('topbarActions');
 
     if (!state.currentAdminView){
-      // Public view — render in the same content area
+      // Public view — render in the same content area, no padding
+      content.style.padding = '0';
       var publicHtml = renderPublicView();
       content.innerHTML = publicHtml;
       var viewLabel = state.currentPublicView === 'beranda' ? 'Beranda' :
@@ -1232,6 +1241,7 @@
       // Update sidebar active
       updateSidebarActive();
     } else if (state.currentAdminView === 'dashboard'){
+      content.style.padding = '';
       title.textContent = 'Dashboard';
       breadcrumb.textContent = 'Admin / Dashboard';
       topbarActions.innerHTML = '<button class="btn btn-sm btn-outline-secondary" onclick="adminGo(\'dashboard\')"><i class="fas fa-redo me-1"></i> Refresh</button>' +
@@ -1240,6 +1250,7 @@
       loadDashboardStats();
       updateSidebarActive();
     } else if (state.currentAdminView === 'module'){
+      content.style.padding = '';
       title.textContent = state.currentModule.name;
       breadcrumb.textContent = 'Admin / ' + state.currentModule.name;
       topbarActions.innerHTML = '<button class="btn btn-sm btn-outline-danger" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>';
@@ -1247,6 +1258,7 @@
       loadModuleData();
       updateSidebarActive();
     } else if (state.currentAdminView === 'audit'){
+      content.style.padding = '';
       title.textContent = 'Audit Trail';
       breadcrumb.textContent = 'Admin / Audit Trail';
       topbarActions.innerHTML = '<button class="btn btn-sm btn-outline-danger" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>';
@@ -1282,11 +1294,14 @@
   }
 
   // ---------- API ERROR VIEW ----------
-  function viewApiError(){
+  function viewApiError(e){
+    var detail = e ? escapeHtml(e.message) : '';
     return '<div style="text-align:center;padding:4rem 2rem">'+
       '<div style="width:80px;height:80px;border-radius:50%;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1.5rem"><i class="fas fa-cloud-slash"></i></div>'+
       '<h4 style="color:var(--danger);font-weight:800;margin-bottom:.5rem">Koneksi API Gagal</h4>'+
-      '<p style="color:var(--muted);max-width:500px;margin:0 auto 1.5rem">Deploy <code>Code.gs</code> sebagai Web App lalu isi URL-nya di variabel <code>API_URL</code> pada bagian atas script.</p>'+
+      '<p style="color:var(--muted);max-width:500px;margin:0 auto 1rem">Deploy <code>Code.gs</code> sebagai Web App lalu isi URL-nya di variabel <code>API_URL</code> pada baris <code>var API_URL = ...</code>.</p>'+
+      (detail ? '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:.75rem 1rem;max-width:560px;margin:0 auto 1rem;font-size:.85rem;color:#991b1b;text-align:left;word-break:break-all"><strong>Error:</strong> '+detail+'</div>' : '')+
+      '<p style="color:var(--muted);font-size:.85rem;max-width:500px;margin:0 auto 1.5rem">Pastikan: (1) Deploy sebagai <b>Web App</b>, akses <b>"Siapa saja"</b>, (2) URL pakai <code>/exec</code> bukan <code>/dev</code>.</p>'+
       '<button class="btn btn-primary" onclick="init()"><i class="fas fa-redo me-1"></i> Coba Lagi</button></div>';
   }
 
@@ -1778,13 +1793,13 @@
     document.getElementById('adminApp').style.display = 'block';
 
     // Load public menu dari API
-    api('getMenu').then(function(menus){
-      state.publicMenus = menus || [];
+    api('getMenu').then(function(res){
+      state.publicMenus = (res && res.data) || [];
       renderPublicSidebar();
       renderView(); // shows beranda
       loadPublicStats();
     }).catch(function(e){
-      document.getElementById('adminContent').innerHTML = viewApiError();
+      document.getElementById('adminContent').innerHTML = viewApiError(e);
     });
 
     // Check existing session silently (non-blocking)
