@@ -102,9 +102,7 @@
     .auth-form{padding:2.5rem}
     .auth-form h4{font-weight:800;color:var(--primary);margin-bottom:.25rem}
     .auth-form .muted{color:var(--muted);font-size:.9rem;margin-bottom:1.5rem}
-    .demo-creds{background:#f1f5f9;border:1px dashed var(--border);border-radius:10px;padding:.85rem;margin-top:1rem;font-size:.78rem}
-    .demo-creds .row-cred{display:flex;justify-content:space-between;padding:.15rem 0;color:var(--muted)}
-    .demo-creds .row-cred strong{color:var(--primary);font-weight:600}
+
     @media (max-width:768px){ .auth-wrap{grid-template-columns:1fr}.auth-side{display:none} }
 
     /* ============== ADMIN DASHBOARD ============== */
@@ -351,6 +349,18 @@
       40%{ opacity:1; transform:scale(1); }
       100%{ opacity:0; transform:scale(3); }
     }
+
+    /* Sidebar divider */
+    .sidebar-divider{height:1px;background:rgba(255,255,255,.12);margin:0.75rem 1.25rem}
+
+    /* Sidebar login button */
+    .sidebar-login-btn{
+      display:flex;align-items:center;justify-content:center;gap:.5rem;
+      margin:0.5rem 1.25rem;padding:.7rem;border-radius:10px;
+      background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.3);
+      color:rgba(255,255,255,.85);font-weight:600;font-size:.88rem;cursor:pointer;transition:.2s;
+    }
+    .sidebar-login-btn:hover{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.5)}
   </style>
   <!-- CSS inline above -->
 </head>
@@ -445,20 +455,46 @@
   </footer>
 </div>
 
-<!-- ============== ADMIN APP ============== -->
+<!-- ============== ADMIN APP (MAIN INTERFACE) ============== -->
 <div id="adminApp" style="display:none">
   <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
   <div class="admin-shell">
     <aside class="admin-sidebar" id="adminSidebar">
       <div class="brand"><i class="fas fa-heart-pulse"></i> SIMANDAKES</div>
-      <div class="nav-section">Dashboard</div>
-      <a class="nav-link" onclick="adminGo('dashboard')"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-      <div class="nav-section">Modul Data</div>
-      <div id="adminModuleNav"></div>
-      <div class="nav-section">Sistem</div>
-      <a class="nav-link" id="navAudit" onclick="adminGo('audit')" style="display:none"><i class="fas fa-history"></i> Audit Trail</a>
-      <a class="nav-link" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
-      <div class="user-card" id="userCard"></div>
+
+      <!-- Menu Publik (selalu tampil) -->
+      <div class="nav-section">Menu Publik</div>
+      <div id="publicSidebarNav"></div>
+
+      <div class="sidebar-divider"></div>
+
+      <!-- Panel Admin (tampil hanya setelah login) -->
+      <div id="adminSidebarSection" style="display:none">
+        <div class="nav-section">Panel Admin</div>
+        <a class="nav-link" id="navDashboard" onclick="adminGo('dashboard')"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+        <div id="adminModuleNav"></div>
+        <a class="nav-link" id="navAudit" onclick="adminGo('audit')" style="display:none"><i class="fas fa-history"></i> Audit Trail</a>
+        <div class="sidebar-divider"></div>
+      </div>
+
+      <!-- Login / Logout button area -->
+      <div id="sidebarLoginArea">
+        <div class="sidebar-login-btn" onclick="openLoginModal()">
+          <i class="fas fa-sign-in-alt"></i> Masuk Panel Admin
+        </div>
+      </div>
+      <div id="sidebarLogoutArea" style="display:none">
+        <a class="nav-link" onclick="adminLogout()" style="color:rgba(255,255,255,.7)"><i class="fas fa-sign-out-alt"></i> Logout Admin</a>
+      </div>
+
+      <!-- User card -->
+      <div class="user-card" id="userCard">
+        <div class="avatar">?</div>
+        <div class="meta">
+          <div class="n">Pengunjung</div>
+          <div class="r">Mode Publik</div>
+        </div>
+      </div>
     </aside>
 
     <main class="admin-main">
@@ -466,14 +502,11 @@
         <div class="d-flex align-items-center gap-2">
           <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
           <div>
-            <div class="breadcrumb" id="adminBreadcrumb">Admin / Dashboard</div>
-            <h1 class="page-title" id="adminPageTitle">Dashboard</h1>
+            <div class="breadcrumb" id="adminBreadcrumb">SIMANDAKES / Beranda</div>
+            <h1 class="page-title" id="adminPageTitle">Beranda</h1>
           </div>
         </div>
-        <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-outline-secondary" onclick="adminGo('dashboard')"><i class="fas fa-redo me-1"></i> Refresh</button>
-          <button class="btn btn-sm btn-outline-danger" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
-        </div>
+        <div class="d-flex gap-2" id="topbarActions"></div>
       </div>
       <div class="admin-content" id="adminContent"></div>
     </main>
@@ -481,7 +514,7 @@
 </div>
 
 <!-- ============== LOGIN MODAL ============== -->
-<div class="modal fade auth-modal" id="loginModal" tabindex="-1">
+<div class="modal fade auth-modal" id="loginModal" tabindex="-1" data-bs-focus="false" aria-hidden="true" inert>
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <div class="modal-body">
@@ -517,13 +550,6 @@
               </div>
               <div class="alert alert-danger py-2 small" id="loginError" style="display:none"></div>
               <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold"><i class="fas fa-sign-in-alt me-1"></i> Masuk</button>
-              <div class="demo-creds">
-                <div class="fw-semibold mb-1 text-primary"><i class="fas fa-info-circle me-1"></i>Akun Demo</div>
-                <div class="row-cred"><span>Super Admin</span><strong>superadmin / simandakes123</strong></div>
-                <div class="row-cred"><span>Admin SDMK</span><strong>sdmk / sdmk123</strong></div>
-                <div class="row-cred"><span>Admin Fasyankes</span><strong>fasyankes / fasyankes123</strong></div>
-                <div class="row-cred"><span>Admin Praktik</span><strong>praktik / praktik123</strong></div>
-              </div>
             </form>
           </div>
         </div>
@@ -533,7 +559,7 @@
 </div>
 
 <!-- ============== FORM CRUD MODAL ============== -->
-<div class="modal fade form-modal" id="formModal" tabindex="-1">
+<div class="modal fade form-modal" id="formModal" tabindex="-1" data-bs-focus="false" aria-hidden="true" inert>
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -546,7 +572,7 @@
 </div>
 
 <!-- ============== DELETE CONFIRM MODAL ============== -->
-<div class="modal fade" id="deleteModal" tabindex="-1">
+<div class="modal fade" id="deleteModal" tabindex="-1" data-bs-focus="false" aria-hidden="true" inert>
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-body text-center p-4">
@@ -573,8 +599,9 @@
     session: null,
     token: localStorage.getItem('simandakes_token') || null,
     modules: [],
+    publicMenus: [],
     currentPublicView: 'beranda',
-    currentAdminView: 'dashboard',
+    currentAdminView: null,
     currentModule: null,
     tableState: { page:1, pageSize:10, search:'', sortKey:null, sortDir:'asc' },
     auditState: { page:1, pageSize:10, search:'' },
@@ -588,13 +615,8 @@
   // KONFIGURASI API
   // Ganti dengan URL Web App Anda setelah deploy ke Google Apps Script.
   // Format: https://script.google.com/macros/s/SCRIPT_ID/exec
-  // Bila dikosongkan / tidak valid, frontend otomatis pakai DEMO MODE.
   // ==========================================================
-  var API_URL = 'https://script.google.com/macros/s/AKfycbyWn8BIubftDGt51T-1bCBLrfH5AINeyAtVuNJpfoGuviORYFYQ9hfAgXeIqRh1TUf43g/exec'; // <-- ISI DI SINI setelah deploy
-
-  // Deteksi mode: production (ada API_URL) atau demo (kosong)
-  var MODE = API_URL && API_URL.indexOf('PASTE_') === -1 && API_URL.length > 40 ? 'production' : 'demo';
-  var DEMO_DB = null;
+  var API_URL = 'https://script.google.com/macros/s/AKfycbwqFYvig1W7PRtbQaWh6WWlHwu3BBEsuM648uqg-HN_9a__F5pAyPJBPryKpZmoKH9H8g/exec'; // <-- ISI DI SINI setelah deploy
 
   // ---------- TOAST ----------
   function toast(msg, type){
@@ -639,51 +661,38 @@
 
   // ==========================================================
   // API WRAPPER
-  // - Production mode: fetch() POST ke API_URL dengan body text/plain (hindari CORS preflight)
-  // - Demo mode: panggil mockBackend() secara synchronous
+  // Semua request ke API_URL via POST text/plain (hindari CORS preflight).
+  // Bila API_URL belum dikonfigurasi → reject dengan pesan jelas.
   // ==========================================================
   function api(fn){
     var args = Array.prototype.slice.call(arguments, 1);
     return new Promise(function(resolve, reject){
-      if (MODE === 'production') {
-        // Susun payload sesuai signature fungsi
-        var payload = buildPayload(fn, args);
-        payload.token = state.token || '';
-        payload.action = fn;
-
-        fetch(API_URL, {
-          method: 'POST',
-          // Penting: text/plain supaya tidak trigger CORS preflight
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        })
-        .then(function(r){
-          if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
-          return r.json();
-        })
-        .then(function(res){
-          if (res && res.ok === false) reject(new Error(res.message || 'Gagal'));
-          else resolve(res);
-        })
-        .catch(function(err){
-          // Fallback ke demo mode bila fetch gagal (mis. URL salah / belum deploy)
-          console.warn('[SIMANDAKES] API call gagal, fallback ke demo:', err.message);
-          try {
-            var result = mockBackend(fn, args);
-            if (result && result.__reject) reject(new Error(result.message));
-            else resolve(result);
-          } catch(e) { reject(e); }
-        });
-      } else {
-        // Demo mode
-        setTimeout(function(){
-          try {
-            var result = mockBackend(fn, args);
-            if (result && result.__reject) reject(new Error(result.message));
-            else resolve(result);
-          } catch(e) { reject(e); }
-        }, 150 + Math.random()*250);
+      if (!API_URL || API_URL.length < 20) {
+        reject(new Error('API_URL belum dikonfigurasi. Deploy Code.gs lalu isi API_URL.'));
+        return;
       }
+      // Susun payload sesuai signature fungsi
+      var payload = buildPayload(fn, args);
+      payload.token = state.token || '';
+      payload.action = fn;
+
+      fetch(API_URL, {
+        method: 'POST',
+        // Penting: text/plain supaya tidak trigger CORS preflight
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      })
+      .then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + r.statusText);
+        return r.json();
+      })
+      .then(function(res){
+        if (res && res.ok === false) reject(new Error(res.message || 'Gagal'));
+        else resolve(res);
+      })
+      .catch(function(err){
+        reject(err);
+      });
     });
   }
 
@@ -733,309 +742,30 @@
     return p;
   }
 
-  // ============== MOCK BACKEND (DEMO MODE) ==============
-  function mockBackend(fn, args){
-    if (!DEMO_DB) initDemoDb();
-
-    switch(fn){
-      case 'getMenu':
-        return DEMO_DB.menu;
-
-      case 'getPublicDirectory': {
-        var type = args[0], opts = args[1] || {};
-        return { ok: true, data: paginateMock(DEMO_DB[type], opts) };
-      }
-
-      case 'getKotakSaran':
-        return DEMO_DB.saran;
-
-      case 'saveKotakSaran': {
-        var d = args[0];
-        if (!d.nama || !d.nama.trim()) return {__reject:true, message:'Nama wajib diisi.'};
-        if (!d.saran || !d.saran.trim()) return {__reject:true, message:'Saran wajib diisi.'};
-        d.id = 'SRN' + String(DEMO_DB.saran.length+1).padStart(3,'0');
-        d.tanggal = new Date().toISOString();
-        DEMO_DB.saran.unshift(d);
-        return { ok:true, data:d };
-      }
-
-      case 'checkSession':
-        return DEMO_DB.session ? { ok:true, data: DEMO_DB.session } : { ok:true, data: null };
-
-      case 'login': {
-        var p = args[0];
-        var u = String(p.username||'').toLowerCase();
-        var acc = DEMO_DB.adminUsers.find(function(a){ return a.username===u && a.password===p.password; });
-        if (!acc) return {__reject:true, message:'Username atau password salah.'};
-        var sess = { username:acc.username, nama:acc.nama, role:acc.role, email:acc.email||'', loginTime:new Date().toISOString() };
-        var token = 'demo_token_' + Date.now();
-        DEMO_DB.session = sess;
-        DEMO_DB.token = token;
-        DEMO_DB.audit.unshift({timestamp:new Date().toISOString(),action:'login',by:acc.username,username:acc.username,role:acc.role,module:'Auth',description:'Login berhasil',record_id:''});
-        return { ok:true, data: sess, token: token };
-      }
-
-      case 'logout':
-        DEMO_DB.session = null;
-        DEMO_DB.token = null;
-        return { ok:true };
-
-      case 'getAdminModules': {
-        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir. Silakan login kembali.'};
-        var mods = DEMO_DB.modules.filter(function(m){
-          return roleCanAccessMock(DEMO_DB.session.role, m.id);
-        }).map(function(m){ return {id:m.id,name:m.name,icon:m.icon,headers:m.headers,sheetName:m.sheetName,idPrefix:m.idPrefix}; });
-        return { ok:true, session: DEMO_DB.session, data: mods };
-      }
-
-      case 'getAdminData': {
-        var mid = args[0], opts = args[1] || {};
-        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
-        var mod = DEMO_DB.modules.find(function(m){ return m.id===mid; });
-        if (!mod) return {__reject:true, message:'Modul tidak ditemukan.'};
-        if (!roleCanAccessMock(DEMO_DB.session.role, mid)) return {__reject:true, message:'Akses ditolak untuk role ini.'};
-        return { ok:true, data: paginateMock(DEMO_DB[mid], opts), session: DEMO_DB.session };
-      }
-
-      case 'saveAdminData': {
-        var mid = args[0], pl = args[1];
-        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
-        var mod = DEMO_DB.modules.find(function(m){ return m.id===mid; });
-        if (!mod) return {__reject:true, message:'Modul tidak ditemukan.'};
-        var errs = validateMock(mod, pl);
-        if (errs.length) return {__reject:true, message:'Validasi gagal: '+errs.join(' ')};
-        var newId = mod.idPrefix + String(DEMO_DB[mid].length+1).padStart(3,'0');
-        pl.id = newId;
-        pl._row = DEMO_DB[mid].length+2;
-        DEMO_DB[mid].push(pl);
-        DEMO_DB.audit.unshift({timestamp:new Date().toISOString(),action:'create',by:DEMO_DB.session.username,username:DEMO_DB.session.username,role:DEMO_DB.session.role,module:mod.name,description:mod.name+' - '+(pl.nama||pl.id),record_id:pl.id});
-        return { ok:true, data: pl };
-      }
-
-      case 'updateAdminData': {
-        var mid = args[0], id = args[1], pl = args[2];
-        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
-        var mod = DEMO_DB.modules.find(function(m){ return m.id===mid; });
-        if (!mod) return {__reject:true, message:'Modul tidak ditemukan.'};
-        var errs = validateMock(mod, pl);
-        if (errs.length) return {__reject:true, message:'Validasi gagal: '+errs.join(' ')};
-        var idx = DEMO_DB[mid].findIndex(function(r){ return r.id===id; });
-        if (idx===-1) return {__reject:true, message:'Data tidak ditemukan.'};
-        pl.id = id;
-        pl._row = DEMO_DB[mid][idx]._row;
-        DEMO_DB[mid][idx] = pl;
-        DEMO_DB.audit.unshift({timestamp:new Date().toISOString(),action:'update',by:DEMO_DB.session.username,username:DEMO_DB.session.username,role:DEMO_DB.session.role,module:mod.name,description:mod.name+' - '+(pl.nama||id),record_id:id});
-        return { ok:true, data: pl };
-      }
-
-      case 'deleteAdminData': {
-        var mid = args[0], id = args[1];
-        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
-        var mod = DEMO_DB.modules.find(function(m){ return m.id===mid; });
-        if (!mod) return {__reject:true, message:'Modul tidak ditemukan.'};
-        var idx = DEMO_DB[mid].findIndex(function(r){ return r.id===id; });
-        if (idx===-1) return {__reject:true, message:'Data tidak ditemukan.'};
-        DEMO_DB[mid].splice(idx,1);
-        DEMO_DB.audit.unshift({timestamp:new Date().toISOString(),action:'delete',by:DEMO_DB.session.username,username:DEMO_DB.session.username,role:DEMO_DB.session.role,module:mod.name,description:mod.name+' - '+id,record_id:id});
-        return { ok:true };
-      }
-
-      case 'uploadAdminPhoto':
-        return { ok:true, url:'https://ui-avatars.com/api/?name=Foto&size=200&background=3282b8&color=fff' };
-
-      case 'exportAdminExcel':
-        return { ok:true, url:'data:text/csv;charset=utf-8,'+encodeURIComponent('id,nama\nDEMO001,Data Demo\n'), filename:'export_demo.csv' };
-
-      case 'exportAdminPdf':
-        return { ok:true, url:'data:text/html;charset=utf-8,'+encodeURIComponent('<h1>DEMO PDF</h1><p>Preview mode</p>'), filename:'export_demo.pdf' };
-
-      case 'getAuditTrail': {
-        var opts = args[0] || {};
-        if (!DEMO_DB.session) return {__reject:true, message:'Sesi berakhir.'};
-        if (DEMO_DB.session.role !== 'Super Admin') return {__reject:true, message:'Hanya Super Admin.'};
-        return { ok:true, data: paginateMock(DEMO_DB.audit, opts) };
-      }
-
-      default:
-        return {__reject:true, message:'Fungsi tidak dikenal di demo mode: ' + fn};
-    }
+  // ---------- PHOTO RESOLVER ----------
+  function resolvePhotoUrl(u){
+    if(!u)return'';u=String(u).trim().replace(/[\r\n]+/g,'');if(!u)return'';
+    if(/^[\w-]{20,}$/.test(u)&&!/^https?/i.test(u))return'https://lh3.googleusercontent.com/d/'+u+'=s200';
+    var m1=u.match(/drive\.google\.com\/file\/d\/([\w-]+)/);if(m1)return'https://lh3.googleusercontent.com/d/'+m1[1]+'=s200';
+    var m2=u.match(/drive\.google\.com\/open\?/);if(m2){var id=u.match(/[?&]id=([\w-]+)/);if(id)return'https://lh3.googleusercontent.com/d/'+id[1]+'=s200'}
+    var m3=u.match(/drive\.google\.com\/thumbnail/);if(m3){var id=u.match(/[?&]id=([\w-]+)/);if(id)return'https://lh3.googleusercontent.com/d/'+id[1]+'=s200'}
+    var m4=u.match(/drive\.google\.com/);if(m4){var id=u.match(/[?&]id=([\w-]+)/);if(id)return'https://lh3.googleusercontent.com/d/'+id[1]+'=s200'}
+    if(/^https?:\/\//i.test(u))return u;
+    if(/^[\w-]+$/.test(u))return'https://lh3.googleusercontent.com/d/'+u+'=s200';
+    return u;
   }
-
-  function roleCanAccessMock(role, moduleId){
-    if (role==='Super Admin') return true;
-    if (role==='Admin SDMK' && moduleId==='sdmk') return true;
-    if (role==='Admin Fasyankes' && moduleId==='fasyankes') return true;
-    if (role==='Admin Praktik' && (moduleId==='praktik_nakes'||moduleId==='dokter_spesialis')) return true;
-    return false;
-  }
-
-  function validateMock(mod, pl){
-    var errs = [];
-    mod.headers.forEach(function(h){
-      var v = String(pl[h.key]==null?'':pl[h.key]).trim();
-      if (h.required && !v) { errs.push(h.label+' wajib diisi.'); return; }
-      if (!v) return;
-      if (h.minLen && v.length<h.minLen) errs.push(h.label+' minimal '+h.minLen+' karakter.');
-      if (h.maxLen && v.length>h.maxLen) errs.push(h.label+' maksimal '+h.maxLen+' karakter.');
-      if (h.pattern && !(new RegExp(h.pattern).test(v))) errs.push(h.label+' format tidak valid.');
-      if (h.type==='select' && h.options && h.options.indexOf(v)===-1) errs.push(h.label+' tidak valid.');
-    });
-    return errs;
-  }
-
-  function paginateMock(arr, opts){
-    opts = opts || {};
-    var page = Math.max(1, parseInt(opts.page||1,10)||1);
-    var pageSize = Math.min(100, Math.max(1, parseInt(opts.pageSize||10,10)||10));
-    var search = String(opts.search||'').toLowerCase().trim();
-    var sortKey = opts.sortKey || null;
-    var sortDir = opts.sortDir==='desc'?'desc':'asc';
-    var filtered = arr.slice();
-    if (search){
-      filtered = filtered.filter(function(row){
-        return Object.keys(row).some(function(k){
-          if (k==='_row') return false;
-          return String(row[k]||'').toLowerCase().indexOf(search)!==-1;
-        });
-      });
-    }
-    if (sortKey){
-      filtered.sort(function(a,b){
-        var av=String(a[sortKey]||'').toLowerCase(), bv=String(b[sortKey]||'').toLowerCase();
-        if (av<bv) return sortDir==='asc'?-1:1;
-        if (av>bv) return sortDir==='asc'?1:-1;
-        return 0;
-      });
-    }
-    var total = filtered.length;
-    var totalPages = Math.max(1, Math.ceil(total/pageSize));
-    if (page>totalPages) page = totalPages;
-    var start = (page-1)*pageSize;
-    var rows = filtered.slice(start, start+pageSize);
-    return { rows:rows, page:page, pageSize:pageSize, total:total, totalPages:totalPages, search:search, sortKey:sortKey, sortDir:sortDir };
-  }
-
-  function initDemoDb(){
-    DEMO_DB = {
-      session: null,
-      token: null,
-      menu: [
-        {id:'M001',parent:'',name:'Beranda',icon:'fas fa-home',pageType:'beranda',photo:'',desc:'Halaman utama',stat:'',meta:'',order:1,status:'Aktif'},
-        {id:'M002',parent:'',name:'SDMK',icon:'fas fa-user-md',pageType:'sdmk',photo:'',desc:'Sumber Daya Manusia Kesehatan',stat:'total',meta:'0',order:2,status:'Aktif'},
-        {id:'M003',parent:'',name:'Fasyankes',icon:'fas fa-hospital',pageType:'fasyankes',photo:'',desc:'Fasilitas Pelayanan Kesehatan',stat:'total',meta:'0',order:3,status:'Aktif'},
-        {id:'M004',parent:'',name:'Praktik Mandiri',icon:'fas fa-user-nurse',pageType:'praktik',photo:'',desc:'Praktik Mandiri Nakes',stat:'total',meta:'0',order:4,status:'Aktif'},
-        {id:'M005',parent:'',name:'Dokter Spesialis',icon:'fas fa-stethoscope',pageType:'dokter',photo:'',desc:'Praktik Dokter Spesialis',stat:'total',meta:'0',order:5,status:'Aktif'},
-        {id:'M006',parent:'',name:'Kotak Saran',icon:'fas fa-comment',pageType:'saran',photo:'',desc:'Kotak Saran Publik',stat:'',meta:'',order:6,status:'Aktif'}
-      ],
-      adminUsers: [
-        {username:'superadmin',password:'simandakes123',role:'Super Admin',nama:'Super Admin',email:''},
-        {username:'sdmk',password:'sdmk123',role:'Admin SDMK',nama:'Admin SDMK',email:''},
-        {username:'fasyankes',password:'fasyankes123',role:'Admin Fasyankes',nama:'Admin Fasyankes',email:''},
-        {username:'praktik',password:'praktik123',role:'Admin Praktik',nama:'Admin Praktik',email:''}
-      ],
-      modules: [
-        {id:'sdmk',name:'SDMK',icon:'fas fa-user-md',sheetName:'SDMK',idPrefix:'SDM',headers:[
-          {key:'foto',label:'Foto',type:'text',required:false},
-          {key:'id',label:'ID',type:'text',required:true,readonly:true},
-          {key:'nama',label:'Nama',type:'text',required:true,minLen:3,maxLen:120},
-          {key:'nik',label:'NIK',type:'text',required:true,pattern:'^\\d{16}$',hint:'16 digit angka'},
-          {key:'profesi',label:'Profesi',type:'text',required:true},
-          {key:'tempat_kerja',label:'Tempat Kerja',type:'text',required:false},
-          {key:'no_str',label:'No STR',type:'text',required:false},
-          {key:'status_aktif',label:'Status Aktif',type:'select',required:true,options:['Aktif','Tidak Aktif','Pending']}
-        ]},
-        {id:'fasyankes',name:'Fasyankes',icon:'fas fa-hospital',sheetName:'Fasyankes',idPrefix:'FAS',headers:[
-          {key:'foto',label:'Foto',type:'text',required:false},
-          {key:'id',label:'ID',type:'text',required:true,readonly:true},
-          {key:'nama',label:'Nama',type:'text',required:true,minLen:3,maxLen:150},
-          {key:'jenis',label:'Jenis',type:'select',required:true,options:['Puskesmas','RSUD','RS Swasta','Klinik','Praktik Mandiri','Lainnya']},
-          {key:'alamat',label:'Alamat',type:'textarea',required:true,minLen:5},
-          {key:'pimpinan',label:'Pimpinan',type:'text',required:false},
-          {key:'status_operasional',label:'Status Operasional',type:'select',required:true,options:['Aktif','Nonaktif','Pending']}
-        ]},
-        {id:'praktik_nakes',name:'Praktik Mandiri Nakes',icon:'fas fa-user-nurse',sheetName:'PraktikMandiri',idPrefix:'PMN',headers:[
-          {key:'foto',label:'Foto',type:'text',required:false},
-          {key:'id',label:'ID',type:'text',required:true,readonly:true},
-          {key:'nama',label:'Nama',type:'text',required:true,minLen:3},
-          {key:'profesi',label:'Profesi',type:'select',required:true,options:['Perawat','Bidan','Apoteker','Nakes Lainnya']},
-          {key:'sip',label:'SIP',type:'text',required:true,minLen:3},
-          {key:'alamat',label:'Alamat',type:'textarea',required:true,minLen:5},
-          {key:'kontak',label:'Kontak',type:'text',required:false,hint:'No HP / email'}
-        ]},
-        {id:'dokter_spesialis',name:'Praktik Dokter Spesialis',icon:'fas fa-stethoscope',sheetName:'DokterSpesialis',idPrefix:'PDS',headers:[
-          {key:'foto',label:'Foto',type:'text',required:false},
-          {key:'id',label:'ID',type:'text',required:true,readonly:true},
-          {key:'nama',label:'Nama',type:'text',required:true,minLen:3},
-          {key:'spesialisasi',label:'Spesialisasi',type:'select',required:true,options:['Umum','Anak','Penyakit Dalam','Bedah','Kandungan','Jantung','Mata','THT','Kulit & Kelamin','Syaraf','Lainnya']},
-          {key:'sip',label:'SIP',type:'text',required:true,minLen:3},
-          {key:'fasyankes_mitra',label:'Fasyankes Mitra',type:'text',required:false},
-          {key:'jadwal',label:'Jadwal',type:'textarea',required:false}
-        ]}
-      ],
-      sdmk: [
-        {id:'SDM001',nama:'dr. Andi Wijaya',nik:'3201234567890123',profesi:'Dokter Umum',tempat_kerja:'Puskesmas Cipayung',no_str:'STR/DU/2023/001',status_aktif:'Aktif',foto:'',_row:2},
-        {id:'SDM002',nama:'Siti Nurhaliza, S.Kep',nik:'3201234567890124',profesi:'Perawat',tempat_kerja:'RSUD Pasar Minggu',no_str:'STR/PR/2023/002',status_aktif:'Aktif',foto:'',_row:3},
-        {id:'SDM003',nama:'Budi Santoso, Amd.Keb',nik:'3201234567890125',profesi:'Bidan',tempat_kerja:'Klinik Bunda Sehat',no_str:'STR/BD/2023/003',status_aktif:'Aktif',foto:'',_row:4},
-        {id:'SDM004',nama:'dr. Maya Sari',nik:'3201234567890126',profesi:'Dokter Gigi',tempat_kerja:'Puskesmas Pasar Minggu',no_str:'STR/DG/2023/004',status_aktif:'Pending',foto:'',_row:5},
-        {id:'SDM005',nama:'Rudi Hartono, S.Farm',nik:'3201234567890127',profesi:'Apoteker',tempat_kerja:'Apotek Kimia Farma',no_str:'STR/AP/2023/005',status_aktif:'Aktif',foto:'',_row:6},
-        {id:'SDM006',nama:'Dewi Lestari, S.Kep',nik:'3201234567890128',profesi:'Perawat',tempat_kerja:'RS Premier Bintaro',no_str:'STR/PR/2023/006',status_aktif:'Tidak Aktif',foto:'',_row:7},
-        {id:'SDM007',nama:'dr. Hendra Gunawan',nik:'3201234567890129',profesi:'Dokter Umum',tempat_kerja:'Klinik Sehat Sentosa',no_str:'STR/DU/2023/007',status_aktif:'Aktif',foto:'',_row:8},
-        {id:'SDM008',nama:'Fitri Anggraini, Amd.Keb',nik:'3201234567890130',profesi:'Bidan',tempat_kerja:'BPM Fitri Sehat',no_str:'STR/BD/2023/008',status_aktif:'Aktif',foto:'',_row:9}
-      ],
-      fasyankes: [
-        {id:'FAS001',nama:'Puskesmas Cipayung',jenis:'Puskesmas',alamat:'Jl. Cipayung Raya No. 1, Jakarta Timur',pimpinan:'dr. Andi Wijaya',status_operasional:'Aktif',foto:'',_row:2},
-        {id:'FAS002',nama:'RSUD Pasar Minggu',jenis:'RSUD',alamat:'Jl. Jendral Gatot Subroto No. 30, Jakarta Selatan',pimpinan:'dr. Ratna Dewi, Sp.PD',status_operasional:'Aktif',foto:'',_row:3},
-        {id:'FAS003',nama:'Klinik Bunda Sehat',jenis:'Klinik',alamat:'Jl. Margonda Raya No. 88, Depok',pimpinan:'dr. Sri Wahyuni',status_operasional:'Aktif',foto:'',_row:4},
-        {id:'FAS004',nama:'RS Premier Bintaro',jenis:'RS Swasta',alamat:'Jl. MH Thamrin No. 1, Tangerang',pimpinan:'dr. Bambang Sutrisno',status_operasional:'Aktif',foto:'',_row:5},
-        {id:'FAS005',nama:'Puskesmas Pasar Minggu',jenis:'Puskesmas',alamat:'Jl. Pasar Minggu Raya No. 50, Jakarta Selatan',pimpinan:'dr. Maya Sari',status_operasional:'Pending',foto:'',_row:6},
-        {id:'FAS006',nama:'Klinik Sehat Sentosa',jenis:'Klinik',alamat:'Jl. Lenteng Agung No. 12, Jakarta Selatan',pimpinan:'dr. Hendra Gunawan',status_operasional:'Aktif',foto:'',_row:7}
-      ],
-      praktik_nakes: [
-        {id:'PMN001',nama:'BPM Fitri Sehat',profesi:'Bidan',sip:'SIP/BD/2023/001',alamat:'Jl. Tanjung Barat No. 5, Jakarta Selatan',kontak:'0812-3456-7890',foto:'',_row:2},
-        {id:'PMN002',nama:'Praktik Perawat Dewi',profesi:'Perawat',sip:'SIP/PR/2023/002',alamat:'Jl. Cipedak No. 10, Jakarta Selatan',kontak:'0813-9876-5432',foto:'',_row:3},
-        {id:'PMN003',nama:'Apotek Praktik Rudi',profesi:'Apoteker',sip:'SIP/AP/2023/003',alamat:'Jl. Pondok Labu No. 7, Jakarta Selatan',kontak:'0815-1111-2222',foto:'',_row:4},
-        {id:'PMN004',nama:'BPM Sumber Rejeki',profesi:'Bidan',sip:'SIP/BD/2023/004',alamat:'Jl. Srengseng Sawah No. 3, Jakarta Selatan',kontak:'0817-3333-4444',foto:'',_row:5}
-      ],
-      dokter_spesialis: [
-        {id:'PDS001',nama:'dr. Ratna Dewi, Sp.PD',spesialisasi:'Penyakit Dalam',sip:'SIP/SP/2023/001',fasyankes_mitra:'RSUD Pasar Minggu',jadwal:'Senin-Jumat 09:00-14:00',foto:'',_row:2},
-        {id:'PDS002',nama:'dr. Agus Setiawan, Sp.B',spesialisasi:'Bedah',sip:'SIP/SP/2023/002',fasyankes_mitra:'RS Premier Bintaro',jadwal:'Selasa-Kamis 13:00-17:00',foto:'',_row:3},
-        {id:'PDS003',nama:'dr. Lina Marlina, Sp.A',spesialisasi:'Anak',sip:'SIP/SP/2023/003',fasyankes_mitra:'RSUD Pasar Minggu',jadwal:'Senin-Rabu-Jumat 10:00-15:00',foto:'',_row:4},
-        {id:'PDS004',nama:'dr. Tirta Andriana, Sp.JP',spesialisasi:'Jantung',sip:'SIP/SP/2023/004',fasyankes_mitra:'RS Premier Bintaro',jadwal:'Sabtu 08:00-12:00',foto:'',_row:5},
-        {id:'PDS005',nama:'dr. Rina Kusuma, Sp.M',spesialisasi:'Mata',sip:'SIP/SP/2023/005',fasyankes_mitra:'Klinik Bunda Sehat',jadwal:'Senin-Jumat 14:00-19:00',foto:'',_row:6}
-      ],
-      saran: [
-        {id:'SRN001',nama:'Warga A',email:'warga@example.com',saran:'Terima kasih untuk pelayanan kesehatan yang baik di Puskesmas Cipayung.',tanggal:new Date(Date.now()-86400000).toISOString()},
-        {id:'SRN002',nama:'Warga B',email:'',saran:'Mohon informasi jadwal praktik dokter spesialis lebih detail.',tanggal:new Date(Date.now()-172800000).toISOString()}
-      ],
-      audit: [
-        {timestamp:new Date().toISOString(),action:'login',by:'superadmin',username:'superadmin',role:'Super Admin',module:'Auth',description:'Login berhasil',record_id:''}
-      ]
-    };
-  }
-
-  // Tampilkan banner mode
-  function showModeBanner(){
-    var b = document.createElement('div');
-    b.id = 'modeBanner';
-    b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:.5rem 1rem;text-align:center;font-size:.82rem;font-weight:600;z-index:9999;font-family:Inter,sans-serif';
-    if (MODE === 'production') {
-      b.style.background = '#16a34a';
-      b.style.color = '#fff';
-      b.innerHTML = '<i class="fas fa-cloud me-1"></i>LIVE MODE — Terhubung ke Google Sheets via API';
-    } else {
-      b.style.background = '#f59e0b';
-      b.style.color = '#1e293b';
-      b.innerHTML = '<i class="fas fa-info-circle me-1"></i>DEMO MODE — Tambahkan <code>API_URL</code> di bagian atas &lt;script&gt; untuk pakai data Google Sheets asli. Login demo: <strong>superadmin / simandakes123</strong>';
-    }
-    document.body.appendChild(b);
-    document.body.style.paddingBottom = '2rem';
+  function photoHtml(f,n,c){
+    c=c||'row-photo';var u=resolvePhotoUrl(f);var ph='<div class="row-photo-ph">'+initials(n)+'</div>';
+    if(!u)return ph;
+    return'<img src="'+escapeHtml(u)+'" class="'+c+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">'+ph;
   }
 
   // ---------- PUBLIC ROUTER ----------
   function routerGo(view){
     state.currentPublicView = view;
-    renderPublicView();
-    window.scrollTo({top:0,behavior:'smooth'});
+    state.currentAdminView = null; // switch to public view
+    renderView();
+    if (window.innerWidth < 992) closeSidebar();
   }
 
   function renderPublicMenu(menus){
@@ -1050,20 +780,45 @@
     }).join('');
   }
 
-  function renderPublicView(){
-    var el = document.getElementById('publicContent');
-    var v = state.currentPublicView;
-    if (v === 'beranda')      el.innerHTML = viewBeranda();
-    else if (v === 'sdmk')      { el.innerHTML = viewDirectory('sdmk'); loadPublicDirectory('sdmk'); }
-    else if (v === 'fasyankes') { el.innerHTML = viewDirectory('fasyankes'); loadPublicDirectory('fasyankes'); }
-    else if (v === 'praktik')   { el.innerHTML = viewDirectory('praktik'); loadPublicDirectory('praktik'); }
-    else if (v === 'dokter')    { el.innerHTML = viewDirectory('dokter'); loadPublicDirectory('dokter'); }
-    else if (v === 'saran')     { el.innerHTML = viewSaran(); }
-    else el.innerHTML = viewBeranda();
+  function renderPublicSidebar(){
+    var el = document.getElementById('publicSidebarNav');
+    if (!el) return;
+    var menus = state.publicMenus || [];
+    if (!menus.length){
+      el.innerHTML = '<div style="padding:.5rem 1.25rem;color:rgba(255,255,255,.5);font-size:.82rem">Memuat menu...</div>';
+      return;
+    }
+    el.innerHTML = menus.map(function(m){
+      var active = (!state.currentAdminView && m.pageType === state.currentPublicView) ? ' active' : '';
+      var onclick = "routerGo('" + m.pageType + "')";
+      return '<a class="nav-link' + active + '" onclick="' + onclick + '"><i class="' + (m.icon||'fas fa-circle') + '"></i> ' + escapeHtml(m.name) + '</a>';
+    }).join('');
+  }
 
+  function renderPublicView(){
+    var v = state.currentPublicView;
+    if (v === 'beranda')      return viewBeranda();
+    else if (v === 'sdmk')      return viewDirectory('sdmk');
+    else if (v === 'fasyankes') return viewDirectory('fasyankes');
+    else if (v === 'praktik')   return viewDirectory('praktik');
+    else if (v === 'dokter')    return viewDirectory('dokter');
+    else if (v === 'saran')     return viewSaran();
+    else return viewBeranda();
+  }
+
+  function loadPublicViewData(){
+    var v = state.currentPublicView;
+    if (v === 'beranda'){
+      loadPublicStats();
+    } else if (v === 'saran'){
+      loadSaranList();
+    } else if (['sdmk','fasyankes','praktik','dokter'].indexOf(v) !== -1){
+      loadPublicDirectory(v);
+    }
     // update menu active
     var menus = state.publicMenus || [];
     renderPublicMenu(menus);
+    renderPublicSidebar();
   }
 
   function viewBeranda(){
@@ -1178,8 +933,7 @@
       headers.forEach(function(h){
         var val = row[h.key];
         if (h.key === 'foto'){
-          if (val) html += '<td><img src="'+escapeHtml(val)+'" class="row-photo" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="row-photo-ph" style="display:none">'+initials(row.nama)+'</div></td>';
-          else html += '<td><div class="row-photo-ph">'+initials(row.nama)+'</div></td>';
+          html += '<td>' + photoHtml(val, row.nama) + '</td>';
         } else if (h.key.indexOf('status') !== -1){
           html += '<td>' + statusBadge(val) + '</td>';
         } else if (h.key === 'tanggal'){
@@ -1338,7 +1092,21 @@
 
   // ---------- LOGIN ----------
   function openLoginModal(){
-    var modal = new bootstrap.Modal(document.getElementById('loginModal'));
+    var el = document.getElementById('loginModal');
+    // Remove aria-hidden and inert before showing
+    el.removeAttribute('aria-hidden');
+    el.removeAttribute('inert');
+    var modal = bootstrap.Modal.getOrCreateInstance(el, { focus: false, backdrop: 'static' });
+    // Add blur on hide
+    el.addEventListener('hide.bs.modal', function handler(){
+      el.removeEventListener('hide.bs.modal', handler);
+    });
+    // Restore aria-hidden/inert on hidden
+    el.addEventListener('hidden.bs.modal', function handler(){
+      el.removeEventListener('hidden.bs.modal', handler);
+      el.setAttribute('aria-hidden', 'true');
+      el.setAttribute('inert', '');
+    });
     modal.show();
   }
   function togglePwd(id, btn){
@@ -1368,8 +1136,15 @@
 
   // ---------- ADMIN ENTER/EXIT ----------
   function enterAdmin(){
-    document.getElementById('publicApp').style.display = 'none';
-    document.getElementById('adminApp').style.display = 'block';
+    // Show admin sections in sidebar
+    document.getElementById('adminSidebarSection').style.display = 'block';
+    document.getElementById('sidebarLoginArea').style.display = 'none';
+    document.getElementById('sidebarLogoutArea').style.display = 'block';
+    // Update user card
+    var userCard = document.getElementById('userCard');
+    userCard.innerHTML = '<div class="avatar">'+initials(state.session.nama)+'</div>'+
+      '<div class="meta"><div class="n">'+escapeHtml(state.session.nama)+'</div><div class="r">'+escapeHtml(state.session.role)+'</div></div>';
+    // Load admin modules
     loadAdminModules();
   }
   function adminLogout(){
@@ -1377,33 +1152,48 @@
     state.session = null;
     state.token = null;
     state.modules = [];
+    state.currentAdminView = null;
     localStorage.removeItem('simandakes_token');
-    // Setelah logout: tetap di admin shell, tampilkan login modal
-    showLoginScreen();
+    // Hide admin sections in sidebar
+    document.getElementById('adminSidebarSection').style.display = 'none';
+    document.getElementById('sidebarLoginArea').style.display = 'block';
+    document.getElementById('sidebarLogoutArea').style.display = 'none';
+    // Reset user card
+    var userCard = document.getElementById('userCard');
+    userCard.innerHTML = '<div class="avatar">?</div><div class="meta"><div class="n">Pengunjung</div><div class="r">Mode Publik</div></div>';
+    // Clear admin module nav
+    document.getElementById('adminModuleNav').innerHTML = '';
+    document.getElementById('navAudit').style.display = 'none';
+    // Go back to beranda
+    state.currentPublicView = 'beranda';
+    renderView();
     toast('Anda telah keluar.', 'info');
+  }
+
+  function showAdminUI(){
+    // Populate admin sidebar
+    var navHtml = state.modules.map(function(m){
+      return '<a class="nav-link" data-module="'+m.id+'" onclick="adminGo(\'module\',\''+m.id+'\')"><i class="'+m.icon+'"></i> '+escapeHtml(m.name)+'</a>';
+    }).join('');
+    document.getElementById('adminModuleNav').innerHTML = navHtml;
+    document.getElementById('navAudit').style.display = (state.session.role === 'Super Admin') ? 'block' : 'none';
+    // Go to dashboard
+    adminGo('dashboard');
   }
 
   function loadAdminModules(){
     api('getAdminModules').then(function(res){
       state.session = res.session;
       state.modules = res.data;
-      renderAdminSidebar();
-      adminGo('dashboard');
+      // Update user card in case session was refreshed
+      var userCard = document.getElementById('userCard');
+      userCard.innerHTML = '<div class="avatar">'+initials(state.session.nama)+'</div>'+
+        '<div class="meta"><div class="n">'+escapeHtml(state.session.nama)+'</div><div class="r">'+escapeHtml(state.session.role)+'</div></div>';
+      showAdminUI();
     }).catch(function(e){
       toast(e.message, 'error');
       adminLogout();
     });
-  }
-
-  function renderAdminSidebar(){
-    var userCard = document.getElementById('userCard');
-    userCard.innerHTML = '<div class="avatar">'+initials(state.session.nama)+'</div>'+
-      '<div class="meta"><div class="n">'+escapeHtml(state.session.nama)+'</div><div class="r">'+escapeHtml(state.session.role)+'</div></div>';
-    var navHtml = state.modules.map(function(m){
-      return '<a class="nav-link" data-module="'+m.id+'" onclick="adminGo(\'module\',\''+m.id+'\')"><i class="'+m.icon+'"></i> '+escapeHtml(m.name)+'</a>';
-    }).join('');
-    document.getElementById('adminModuleNav').innerHTML = navHtml;
-    document.getElementById('navAudit').style.display = (state.session.role === 'Super Admin') ? 'block' : 'none';
   }
 
   function adminGo(view, moduleId){
@@ -1412,8 +1202,91 @@
       state.currentModule = state.modules.find(function(m){ return m.id === moduleId; });
       state.tableState = { page:1, pageSize:10, search:'', sortKey:null, sortDir:'asc' };
     }
-    renderAdminView();
+    renderView();
     if (window.innerWidth < 992) closeSidebar();
+  }
+
+  // ---------- RENDER VIEW (Routing) ----------
+  function renderView(){
+    var content = document.getElementById('adminContent');
+    var title = document.getElementById('adminPageTitle');
+    var breadcrumb = document.getElementById('adminBreadcrumb');
+    var topbarActions = document.getElementById('topbarActions');
+
+    if (!state.currentAdminView){
+      // Public view — render in the same content area
+      var publicHtml = renderPublicView();
+      content.innerHTML = publicHtml;
+      var viewLabel = state.currentPublicView === 'beranda' ? 'Beranda' :
+                      state.currentPublicView === 'sdmk' ? 'SDMK' :
+                      state.currentPublicView === 'fasyankes' ? 'Fasyankes' :
+                      state.currentPublicView === 'praktik' ? 'Praktik Mandiri' :
+                      state.currentPublicView === 'dokter' ? 'Dokter Spesialis' :
+                      state.currentPublicView === 'saran' ? 'Kotak Saran' : 'Beranda';
+      title.textContent = viewLabel;
+      breadcrumb.textContent = 'SIMANDAKES / ' + viewLabel;
+      topbarActions.innerHTML = '';
+      // Load data for the public view
+      loadPublicViewData();
+      // Update sidebar active
+      updateSidebarActive();
+    } else if (state.currentAdminView === 'dashboard'){
+      title.textContent = 'Dashboard';
+      breadcrumb.textContent = 'Admin / Dashboard';
+      topbarActions.innerHTML = '<button class="btn btn-sm btn-outline-secondary" onclick="adminGo(\'dashboard\')"><i class="fas fa-redo me-1"></i> Refresh</button>' +
+        '<button class="btn btn-sm btn-outline-danger" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>';
+      content.innerHTML = viewAdminDashboard();
+      loadDashboardStats();
+      updateSidebarActive();
+    } else if (state.currentAdminView === 'module'){
+      title.textContent = state.currentModule.name;
+      breadcrumb.textContent = 'Admin / ' + state.currentModule.name;
+      topbarActions.innerHTML = '<button class="btn btn-sm btn-outline-danger" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>';
+      content.innerHTML = viewAdminModule();
+      loadModuleData();
+      updateSidebarActive();
+    } else if (state.currentAdminView === 'audit'){
+      title.textContent = 'Audit Trail';
+      breadcrumb.textContent = 'Admin / Audit Trail';
+      topbarActions.innerHTML = '<button class="btn btn-sm btn-outline-danger" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>';
+      content.innerHTML = viewAudit();
+      loadAudit();
+      updateSidebarActive();
+    }
+  }
+
+  function updateSidebarActive(){
+    // Clear all active
+    var allLinks = document.querySelectorAll('#adminSidebar .nav-link');
+    allLinks.forEach(function(l){ l.classList.remove('active'); });
+
+    if (!state.currentAdminView){
+      // Highlight public sidebar item
+      var publicLinks = document.querySelectorAll('#publicSidebarNav .nav-link');
+      publicLinks.forEach(function(l){
+        if (l.getAttribute('onclick') && l.getAttribute('onclick').indexOf("'" + state.currentPublicView + "'") !== -1){
+          l.classList.add('active');
+        }
+      });
+    } else if (state.currentAdminView === 'dashboard'){
+      var dl = document.getElementById('navDashboard');
+      if (dl) dl.classList.add('active');
+    } else if (state.currentAdminView === 'module' && state.currentModule){
+      var ml = document.querySelector('.nav-link[data-module="'+state.currentModule.id+'"]');
+      if (ml) ml.classList.add('active');
+    } else if (state.currentAdminView === 'audit'){
+      var al = document.getElementById('navAudit');
+      if (al) al.classList.add('active');
+    }
+  }
+
+  // ---------- API ERROR VIEW ----------
+  function viewApiError(){
+    return '<div style="text-align:center;padding:4rem 2rem">'+
+      '<div style="width:80px;height:80px;border-radius:50%;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1.5rem"><i class="fas fa-cloud-slash"></i></div>'+
+      '<h4 style="color:var(--danger);font-weight:800;margin-bottom:.5rem">Koneksi API Gagal</h4>'+
+      '<p style="color:var(--muted);max-width:500px;margin:0 auto 1.5rem">Deploy <code>Code.gs</code> sebagai Web App lalu isi URL-nya di variabel <code>API_URL</code> pada bagian atas script.</p>'+
+      '<button class="btn btn-primary" onclick="init()"><i class="fas fa-redo me-1"></i> Coba Lagi</button></div>';
   }
 
   function renderAdminView(){
@@ -1586,8 +1459,7 @@
       m.headers.forEach(function(h){
         var val = row[h.key];
         if (h.key === 'foto'){
-          if (val) html += '<td><img src="'+escapeHtml(val)+'" class="row-photo" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="row-photo-ph" style="display:none">'+initials(row.nama)+'</div></td>';
-          else html += '<td><div class="row-photo-ph">'+initials(row.nama)+'</div></td>';
+          html += '<td>' + photoHtml(val, row.nama) + '</td>';
         } else if (h.type === 'select' && h.key.indexOf('status') !== -1){
           html += '<td>'+statusBadge(val)+'</td>';
         } else if (val instanceof Date || h.key === 'tanggal' || h.key === 'timestamp'){
@@ -1634,11 +1506,30 @@
         if (!row){ toast('Data tidak ditemukan', 'error'); showLoading(false); return; }
         renderForm(row);
         showLoading(false);
-        new bootstrap.Modal(document.getElementById('formModal')).show();
+        // Open form modal with aria fix
+        var el = document.getElementById('formModal');
+        el.removeAttribute('aria-hidden');
+        el.removeAttribute('inert');
+        var modal = bootstrap.Modal.getOrCreateInstance(el, { focus: false, backdrop: 'static' });
+        el.addEventListener('hidden.bs.modal', function handler(){
+          el.removeEventListener('hidden.bs.modal', handler);
+          el.setAttribute('aria-hidden', 'true');
+          el.setAttribute('inert', '');
+        });
+        modal.show();
       }).catch(function(e){ toast(e.message,'error'); showLoading(false); });
     } else {
       renderForm({});
-      new bootstrap.Modal(document.getElementById('formModal')).show();
+      var el = document.getElementById('formModal');
+      el.removeAttribute('aria-hidden');
+      el.removeAttribute('inert');
+      var modal = bootstrap.Modal.getOrCreateInstance(el, { focus: false, backdrop: 'static' });
+      el.addEventListener('hidden.bs.modal', function handler(){
+        el.removeEventListener('hidden.bs.modal', handler);
+        el.setAttribute('aria-hidden', 'true');
+        el.setAttribute('inert', '');
+      });
+      modal.show();
     }
   }
   function PAGE_SIZE_MAX_SAFE(){ return 100; }
@@ -1649,8 +1540,9 @@
     html += '<div class="row g-3">';
     var photoField = m.headers.find(function(h){ return h.key === 'foto'; });
     if (photoField){
+      var photoPreviewContent = row.foto ? photoHtml(row.foto, row.nama, '') : '<i class="fas fa-image"></i>';
       html += '<div class="col-12"><label class="form-label">Foto</label><div class="d-flex align-items-center gap-3">'+
-        '<div class="photo-preview" id="photoPreview">'+(row.foto?'<img src="'+escapeHtml(row.foto)+'">':'<i class="fas fa-image"></i>')+'</div>'+
+        '<div class="photo-preview" id="photoPreview">'+photoPreviewContent+'</div>'+
         '<div><input type="file" class="form-control form-control-sm" id="photoInput" accept="image/*" onchange="handlePhotoUpload(event)">'+
         '<div class="hint">Maks 2MB. JPG/PNG/WEBP.</div>'+
         '<input type="hidden" id="field-foto" value="'+escapeHtml(row.foto||'')+'"></div></div></div>';
@@ -1746,7 +1638,16 @@
     state.pendingDelete = id;
     var m = state.currentModule;
     document.getElementById('deleteMsg').textContent = 'Yakin ingin menghapus data dengan ID "' + id + '"? Tindakan ini tidak dapat dibatalkan.';
-    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    var el = document.getElementById('deleteModal');
+    el.removeAttribute('aria-hidden');
+    el.removeAttribute('inert');
+    var modal = bootstrap.Modal.getOrCreateInstance(el, { focus: false, backdrop: 'static' });
+    el.addEventListener('hidden.bs.modal', function handler(){
+      el.removeEventListener('hidden.bs.modal', handler);
+      el.setAttribute('aria-hidden', 'true');
+      el.setAttribute('inert', '');
+    });
+    modal.show();
     document.getElementById('confirmDeleteBtn').onclick = function(){
       showLoading(true);
       api('deleteAdminData', m.id, id).then(function(){
@@ -1868,68 +1769,35 @@
   }
 
   // ---------- INIT ----------
-  // Setelah landing page, LANGSUNG masuk ke admin shell.
-  // - Bila token valid → load modules → tampil dashboard
-  // - Bila tidak ada token / invalid → tampil admin shell + login modal
+  // Setelah landing page → tampilkan admin shell sebagai interface utama.
+  // Sidebar berisi Menu Publik (dari API), tombol "Masuk Panel Admin".
+  // Content area menampilkan beranda (public view).
+  // Jika ada token valid → cek session secara silent → masuk admin mode.
   function init(){
-    showModeBanner();
-
-    // Load menu di background (untuk public menu bila dibutuhkan nanti)
-    api('getMenu').then(function(menus){
-      state.publicMenus = menus || [];
-    }).catch(function(){ /* ignore */ });
-
-    // Sembunyikan public page, tampilkan admin shell
-    document.getElementById('publicApp').style.display = 'none';
     document.getElementById('adminApp').style.display = 'block';
 
-    // Cek token: bila valid → masuk dashboard; bila tidak → tampilkan login modal
-    if (state.token) {
+    // Load public menu dari API
+    api('getMenu').then(function(menus){
+      state.publicMenus = menus || [];
+      renderPublicSidebar();
+      renderView(); // shows beranda
+      loadPublicStats();
+    }).catch(function(e){
+      document.getElementById('adminContent').innerHTML = viewApiError();
+    });
+
+    // Check existing session silently (non-blocking)
+    if (state.token){
       api('checkSession').then(function(res){
-        if (res.data) {
+        if (res.data){
           state.session = res.data;
-          loadAdminModules();
-        } else {
-          // token invalid/expired
-          state.token = null;
-          localStorage.removeItem('simandakes_token');
-          showLoginScreen();
+          api('getAdminModules').then(function(res){
+            state.modules = res.data || [];
+            enterAdmin();
+          }).catch(function(){});
         }
-      }).catch(function(){
-        state.token = null;
-        localStorage.removeItem('simandakes_token');
-        showLoginScreen();
-      });
-    } else {
-      // Belum login → tampil login modal di atas admin shell
-      showLoginScreen();
+      }).catch(function(){});
     }
-  }
-
-  // Tampilkan admin shell kosong + login modal
-  function showLoginScreen(){
-    // Render sidebar minimal (tanpa modul, hanya brand + logout)
-    var userCard = document.getElementById('userCard');
-    if (userCard) userCard.innerHTML = '<div class="avatar">?</div><div class="meta"><div class="n">Guest</div><div class="r">Belum login</div></div>';
-    document.getElementById('adminModuleNav').innerHTML = '';
-    document.getElementById('navAudit').style.display = 'none';
-
-    // Tampilkan pesan di content area
-    var content = document.getElementById('adminContent');
-    document.getElementById('adminPageTitle').textContent = 'Masuk ke Sistem';
-    document.getElementById('adminBreadcrumb').textContent = 'Admin / Login';
-    content.innerHTML = '' +
-      '<div style="display:flex;align-items:center;justify-content:center;min-height:60vh;flex-direction:column;text-align:center;padding:2rem">' +
-        '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-light));display:flex;align-items:center;justify-content:center;color:#fff;font-size:2rem;margin-bottom:1.5rem;box-shadow:0 8px 24px rgba(15,76,117,.25)">' +
-          '<i class="fas fa-lock"></i>' +
-        '</div>' +
-        '<h2 style="color:var(--primary);font-weight:800;margin-bottom:.5rem">Selamat Datang di SIMANDAKES</h2>' +
-        '<p style="color:var(--muted);max-width:480px;margin-bottom:2rem">Silakan login untuk mengakses dashboard admin dan mengelola data kesehatan.</p>' +
-        '<button class="btn btn-primary btn-lg px-5" onclick="openLoginModal()"><i class="fas fa-sign-in-alt me-2"></i>Masuk Sekarang</button>' +
-      '</div>';
-
-    // Auto-buka login modal
-    setTimeout(function(){ openLoginModal(); }, 300);
   }
 
   // ==========================================================
