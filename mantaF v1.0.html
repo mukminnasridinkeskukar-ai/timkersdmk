@@ -3429,7 +3429,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzOhm58OQVsGutXm0-063F9AN3dbXpuiJFEXYHMNNCMZHIAiEvdWVx4tE0A2vYg7P32/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzTTSCqyCy6hiCwfczBYxZdgdcPYhwMvIb60amXkT5_uEPrK0lH3ypvWmRuDcarVEyR/exec";
 
 let bezettingCache = null;
 
@@ -4110,24 +4110,50 @@ if(result.found){
     alert('Hanya peserta dengan status Perbaikan yang dapat memperbarui data.\nStatus Anda saat ini: ' + (st || 'Tidak diketahui'));
     return;
   }
- document.getElementById('perbaikanNik').value = result.nik || '';
- document.getElementById('perbaikanNip').value = result.nip || '';
- document.getElementById('perbaikanNama').value = result.nama || '';
- document.getElementById('perbaikanUnit').value = result.unit_kerja || '';
- document.getElementById('perbaikanPangkat').value = result.pangkat_dan_golongan || '';
- document.getElementById('perbaikanSk').value = result.nomor_sk_jabfungs_terakhir || '';
- document.getElementById('perbaikanJk').value = result.jenis_kelamin || '';
- document.getElementById('perbaikanWa').value = result.nomor_whatsapp || '';
- document.getElementById('perbaikanEmail').value = result.email_aktif || '';
- document.getElementById('perbaikanPak').value = result.nilai_pak_terakhir || '';
- document.getElementById('perbaikanJabfung').value = result.jabfung_saat_ini || '';
- document.getElementById('perbaikanJenjang').value = result.jenjang_saat_ini || '';
- document.getElementById('perbaikanTipe').value = result.tipe || '';
- document.getElementById('perbaikanJenisUkom').value = result.jenis_ukom || '';
- document.getElementById('perbaikanTujuanJabfung').value = result.jabfung_tujuan || '';
- document.getElementById('perbaikanTujuanJenjang').value = result.jenjang_tujuan || '';
- 
-showSection('perbaikan', document.querySelector('.menu button:nth-child(5)'));
+
+  /* Pastikan ukomCache tersedia, cari baris yang cocok */
+  if(!ukomCache){
+    try { ukomCache = await fetchUkomData(); } catch(e){}
+  }
+  var rowData = ukomCache ? ukomCache.find(function(item){ return item.nik === nik; }) : null;
+  if(!rowData){
+    rowData = result;
+    rowData.no = -1;
+    if(ukomCache) ukomCache.push(rowData);
+  }
+
+  /* Buka admin lightbox langsung ke form edit lengkap */
+  var content = document.getElementById('adminLightboxContent');
+  var fotoUrl = getImageUrl(rowData.foto_4x6_latar_merah);
+  var backupFotoUrl = getBackupImageUrl(rowData.foto_4x6_latar_merah);
+  var escapedBackup = backupFotoUrl.replace(/'/g, "\\'");
+  var fotoHtml = fotoUrl
+    ? '<img src="' + fotoUrl + '" onerror="this.onerror=null;this.src=\'' + escapedBackup + '\'" referrerpolicy="no-referrer" style="max-width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:5px">'
+    : '<img src="https://via.placeholder.com/200x200/cccccc/666666?text=Photo" style="max-width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin-top:5px">';
+
+  content.innerHTML = '<span class="close" onclick="document.getElementById(\'adminLightbox\').style.display=\'none\'">&times;</span>'
+    + '<h2 style="margin-bottom:10px;color:#7c3aed"><i class="fas fa-edit"></i> Perbaikan Data Peserta</h2>'
+    + '<div style="margin-bottom:10px">' + adminBadge('Perbaikan') + '</div>'
+    + '<div style="display:flex;gap:20px;flex-wrap:wrap">'
+    + '<div style="flex:1;min-width:250px">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">'
+    + '<div><b>NIK</b><br>' + escapeHtml(rowData.nik || '-') + '</div>'
+    + '<div><b>NIP</b><br>' + escapeHtml(rowData.nip || '-') + '</div>'
+    + '<div><b>Nama</b><br>' + escapeHtml(rowData.nama || '-') + '</div>'
+    + '<div><b>Unit Kerja</b><br>' + escapeHtml(rowData.unit_kerja || '-') + '</div>'
+    + '<div><b>Jabfung</b><br>' + escapeHtml(rowData.jabfung_saat_ini || '-') + '</div>'
+    + '<div><b>Jenjang</b><br>' + escapeHtml(rowData.jenjang_saat_ini || '-') + '</div>'
+    + '</div></div>'
+    + '<div style="flex:0 0 180px;text-align:center">'
+    + '<div><b>Foto</b><br>' + fotoHtml + '</div>'
+    + '</div></div>'
+    + '<hr style="margin:15px 0;border-color:#e2e8f0">'
+    + '<div id="adminEditFormContainer"></div>';
+
+  document.getElementById('adminLightbox').style.display = 'flex';
+  /* Buka form edit lengkap otomatis */
+  openAdminEditForm(rowData.no);
+
  }else{
  alert('Data tidak ditemukan');
  }
