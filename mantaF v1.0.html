@@ -436,6 +436,12 @@ DATA PESERTA UKOM
 .badge-hadir{background:#d1fae5;color:#065f46;}
 .badge-tidakhadir{background:#ffe4e6;color:#9f1239;}
 .lb-img-preview{max-width:100%;max-height:80vh;border-radius:12px;display:block;margin:0 auto;}
+.pu-pag-info{font-size:13px;color:#64748b;}
+.pu-pag-btns{display:flex;gap:4px;flex-wrap:wrap;}
+.pu-pag-btn{padding:6px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#334155;font-size:12px;cursor:pointer;transition:all .15s;}
+.pu-pag-btn:hover{background:#f1f5f9;border-color:#0f766e;color:#0f766e;}
+.pu-pag-btn.active{background:#0f766e;color:#fff;border-color:#0f766e;}
+.pu-pag-btn:disabled{opacity:.4;cursor:not-allowed;}
 
 @media(max-width:900px){
 
@@ -2807,9 +2813,6 @@ Kirim Pendaftaran
 <label>Filter Status UKOM</label>
 <select id="pesertaUkomStatus" onchange="filterPesertaUkom()">
 <option value="">Semua Status</option>
-<option value="Lulus">Lulus</option>
-<option value="Tidak Lulus">Tidak Lulus</option>
-<option value="Proses">Proses</option>
 </select>
 </div>
 </div>
@@ -2838,6 +2841,8 @@ Kirim Pendaftaran
 </tbody>
 </table>
 </div>
+
+<div id="pesertaUkomPagination" style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;flex-wrap:wrap;gap:8px"></div>
 
 </div>
 
@@ -3419,7 +3424,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxNxI_06L_9Do7ywIywn96Vg5_h-3ARoGqI07NXD2WLc9rWJtnsiIPPCOKVcLqtq4Gr/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2sUQX7YCNvukLmF3pLrJ6vmLAHdGRjuy4c-F3repDeIxd_b0Qa6N43zNUY1R1uCkn/exec";
 
 let bezettingCache = null;
 
@@ -4739,6 +4744,61 @@ DATA PESERTA UKOM
 ========================== */
 var pesertaUkomCache = null;
 var pesertaUkomLoaded = false;
+var pesertaUkomPage = 1;
+var pesertaUkomFiltered = [];
+var PU_PER_PAGE = 20;
+
+/* Universal key finder — handles any header naming variation */
+function puKey(row, candidates){
+  if(!row) return '';
+  for(var k=0; k<candidates.length; k++){
+    var key = candidates[k];
+    if(row.hasOwnProperty(key) && row[key]){
+      var v = String(row[key]).trim();
+      if(v) return v;
+    }
+  }
+  return '';
+}
+
+/* Dynamic filter for Status UKOM */
+function puGetStatusUkom(row){
+  return puKey(row, [
+    'status_ukom','statusukom','status_ukom_','statusukom_',
+    'status ukom','STATUS UKOM','Status UKOM','Status_Ukom',
+    'statusUkom','STATUS_UKOM'
+  ]);
+}
+
+/* Robust Google Drive URL resolver */
+function resolveDriveUrl(raw){
+  if(!raw) return '';
+  var s = String(raw).trim();
+  if(!s) return '';
+  /* Already a full URL */
+  if(s.indexOf('http://') === 0 || s.indexOf('https://') === 0){
+    /* If it's a sharing link like drive.google.com/file/d/XXX or drive.google.com/open?id=XXX */
+    var mFile = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if(mFile) return 'https://drive.google.com/thumbnail?id=' + mFile[1] + '&sz=w400';
+    var mOpen = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if(mOpen) return 'https://drive.google.com/thumbnail?id=' + mOpen[1] + '&sz=w400';
+    /* It's already a direct/thumbnail/uc URL — return as-is */
+    return s;
+  }
+  /* Plain file ID (alphanumeric with - and _) */
+  if(/^[a-zA-Z0-9_-]{10,}$/.test(s)){
+    return 'https://drive.google.com/thumbnail?id=' + s + '&sz=w400';
+  }
+  /* Fallback: treat as file ID */
+  return 'https://drive.google.com/thumbnail?id=' + s + '&sz=w400';
+}
+
+/* Build a full-size URL from thumbnail for lightbox preview */
+function fullSizeUrl(url){
+  if(!url) return '';
+  /* Convert thumbnail to full-size for preview */
+  return url.replace(/sz=w\d+/,'sz=w800');
+}
 
 function loadPesertaUkom(){
   if(pesertaUkomLoaded) return;
@@ -4752,7 +4812,8 @@ function loadPesertaUkom(){
       var data = res.data || res || [];
       pesertaUkomCache = data;
       populatePeriodeFilter(data);
-      renderPesertaUkom(data);
+      populateStatusUkomFilter(data);
+      filterPesertaUkom();
     })
     .catch(function(e){
       tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#dc2626">Gagal memuat data: ' + e.message + '</td></tr>';
@@ -4762,9 +4823,11 @@ function loadPesertaUkom(){
 
 function populatePeriodeFilter(data){
   var sel = document.getElementById('pesertaUkomPeriode');
+  /* Clear existing options except first */
+  while(sel.options.length > 1) sel.remove(1);
   var periods = [];
   data.forEach(function(row){
-    var p = (row.periode || '').trim();
+    var p = puKey(row, ['periode','Periode','PERIODE']);
     if(p && periods.indexOf(p) === -1) periods.push(p);
   });
   periods.sort().reverse();
@@ -4775,66 +4838,96 @@ function populatePeriodeFilter(data){
   });
 }
 
+function populateStatusUkomFilter(data){
+  var sel = document.getElementById('pesertaUkomStatus');
+  while(sel.options.length > 1) sel.remove(1);
+  var statuses = [];
+  data.forEach(function(row){
+    var v = puGetStatusUkom(row);
+    if(v && statuses.indexOf(v) === -1) statuses.push(v);
+  });
+  statuses.sort();
+  statuses.forEach(function(v){
+    var opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    sel.appendChild(opt);
+  });
+}
+
 function filterPesertaUkom(){
   if(!pesertaUkomCache) return;
   var q = (document.getElementById('pesertaUkomSearch').value || '').toLowerCase();
   var periode = document.getElementById('pesertaUkomPeriode').value;
   var status = document.getElementById('pesertaUkomStatus').value;
 
-  var filtered = pesertaUkomCache.filter(function(row){
-    if(periode && (row.periode || '').trim() !== periode) return false;
-    if(status && (row.status_ukom || row.statusUKOM || '').trim() !== status) return false;
+  pesertaUkomFiltered = pesertaUkomCache.filter(function(row){
+    if(periode){
+      var rp = puKey(row, ['periode','Periode','PERIODE']);
+      if(rp !== periode) return false;
+    }
+    if(status){
+      var rs = puGetStatusUkom(row);
+      if(rs.toLowerCase() !== status.toLowerCase()) return false;
+    }
     if(q){
-      var nama = (row.nama || row.nama_tanpa_gelar || '').toLowerCase();
-      var no = (row.no_peserta || '').toLowerCase();
+      var nama = puKey(row, ['nama','nama_tanpa_gelar','Nama']).toLowerCase();
+      var no = puKey(row, ['no_peserta','nopeserta','No Peserta']).toLowerCase();
       if(nama.indexOf(q) === -1 && no.indexOf(q) === -1) return false;
     }
     return true;
   });
-  renderPesertaUkom(filtered);
+
+  pesertaUkomPage = 1;
+  renderPesertaUkomPage();
 }
 
-function renderPesertaUkom(data){
+function renderPesertaUkomPage(){
   var tbody = document.getElementById('pesertaUkomBody');
-  if(!data || data.length === 0){
+  var total = pesertaUkomFiltered.length;
+  var totalPages = Math.max(1, Math.ceil(total / PU_PER_PAGE));
+  if(pesertaUkomPage > totalPages) pesertaUkomPage = totalPages;
+
+  if(total === 0){
     tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#64748b">Tidak ada data peserta.</td></tr>';
+    document.getElementById('pesertaUkomPagination').innerHTML = '';
     return;
   }
 
+  var start = (pesertaUkomPage - 1) * PU_PER_PAGE;
+  var end = Math.min(start + PU_PER_PAGE, total);
+  var pageData = pesertaUkomFiltered.slice(start, end);
+
   var html = '';
-  data.forEach(function(row, i){
-    var no = i + 1;
-    var foto = (row.foto || row.upload_foto_4x6_latar_merah || '').trim();
-    var fotoUrl = '';
-    if(foto){
-      if(foto.indexOf('http') === 0) fotoUrl = foto;
-      else if(foto.indexOf('id=') > -1) fotoUrl = foto;
-      else fotoUrl = 'https://drive.google.com/thumbnail?id=' + foto + '&sz=w200';
-    }
+  pageData.forEach(function(row, i){
+    var no = start + i + 1;
 
-    var periode = row.periode || '';
-    var noPeserta = row.no_peserta || '';
-    var nama = row.nama || row.nama_tanpa_gelar || '';
-    var instansi = row.instansi || row.nama_unit_kerja || '';
-    var jenisUkom = row.jenis_ukom || '';
-    var pakInstansi = row.pak_instansi || '';
-    var pakSiAsn = row.pak_si_asn || '';
-    var statusPeriode = row.status_periode || '';
-    var absen = row.absen || '';
-    var statusUkom = row.status_ukom || row.statusUKOM || '';
-    var sertifikat = row.sertifikat || '';
-    var sertifikatUrl = '';
-    if(sertifikat){
-      if(sertifikat.indexOf('http') === 0) sertifikatUrl = sertifikat;
-      else sertifikatUrl = 'https://drive.google.com/thumbnail?id=' + sertifikat + '&sz=w400';
-    }
+    /* Foto — robust URL resolution */
+    var rawFoto = puKey(row, ['foto','Foto','FOTO','upload_foto_4x6_latar_merah','foto_4x6']);
+    var fotoThumb = resolveDriveUrl(rawFoto);
+    var fotoFull = fullSizeUrl(fotoThumb);
 
-    var fotoCell = fotoUrl
-      ? '<img src="' + fotoUrl + '" class="peserta-foto" onclick="openLightboxImg(\'' + fotoUrl.replace(/'/g,"\\'") + '\')" onerror="this.style.display=\'none\'" loading="lazy">'
+    var periode = puKey(row, ['periode','Periode','PERIODE']);
+    var noPeserta = puKey(row, ['no_peserta','nopeserta','No Peserta']);
+    var nama = puKey(row, ['nama','Nama','NAMA','nama_tanpa_gelar']);
+    var instansi = puKey(row, ['instansi','Instansi','INSTANSI','nama_unit_kerja']);
+    var jenisUkom = puKey(row, ['jenis_ukom','jenisukom','Jenis UKOM']);
+    var pakInstansi = puKey(row, ['pak_instansi','pakinstansi','PAK Instansi']);
+    var pakSiAsn = puKey(row, ['pak_si_asn','paksi_asn','PAK SI ASN']);
+    var statusPeriode = puKey(row, ['status_periode','statusperiode','Status Periode']);
+    var absen = puKey(row, ['absen','Absen','ABSEN']);
+    var statusUkom = puGetStatusUkom(row);
+
+    /* Sertifikat — robust URL resolution */
+    var rawSert = puKey(row, ['sertifikat','Sertifikat','SERTIFIKAT']);
+    var sertThumb = resolveDriveUrl(rawSert);
+    var sertFull = fullSizeUrl(sertThumb);
+
+    var fotoCell = fotoThumb
+      ? '<img src="' + escAttr(fotoThumb) + '" class="peserta-foto" onclick="openLightboxImg(\'' + escAttr(fotoFull) + '\')" onerror="this.outerHTML=\'<span style=color:#cbd5e1>-</span>\'" loading="lazy" referrerpolicy="no-referrer">'
       : '<span style="color:#cbd5e1">-</span>';
 
-    var sertCell = sertifikatUrl
-      ? '<img src="' + sertifikatUrl + '" class="sertifikat-thumb" onclick="openLightboxImg(\'' + sertifikatUrl.replace(/'/g,"\\'") + '\')" onerror="this.outerHTML=\'<span style=color:#cbd5e1>-</span>\'" loading="lazy">'
+    var sertCell = sertThumb
+      ? '<img src="' + escAttr(sertThumb) + '" class="sertifikat-thumb" onclick="openLightboxImg(\'' + escAttr(sertFull) + '\')" onerror="this.outerHTML=\'<span style=color:#cbd5e1>-</span>\'" loading="lazy" referrerpolicy="no-referrer">'
       : '<span style="color:#cbd5e1">-</span>';
 
     html += '<tr>'
@@ -4854,6 +4947,61 @@ function renderPesertaUkom(data){
       + '</tr>';
   });
   tbody.innerHTML = html;
+
+  /* Render pagination controls */
+  renderPesertaUkomPagination(total, totalPages);
+}
+
+function renderPesertaUkomPagination(total, totalPages){
+  var container = document.getElementById('pesertaUkomPagination');
+  if(totalPages <= 1){
+    container.innerHTML = '<span class="pu-pag-info">Menampilkan ' + total + ' data</span>';
+    return;
+  }
+
+  var start = (pesertaUkomPage - 1) * PU_PER_PAGE + 1;
+  var end = Math.min(pesertaUkomPage * PU_PER_PAGE, total);
+
+  var html = '<span class="pu-pag-info">Menampilkan ' + start + '-' + end + ' dari ' + total + ' data</span>';
+  html += '<div class="pu-pag-btns">';
+
+  /* Prev */
+  html += '<button class="pu-pag-btn" onclick="puGoPage(' + (pesertaUkomPage-1) + ')"' + (pesertaUkomPage <= 1 ? ' disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
+
+  /* Page numbers — show max 7 buttons with ellipsis */
+  var pages = [];
+  if(totalPages <= 7){
+    for(var p=1; p<=totalPages; p++) pages.push(p);
+  } else {
+    pages.push(1);
+    if(pesertaUkomPage > 3) pages.push('...');
+    var s = Math.max(2, pesertaUkomPage - 1);
+    var e = Math.min(totalPages - 1, pesertaUkomPage + 1);
+    for(var p=s; p<=e; p++) pages.push(p);
+    if(pesertaUkomPage < totalPages - 2) pages.push('...');
+    pages.push(totalPages);
+  }
+
+  pages.forEach(function(p){
+    if(p === '...'){
+      html += '<span class="pu-pag-btn" style="cursor:default;border:none;">...</span>';
+    } else {
+      html += '<button class="pu-pag-btn' + (p === pesertaUkomPage ? ' active' : '') + '" onclick="puGoPage(' + p + ')">' + p + '</button>';
+    }
+  });
+
+  /* Next */
+  html += '<button class="pu-pag-btn" onclick="puGoPage(' + (pesertaUkomPage+1) + ')"' + (pesertaUkomPage >= totalPages ? ' disabled' : '') + '><i class="fas fa-chevron-right"></i></button>';
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function puGoPage(p){
+  pesertaUkomPage = p;
+  renderPesertaUkomPage();
+  /* Scroll table into view */
+  var wrap = document.querySelector('.peserta-ukom-wrap');
+  if(wrap) wrap.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 function badgeStatusPeriode(val){
@@ -4887,11 +5035,17 @@ function escHtml(s){
   return d.innerHTML;
 }
 
+function escAttr(s){
+  return (s || '').replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function openLightboxImg(url){
   var lb = document.getElementById('lightbox');
   var lc = document.getElementById('lightbox-content');
+  /* For Google Drive, use larger size */
+  var bigUrl = url.replace(/sz=w\d+/,'sz=w1200');
   lc.innerHTML = '<span class="close" onclick="document.getElementById(\'lightbox\').style.display=\'none\'">&times;</span>'
-    + '<img src="' + url + '" class="lb-img-preview" onclick="event.stopPropagation()">';
+    + '<img src="' + escAttr(bigUrl) + '" class="lb-img-preview" onclick="event.stopPropagation()" referrerpolicy="no-referrer">';
   lb.style.display = 'flex';
 }
 
