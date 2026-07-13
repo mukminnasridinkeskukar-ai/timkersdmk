@@ -3429,7 +3429,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwCIGbHCSFvV2AmeKjS6eRyON1mTRcLVQx0mXm3IcuipjOqj8BGm00JYC6ujE2SP6g3/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyjVwNt2qzRIwfhkU1GvqQrGmOiJdKZlXJD-JtnFN8XSuAt4q9vuvQ8dS7eLaZ7QRka/exec";
 
 let bezettingCache = null;
 
@@ -4081,7 +4081,7 @@ if(result.found){
   <tr><td style="padding:5px 0"><b>Status Verifikasi</b></td><td style="padding:5px 0">${(function(){var _m={Disetujui:'background:#dcfce7;color:#166534',Ditolak:'background:#fee2e2;color:#991b1b',Dilimpahkan:'background:#dbeafe;color:#1e40af',Batal:'background:#f1f5f9;color:#475569',Proses:'background:#fef3c7;color:#92400e',Menunggu:'background:#fef9c3;color:#854d0e'};var _v=result.status_verifikasi||'Menunggu';var _st=_m[_v]||_m.Menunggu;return '<span style="'+_st+';padding:3px 10px;border-radius:4px">'+_v+'</span>'})()}</td></tr>
   <tr><td style="padding:5px 0"><b>Catatan Admin</b></td><td style="padding:5px 0">${result.catatan_admin || '-'}</td></tr>
   </table>
-  ${result.status_verifikasi === 'Ditolak' ? '<br><button class="btn" style="background:#dc2626" onclick="showPerbaikanForm(\'' + (result.nik || keyword) + '\')">Perbaiki Data</button>' : ''}
+  ${result.status_verifikasi === 'Perbaikan' ? '<br><button class="btn" style="background:#7c3aed" onclick="showPerbaikanForm(\'' + (result.nik || keyword) + '\')">Perbaiki Data</button>' : ''}
   </div>
   `;
   } else {
@@ -4104,6 +4104,12 @@ async function showPerbaikanForm(nik){
  const result = await response.json();
  
 if(result.found){
+  /* Keamanan: hanya status Perbaikan yang boleh mengakses form perbaikan */
+  var st = (result.status_verifikasi || '').trim();
+  if(st !== 'Perbaikan'){
+    alert('Hanya peserta dengan status Perbaikan yang dapat memperbarui data.\nStatus Anda saat ini: ' + (st || 'Tidak diketahui'));
+    return;
+  }
  document.getElementById('perbaikanNik').value = result.nik || '';
  document.getElementById('perbaikanNip').value = result.nip || '';
  document.getElementById('perbaikanNama').value = result.nama || '';
@@ -4498,14 +4504,20 @@ function showAdminDetail(no){
     return '<a href="https://drive.google.com/file/d/' + fileId + '/preview" target="_blank" class="btn" style="font-size:11px;padding:4px 10px;margin-top:4px">Lihat ' + label + '</a>';
   }
   
+  /* Tombol status hanya aktif jika status saat ini = Menunggu atau Perbaikan */
+  var canChangeStatus = (status === 'Menunggu' || status === 'Perbaikan');
   var statusButtons = '';
   var statusList = ['Menunggu','Proses','Disetujui','Ditolak','Dilimpahkan','Batal','Perbaikan'];
   statusList.forEach(function(s){
     var isActive = (s === status);
     var btnColor = ADMIN_BTN_COLORS[s] || '#64748b';
-    var opacity = isActive ? 'opacity:0.5;cursor:not-allowed;' : '';
-    var disabled = isActive ? 'disabled' : '';
-    statusButtons += '<button ' + disabled + ' class="btn" style="padding:7px 14px;margin:4px;font-size:12px;background:' + btnColor + ';' + opacity + '" onclick="updateStatus(' + rowData.no + ', \'' + s + '\')">' + s + (isActive ? ' (Aktif)' : '') + '</button>';
+    if(isActive){
+      statusButtons += '<button disabled class="btn" style="padding:7px 14px;margin:4px;font-size:12px;background:' + btnColor + ';opacity:0.5;cursor:not-allowed">' + s + ' (Aktif)</button>';
+    } else if(!canChangeStatus){
+      statusButtons += '<button disabled class="btn" style="padding:7px 14px;margin:4px;font-size:12px;background:' + btnColor + ';opacity:0.3;cursor:not-allowed" title="Status ' + status + ' tidak dapat diubah">' + s + '</button>';
+    } else {
+      statusButtons += '<button class="btn" style="padding:7px 14px;margin:4px;font-size:12px;background:' + btnColor + '" onclick="updateStatus(' + rowData.no + ', \'' + s + '\')">' + s + '</button>';
+    }
   });
 
   var editButton = isPerbaikan
@@ -4549,6 +4561,7 @@ function showAdminDetail(no){
     + '</div></div>'
     + '<hr style="margin:20px 0 15px;border-color:#e2e8f0">'
     + '<div style="font-size:13px;font-weight:600;margin-bottom:8px">Ubah Status Verifikasi:</div>'
+    + (!canChangeStatus ? '<div style="background:#fee2e2;color:#991b1b;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px"><i class="fas fa-lock"></i> Status saat ini <b>' + escapeHtml(status) + '</b> — tombol status dikunci. Hanya status <b>Menunggu</b> dan <b>Perbaikan</b> yang dapat mengubah status.</div>' : '<div style="background:#dcfce7;color:#166534;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:10px"><i class="fas fa-unlock"></i> Status saat ini <b>' + escapeHtml(status) + '</b> — Anda dapat mengubah status peserta.</div>')
     + '<div style="display:flex;flex-wrap:wrap;align-items:center">' + statusButtons + '</div>'
     + '<hr style="margin:15px 0;border-color:#e2e8f0">'
     + '<div style="font-size:13px;font-weight:600;margin-bottom:8px">Aksi Data:</div>'
@@ -4594,6 +4607,13 @@ function openAdminEditForm(no){
 }
 
 async function saveAdminEdit(no){
+  /* Keamanan: pastikan hanya status Perbaikan yang bisa edit */
+  var rowData = ukomCache ? ukomCache.find(function(item){ return item.no === no; }) : null;
+  var currentStatus = rowData ? (rowData.status_verifikasi || '').trim() : '';
+  if(currentStatus !== 'Perbaikan'){
+    alert('Hanya peserta dengan status Perbaikan yang dapat diperbarui datanya.\nStatus saat ini: ' + (currentStatus || 'Tidak diketahui'));
+    return;
+  }
   var nik = document.getElementById('editNik').value;
   var nama = document.getElementById('editNama').value;
   var unitKerja = document.getElementById('editUnit').value;
@@ -4642,7 +4662,15 @@ async function saveAdminEdit(no){
  ========================== */
  
 async function updateStatus(row, status){
+  /* Cegah update jika status saat ini BUKAN Perbaikan */
+  var rowData = ukomCache ? ukomCache.find(function(item){ return item.no === row; }) : null;
+  var currentStatus = rowData ? (rowData.status_verifikasi || 'Menunggu').trim() : '';
+  if(currentStatus && currentStatus !== 'Perbaikan' && currentStatus !== 'Menunggu'){
+    alert('Perubahan status hanya dapat dilakukan dari status Menunggu atau Perbaikan.\nStatus saat ini: ' + currentStatus);
+    return;
+  }
   var catatan = prompt('Catatan untuk status "' + status + '" (opsional):') || '';
+  if(catatan === null) return;
   try{
     var response = await fetch(
       WEB_APP_URL + '?action=updateVerifikasi&row=' + row + '&status=' + encodeURIComponent(status) + '&catatan=' + encodeURIComponent(catatan)
