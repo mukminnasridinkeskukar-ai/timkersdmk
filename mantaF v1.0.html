@@ -3429,7 +3429,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyjVwNt2qzRIwfhkU1GvqQrGmOiJdKZlXJD-JtnFN8XSuAt4q9vuvQ8dS7eLaZ7QRka/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzOhm58OQVsGutXm0-063F9AN3dbXpuiJFEXYHMNNCMZHIAiEvdWVx4tE0A2vYg7P32/exec";
 
 let bezettingCache = null;
 
@@ -4572,8 +4572,27 @@ function showAdminDetail(no){
 }
 
 /* ==========================
-   ADMIN EDIT FORM (only Perbaikan)
+   ADMIN EDIT FORM (only Perbaikan) - Full form sesuai Daftar UKOM
    ========================== */
+
+/* Helper: clone <option> dari select asli di form Daftar UKOM */
+function cloneSelectOpts(selectName){
+  var src = document.querySelector('#ukomForm select[name="' + selectName + '"]');
+  if(!src) return '';
+  var html = '';
+  for(var i = 0; i < src.options.length; i++){
+    html += '<option value="' + escapeHtml(src.options[i].value) + '">' + escapeHtml(src.options[i].text) + '</option>';
+  }
+  return html;
+}
+
+/* Helper: buat <select> dengan opsi dari form asli, value terpilih */
+function buildSelect(id, selectName, selectedVal){
+  var opts = cloneSelectOpts(selectName);
+  opts = opts.replace('value="' + escapeHtml(selectedVal || '') + '"', 'value="' + escapeHtml(selectedVal || '') + '" selected');
+  return '<div class="form-group"><label>' + selectName.replace(/_/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase()}) + '</label>'
+    + '<select id="' + id + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#fff">' + opts + '</select></div>';
+}
 
 function openAdminEditForm(no){
   var rowData = ukomCache.find(function(item){ return item.no === no; });
@@ -4581,29 +4600,125 @@ function openAdminEditForm(no){
   var container = document.getElementById('adminEditFormContainer');
   if(!container) return;
 
-  container.innerHTML = '<div style="margin-top:15px;padding:15px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">'
-    + '<h3 style="font-size:14px;margin-bottom:12px"><i class="fas fa-edit"></i> Edit Data Peserta</h3>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">'
-    + '<div class="form-group"><label>NIK</label><input type="text" id="editNik" value="' + escapeHtml(rowData.nik || '') + '" readonly style="background:#f1f5f9"></div>'
-    + '<div class="form-group"><label>NIP</label><input type="text" id="editNip" value="' + escapeHtml(rowData.nip || '') + '"></div>'
-    + '<div class="form-group"><label>Nama Tanpa Gelar</label><input type="text" id="editNama" value="' + escapeHtml(rowData.nama || '') + '"></div>'
-    + '<div class="form-group"><label>Unit Kerja</label><input type="text" id="editUnit" value="' + escapeHtml(rowData.unit_kerja || '') + '"></div>'
-    + '<div class="form-group"><label>Pangkat & Golongan</label><input type="text" id="editPangkat" value="' + escapeHtml(rowData.pangkat_dan_golongan || '') + '"></div>'
-    + '<div class="form-group"><label>SK Jabfung Terakhir</label><input type="text" id="editSkJabfung" value="' + escapeHtml(rowData.nomor_sk_jabfungs_terakhir || '') + '"></div>'
-    + '<div class="form-group"><label>Jabfung Saat Ini</label><input type="text" id="editJabfung" value="' + escapeHtml(rowData.jabfung_saat_ini || '') + '"></div>'
-    + '<div class="form-group"><label>Jenjang Saat Ini</label><input type="text" id="editJenjang" value="' + escapeHtml(rowData.jenjang_saat_ini || '') + '"></div>'
-    + '<div class="form-group"><label>Tipe</label><input type="text" id="editTipe" value="' + escapeHtml(rowData.tipe || '') + '"></div>'
-    + '<div class="form-group"><label>Jenis UKOM</label><input type="text" id="editJenisUkom" value="' + escapeHtml(rowData.jenis_ukom || '') + '"></div>'
-    + '<div class="form-group"><label>Jabfung Tujuan</label><input type="text" id="editJabfungTujuan" value="' + escapeHtml(rowData.jabfung_tujuan || '') + '"></div>'
-    + '<div class="form-group"><label>Jenjang Tujuan</label><input type="text" id="editJenjangTujuan" value="' + escapeHtml(rowData.jenjang_tujuan || '') + '"></div>'
-    + '<div class="form-group"><label>Nilai PAK</label><input type="text" id="editPak" value="' + escapeHtml(rowData.nilai_pak_terakhir || '') + '"></div>'
-    + '<div class="form-group"><label>WhatsApp</label><input type="text" id="editWA" value="' + escapeHtml(rowData.nomor_whatsapp || '') + '"></div>'
-    + '<div class="form-group"><label>Email</label><input type="text" id="editEmail" value="' + escapeHtml(rowData.email_aktif || '') + '"></div>'
-    + '</div>'
-    + '<div style="margin-top:12px;display:flex;gap:8px">'
-    + '<button class="btn" style="background:#7c3aed;font-size:12px" onclick="saveAdminEdit(' + no + ')"><i class="fas fa-save"></i> Simpan Perubahan</button>'
-    + '<button class="btn" style="background:#64748b;font-size:12px" onclick="document.getElementById(\'adminEditFormContainer\').innerHTML=\'\'">Batal</button>'
+  /* Info file lama jika ada */
+  function fileInfoLabel(val){
+    if(!val) return '<small style="color:#94a3b8">Belum ada file</small>';
+    return '<small style="color:#16a34a"><i class="fas fa-check-circle"></i> File tersedia</small>';
+  }
+
+  var h = '<div style="margin-top:15px;padding:18px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">'
+    + '<h3 style="font-size:15px;margin-bottom:14px;color:#7c3aed"><i class="fas fa-edit"></i> Form Perbaikan Data Peserta</h3>'
+    + '<div style="background:#ede9fe;color:#5b21b6;padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:14px">'
+    + '<i class="fas fa-info-circle"></i> <b>Status: Perbaikan</b> — Lengkapi atau perbaiki data sesuai formulir pendaftaran. File upload opsional (kosongkan jika tidak diubah).</div>'
+    + '<div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">'
+
+    /* Row 1: NIK (readonly) + NIP */
+    + '<div class="form-group"><label>NIK</label><input type="text" id="editNik" value="' + escapeHtml(rowData.nik || '') + '" readonly style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;background:#f1f5f9;cursor:not-allowed"></div>'
+    + '<div class="form-group"><label>NIP</label><input type="text" id="editNip" value="' + escapeHtml(rowData.nip || '') + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></div>'
+
+    /* Row 2: Nama + Unit Kerja (select) */
+    + '<div class="form-group"><label>Nama Tanpa Gelar</label><input type="text" id="editNama" value="' + escapeHtml(rowData.nama || '') + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></div>'
+    + buildSelect('editUnit','nama_unit_kerja', rowData.unit_kerja || '')
+
+    /* Row 3: Pangkat (select) + SK Jabfung */
+    + buildSelect('editPangkat','pangkat_dan_golongan', rowData.pangkat_dan_golongan || '')
+    + '<div class="form-group"><label>Nomor SK Jabfung Terakhir</label><input type="text" id="editSkJabfung" value="' + escapeHtml(rowData.nomor_sk_jabfungs_terakhir || '') + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></div>'
+
+    /* Row 4: Jenis Kelamin (select) + Jabfung Saat Ini (select) */
+    + buildSelect('editJK','jenis_kelamin', rowData.jenis_kelamin || '')
+    + buildSelect('editJabfung','jabfung_saat_ini', rowData.jabfung_saat_ini || '')
+
+    /* Row 5: Jenjang Saat Ini (select) + WhatsApp */
+    + buildSelect('editJenjang','jenjang_saat_ini', rowData.jenjang_saat_ini || '')
+    + '<div class="form-group"><label>Nomor WhatsApp</label><input type="text" id="editWA" value="' + escapeHtml(rowData.nomor_whatsapp || '') + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></div>'
+
+    /* Row 6: Email + Nilai PAK */
+    + '<div class="form-group"><label>Email Aktif</label><input type="email" id="editEmail" value="' + escapeHtml(rowData.email_aktif || '') + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></div>'
+    + '<div class="form-group"><label>Nilai PAK Terakhir</label><input type="text" id="editPak" value="' + escapeHtml(rowData.nilai_pak_terakhir || '') + '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px"></div>'
+
+    /* Row 7: PAK file + Tipe (select) */
+    + '<div class="form-group"><label>Upload PAK (PDF)</label><input type="file" id="editFilePak" accept=".pdf" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.upload_pak_konvensional_integrasi_konversi_terakhir) + '</div>'
+    + buildSelect('editTipe','tipe', rowData.tipe || '')
+
+    /* Row 8: Jenis UKOM (select) + Jabfung Tujuan (select) */
+    + buildSelect('editJenisUkom','jenis_ukom', rowData.jenis_ukom || '')
+    + buildSelect('editJabfungTujuan','jabfung_tujuan', rowData.jabfung_tujuan || '')
+
+    /* Row 9: Jenjang Tujuan (select) + Foto */
+    + buildSelect('editJenjangTujuan','jenjang_tujuan', rowData.jenjang_tujuan || '')
+    + '<div class="form-group"><label>Upload Foto 4x6 Latar Merah</label><input type="file" id="editFileFoto" accept="image/*" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.foto_4x6_latar_merah) + '</div>'
+
+    /* Row 10: DRH + Ijazah */
+    + '<div class="form-group"><label>Upload Daftar Riwayat Hidup</label><input type="file" id="editFileDRH" accept=".pdf" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.daftar_riwayat_hidup) + '</div>'
+    + '<div class="form-group"><label>Upload Ijazah Terakhir</label><input type="file" id="editFileIjazah" accept=".pdf" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.ijazah) + '</div>'
+
+    /* Row 11: STR + SK Pangkat */
+    + '<div class="form-group"><label>Upload STR</label><input type="file" id="editFileSTR" accept=".pdf" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.str) + '</div>'
+    + '<div class="form-group"><label>Upload SK Pangkat Terakhir</label><input type="file" id="editFileSkPangkat" accept=".pdf" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.sk_pangkat) + '</div>'
+
+    /* Row 12: SK Jabfung + SKP 2 Tahun */
+    + '<div class="form-group"><label>Upload SK Jabfung Terakhir</label><input type="file" id="editFileSkJabfung" accept=".pdf" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.sk_jabfung) + '</div>'
+    + '<div class="form-group"><label>Upload SKP 2 Tahun Terakhir</label><input type="file" id="editFileSKP2" accept=".pdf" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.skp_2_tahun) + '</div>'
+
+    /* Row 13: Surat Bebas */
+    + '<div class="form-group"><label>Upload Surat Keterangan Tidak Sedang Menjalani Hukuman Disiplin</label><input type="file" id="editFileBebas" accept=".pdf" style="width:100%;font-size:12px">' + fileInfoLabel(rowData.surat_bebas) + '</div>'
+    + '<div class="form-group"></div>'
+
+    + '</div>' /* end form-grid */
+
+    /* Tombol Update + Batal */
+    + '<div style="margin-top:16px;display:flex;gap:10px;align-items:center">'
+    + '<button id="btnUpdatePerbaikan" class="btn" style="background:#7c3aed;font-size:13px;padding:10px 24px" onclick="confirmUpdatePerbaikan(' + no + ')"><i class="fas fa-save"></i> Update</button>'
+    + '<button class="btn" style="background:#64748b;font-size:13px;padding:10px 24px" onclick="document.getElementById(\'adminEditFormContainer\').innerHTML=\'\'"><i class="fas fa-times"></i> Batal</button>'
     + '</div></div>';
+
+  container.innerHTML = h;
+  /* Scroll ke form edit */
+  container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* Konfirmasi Ya/Tidak sebelum update */
+function confirmUpdatePerbaikan(no){
+  var nik = document.getElementById('editNik').value;
+  var nama = document.getElementById('editNama').value;
+  if(!nik || !nama){ alert('NIK dan Nama wajib diisi'); return; }
+
+  /* Custom modal konfirmasi Ya/Tidak */
+  var overlay = document.createElement('div');
+  overlay.id = 'confirmUpdateOverlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center';
+
+  overlay.innerHTML = '<div style="background:#fff;border-radius:16px;padding:28px;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3)">'
+    + '<div style="width:56px;height:56px;border-radius:50%;background:#ede9fe;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">'
+    + '<i class="fas fa-question-circle" style="font-size:28px;color:#7c3aed"></i></div>'
+    + '<h3 style="font-size:16px;margin:0 0 10px;color:#1e293b">Konfirmasi Update Data</h3>'
+    + '<p style="font-size:13px;color:#475569;margin:0 0 8px">Apakah Anda yakin ingin <b>mengupdate</b> data peserta berikut?</p>'
+    + '<p style="font-size:13px;color:#1e293b;margin:0 0 20px"><b>NIK:</b> ' + escapeHtml(nik) + '<br><b>Nama:</b> ' + escapeHtml(nama) + '</p>'
+    + '<p style="font-size:12px;color:#64748b;margin:0 0 20px">Data di Excel akan diperbarui secara otomatis.</p>'
+    + '<div style="display:flex;gap:12px;justify-content:center">'
+    + '<button id="btnConfirmYa" class="btn" style="background:#7c3aed;padding:10px 32px;font-size:14px;font-weight:600"><i class="fas fa-check"></i> Ya</button>'
+    + '<button id="btnConfirmTidak" class="btn" style="background:#dc2626;padding:10px 32px;font-size:14px;font-weight:600"><i class="fas fa-times"></i> Tidak</button>'
+    + '</div></div>';
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('btnConfirmYa').onclick = function(){
+    document.body.removeChild(overlay);
+    saveAdminEdit(no);
+  };
+  document.getElementById('btnConfirmTidak').onclick = function(){
+    document.body.removeChild(overlay);
+    /* Kembalikan ke tampilan sebelumnya (tutup form edit, detail tetap terbuka) */
+    var container = document.getElementById('adminEditFormContainer');
+    if(container) container.innerHTML = '';
+  };
+  overlay.onclick = function(e){
+    if(e.target === overlay){
+      document.body.removeChild(overlay);
+      var container = document.getElementById('adminEditFormContainer');
+      if(container) container.innerHTML = '';
+    }
+  };
 }
 
 async function saveAdminEdit(no){
@@ -4614,46 +4729,96 @@ async function saveAdminEdit(no){
     alert('Hanya peserta dengan status Perbaikan yang dapat diperbarui datanya.\nStatus saat ini: ' + (currentStatus || 'Tidak diketahui'));
     return;
   }
+
   var nik = document.getElementById('editNik').value;
   var nama = document.getElementById('editNama').value;
   var unitKerja = document.getElementById('editUnit').value;
   if(!nik || !nama){ alert('NIK dan Nama wajib diisi'); return; }
-  if(!confirm('Yakin ingin menyimpan perubahan data peserta ini?')) return;
+
+  /* Disable tombol & tampilkan loading */
+  var btn = document.getElementById('btnUpdatePerbaikan');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengupdate...'; }
+
   try {
     var formData = new FormData();
     formData.append('nik', nik);
-    formData.append('nip', document.getElementById('editNip').value);
     formData.append('nama_tanpa_gelar', nama);
+    formData.append('nip', document.getElementById('editNip').value);
     formData.append('nama_unit_kerja', unitKerja);
     formData.append('pangkat_dan_golongan', document.getElementById('editPangkat').value);
     formData.append('nomor_sk_jabfungs_terakhir', document.getElementById('editSkJabfung').value);
+    formData.append('jenis_kelamin', document.getElementById('editJK').value);
     formData.append('jabfung_saat_ini', document.getElementById('editJabfung').value);
     formData.append('jenjang_saat_ini', document.getElementById('editJenjang').value);
+    formData.append('nomor_whatsapp', document.getElementById('editWA').value);
+    formData.append('email_aktif', document.getElementById('editEmail').value);
+    formData.append('nilai_pak_terakhir', document.getElementById('editPak').value);
     formData.append('tipe', document.getElementById('editTipe').value);
     formData.append('jenis_ukom', document.getElementById('editJenisUkom').value);
     formData.append('jabfung_tujuan', document.getElementById('editJabfungTujuan').value);
     formData.append('jenjang_tujuan', document.getElementById('editJenjangTujuan').value);
-    formData.append('nilai_pak_terakhir', document.getElementById('editPak').value);
-    formData.append('nomor_whatsapp', document.getElementById('editWA').value);
-    formData.append('email_aktif', document.getElementById('editEmail').value);
     formData.append('clientId', SECURITY_CONFIG.clientId);
     var csrfToken = SECURITY_CONFIG.csrfToken || await getCSRFToken();
     formData.append('csrfToken', csrfToken);
+
+    /* Proses file upload */
+    var fileMap = [
+      { id: 'editFilePak', key: 'pak' },
+      { id: 'editFileFoto', key: 'foto_4x6' },
+      { id: 'editFileDRH', key: 'daftar_riwayat' },
+      { id: 'editFileIjazah', key: 'ijazah' },
+      { id: 'editFileSTR', key: 'str' },
+      { id: 'editFileSkPangkat', key: 'sk_pangkat' },
+      { id: 'editFileSkJabfung', key: 'sk_jabfung' },
+      { id: 'editFileSKP2', key: 'skp_2_tahun' },
+      { id: 'editFileBebas', key: 'surat_bebas' }
+    ];
+    var filesToUpload = [];
+    for(var i = 0; i < fileMap.length; i++){
+      var fileInput = document.getElementById(fileMap[i].id);
+      if(fileInput && fileInput.files && fileInput.files[0]){
+        var file = fileInput.files[0];
+        if(file.size > 700 * 1024){
+          alert('File "' + file.name + '" melebihi 700KB. Silakan kompres atau pilih file lebih kecil.');
+          if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Update'; }
+          return;
+        }
+        var reader = new FileReader();
+        var base64 = await new Promise(function(resolve){
+          reader.onload = function(e){ resolve(e.target.result.split(',')[1]); };
+          reader.readAsDataURL(file);
+        });
+        filesToUpload.push({
+          key: fileMap[i].key,
+          name: file.name,
+          mimeType: file.type || 'application/pdf',
+          data: base64
+        });
+      }
+    }
+    if(filesToUpload.length > 0){
+      formData.append('fileData', JSON.stringify(filesToUpload));
+    }
+
     var response = await fetch(WEB_APP_URL + '?action=updatePeserta&nik=' + encodeURIComponent(nik) + '&nama=' + encodeURIComponent(nama) + '&unit=' + encodeURIComponent(unitKerja) + '&clientId=' + SECURITY_CONFIG.clientId, {
       method: 'POST',
       body: formData
     });
     var result = await response.json();
     if(result.status === 'success'){
-      alert('Data berhasil diperbarui');
+      alert('Data peserta berhasil diupdate di Excel.');
       document.getElementById('adminLightbox').style.display = 'none';
+      dashPesertaCache = null;
+      _ukomFetchPromise = null;
       pesertaUkomLoaded = false;
       loadAdminData();
     } else {
       alert(result.message || 'Gagal memperbarui data');
+      if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Update'; }
     }
   } catch(err) {
     alert('Error: ' + err.message);
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Update'; }
   }
 }
  
