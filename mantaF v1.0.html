@@ -412,6 +412,31 @@ cursor:pointer;
 font-weight:bold;
 }
 
+/* ==========================
+DATA PESERTA UKOM
+========================== */
+.peserta-ukom-wrap{overflow-x:auto;}
+.peserta-ukom-wrap table{min-width:1400px;}
+.peserta-ukom-wrap table th{white-space:nowrap;position:sticky;top:0;z-index:2;}
+.peserta-foto{width:52px;height:66px;object-fit:cover;border-radius:8px;border:2px solid #e2e8f0;cursor:pointer;transition:transform .2s,box-shadow .2s;}
+.peserta-foto:hover{transform:scale(1.8);box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:10;position:relative;}
+.sertifikat-thumb{height:40px;border-radius:6px;cursor:pointer;border:1px solid #e2e8f0;transition:transform .2s;}
+.sertifikat-thumb:hover{transform:scale(1.6);box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:10;position:relative;}
+.peserta-search{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:end;}
+.peserta-search input,.peserta-search select{padding:10px 14px;border:1px solid #dbe2ea;border-radius:10px;font-size:13px;outline:none;min-width:180px;}
+.peserta-search input:focus,.peserta-search select:focus{border-color:#0f766e;box-shadow:0 0 0 3px rgba(15,118,110,.1);}
+.peserta-search label{font-size:12px;font-weight:600;color:#334155;margin-bottom:4px;}
+.peserta-search .search-group{display:flex;flex-direction:column;}
+.badge-status{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+.badge-aktif{background:#dcfce7;color:#166534;}
+.badge-nonaktif{background:#fee2e2;color:#991b1b;}
+.badge-proses{background:#fef9c3;color:#854d0e;}
+.badge-lulus{background:#dbeafe;color:#1e40af;}
+.badge-tidaklulus{background:#fecaca;color:#991b1b;}
+.badge-hadir{background:#d1fae5;color:#065f46;}
+.badge-tidakhadir{background:#ffe4e6;color:#9f1239;}
+.lb-img-preview{max-width:100%;max-height:80vh;border-radius:12px;display:block;margin:0 auto;}
+
 @media(max-width:900px){
 
 .sidebar{
@@ -2081,6 +2106,7 @@ Manajemen Tata Kelola Jabatan Fungsional Kesehatan
 <button onclick="showSection('pengumuman',this)">Pengumuman</button>
 <button onclick="showSection('bezetting',this)">Bezetting</button>
 <button onclick="showSection('ukom',this)">Daftar UKOM</button>
+<button onclick="showSection('pesertaUkom',this)">Data Peserta UKOM</button>
 <button onclick="showSection('status',this)">Cek Status</button>
 <button onclick="showSection('admin',this)">Admin</button>
 </div>
@@ -2757,6 +2783,66 @@ Kirim Pendaftaran
 
 </div>
 
+<!-- DATA PESERTA UKOM -->
+
+<div id="pesertaUkom" class="section">
+
+<div class="panel">
+
+<h2>Data Peserta UKOM</h2>
+<br>
+
+<div class="peserta-search">
+<div class="search-group">
+<label>Cari Nama / No Peserta</label>
+<input type="text" id="pesertaUkomSearch" placeholder="Ketik nama atau no peserta..." oninput="filterPesertaUkom()">
+</div>
+<div class="search-group">
+<label>Filter Periode</label>
+<select id="pesertaUkomPeriode" onchange="filterPesertaUkom()">
+<option value="">Semua Periode</option>
+</select>
+</div>
+<div class="search-group">
+<label>Filter Status UKOM</label>
+<select id="pesertaUkomStatus" onchange="filterPesertaUkom()">
+<option value="">Semua Status</option>
+<option value="Lulus">Lulus</option>
+<option value="Tidak Lulus">Tidak Lulus</option>
+<option value="Proses">Proses</option>
+</select>
+</div>
+</div>
+
+<div class="peserta-ukom-wrap">
+<table>
+<thead>
+<tr>
+<th>No</th>
+<th>Foto</th>
+<th>Periode</th>
+<th>No Peserta</th>
+<th>Nama</th>
+<th>Instansi</th>
+<th>Jenis UKOM</th>
+<th>PAK Instansi</th>
+<th>PAK SI ASN</th>
+<th>Status Periode</th>
+<th>Absen</th>
+<th>Status UKOM</th>
+<th>Sertifikat</th>
+</tr>
+</thead>
+<tbody id="pesertaUkomBody">
+<tr><td colspan="13" style="text-align:center;padding:40px;color:#64748b">Memuat data peserta...</td></tr>
+</tbody>
+</table>
+</div>
+
+</div>
+
+</div>
+
 <!-- STATUS -->
  
 <div id="status" class="section">
@@ -3333,7 +3419,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyXgGy8uT54rxuPNXUCdOzeMDAwFF2dK1d7uyiTszKYAsbS_C55Kc8y3Y-0be6AnQ/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxNxI_06L_9Do7ywIywn96Vg5_h-3ARoGqI07NXD2WLc9rWJtnsiIPPCOKVcLqtq4Gr/exec";
 
 let bezettingCache = null;
 
@@ -4647,6 +4733,174 @@ function animateCounter(el) {
   }
   step();
 }
+
+/* ==========================
+DATA PESERTA UKOM
+========================== */
+var pesertaUkomCache = null;
+var pesertaUkomLoaded = false;
+
+function loadPesertaUkom(){
+  if(pesertaUkomLoaded) return;
+  pesertaUkomLoaded = true;
+  var tbody = document.getElementById('pesertaUkomBody');
+  tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#64748b"><i class="fas fa-spinner fa-spin"></i> Memuat data peserta UKOM...</td></tr>';
+
+  fetch(WEB_APP_URL + '?action=getPesertaUkom', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      var data = res.data || res || [];
+      pesertaUkomCache = data;
+      populatePeriodeFilter(data);
+      renderPesertaUkom(data);
+    })
+    .catch(function(e){
+      tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#dc2626">Gagal memuat data: ' + e.message + '</td></tr>';
+      pesertaUkomLoaded = false;
+    });
+}
+
+function populatePeriodeFilter(data){
+  var sel = document.getElementById('pesertaUkomPeriode');
+  var periods = [];
+  data.forEach(function(row){
+    var p = (row.periode || '').trim();
+    if(p && periods.indexOf(p) === -1) periods.push(p);
+  });
+  periods.sort().reverse();
+  periods.forEach(function(p){
+    var opt = document.createElement('option');
+    opt.value = p; opt.textContent = p;
+    sel.appendChild(opt);
+  });
+}
+
+function filterPesertaUkom(){
+  if(!pesertaUkomCache) return;
+  var q = (document.getElementById('pesertaUkomSearch').value || '').toLowerCase();
+  var periode = document.getElementById('pesertaUkomPeriode').value;
+  var status = document.getElementById('pesertaUkomStatus').value;
+
+  var filtered = pesertaUkomCache.filter(function(row){
+    if(periode && (row.periode || '').trim() !== periode) return false;
+    if(status && (row.status_ukom || row.statusUKOM || '').trim() !== status) return false;
+    if(q){
+      var nama = (row.nama || row.nama_tanpa_gelar || '').toLowerCase();
+      var no = (row.no_peserta || '').toLowerCase();
+      if(nama.indexOf(q) === -1 && no.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+  renderPesertaUkom(filtered);
+}
+
+function renderPesertaUkom(data){
+  var tbody = document.getElementById('pesertaUkomBody');
+  if(!data || data.length === 0){
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;padding:40px;color:#64748b">Tidak ada data peserta.</td></tr>';
+    return;
+  }
+
+  var html = '';
+  data.forEach(function(row, i){
+    var no = i + 1;
+    var foto = (row.foto || row.upload_foto_4x6_latar_merah || '').trim();
+    var fotoUrl = '';
+    if(foto){
+      if(foto.indexOf('http') === 0) fotoUrl = foto;
+      else if(foto.indexOf('id=') > -1) fotoUrl = foto;
+      else fotoUrl = 'https://drive.google.com/thumbnail?id=' + foto + '&sz=w200';
+    }
+
+    var periode = row.periode || '';
+    var noPeserta = row.no_peserta || '';
+    var nama = row.nama || row.nama_tanpa_gelar || '';
+    var instansi = row.instansi || row.nama_unit_kerja || '';
+    var jenisUkom = row.jenis_ukom || '';
+    var pakInstansi = row.pak_instansi || '';
+    var pakSiAsn = row.pak_si_asn || '';
+    var statusPeriode = row.status_periode || '';
+    var absen = row.absen || '';
+    var statusUkom = row.status_ukom || row.statusUKOM || '';
+    var sertifikat = row.sertifikat || '';
+    var sertifikatUrl = '';
+    if(sertifikat){
+      if(sertifikat.indexOf('http') === 0) sertifikatUrl = sertifikat;
+      else sertifikatUrl = 'https://drive.google.com/thumbnail?id=' + sertifikat + '&sz=w400';
+    }
+
+    var fotoCell = fotoUrl
+      ? '<img src="' + fotoUrl + '" class="peserta-foto" onclick="openLightboxImg(\'' + fotoUrl.replace(/'/g,"\\'") + '\')" onerror="this.style.display=\'none\'" loading="lazy">'
+      : '<span style="color:#cbd5e1">-</span>';
+
+    var sertCell = sertifikatUrl
+      ? '<img src="' + sertifikatUrl + '" class="sertifikat-thumb" onclick="openLightboxImg(\'' + sertifikatUrl.replace(/'/g,"\\'") + '\')" onerror="this.outerHTML=\'<span style=color:#cbd5e1>-</span>\'" loading="lazy">'
+      : '<span style="color:#cbd5e1">-</span>';
+
+    html += '<tr>'
+      + '<td>' + no + '</td>'
+      + '<td>' + fotoCell + '</td>'
+      + '<td>' + escHtml(periode) + '</td>'
+      + '<td>' + escHtml(noPeserta) + '</td>'
+      + '<td><b>' + escHtml(nama) + '</b></td>'
+      + '<td>' + escHtml(instansi) + '</td>'
+      + '<td>' + escHtml(jenisUkom) + '</td>'
+      + '<td>' + escHtml(pakInstansi) + '</td>'
+      + '<td>' + escHtml(pakSiAsn) + '</td>'
+      + '<td>' + badgeStatusPeriode(statusPeriode) + '</td>'
+      + '<td>' + badgeAbsen(absen) + '</td>'
+      + '<td>' + badgeStatusUkom(statusUkom) + '</td>'
+      + '<td>' + sertCell + '</td>'
+      + '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function badgeStatusPeriode(val){
+  val = (val || '').trim().toLowerCase();
+  if(!val) return '-';
+  if(val === 'aktif') return '<span class="badge-status badge-aktif">Aktif</span>';
+  if(val === 'nonaktif' || val === 'non aktif' || val === 'tidak aktif') return '<span class="badge-status badge-nonaktif">Nonaktif</span>';
+  return '<span class="badge-status badge-proses">' + escHtml(val) + '</span>';
+}
+
+function badgeAbsen(val){
+  val = (val || '').trim().toLowerCase();
+  if(!val) return '-';
+  if(val === 'hadir') return '<span class="badge-status badge-hadir">Hadir</span>';
+  if(val === 'tidak hadir' || val === 'tidakhadir' || val === 'alpha') return '<span class="badge-status badge-tidakhadir">Tidak Hadir</span>';
+  return '<span class="badge-status badge-proses">' + escHtml(val) + '</span>';
+}
+
+function badgeStatusUkom(val){
+  val = (val || '').trim().toLowerCase();
+  if(!val) return '-';
+  if(val === 'lulus') return '<span class="badge-status badge-lulus">Lulus</span>';
+  if(val === 'tidak lulus' || val === 'tidaklulus') return '<span class="badge-status badge-tidaklulus">Tidak Lulus</span>';
+  if(val === 'proses') return '<span class="badge-status badge-proses">Proses</span>';
+  return '<span class="badge-status badge-proses">' + escHtml(val) + '</span>';
+}
+
+function escHtml(s){
+  var d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function openLightboxImg(url){
+  var lb = document.getElementById('lightbox');
+  var lc = document.getElementById('lightbox-content');
+  lc.innerHTML = '<span class="close" onclick="document.getElementById(\'lightbox\').style.display=\'none\'">&times;</span>'
+    + '<img src="' + url + '" class="lb-img-preview" onclick="event.stopPropagation()">';
+  lb.style.display = 'flex';
+}
+
+/* Patch showSection to trigger data load */
+var _origShowSection = showSection;
+showSection = function(id, el){
+  _origShowSection(id, el);
+  if(id === 'pesertaUkom') loadPesertaUkom();
+};
 
 </script>
 
