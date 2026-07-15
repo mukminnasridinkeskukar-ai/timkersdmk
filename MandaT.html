@@ -407,7 +407,7 @@
             </div>
             <div class="hidden md:flex items-center gap-2 text-xs px-3 py-2 bg-white/5 rounded-3xl border border-white/10">
               <i class="fa-solid fa-sync text-emerald-400"></i> 
-               <span>Terakhir update: <span id="last-update">24 Mei 2026, 20:50</span></span>
+               <span>Terakhir update: <span id="last-update">Memuat...</span></span>
             </div>
           </div>
 
@@ -991,7 +991,7 @@
     // ==================== CONFIG & STATE ====================
     // Web App URL - Gunakan URL yang SAMA dengan yang terdeploy di Google Apps Script
     // URL di code.gs: https://script.google.com/macros/s/AKfycbzAKCmCtCElNvOU6K0V8yjysYQsF00nzs8tOc-pA4Ux6avxr0Sa6MVUpw4J-ePjyLvp/exec
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbzAKCmCtCElNvOU6K0V8yjysYQsF00nzs8tOc-pA4Ux6avxr0Sa6MVUpw4J-ePjyLvp/exec';
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxorsn_47fPRAbcYMwxuKtdHZpobiLaYKVezKIzRw5q-12sw-rlkEl_dScdC4f8VYE0/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -1461,18 +1461,6 @@
       </div>`;
     }
 
-    // Convert Google Drive URL for PDF/Doc viewing
-    function convertGDriveViewUrl(url) {
-      if (!url) return '';
-      let match = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
-      match = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
-      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
-      match = url.match(/drive\.google\.com\/uc\?.*id=([^&]+)/);
-      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
-      if (url.endsWith('.pdf') || url.includes('.pdf?')) return url;
-      return url;
-    }
 
     function isValidUrl(string) {
       try {
@@ -1739,12 +1727,23 @@
     };
 
     // ==================== UTILITIES & UI HELPERS ====================
+    
+    // [FIXED] XSS Prevention: Escape HTML special characters in user input
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+    
     function showToast(message, type = 'success') {
       const container = document.getElementById('toast-container');
       const colors = { success: 'bg-emerald-600', error: 'bg-red-600', info: 'bg-blue-600', warning: 'bg-amber-500' };
       const el = document.createElement('div');
       el.className = `toast flex items-center gap-3 px-6 py-3.5 rounded-3xl text-sm shadow-2xl ${colors[type]} text-white border border-white/20`;
-      el.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-times-circle' : 'fa-info-circle'}"></i> <span>${message}</span>`;
+      // [FIXED] Escape message to prevent XSS
+      const safeMessage = escapeHtml(message);
+      el.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-times-circle' : 'fa-info-circle'}"></i> <span>${safeMessage}</span>`;
       container.appendChild(el);
       setTimeout(() => { el.style.transition = 'all 0.3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 200); }, 3200);
     }
@@ -1978,22 +1977,75 @@
           </div>
 
           <div class="pt-3 border-t border-white/10 text-xs space-y-1.5">
-            <div class="flex justify-between"><span>Session</span> <span class="font-mono text-emerald-400">VALID • 28m remaining</span></div>
+            <div class="flex justify-between"><span>Session</span> <span class="font-mono text-emerald-400" id="session-time">VALID • menghitung...</span></div>
             <div class="flex justify-between"><span>API Status</span> <span class="font-mono">${isApiConnected ? 'CONNECTED (Server)' : (API_URL ? 'API SET (Local Fallback)' : 'LOCAL MODE')}</span></div>
           </div>
         </div>
       `, `
           <button onclick="performLogout(); closeModal()" class="px-6 py-2.5 bg-red-600 text-sm rounded-3xl font-semibold">Logout</button>`);
+      
+      // [FIXED] Update session time dynamically
+      updateSessionTime();
+    }
+    
+    // [FIXED] Session timer - calculates and displays actual session duration
+    let loginTime = Date.now();
+    
+    function updateSessionTime() {
+      const el = document.getElementById('session-time');
+      if (!el) return;
+      
+      const elapsed = Math.floor((Date.now() - loginTime) / 1000); // seconds
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      el.textContent = `VALID • ${minutes}m ${seconds}s`;
+      
+      // Continue updating every second while modal is visible
+      if (document.getElementById('session-time')) {
+        setTimeout(updateSessionTime, 1000);
+      }
     }
 
     function showNotifications() {
-      showModal('Notifikasi', `
-        <div class="space-y-3 text-sm">
-          <div class="flex gap-3 p-3 bg-white/5 rounded-2xl"><i class="fa-solid fa-bell mt-0.5 text-amber-400"></i> <div><b>Pengumuman baru</b> dari Kepala Dinkes tentang redistribusi nakes.</div></div>
-          <div class="flex gap-3 p-3 bg-white/5 rounded-2xl"><i class="fa-solid fa-exclamation-triangle mt-0.5 text-red-400"></i> <div><b>Renbut</b> Puskesmas Cempaka prioritas Tinggi masih kekurangan 4 bidan.</div></div>
-          <div class="flex gap-3 p-3 bg-white/5 rounded-2xl"><i class="fa-solid fa-check mt-0.5 text-emerald-400"></i> <div>Update data anjab 12 jabatan telah disetujui.</div></div>
-        </div>
-      `);
+      // [FIXED] Generate notifications dynamically from DATA.pengumuman
+      const notifications = [];
+      
+      // Add from pengumuman data
+      if (DATA.pengumuman && DATA.pengumuman.length > 0) {
+        DATA.pengumuman.slice(0, 5).forEach(p => {
+          const icon = p.status === 'PENTING' || p.status === 'URGENT' ? 'fa-exclamation-triangle text-red-400' : 
+                     'fa-bell text-amber-400';
+          notifications.push(`
+            <div class="flex gap-3 p-3 bg-white/5 rounded-2xl cursor-pointer hover:bg-white/10" onclick="closeModal(); navigateTo('pengumuman'); showPengumumanDetail(${p.id})">
+              <i class="fa-solid ${icon} mt-0.5"></i> 
+              <div><b>${escapeHtml(p.status)}</b> ${escapeHtml(p.judul)}</div>
+            </div>
+          `);
+        });
+      }
+      
+      // Add system notifications based on data
+      if (DATA.renbut && DATA.renbut.some(r => parseFloat(r.kekurangan) > 0 && r.prioritas === 'Tinggi')) {
+        const criticalRenbut = DATA.renbut.filter(r => parseFloat(r.kekurangan) > 0 && r.prioritas === 'Tinggi');
+        notifications.push(`
+          <div class="flex gap-3 p-3 bg-white/5 rounded-2xl cursor-pointer hover:bg-white/10" onclick="closeModal(); navigateTo('renbut')">
+            <i class="fa-solid fa-exclamation-triangle mt-0.5 text-red-400"></i> 
+            <div><b>Renbut Prioritas Tinggi</b> ${criticalRenbut.length} unit masih kekurangan tenaga.</div>
+          </div>
+        `);
+      }
+      
+      // Default notification if empty
+      if (notifications.length === 0) {
+        notifications.push(`
+          <div class="flex gap-3 p-3 bg-white/5 rounded-2xl">
+            <i class="fa-solid fa-check mt-0.5 text-emerald-400"></i> 
+            <div>Semua data dalam kondisi normal.</div>
+          </div>
+        `);
+      }
+      
+      showModal('Notifikasi', `<div class="space-y-3 text-sm">${notifications.join('')}</div>`);
     }
 
     function toggleMobileSidebar() {
@@ -2070,7 +2122,8 @@ currentSection = section;
 
     /* ==================== MODULE: DASHBOARD ==================== */
     function updateDashboardStats() {
-      const d = DATA.dashboard;
+      // [FIXED] Add null guard for DATA.dashboard
+      const d = DATA.dashboard || {};
       
       // Handle null/undefined values - all data from dashboard sheet
       const sdmk = d.total_sdmk || 0;
@@ -2097,9 +2150,11 @@ currentSection = section;
       document.getElementById('stat-nakes-info').textContent = 'Tersertifikasi ' + (d.nakes_certified_pct || 0) + '%';
       document.getElementById('stat-faskes-info').textContent = rsCount + ' RS • ' + puskesmasCount + ' Puskesmas';
       
-      // Counter animation
+      // [FIXED] Counter animation - handle both comma and dot thousand separators
       document.querySelectorAll('.metric-value').forEach(el => {
-        const target = parseInt(el.textContent.replace(/,/g, ''));
+        // [FIXED] Remove BOTH commas and dots for locale-safe parsing
+        const rawText = el.textContent.replace(/\./g, '').replace(/,/g, '');
+        const target = parseInt(rawText) || 0;
         if (!target) return;
         let start = Math.floor(target * 0.6);
         const inc = Math.ceil((target - start) / 24);
@@ -2113,7 +2168,8 @@ currentSection = section;
 
     // Fungsi popup untuk 6 kotak statistik dashboard
     function showDetailStat(type) {
-      const d = DATA.dashboard;
+      // [FIXED] Add null guard for DATA.dashboard
+      const d = DATA.dashboard || {};
       let title, icon, body;
 
       switch (type) {
@@ -2353,6 +2409,9 @@ currentSection = section;
     }
 
     let chartsInitialized = false;
+    // [FIXED] Store chart instance for later update/destroy
+    let dashboardChartInstance = null;
+    
     function initCharts() {
       if (chartsInitialized) return;
       chartsInitialized = true;
@@ -2371,7 +2430,8 @@ currentSection = section;
 
       console.log('Dashboard Chart: Data yang dipakai =', chartData);
 
-      new Chart(ctx, {
+      // [FIXED] Store chart instance in variable for later use
+      dashboardChartInstance = new Chart(ctx, {
         type: 'doughnut',
 data: {
            labels: ['Dokter', 'Perawat', 'Bidan', 'Nakes Lain'],
@@ -2394,6 +2454,14 @@ data: {
           animation: { duration: 800 }
         }
       });
+      
+      // Helper function to update chart data dynamically
+      window.updateDashboardChart = function(newData) {
+        if (dashboardChartInstance && newData) {
+          dashboardChartInstance.data.datasets[0].data = newData;
+          dashboardChartInstance.update();
+        }
+      };
     }
 
     /* ==================== MODULE: PENGUMUMAN ==================== */
@@ -2540,7 +2608,7 @@ function renderRenbutTable(filteredData = null) {
       const data = filteredData || DATA.renbut || [];
       
       if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-white/50"><i class="fa-solid fa-inbox text-3xl mb-2 block"></i>Tidak ada data renbut</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-white/50"><i class="fa-solid fa-inbox text-3xl mb-2 block"></i>Tidak ada data renbut</td></tr>';
         return;
       }
       
@@ -2693,9 +2761,14 @@ function viewRenbut(id) {
     function exportRenbutPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
+      
+      // [FIXED] Use dynamic date instead of hardcoded "24 Mei 2026"
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      
       doc.text('Laporan Renbut SDMK - SIMANDAKES 2026', 14, 16);
       doc.setFontSize(10);
-      doc.text('Dinas Kesehatan Kabupaten • 24 Mei 2026', 14, 22);
+      doc.text(`Dinas Kesehatan Kabupaten • ${dateStr}`, 14, 22);
       
       const rows = DATA.renbut.map(r => [r.nama_unit, r.jenis, r.kebutuhan, r.existing, r.kekurangan, r.prioritas]);
       doc.autoTable ? doc.autoTable({ head: [['Unit', 'Jenis', 'Kebutuhan', 'Existing', 'Kekurangan', 'Prioritas']], body: rows, startY: 28 }) 
@@ -2736,13 +2809,32 @@ function renderAnjabTable(filtered = null) {
       renderAnjabTable(f);
     }
 
+    // [FIXED] Improved downloadDokumen - creates actual downloadable file
     function downloadDokumen(filename) {
-      showToast('Mengunduh ' + filename, 'info');
-      // Simulate download
+      showToast('Mengunduh ' + escapeHtml(filename), 'info');
+      
+      // Create a simple text file with document info for demo
+      const content = `DOKUMEN SIMANDAKES
+==================
+Nama File: ${filename}
+Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}
+Sumber: Sistem Informasi Manajemen SDM Kesehatan (SIMANDAKES)
+Dinas Kesehatan Kabupaten Kutai Kartanegara
+
+Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sistem.
+`;
+      
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = '#';
-      link.download = filename;
-      setTimeout(() => showToast('Dokumen ' + filename + ' diunduh (demo)', 'success'), 800);
+      link.href = url;
+      link.download = filename || 'dokumen-simandakes.txt';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setTimeout(() => showToast('Dokumen ' + escapeHtml(filename) + ' berhasil diunduh', 'success'), 500);
       logActivity('DOWNLOAD_DOC', filename);
     }
 
@@ -2843,13 +2935,18 @@ function renderAnjabTable(filtered = null) {
       
       let totalPenduduk = 0, totalDokter = 0, totalPerawat = 0, totalBidan = 0;
       
+      // [FIXED] RASIO CALCULATION BUG: Now uses per-row values instead of cumulative totals
       DATA.rasio.forEach((row, idx) => {
+        // Accumulate for summary (still needed)
         totalPenduduk += parseFloat(row.penduduk) || 0;
         totalDokter += parseFloat(row.dokter) || 0;
         totalPerawat += parseFloat(row.perawat) || 0;
         totalBidan += parseFloat(row.bidan) || 0;
         
-        const rasioDok = totalPenduduk > 0 ? ((totalDokter / totalPenduduk) * 100000).toFixed(2) : '0.00';
+        // FIX: Use per-row values for rasio calculation, not cumulative
+        const rowPenduduk = parseFloat(row.penduduk) || 0;
+        const rowDokter = parseFloat(row.dokter) || 0;
+        const rasioDok = rowPenduduk > 0 ? ((rowDokter / rowPenduduk) * 100000).toFixed(2) : '0.00';
         const status = parseFloat(rasioDok) >= 1 ? 'IDEAL' : 'KURANG';
         
         const tr = document.createElement('tr');
