@@ -1011,7 +1011,7 @@
 
 <script>
 /* ============ DATA ============ */
-const SEED_INNOVATIONS = [
+let SEED_INNOVATIONS = [
   {
     id:"INV-001",title:"Smart Farming IoT",category:"Pertanian",status:"Berjalan",progress:68,
     platformUrl:"https://smartfarm.inovasi.id",
@@ -1228,9 +1228,43 @@ function loadState() {
 }
 function saveInnovations() {
   try { localStorage.setItem('inovadash_innovations', JSON.stringify(innovations)); } catch (e) {}
+  syncSeedToScript();
 }
 function saveFavorites() {
   try { localStorage.setItem('inovadash_favorites', JSON.stringify([...favorites])); } catch (e) {}
+}
+
+/* ============ SYNC SEED TO SCRIPT ============ */
+function syncSeedToScript() {
+  // Update the runtime variable so SEED_INNOVATIONS always matches current data
+  SEED_INNOVATIONS = JSON.parse(JSON.stringify(innovations));
+  // Also rewrite the SEED_INNOVATIONS declaration inside the <script> tag in the DOM
+  // so that if the user saves the page (Ctrl+S / Save As), the latest data is preserved
+  try {
+    const scripts = document.querySelectorAll('script:not([src])');
+    for (const script of scripts) {
+      const text = script.textContent;
+      const marker = 'let SEED_INNOVATIONS =';
+      const idx = text.indexOf(marker);
+      if (idx === -1) continue;
+      // Find the opening bracket
+      const arrStart = text.indexOf('[', idx);
+      if (arrStart === -1) continue;
+      // Walk balanced brackets to find the closing bracket
+      let depth = 0;
+      let arrEnd = -1;
+      for (let i = arrStart; i < text.length; i++) {
+        if (text[i] === '[') depth++;
+        else if (text[i] === ']') { depth--; if (depth === 0) { arrEnd = i; break; } }
+      }
+      if (arrEnd === -1) continue;
+      const before = text.substring(0, idx);
+      const after  = text.substring(arrEnd + 1);
+      const newDecl = 'let SEED_INNOVATIONS = ' + JSON.stringify(innovations, null, 2) + ';';
+      script.textContent = before + newDecl + after;
+      break;
+    }
+  } catch (e) {}
 }
 
 /* ============ THEME ============ */
@@ -1520,6 +1554,7 @@ document.getElementById('adminResetBtn').addEventListener('click', () => {
       localStorage.setItem('inovadash_idcounter', '13');
     } catch (e) {}
     renderAdminPanel();
+    syncSeedToScript();
     showToast('Data direset ke awal');
   }
 });
