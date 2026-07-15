@@ -610,6 +610,9 @@
         <button class="icon-btn" id="exportCsvBtn" title="Export CSV" aria-label="Export CSV">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2"/><path d="M8 17h2"/><path d="M14 13h2"/><path d="M14 17h2"/></svg>
         </button>
+        <button class="icon-btn" id="exportHtmlBtn" title="Export HTML (dengan data terkini)" aria-label="Export HTML" style="background:linear-gradient(135deg,#7c3aed,#db2777);color:white;border-color:transparent;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
         <button class="icon-btn" id="themeToggle" title="Ganti tema" aria-label="Ganti tema">
           <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
           <svg id="iconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
@@ -788,6 +791,10 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               Reset ke Data Awal
             </button>
+            <div id="syncStatus" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:11px;background:#f0fdfa;color:#0d9488;border:1px solid #ccfbf1;margin-left:8px;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#10b981;animation:pulse 2s infinite;"></span>
+              <span id="syncStatusText">Sync: Menunggu...</span>
+            </div>
           </div>
         </div>
 
@@ -1227,44 +1234,174 @@ function loadState() {
   }
 }
 function saveInnovations() {
-  try { localStorage.setItem('inovadash_innovations', JSON.stringify(innovations)); } catch (e) {}
+  try { localStorage.setItem('inovadash_innovations', JSON.stringify(innovations)); } catch (e) {
+    console.error('[InovaDash] Gagal save ke localStorage:', e);
+  }
   syncSeedToScript();
 }
 function saveFavorites() {
-  try { localStorage.setItem('inovadash_favorites', JSON.stringify([...favorites])); } catch (e) {}
+  try { localStorage.setItem('inovadash_favorites', JSON.stringify([...favorites])); } catch (e) {
+    console.error('[InovaDash] Gagal save favorites:', e);
+  }
 }
 
-/* ============ SYNC SEED TO SCRIPT ============ */
+/* ============ SYNC SEED TO SCRIPT (FIXED v2) ============ */
+let lastSyncTime = null;
 function syncSeedToScript() {
-  // Update the runtime variable so SEED_INNOVATIONS always matches current data
-  SEED_INNOVATIONS = JSON.parse(JSON.stringify(innovations));
-  // Also rewrite the SEED_INNOVATIONS declaration inside the <script> tag in the DOM
-  // so that if the user saves the page (Ctrl+S / Save As), the latest data is preserved
+  // 1. Update runtime variable SEED_INNOVATIONS agar selalu match dengan data terkini
+  try {
+    SEED_INNOVATIONS = JSON.parse(JSON.stringify(innovations));
+  } catch (e) {
+    console.error('[InovaDash] Gagal clone innovations:', e);
+    return;
+  }
+
+  // 2. Rewrite SEED_INNOVATIONS declaration di dalam <script> tag DOM
+  //    sehingga jika user save halaman (Ctrl+S), data terbaru ikut tersimpan
   try {
     const scripts = document.querySelectorAll('script:not([src])');
+    let synced = false;
+    
     for (const script of scripts) {
       const text = script.textContent;
-      const marker = 'let SEED_INNOVATIONS =';
-      const idx = text.indexOf(marker);
-      if (idx === -1) continue;
-      // Find the opening bracket
-      const arrStart = text.indexOf('[', idx);
+      
+      if (!text.includes('SEED_INNOVATIONS')) continue;
+      
+      const regex = /(let|var|const)\s+SEED_INNOVATIONS\s*=\s*\[/g;
+      const match = regex.exec(text);
+      
+      if (!match) continue;
+      
+      const startIdx = match.index;
+      const arrStart = text.indexOf('[', startIdx);
+      
       if (arrStart === -1) continue;
-      // Walk balanced brackets to find the closing bracket
+      
       let depth = 0;
+      let inString = false;
+      let stringChar = '';
       let arrEnd = -1;
+      let escaped = false;
+      
       for (let i = arrStart; i < text.length; i++) {
-        if (text[i] === '[') depth++;
-        else if (text[i] === ']') { depth--; if (depth === 0) { arrEnd = i; break; } }
+        const ch = text[i];
+        
+        if (escaped) { escaped = false; continue; }
+        
+        if (ch === '\\' && inString) { escaped = true; continue; }
+        
+        if ((ch === '"' || ch === "'" || ch === '`') && !escaped) {
+          if (!inString) { inString = true; stringChar = ch; }
+          else if (ch === stringChar) { inString = false; stringChar = ''; }
+          continue;
+        }
+        
+        if (!inString) {
+          if (ch === '[') depth++;
+          else if (ch === ']') {
+            depth--;
+            if (depth === 0) { arrEnd = i; break; }
+          }
+        }
       }
+      
       if (arrEnd === -1) continue;
-      const before = text.substring(0, idx);
-      const after  = text.substring(arrEnd + 1);
-      const newDecl = 'let SEED_INNOVATIONS = ' + JSON.stringify(innovations, null, 2) + ';';
+      
+      const before = text.substring(0, startIdx);
+      const after = text.substring(arrEnd + 1);
+      
+      let safeJson;
+      try {
+        safeJson = JSON.stringify(innovations, null, 2);
+        safeJson = safeJson.replace(/<\/script/gi, '<\\/script');
+      } catch (jsonErr) { continue; }
+      
+      const newDecl = 'let SEED_INNOVATIONS = ' + safeJson + ';';
       script.textContent = before + newDecl + after;
+      
+      synced = true;
+      lastSyncTime = new Date().toLocaleTimeString('id-ID');
       break;
     }
-  } catch (e) {}
+    
+    if (synced) {
+      console.log('[InovaDash] ✅ Sync OK (' + innovations.length + ' items) at ' + lastSyncTime);
+      // Update sync status UI
+      const syncStatusEl = document.getElementById('syncStatusText');
+      if (syncStatusEl) {
+        syncStatusEl.textContent = 'Sync: ' + lastSyncTime + ' (' + innovations.length + ' items)';
+      }
+    }
+    
+  } catch (e) {
+    console.error('[InovaDash] ❌ Error sync:', e);
+  }
+}
+
+/* ============ EXPORT HTML DENGAN DATA TERKINI ============ */
+function exportHtmlWithCurrentData() {
+  try {
+    const docClone = document.cloneNode(true);
+    const scripts = docClone.querySelectorAll('script:not([src])');
+    
+    for (const script of scripts) {
+      const text = script.textContent;
+      if (!text.includes('SEED_INNOVATIONS')) continue;
+      
+      const regex = /(let|var|const)\s+SEED_INNOVATIONS\s*=\s*\[/g;
+      const match = regex.exec(text);
+      if (!match) continue;
+      
+      const startIdx = match.index;
+      const arrStart = text.indexOf('[', startIdx);
+      
+      let depth = 0;
+      let inString = false;
+      let stringChar = '';
+      let arrEnd = -1;
+      let escaped = false;
+      
+      for (let i = arrStart; i < text.length; i++) {
+        const ch = text[i];
+        if (escaped) { escaped = false; continue; }
+        if (ch === '\\' && inString) { escaped = true; continue; }
+        if ((ch === '"' || ch === "'" || ch === '`') && !escaped) {
+          if (!inString) { inString = true; stringChar = ch; }
+          else if (ch === stringChar) { inString = false; stringChar = ''; }
+          continue;
+        }
+        if (!inString) {
+          if (ch === '[') depth++;
+          else if (ch === ']') { depth--; if (depth === 0) { arrEnd = i; break; } }
+        }
+      }
+      
+      if (arrEnd !== -1) {
+        const before = text.substring(0, startIdx);
+        const after = text.substring(arrEnd + 1);
+        let safeJson = JSON.stringify(innovations, null, 2);
+        safeJson = safeJson.replace(/<\/script/gi, '<\\/script');
+        script.textContent = before + ('let SEED_INNOVATIONS = ' + safeJson + ';') + after;
+        break;
+      }
+    }
+    
+    const htmlContent = '<!DOCTYPE html>\n' + docClone.documentElement.outerHTML;
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'InovaDash-Backup-' + new Date().toISOString().slice(0,10) + '.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('✅ HTML exported dengan data terkini!');
+  } catch (e) {
+    console.error('[InovaDash] Export gagal:', e);
+    showToast('❌ Export gagal', true);
+  }
 }
 
 /* ============ THEME ============ */
@@ -2145,6 +2282,9 @@ document.getElementById('exportCsvBtn').addEventListener('click', () => {
   a.click();
   URL.revokeObjectURL(url);
   showToast(`Export ${innovations.length} inovasi ke CSV`);
+});
+document.getElementById('exportHtmlBtn').addEventListener('click', () => {
+  exportHtmlWithCurrentData();
 });
 
 /* ============ TOAST ============ */
