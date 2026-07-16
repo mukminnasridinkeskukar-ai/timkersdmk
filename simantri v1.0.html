@@ -2163,7 +2163,7 @@ function showVervalSuccessModal(data, timestamp) {
 
 // ==================== SDM KESEHATAN STANDAR PER JENIS FASYANKES ====================
 const SDM_FASYANKES = {
-  'Rumah Sakit': ['Dokter Spesialis', 'Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Nutrisionis', 'Apoteker', 'Radiografer', 'Tenaga Teknologi Laboratorium Medik', 'Fisioterapis', 'Elektromedik', 'Sanitarian', 'Perekam Medis', 'Tenaga Sanitasi Lingkungan', 'Tenaga Vokasi Kefarmasian'],
+   'Rumah Sakit': ['Dokter Spesialis', 'Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Nutrisionis', 'Apoteker', 'Radiografer', 'Tenaga Teknologi Laboratorium Medik', 'Fisioterapis', 'Elektromedik', 'Sanitarian', 'Perekam Medis', 'Tenaga Sanitasi Lingkungan', 'Tenaga Vokasi Kefarmasian'],
   'Puskesmas': ['Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Nutrisionis', 'Tenaga Sanitasi Lingkungan', 'Epidemiolog Kesehatan', 'Promosi Kesehatan dan Ilmu Perilaku', 'Entomolog Kesehatan', 'Tenaga Teknologi Laboratorium Medik'],
   'Klinik': ['Dokter Spesialis', 'Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Nutrisionis', 'Apoteker', 'Fisioterapis'],
   'Apotik': ['Apoteker', 'Tenaga Vokasi Kefarmasian'],
@@ -2479,7 +2479,8 @@ function renderVFTable(data) {
 
   let filtered = data;
   if (statusF) filtered = filtered.filter(r => {
-    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
+    // FIX: Use comprehensive status extraction with multiple fallbacks
+    const s = extractVFStatus(r).toLowerCase();
     return s.includes(statusF.toLowerCase());
   });
   if (jenisF) filtered = filtered.filter(r => {
@@ -2492,11 +2493,17 @@ function renderVFTable(data) {
     (r.ID || r.id || '').toLowerCase().includes(searchQ)
   );
 
-  // Update stats
+  // Update stats - use extracted status for consistency
   const total = data.length;
-  const layak = data.filter(r => (r['Status Verifikasi']||r.status_verifikasi||'').toLowerCase().includes('layak')).length;
-  const tidak = data.filter(r => (r['Status Verifikasi']||r.status_verifikasi||'').toLowerCase().includes('tidak layak') || (r['Status Verifikasi']||r.status_verifikasi||'').toLowerCase().includes('tidak valid')).length;
-  const pending = data.filter(r => { const s=(r['Status Verifikasi']||r.status_verifikasi||'').toLowerCase(); return s.includes('perbaikan') || s.includes('pending'); }).length;
+  const layak = data.filter(r => extractVFStatus(r).toLowerCase().includes('layak')).length;
+  const tidak = data.filter(r => { 
+    const s = extractVFStatus(r).toLowerCase(); 
+    return s.includes('tidak layak') || s.includes('tidak valid') || s.includes('tidak memenuhi'); 
+  }).length;
+  const pending = data.filter(r => { 
+    const s = extractVFStatus(r).toLowerCase(); 
+    return s.includes('perbaikan') || s.includes('pending') || s.includes('proses'); 
+  });
   
   const elTotal = document.getElementById('stat-vf-total');
   const elLayak = document.getElementById('stat-vf-layak');
@@ -2508,24 +2515,68 @@ function renderVFTable(data) {
   if(elPending) elPending.textContent = pending;
 
   tbody.innerHTML = filtered.length ? filtered.map((row, i) => {
-    const status = row['Status Verifikasi'] || row.status_verifikasi || '-';
+    // FIX: Use comprehensive status extraction with multiple fallbacks
+    const status = extractVFStatus(row);
+    
     let badgeClass = 'badge-warning';
-    if(status.toLowerCase().includes('layak')) badgeClass = 'badge-success';
-    else if(status.toLowerCase().includes('tidak')) badgeClass = 'badge-danger';
-    else if(status.toLowerCase().includes('perbaikan') || status.toLowerCase().includes('pending')) badgeClass = 'badge-warning';
+    const statusLower = status.toLowerCase();
+    if(statusLower.includes('layak') || statusLower.includes('memenuhi') || statusLower.includes('valid')) badgeClass = 'badge-success';
+    else if(statusLower.includes('tidak') || statusLower.includes('gagal')) badgeClass = 'badge-danger';
+    else if(statusLower.includes('perbaikan') || statusLower.includes('pending') || statusLower.includes('proses')) badgeClass = 'badge-warning';
+    
+    // Extract other fields with comprehensive fallbacks
+    const idVal = row.ID || row.id || row['No.'] || row.no || '-';
+    const tanggalVal = row.Tanggal || row.tanggal || row.Timestamp || row.timestamp || '-';
+    const nomorUnitVal = row['Nomor Unit'] || row.nomor_unit || row['No Unit'] || row.no_unit || '-';
+    const namaFasVal = row['Nama Fasyankes'] || row.nama_fasyankes || row['Nama'] || row.nama || '-';
+    const jenisFasVal = row['Jenis Fasyankes'] || row.jenis_fasyankes || row.Jenis || row.jenis || '-';
+    const kecamatanVal = row.Kecamatan || row.kecamatan || row.Kec || row.kec || '-';
+    const verifikatorVal = row.Verifikator || row.verifikator || row['Nama Verifikator'] || row.nama_verifikator || '-';
+    
     return `<tr>
       <td>${i+1}</td>
-      <td><code style="font-size:11px;background:#F1F5F9;padding:2px 6px;border-radius:4px;">${escapeHtml(row.ID || row.id || '-')}</code></td>
-      <td>${formatDate(row.Tanggal || row.tanggal)}</td>
-      <td>${escapeHtml(row['Nomor Unit'] || row.nomor_unit || '-')}</td>
-      <td><strong>${escapeHtml(row['Nama Fasyankes'] || row.nama_fasyankes)}</strong></td>
-      <td><span class="pill">${escapeHtml(row['Jenis Fasyankes'] || row.jenis_fasyankes || '-')}</span></td>
-      <td>${escapeHtml(row.Kecamatan || row.kecamatan || '-')}</td>
-      <td><span class="badge ${badgeClass}">${status}</span></td>
-      <td>${escapeHtml(row.Verifikator || row.verifikator || '-')}</td>
+      <td><code style="font-size:11px;background:#F1F5F9;padding:2px 6px;border-radius:4px;">${escapeHtml(idVal)}</code></td>
+      <td>${formatDate(tanggalVal)}</td>
+      <td>${escapeHtml(nomorUnitVal)}</td>
+      <td><strong>${escapeHtml(namaFasVal)}</strong></td>
+      <td><span class="pill">${escapeHtml(jenisFasVal)}</span></td>
+      <td>${escapeHtml(kecamatanVal)}</td>
+      <td><span class="badge ${badgeClass}" title="Status verifikasi">${status !== '-' ? escapeHtml(status) : '<span style="color:#94A3B8;font-size:11px;">Belum diverifikasi</span>'}</span></td>
+      <td style="font-size:11px;">${escapeHtml(verifikatorVal)}</td>
       <td>${isAdminOrOperator() ? `<button onclick="viewVFDetail(${i})" class="btn btn-sm btn-outline">Detail</button>` : '<span class="badge badge-info">View</span>'}</td>
     </tr>`;
   }).join('') : '<tr><td colspan="10" style="text-align:center;padding:30px;color:#64748B;"><i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.5;"></i>Belum ada data verval fasyankes</td></tr>';
+}
+
+// Helper function to extract Status from Verval Fasyankes data with comprehensive fallbacks
+function extractVFStatus(row) {
+  // Try all possible field names for status (Google Sheets can have various formats)
+  const statusCandidates = [
+    row['Status Verifikasi'],
+    row.status_verifikasi,
+    row['Status_Verifikasi'],
+    row['Hasil Verifikasi'],
+    row.hasil_verifikasi,
+    row.Status,
+    row.status,
+    row['Status Validasi'],
+    row.status_validasi,
+    row['Hasil'],
+    row.hasil,
+    row['Keterangan Status'],
+    row.keterangan_status,
+    row.Catatan_Status,
+    row.Verifikasi_Status
+  ];
+  
+  // Find first non-empty value
+  for (const val of statusCandidates) {
+    if (val !== undefined && val !== null && String(val).trim() !== '') {
+      return String(val).trim();
+    }
+  }
+  
+  return '-'; // Default if no status found
 }
 
 const debouncedFilterVF = debounce(() => renderVFTable(vfData), 250);
@@ -2535,13 +2586,15 @@ function viewVFDetail(idx) {
   const row = vfData[idx];
   if (!row) return;
 
-  const status = row['Status Verifikasi'] || row.status_verifikasi || '-';
+  // FIX: Use comprehensive status extraction
+  const status = extractVFStatus(row);
   const sdmList = (row['SDM Kesehatan'] || row.sdm_kesehatan || '').split('; ').filter(s => s);
   
   let badgeClass = 'badge-warning';
-  if(status.toLowerCase().includes('layak')) badgeClass = 'badge-success';
-  else if(status.toLowerCase().includes('tidak')) badgeClass = 'badge-danger';
-  else if(status.toLowerCase().includes('perbaikan') || status.toLowerCase().includes('pending')) badgeClass = 'badge-warning';
+  const statusLower = status.toLowerCase();
+  if(statusLower.includes('layak') || statusLower.includes('memenuhi')) badgeClass = 'badge-success';
+  else if(statusLower.includes('tidak') || statusLower.includes('gagal')) badgeClass = 'badge-danger';
+  else if(statusLower.includes('perbaikan') || statusLower.includes('pending') || statusLower.includes('proses')) badgeClass = 'badge-warning';
 
   const html = `<div style="font-size:13px;line-height:1.6;">
     <!-- HEADER -->
@@ -3045,7 +3098,7 @@ function renderAdminVFTable(data) {
     const matchQ = !q || searchStr.includes(q);
     
     const matchJ = !jenisF || (r['Jenis Fasyankes'] || r.jenis_fasyankes || '').toLowerCase().includes(jenisF.toLowerCase());
-    const matchS = !statusF || (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase().includes(statusF.toLowerCase());
+    const matchS = !statusF || extractVFStatus(r).toLowerCase().includes(statusF.toLowerCase());
     return matchQ && matchJ && matchS;
   });
 
@@ -3061,7 +3114,8 @@ function renderAdminVFTable(data) {
     const namaFas = row['Nama Fasyankes'] || row.nama_fasyankes || '-';
     const jenisFas = row['Jenis Fasyankes'] || row.jenis_fasyankes || '-';
     const kecamatan = row.Kecamatan || row.kecamatan || '-';
-    const status = row['Status Verifikasi'] || row.status_verifikasi || '-';
+    // FIX: Use comprehensive status extraction
+    const status = extractVFStatus(row);
     const verifikator = row.Verifikator || row.verifikator || row['Nama Verifikator'] || row.nama_verifikator || '-';
     
     // Determine badge color based on status
