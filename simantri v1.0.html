@@ -829,120 +829,278 @@ function toggleMobileSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
 }
 
-// ==================== DASHBOARD ====================
+// ==================== DASHBOARD (REALTIME FROM GOOGLE SHEET) ====================
+let dashboardData = { profil: [], izin: [], verval: [], vervalFasyankes: [], pengumuman: [] };
+let dashboardLoaded = false;
+
 function renderDashboard(container) {
   container.innerHTML = `
     <div class="section">
       <div class="flex" style="justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
         <div>
-          <div style="font-size:26px;font-weight:800;color:var(--gray-800);">Dashboard Ringkasan</div>
-          <div style="color:#64748B;margin-top:4px;">Statistik real-time sistem SIMANTRI Enterprise</div>
+          <div style="font-size:26px;font-weight:800;color:var(--gray-800);">📊 Dashboard Ringkasan</div>
+          <div style="color:#64748B;margin-top:4px;">Statistik real-time dari Google Sheet • SIMANTRI Enterprise</div>
         </div>
-        ${isAdminOrOperator() ? `<button onclick="navigateTo('profil')" class="btn btn-primary btn-sm" style="justify-content:flex-start;"><i class="fas fa-plus"></i> Tambah SDMK</button>` : ''}
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span id="dashboard-last-update" style="font-size:11px;color:#94A3B8;background:#F1F5F9;padding:4px 10px;border-radius:999px;">
+            <i class="fas fa-clock" style="margin-right:4px;"></i>Memuat...
+          </span>
+          ${isAdminOrOperator() ? `<button onclick="loadDashboardData(true)" class="btn btn-sm btn-primary" title="Refresh Data"><i class="fas fa-sync-alt"></i></button>` : ''}
+        </div>
       </div>
 
-      <div class="grid-4-stats">
+      <!-- STAT CARDS -->
+      <div class="grid-4-stats" id="dashboard-stats">
         <div class="card stat-card">
           <div class="icon" style="background:#DBEAFE;color:#1E40AF;"><i class="fas fa-users"></i></div>
-          <div class="value" id="stat-profil">${dataStore.profil.length}</div>
+          <div class="value" id="stat-profil"><span class="skeleton" style="display:inline-block;width:50px;height:24px;"></span></div>
           <div class="label">Total Profil SDMK</div>
-          <div class="change" style="color:#16A34A;"><i class="fas fa-arrow-up"></i> Aktif</div>
+          <div class="change" id="stat-profil-change" style="color:#16A34A;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
         </div>
         <div class="card stat-card">
           <div class="icon" style="background:#DCFCE7;color:#166534;"><i class="fas fa-file-medical"></i></div>
-          <div class="value" id="stat-izin">${dataStore.izin.length}</div>
+          <div class="value" id="stat-izin"><span class="skeleton" style="display:inline-block;width:50px;height:24px;"></span></div>
           <div class="label">Pengajuan Izin</div>
-          <div class="change" style="color:#D97706;"><i class="fas fa-clock"></i> Proses</div>
+          <div class="change" id="stat-izin-change" style="color:#D97706;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
         </div>
         <div class="card stat-card">
           <div class="icon" style="background:#FEF3C7;color:#92400E;"><i class="fas fa-check-double"></i></div>
-          <div class="value" id="stat-verval">${(dataStore.verval || []).length}</div>
+          <div class="value" id="stat-verval"><span class="skeleton" style="display:inline-block;width:50px;height:24px;"></span></div>
           <div class="label">Data Verval</div>
-          <div class="change" style="color:#0A66C2;"><i class="fas fa-sync"></i> Terbaru</div>
+          <div class="change" id="stat-verval-change" style="color:#0A66C2;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
         </div>
         <div class="card stat-card">
-          <div class="icon" style="background:#F3E8FF;color:#7C3AED;"><i class="fas fa-bullhorn"></i></div>
-          <div class="value" id="stat-pengumuman">${dataStore.pengumuman.length}</div>
-          <div class="label">Pengumuman</div>
-          <div class="change" style="color:#DC2626;"><i class="fas fa-exclamation"></i> Penting</div>
+          <div class="icon" style="background:#F3E8FF;color:#7C3AED;"><i class="fas fa-hospital"></i></div>
+          <div class="value" id="stat-fasyankes"><span class="skeleton" style="display:inline-block;width:50px;height:24px;"></span></div>
+          <div class="label">Verval Fasyankes</div>
+          <div class="change" id="stat-fasyankes-change" style="color:#DC2626;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
         </div>
       </div>
 
+      <!-- DATA TABLES GRID -->
       <div class="dash-top-grid">
         <div class="card" style="padding:20px;">
-          <div style="font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;">
-            <span>Pengajuan Izin Terbaru</span>
-            ${isAdminOrOperator() ? `<button onclick="navigateTo('cek')" class="btn btn-sm btn-outline">Lihat Semua</button>` : ''}
+          <div style="font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+            <span><i class="fas fa-user-md" style="margin-right:6px;color:#0A66C2;"></i>Data SDMK Terbaru</span>
+            ${isAdminOrOperator() ? `<button onclick="navigateTo('profil')" class="btn btn-sm btn-outline">Lihat Semua</button>` : ''}
           </div>
-          <div style="max-height:260px;overflow:auto;">
-            ${(dataStore.izin.slice(0, 5)).map(iz => `
-              <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                  <div style="font-weight:600;font-size:13px;">${escapeHtml(iz.nama_lengkap)}</div>
-                  <div style="font-size:11px;color:#64748B;">${iz.nik} • ${iz.unit_kerja || '-'}</div>
-                </div>
-                <span class="badge badge-${iz.status==='Disetujui'?'success':iz.status==='Proses'?'warning':'danger'}">${iz.status}</span>
-              </div>
-            `).join('') || '<div style="color:#94A3B8;text-align:center;padding:20px;">Belum ada data</div>'}
+          <div id="dash-profil-list" style="max-height:280px;overflow:auto;">
+            <div style="text-align:center;padding:30px;color:#94A3B8;"><i class="fas fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:10px;"></i>Memuat data dari Google Sheet...</div>
           </div>
         </div>
 
         <div class="card" style="padding:20px;">
-          <div style="font-weight:700;margin-bottom:14px;">Pengumuman Terbaru</div>
-          <div style="max-height:260px;overflow:auto;">
-            ${(dataStore.pengumuman.slice(0, 3)).map(p => `
-              <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;">
-                <div style="display:flex;gap:8px;align-items:start;">
-                  <i class="fas ${p.is_penting?'fa-exclamation-triangle':'fa-bullhorn'}" style="color:${p.is_penting?'#DC2626':'#0A66C2'};margin-top:2px;"></i>
-                  <div>
-                    <div style="font-weight:600;font-size:13px;">${escapeHtml(p.judul)}</div>
-                    <div style="font-size:11px;color:#64748B;">${formatDate(p.tanggal)}</div>
-                  </div>
-                </div>
-              </div>
-            `).join('') || '<div style="color:#94A3B8;text-align:center;padding:20px;">Belum ada pengumuman</div>'}
+          <div style="font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+            <span><i class="fas fa-bullhorn" style="margin-right:6px;color:#D97706;"></i>Pengumuman Terbaru</span>
+            ${isAdminOrOperator() ? `<button onclick="navigateTo('pengumuman')" class="btn btn-sm btn-outline">Kelola</button>` : ''}
+          </div>
+          <div id="dash-pengumuman-list" style="max-height:280px;overflow:auto;">
+            <div style="text-align:center;padding:30px;color:#94A3B8;"><i class="fas fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:10px;"></i>Memuat data...</div>
           </div>
         </div>
       </div>
 
+      <!-- VERVAL FASYANKES SUMMARY -->
+      <div class="card" style="padding:20px;margin-top:18px;">
+        <div style="font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+          <span><i class="fas fa-hospital-alt" style="margin-right:6px;color:#7C3AED;"></i>Ringkasan Verval Fasyankes</span>
+          ${isAdminOrOperator() ? `<button onclick="navigateTo('data-verval-fasyankes')" class="btn btn-sm btn-outline">Lihat Detail</button>` : ''}
+        </div>
+        <div id="dash-vf-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
+          <div style="background:#EFF6FF;border-radius:12px;padding:16px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:#0A66C2;" id="vf-total">-</div>
+            <div style="font-size:12px;color:#64748B;font-weight:600;">Total Fasyankes</div>
+          </div>
+          <div style="background:#DCFCE7;border-radius:12px;padding:16px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:#16A34A;" id="vf-layak">-</div>
+            <div style="font-size:12px;color:#64748B;font-weight:600;">✅ Layak / MS</div>
+          </div>
+          <div style="background:#FEE2E2;border-radius:12px;padding:16px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:#DC2626;" id="vf-tidak">-</div>
+            <div style="font-size:12px;color:#64748B;font-weight:600;">❌ Tidak Layak</div>
+          </div>
+          <div style="background:#FEF3C7;border-radius:12px;padding:16px;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:#D97706;" id="vf-pending">-</div>
+            <div style="font-size:12px;color:#64748B;font-weight:600;">⏳ Pending/Perbaikan</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS -->
       <div class="dash-charts-grid">
         <div class="card" style="padding:20px;">
-          <div style="font-weight:700;margin-bottom:14px;">SDMK per Jenis Tenaga</div>
+          <div style="font-weight:700;margin-bottom:14px;"><i class="fas fa-chart-pie" style="margin-right:6px;color:#0A66C2;"></i>SDMK per Jenis Tenaga</div>
           <canvas id="chart-jenis" height="200"></canvas>
         </div>
         <div class="card" style="padding:20px;">
-          <div style="font-weight:700;margin-bottom:14px;">Status Izin Praktik</div>
+          <div style="font-weight:700;margin-bottom:14px;"><i class="fas fa-chart-bar" style="margin-right:6px;color:#16A34A;"></i>Status Izin Praktik</div>
           <canvas id="chart-status" height="200"></canvas>
         </div>
         <div class="card" style="padding:20px;">
-          <div style="font-weight:700;margin-bottom:14px;">Distribusi Unit Kerja</div>
+          <div style="font-weight:700;margin-bottom:14px;"><i class="fas fa-map-marked-alt" style="margin-right:6px;color:#D97706;"></i>Distribusi Unit Kerja</div>
           <canvas id="chart-unit" height="200"></canvas>
         </div>
       </div>
     </div>
   `;
 
-  setTimeout(() => initDashboardCharts(), 100);
+  // Load realtime data from Google Sheet
+  loadDashboardData();
+}
+
+async function loadDashboardData(forceRefresh = false) {
+  if (!forceRefresh && dashboardLoaded) return;
+  
+  const updateEl = document.getElementById('dashboard-last-update');
+  try {
+    // Fetch all data in parallel from Google Sheet
+    const [profilRes, vervalRes, vfRes, pengumumanRes] = await Promise.allSettled([
+      apiCall('getAllProfil', {}, 'GET'),
+      apiCall('getAllVerval', {}, 'GET'),
+      apiCall('getAllVervalFasyankes', {}, 'GET'),
+      apiCall('getPengumuman', {}, 'GET')
+    ]);
+
+    // Process Profil data
+    dashboardData.profil = profilRes.status === 'fulfilled' && profilRes.value.success 
+      ? (profilRes.value.data || []) : [];
+    
+    // Process Verval Izin Praktik data
+    dashboardData.verval = vervalRes.status === 'fulfilled' && vervalRes.value.success 
+      ? (vervalRes.value.data || []) : [];
+    
+    // Process Verval Fasyankes data
+    dashboardData.vervalFasyankes = vfRes.status === 'fulfilled' && vfRes.value.success 
+      ? (vfRes.value.data || []) : [];
+    
+    // Process Pengumuman data
+    dashboardData.pengumuman = pengumumanRes.status === 'fulfilled' && pengumumanRes.value.success 
+      ? (pengumumanRes.value.data || []) : [];
+
+    // Also sync to dataStore for compatibility
+    dataStore.profil = [...dashboardData.profil];
+    dataStore.verval = [...dashboardData.verval];
+    dataStore.verval_fasyankes = [...dashboardData.vervalFasyankes];
+    dataStore.pengumuman = [...dashboardData.pengumuman];
+    dataStore.izin = dashboardData.verval; // alias
+
+    // Update UI with realtime data
+    updateDashboardUI();
+    dashboardLoaded = true;
+    
+    if (updateEl) {
+      updateEl.innerHTML = '<i class="fas fa-check-circle" style="margin-right:4px;color:#16A34A;"></i>' + new Date().toLocaleTimeString('id-ID');
+    }
+  } catch (err) {
+    console.error('Dashboard load error:', err);
+    if (updateEl) {
+      updateEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right:4px;color:#DC2626;"></i>Error loading';
+    }
+    // Show error state in stats
+    ['stat-profil','stat-izin','stat-verval','stat-fasyankes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<span style="color:#DC2626;font-size:18px;">ERR</span>';
+    });
+  }
+}
+
+function updateDashboardUI() {
+  const { profil, verval, vervalFasyankes, pengumuman } = dashboardData;
+
+  // Update Stat Cards
+  setStatValue('stat-profil', profil.length, '👥 Aktif', '#16A34A');
+  setStatValue('stat-izin', verval.length, '⏳ Proses', '#D97706');
+  setStatValue('stat-verval', verval.length, '🔄 Terbaru', '#0A66C2');
+  setStatValue('stat-fasyankes', vervalFasyankes.length, '📋 Data', '#7C3AED');
+
+  // Update Profil List
+  const profilList = document.getElementById('dash-profil-list');
+  if (profilList) {
+    profilList.innerHTML = profil.length > 0 ? profil.slice(0, 5).map(p => `
+      <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(p['Nama Lengkap'] || p.nama_lengkap || p.nama || '-')}</div>
+          <div style="font-size:11px;color:#64748B;">${escapeHtml(p.NIK || p.nik || '-')} • ${escapeHtml(p['Nama Unit'] || p.nama_unit || p.unit_kerja || '-')}</div>
+        </div>
+        <span class="badge badge-${(p['Status STR']||p.status_str||'').toLowerCase().includes('aktif')?'success':'warning'}">${p['Status STR'] || p.status_str || '-'}</span>
+      </div>
+    `).join('') : '<div style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas fa-users-slash" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.4;"></i>Belum ada data SDMK di Google Sheet</div>';
+  }
+
+  // Update Pengumuman List
+  const pengList = document.getElementById('dash-pengumuman-list');
+  if (pengList) {
+    pengList.innerHTML = pengumuman.length > 0 ? pengumuman.slice(0, 3).map(p => `
+      <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;">
+        <div style="display:flex;gap:8px;align-items:start;">
+          <i class="fas ${p.is_penting || p.is_penting ? 'fa-exclamation-triangle' : 'fa-bullhorn'}" style="color:${p.is_penting || p.is_penting ? '#DC2626' : '#0A66C2'};margin-top:2px;"></i>
+          <div>
+            <div style="font-weight:600;font-size:13px;">${escapeHtml(p.judul || p.Judul || '-')}</div>
+            <div style="font-size:11px;color:#64748B;">${formatDate(p.tanggal || p.Tanggal)}</div>
+          </div>
+        </div>
+      </div>
+    `).join('') : '<div style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas fa-bell-slash" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.4;"></i>Belum ada pengumuman</div>';
+  }
+
+  // Update Verval Fasyankes Summary
+  const vfTotal = vervalFasyankes.length;
+  const vfLayak = vervalFasyankes.filter(r => {
+    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
+    return s.includes('layak') || s.includes('memenuhi');
+  }).length;
+  const vfTidak = vervalFasyankes.filter(r => {
+    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
+    return s.includes('tidak layak') || s.includes('tidak memenuhi') || s.includes('tidak valid');
+  }).length;
+  const vfPending = vervalFasyankes.filter(r => {
+    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
+    return s.includes('perbaikan') || s.includes('pending');
+  }).length;
+
+  setElementValue('vf-total', vfTotal);
+  setElementValue('vf-layak', vfLayak);
+  setElementValue('vf-tidak', vfTidak);
+  setElementValue('vf-pending', vfPending);
+
+  // Update Charts with REALTIME data
+  initDashboardCharts();
+}
+
+function setStatValue(elementId, value, label, color) {
+  const el = document.getElementById(elementId);
+  const changeEl = document.getElementById(elementId + '-change');
+  if (el) el.textContent = value.toLocaleString('id-ID');
+  if (changeEl) changeEl.innerHTML = `<i class="fas fa-check-circle"></i> ${label}`;
+  if (changeEl) changeEl.style.color = color;
+}
+
+function setElementValue(elementId, value) {
+  const el = document.getElementById(elementId);
+  if (el) el.textContent = value.toLocaleString('id-ID');
 }
 
 function initDashboardCharts() {
   // Destroy existing charts
   Object.values(charts).forEach(c => c && c.destroy());
   
-  // Chart data
+  // Use REALTIME data from dashboardData (fetched from Google Sheet)
+  const sourceData = dashboardData.profil.length > 0 ? dashboardData.profil : dataStore.profil;
+  
   const jenisData = {};
   const statusData = { 'Aktif':0, 'Expired':0, 'Proses':0 };
   const unitData = {};
 
-  (dataStore.profil || []).forEach(p => {
-    const j = p.jenis_tenaga || p['Jenis Tenaga'] || 'Lainnya';
+  sourceData.forEach(p => {
+    const j = p.jenis_tenaga || p['Jenis Tenaga'] || p.jenis_profesi || 'Lainnya';
     jenisData[j] = (jenisData[j] || 0) + 1;
     
-    const s = p.status_str || p['Status STR'] || 'Aktif';
-    if (s === 'Aktif') statusData.Aktif++;
-    else statusData.Expired++;
+    const s = p.status_str || p['Status STR'] || p['Status SIP'] || p.status_sip || 'Aktif';
+    if (s.toLowerCase().includes('aktif')) statusData.Aktif++;
+    else if (s.toLowerCase().includes('expired')) statusData.Expired++;
+    else statusData.Prosis++;
 
-    const u = p.nama_unit || p['Nama Unit'] || 'Lainnya';
+    const u = p.nama_unit || p['Nama Unit'] || p.unit_kerja || p['Unit Kerja'] || 'Lainnya';
     unitData[u] = (unitData[u] || 0) + 1;
   });
 
@@ -2354,70 +2512,125 @@ function exportVFPDF() {
   showToast('Fitur export PDF akan segera tersedia', 'info');
 }
 
-// ==================== ADMIN PANEL PAGE ====================
+// ==================== ADMIN PANEL PAGE (ENHANCED) ====================
 function renderAdmin(container) {
   if (!currentUser) {
     container.innerHTML = `
       <div class="card" style="max-width:450px;margin:60px auto;padding:32px;text-align:center;">
-        <i class="fas fa-lock" style="font-size:48px;color:#94A3B8;margin-bottom:16px;"></i>
-        <h3 style="margin-bottom:8px;">Login Diperlukan</h3>
-        <p style="color:#64748B;margin-bottom:20px;">Masukkan kredensial admin untuk mengakses panel ini.</p>
-        <div class="form-group"><label>Username</label><input id="admin-user" type="text" placeholder="Username"></div>
-        <div class="form-group"><label>Password</label><input id="admin-pass" type="password" placeholder="Password"></div>
-        <button onclick="doAdminLogin()" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i> Login Admin</button>
+        <div style="width:80px;height:80px;background:linear-gradient(135deg,#0A66C2,#00B4D8);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+          <i class="fas fa-shield-alt" style="color:white;font-size:36px;"></i>
+        </div>
+        <h3 style="margin-bottom:8px;font-size:22px;">🔐 Login Diperlukan</h3>
+        <p style="color:#64748B;margin-bottom:24px;">Masukkan kredensial admin untuk mengakses panel manajemen.</p>
+        <div class="form-group"><label>Username</label><input id="admin-user" type="text" placeholder="Masukkan username"></div>
+        <div class="form-group"><label>Password</label><input id="admin-pass" type="password" placeholder="Masukkan password"></div>
+        <button onclick="doAdminLogin()" class="btn btn-primary btn-glow" style="width:100%;"><i class="fas fa-sign-in-alt"></i> Login Admin</button>
       </div>
     `;
     return;
   }
 
   container.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 380px;gap:18px;">
-      <!-- Left Column -->
-      <div>
-        <div class="card" style="padding:18px;margin-bottom:18px;">
-          <div style="font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;">
-            Kelola Pengumuman
-            ${isAdminOrOperator() ? `<button onclick="showAddPengumumanModal()" class="btn btn-sm btn-primary">+ Baru</button>` : ''}
-          </div>
-          <div style="max-height:220px;overflow:auto;">
-            ${(dataStore.pengumuman || []).map(p => `
-              <div style="padding:8px 0;border-bottom:1px solid #F1F5F9;font-size:13px;display:flex;justify-content:space-between;align-items:center;">
-                <div>${escapeHtml(p.judul)} ${p.is_pentin ? '<span class="badge badge-danger">P</span>' : ''}</div>
-                ${isAdminOrOperator() ? `
-                  <div>
-                    <button onclick="editPengumuman('${p.id}')" class="btn btn-sm btn-outline" style="padding:2px 7px;">E</button>
-                    <button onclick="deletePengumuman('${p.id}')" class="btn btn-sm btn-danger" style="padding:2px 7px;">X</button>
-                  </div>
-                ` : ''}
-              </div>
-            `).join('') || '<div style="color:#94A3B8;font-size:12px;">Kosong</div>'}
-          </div>
+    <!-- ADMIN HEADER -->
+    <div class="section" style="margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+        <div>
+          <div style="font-size:26px;font-weight:800;color:var(--gray-800);">⚙️ Panel Admin</div>
+          <div style="color:#64748B;margin-top:4px;">Manajemen data SIMANTRI • Dinas Kesehatan Kutai Kartanegara</div>
         </div>
-        
-        <div class="card" style="padding:18px;">
-          <div style="font-weight:700;margin-bottom:12px;">Manajemen Data</div>
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <button onclick="navigateTo('profil');" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-users"></i> Kelola Profil SDMK</button>
-            <button onclick="navigateTo('cek');" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-search"></i> Kelola Data Verval</button>
-            ${isAdminOrOperator() ? `
-              <button onclick="showImportModal()" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-file-import"></i> Import Data CSV</button>
-              <button onclick="exportAllData()" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-file-export"></i> Export Semua Data (JSON)</button>
-            ` : ''}
-          </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span style="background:linear-gradient(135deg,#DCFCE7,#BBF7D0);color:#166534;padding:6px 16px;border-radius:999px;font-size:12px;font-weight:700;">
+            <i class="fas fa-user-check" style="margin-right:4px;"></i>${currentUser.full_name || currentUser.username}
+          </span>
+          <span style="background:#EFF6FF;color:#1E40AF;padding:6px 16px;border-radius:999px;font-size:12px;font-weight:700;text-transform:uppercase;">
+            ${currentUser.role}
+          </span>
         </div>
       </div>
-      
-      <!-- Right Column -->
-      <div>
-        <div style="background:#DCFCE7;color:#166534;padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;display:inline-block;margin-bottom:14px;">
-          LOGGED IN AS ${currentUser.role.toUpperCase()}
-        </div>
+    </div>
 
-        <div style="margin-top:22px;">
-          <div style="font-weight:700;margin-bottom:10px;">Manajemen User</div>
+    <!-- ADMIN STATS -->
+    <div class="grid-4-stats" id="admin-stats" style="margin-bottom:24px;">
+      <div class="card stat-card">
+        <div class="icon" style="background:#DBEAFE;color:#1E40AF;"><i class="fas fa-users"></i></div>
+        <div class="value" id="admin-stat-profil">-</div>
+        <div class="label">Profil SDMK</div>
+      </div>
+      <div class="card stat-card">
+        <div class="icon" style="background:#DCFCE7;color:#166534;"><i class="fas fa-file-medical"></i></div>
+        <div class="value" id="admin-stat-verval">-</div>
+        <div class="label">Verval Izin Praktik</div>
+      </div>
+      <div class="card stat-card">
+        <div class="icon" style="background:#F3E8FF;color:#7C3AED;"><i class="fas fa-hospital"></i></div>
+        <div class="value" id="admin-stat-vf">-</div>
+        <div class="label">Verval Fasyankes</div>
+      </div>
+      <div class="card stat-card">
+        <div class="icon" style="background:#FEF3C7;color:#D97706;"><i class="fas fa-users-cog"></i></div>
+        <div class="value" id="admin-stat-users">${(dataStore.users||[]).length}</div>
+        <div class="label">Pengguna</div>
+      </div>
+    </div>
+
+    <!-- TAB NAVIGATION -->
+    <div style="display:flex;gap:4px;background:#F1F5F9;padding:4px;border-radius:14px;margin-bottom:20px;overflow-x:auto;">
+      <button onclick="switchAdminTab('profil')" id="tab-profil" class="admin-tab active" style="flex:1;padding:12px 20px;border:none;border-radius:11px;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;background:#0A66C2;color:white;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <i class="fas fa-users"></i> Kelola Profil SDMK
+      </button>
+      <button onclick="switchAdminTab('verval')" id="tab-verval" class="admin-tab" style="flex:1;padding:12px 20px;border:none;border-radius:11px;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;background:transparent;color:#64748B;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <i class="fas fa-file-medical-alt"></i> Verval Izin Praktik
+      </button>
+      <button onclick="switchAdminTab('fasyankes')" id="tab-fasyankes" class="admin-tab" style="flex:1;padding:12px 20px;border:none;border-radius:11px;font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;background:transparent;color:#64748B;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <i class="fas fa-hospital-alt"></i> Verval Fasyankes
+      </button>
+    </div>
+
+    <!-- TAB CONTENT -->
+    <div id="admin-tab-profil" class="admin-tab-content">
+      ${renderAdminProfilContent()}
+    </div>
+    <div id="admin-tab-verval" class="admin-tab-content" style="display:none;">
+      ${renderAdminVervalContent()}
+    </div>
+    <div id="admin-tab-fasyankes" class="admin-tab-content" style="display:none;">
+      ${renderAdminVFContent()}
+    </div>
+
+    <!-- USERS & SETTINGS SECTION -->
+    <div style="margin-top:28px;display:grid;grid-template-columns:1fr 400px;gap:18px;" id="admin-settings-section">
+      <div class="card" style="padding:20px;">
+        <div style="font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+          <span><i class="fas fa-bullhorn" style="margin-right:8px;color:#D97706;"></i>Kelola Pengumuman</span>
+          ${isAdminOrOperator() ? `<button onclick="showAddPengumumanModal()" class="btn btn-sm btn-primary">+ Baru</button>` : ''}
+        </div>
+        <div id="admin-pengumuman-list" style="max-height:250px;overflow:auto;">
+          ${(dashboardData.pengumuman.length > 0 ? dashboardData.pengumuman : (dataStore.pengumuman || [])).slice(0,5).map(p => `
+            <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <i class="fas ${p.is_penting || p.is_penting ? 'fa-exclamation-triangle text-danger' : 'fa-bullhorn'}" style="color:${p.is_penting || p.is_penting ? '#DC2626' : '#0A66C2'};"></i>
+                <div>
+                  <div style="font-weight:600;">${escapeHtml(p.judul)}</div>
+                  <div style="font-size:11px;color:#94A3B8;">${formatDate(p.tanggal || p.Tanggal)}</div>
+                </div>
+              </div>
+              ${isAdminOrOperator() ? `
+                <div>
+                  <button onclick="editPengumuman('${p.id}')" class="btn btn-sm btn-outline" style="padding:2px 7px;">✏️</button>
+                  <button onclick="deletePengumuman('${p.id}')" class="btn btn-sm btn-danger" style="padding:2px 7px;">🗑️</button>
+                </div>
+              ` : ''}
+            </div>
+          `).join('') || '<div style="text-align:center;color:#94A3B8;padding:30px;">Belum ada pengumuman</div>'}
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="padding:20px;margin-bottom:18px;">
+          <div style="font-weight:700;margin-bottom:14px;"><i class="fas fa-users-cog" style="margin-right:8px;color:#0A66C2;"></i>Manajemen User</div>
           <div class="table-wrapper">
             <table>
-              <thead><tr><th>Username</th><th>Role</th><th>Nama Lengkap</th><th style="width:120px;">Aksi</th></tr></thead>
+              <thead><tr><th>Username</th><th>Role</th><th>Nama</th><th>Aksi</th></tr></thead>
               <tbody>
                 ${(dataStore.users || []).map(u => `
                   <tr>
@@ -2430,44 +2643,288 @@ function renderAdmin(container) {
               </tbody>
             </table>
           </div>
-          ${isAdminOrOperator() ? `<button onclick="showAddUserModal()" class="btn btn-sm btn-primary" style="margin-top:10px;">+ Tambah User Baru</button>` : ''}
+          ${isAdminOrOperator() ? `<button onclick="showAddUserModal()" class="btn btn-sm btn-primary" style="width:100%;margin-top:10px;">+ Tambah User Baru</button>` : ''}
         </div>
 
-        <div style="margin-top:28px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div style="font-weight:700;font-size:16px;">Data Verval Izin Praktik</div>
-            <div>
-              <button onclick="loadAdminVervalTable()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i> Refresh</button>
-              ${isAdminOrOperator() ? `
-                <button onclick="exportVervalCSV()" class="btn btn-sm btn-outline"><i class="fas fa-file-csv"></i> Export CSV</button>
-                <button onclick="exportVervalPDF()" class="btn btn-sm btn-outline"><i class="fas fa-file-pdf"></i> Export PDF</button>
-              ` : ''}
-            </div>
-          </div>
-
-          <div class="flex" style="margin-bottom:10px;gap:8px;">
-            <input id="admin-verval-search" onkeyup="filterAdminVerval()" placeholder="Cari NIK / Nama / Unit..." style="padding:8px 12px;border-radius:8px;border:1px solid #E2E8F0;flex:1;">
-            <select id="admin-verval-filter" onchange="filterAdminVerval()" style="padding:8px 12px;border-radius:8px;border:1px solid #E2E8F0;">
-              <option value="">Semua Status SIP</option>
-              <option>Aktif</option><option>Proses</option><option>Expired</option><option>Tidak Ada</option>
-            </select>
-          </div>
-
-          <div class="table-wrapper" style="max-height:380px;overflow:auto;">
-            <table id="admin-verval-table">
-              <thead><tr><th>Timestamp</th><th>NIK</th><th>Nama</th><th>Unit Kerja</th><th>Status SIP</th><th>STR</th><th>SIP</th><th style="width:110px;">Aksi</th></tr></thead>
-              <tbody></tbody>
-            </table>
+        ${isAdminOrOperator() ? `
+        <div class="card" style="padding:20px;">
+          <div style="font-weight:700;margin-bottom:14px;"><i class="fas fa-tools" style="margin-right:8px;color:#64748B;"></i>Pengaturan Cepat</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <button onclick="showImportModal()" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-file-import"></i> Import Data CSV</button>
+            <button onclick="exportAllData()" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-file-export"></i> Export Semua Data (JSON)</button>
+            <button onclick="loadDashboardData(true)" class="btn btn-outline" style="justify-content:flex-start;"><i class="fas fa-sync-alt"></i> Refresh Semua Data dari Sheet</button>
           </div>
         </div>
+        ` : ''}
       </div>
     </div>
   `;
 
+  // Load admin stats & initial tab data
+  loadAdminStats();
   setTimeout(() => {
+    loadAdminProfilData();
     if (document.getElementById('admin-verval-table')) loadAdminVervalTable();
-  }, 300);
+    if (document.getElementById('admin-vf-table')) loadAdminVFTable();
+  }, 200);
 }
+
+// Admin Tab Switching
+function switchAdminTab(tabName) {
+  // Update tab buttons
+  document.querySelectorAll('.admin-tab').forEach(btn => {
+    btn.style.background = 'transparent';
+    btn.style.color = '#64748B';
+  });
+  const activeBtn = document.getElementById('tab-' + tabName);
+  if (activeBtn) {
+    activeBtn.style.background = '#0A66C2';
+    activeBtn.style.color = 'white';
+  }
+
+  // Update tab content
+  document.querySelectorAll('.admin-tab-content').forEach(content => {
+    content.style.display = 'none';
+  });
+  const activeContent = document.getElementById('admin-tab-' + tabName);
+  if (activeContent) activeContent.style.display = 'block';
+
+  // Load data for the tab
+  if (tabName === 'profil') loadAdminProfilData();
+  else if (tabName === 'verval') { if(document.getElementById('admin-verval-table')) loadAdminVervalTable(); }
+  else if (tabName === 'fasyankes') { if(document.getElementById('admin-vf-table')) loadAdminVFTable(); }
+}
+
+// Admin Stats Loader
+async function loadAdminStats() {
+  try {
+    const [profilRes, vervalRes, vfRes] = await Promise.allSettled([
+      apiCall('getAllProfil', {}, 'GET'),
+      apiCall('getAllVerval', {}, 'GET'),
+      apiCall('getAllVervalFasyankes', {}, 'GET')
+    ]);
+    
+    const profilCount = profilRes.status === 'fulfilled' && profilRes.value.success ? (profilRes.value.data || []).length : (dataStore.profil || []).length;
+    const vervalCount = vervalRes.status === 'fulfilled' && vervalRes.value.success ? (vervalRes.value.data || []).length : (dataStore.verval || []).length;
+    const vfCount = vfRes.status === 'fulfilled' && vfRes.value.success ? (vfRes.value.data || []).length : (dataStore.verval_fasyankes || []).length;
+
+    setElementValue('admin-stat-profil', profilCount);
+    setElementValue('admin-stat-verval', vervalCount);
+    setElementValue('admin-stat-vf', vfCount);
+  } catch(e) {
+    console.error('Admin stats error:', e);
+  }
+}
+
+// Admin Tab: Profil SDMK Content
+function renderAdminProfilContent() {
+  return `
+    <div class="card" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <div style="font-weight:700;font-size:16px;"><i class="fas fa-database" style="margin-right:8px;color:#0A66C2;"></i>Data Profil SDMK</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="navigateTo('profil')" class="btn btn-sm btn-outline"><i class="fas fa-external-link-alt"></i> Buka Halaman Penuh</button>
+          ${isAdminOrOperator() ? `<button onclick="exportProfilCSV()" class="btn btn-sm btn-outline"><i class="fas fa-download"></i> Export</button>` : ''}
+        </div>
+      </div>
+      
+      <div class="flex" style="margin-bottom:14px;gap:8px;">
+        <input id="admin-profil-search" onkeyup="filterAdminProfilTable()" placeholder="Cari NIK, Nama..." style="padding:9px 14px;border-radius:10px;border:1px solid #E2E8F0;flex:1;">
+        <select id="admin-profil-filter-jenis" onchange="filterAdminProfilTable()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
+          <option value="">Semua Jenis</option>
+          <option>Dokter</option><option>Perawat</option><option>Bidan</option><option>Farmasis</option><option>Lainnya</option>
+        </select>
+        <button onclick="loadAdminProfilData()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i></button>
+      </div>
+
+      <div class="table-wrapper" style="max-height:450px;overflow:auto;">
+        <table id="admin-profil-table">
+          <thead><tr><th>No</th><th>NIK</th><th>Nama Lengkap</th><th>Jenis Tenaga</th><th>Unit Kerja</th><th>Status STR</th><th>Aksi</th></tr></thead>
+          <tbody><tr><td colspan="7" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+let adminProfilData = [];
+async function loadAdminProfilData() {
+  const tbody = document.querySelector('#admin-profil-table tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat data dari Google Sheet...</td></tr>';
+
+  try {
+    const res = await apiCall('getAllProfil', {}, 'GET');
+    if (res.success) {
+      adminProfilData = res.data || [];
+    }
+  } catch(e) {
+    adminProfilData = dataStore.profil || [];
+  }
+  
+  renderAdminProfilTable(adminProfilData);
+}
+
+function renderAdminProfilTable(data) {
+  const tbody = document.querySelector('#admin-profil-table tbody');
+  if (!tbody) return;
+  
+  const q = (document.getElementById('admin-profil-search')?.value || '').toLowerCase();
+  const jenisF = document.getElementById('admin-profil-filter-jenis')?.value || '';
+
+  let filtered = data.filter(r => {
+    const matchQ = !q || 
+      (r.NIK || r.nik || '').toLowerCase().includes(q) ||
+      (r['Nama Lengkap'] || r.nama_lengkap || r.nama || '').toLowerCase().includes(q);
+    const matchJ = !jenisF || (r['Jenis Tenaga'] || r.jenis_tenaga || '').includes(jenisF);
+    return matchQ && matchJ;
+  });
+
+  tbody.innerHTML = filtered.length ? filtered.slice(0, 25).map((row, idx) => `
+    <tr>
+      <td>${idx+1}</td>
+      <td><code style="font-size:11px;">${row.NIK || row.nik || '-'}</code></td>
+      <td><strong>${escapeHtml(row['Nama Lengkap'] || row.nama_lengkap || row.nama || '-')}</strong></td>
+      <td><span class="pill">${row['Jenis Tenaga'] || row.jenis_tenaga || '-'}</span></td>
+      <td>${escapeHtml(row['Nama Unit'] || row.nama_unit || row.unit_kerja || '-')}</td>
+      <td><span class="badge badge-${(row['Status STR']||'').toLowerCase().includes('aktif')?'success':'warning'}">${row['Status STR'] || row.status_str || '-'}</span></td>
+      <td>
+        ${isAdminOrOperator() ? `
+          <button onclick="navigateTo('profil');setTimeout(()=>viewProfilDetail('${row.NIK||row.nik}'),300);" class="btn btn-sm btn-outline" title="Detail">👁️</button>
+        ` : '-'}
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="7" style="text-align:center;padding:30px;color:#94A3B8;">Tidak ada data</td></tr>';
+}
+
+const debouncedFilterAP = debounce(() => renderAdminProfilTable(adminProfilData), 250);
+function filterAdminProfilTable() { debouncedFilterAP(); }
+
+// Admin Tab: Verval Izin Praktik Content
+function renderAdminVervalContent() {
+  return `
+    <div class="card" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <div style="font-weight:700;font-size:16px;"><i class="fas fa-clipboard-check" style="margin-right:8px;color:#16A34A;"></i>Data Verval Izin Praktik</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="navigateTo('cek')" class="btn btn-sm btn-outline"><i class="fas fa-external-link-alt"></i> Buka Halaman Penuh</button>
+          ${isAdminOrOperator() ? `<button onclick="exportVervalCSV()" class="btn btn-sm btn-outline"><i class="fas fa-download"></i> Export CSV</button>` : ''}
+        </div>
+      </div>
+      
+      <div class="flex" style="margin-bottom:14px;gap:8px;">
+        <input id="admin-verval-search" onkeyup="filterAdminVerval()" placeholder="Cari NIK / Nama / Unit..." style="padding:9px 14px;border-radius:10px;border:1px solid #E2E8F0;flex:1;">
+        <select id="admin-verval-filter" onchange="filterAdminVerval()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
+          <option value="">Semua Status SIP</option>
+          <option>Aktif</option><option>Proses</option><option>Expired</option><option>Tidak Ada</option>
+        </select>
+        <button onclick="loadAdminVervalTable()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i></button>
+      </div>
+
+      <div class="table-wrapper" style="max-height:450px;overflow:auto;">
+        <table id="admin-verval-table">
+          <thead><tr><th>No</th><th>Timestamp</th><th>NIK</th><th>Nama</th><th>Unit Kerja</th><th>Status SIP</th><th>STR</th><th>SIP</th><th>Aksi</th></tr></thead>
+          <tbody><tr><td colspan="9" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// Admin Tab: Verval Fasyankes Content
+function renderAdminVFContent() {
+  return `
+    <div class="card" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <div style="font-weight:700;font-size:16px;"><i class="fas fa-hospital-alt" style="margin-right:8px;color:#7C3AED;"></i>Data Verval Fasyankes</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="navigateTo('data-verval-fasyankes')" class="btn btn-sm btn-outline"><i class="fas fa-external-link-alt"></i> Buka Halaman Penuh</button>
+          ${isAdminOrOperator() ? `<button onclick="exportVFCSV()" class="btn btn-sm btn-outline"><i class="fas fa-download"></i> Export CSV</button>` : ''}
+        </div>
+      </div>
+      
+      <div class="flex" style="margin-bottom:14px;gap:8px;">
+        <input id="admin-vf-search" onkeyup="filterAdminVFTable()" placeholder="Cari nama fasyankes, nomor unit..." style="padding:9px 14px;border-radius:10px;border:1px solid #E2E8F0;flex:1;">
+        <select id="admin-vf-filter-jenis" onchange="filterAdminVFTable()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
+          <option value="">Semua Jenis</option>
+          <option>Rumah Sakit</option><option>Puskesmas</option><option>Klinik</option>
+          <option>Apotik</option><option>Toko Obat</option><option>Optik</option><option>PBF</option>
+        </select>
+        <select id="admin-vf-filter-status" onchange="filterAdminVFTable()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
+          <option value="">Semua Status</option>
+          <option>Layak</option><option>Tidak Layak</option><option>Perbaikan</option><option>Pending</option>
+        </select>
+        <button onclick="loadAdminVFTable()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i></button>
+      </div>
+
+      <div class="table-wrapper" style="max-height:450px;overflow:auto;">
+        <table id="admin-vf-table">
+          <thead><tr><th>ID</th><th>Tanggal</th><th>Nomor Unit</th><th>Nama Fasyankes</th><th>Jenis</th><th>Kecamatan</th><th>Status</th><th>Verifikator</th><th>Aksi</th></tr></thead>
+          <tbody><tr><td colspan="9" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+let adminVFData = [];
+async function loadAdminVFTable() {
+  const tbody = document.querySelector('#admin-vf-table tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat data dari Google Sheet...</td></tr>';
+
+  try {
+    const res = await apiCall('getAllVervalFasyankes', {}, 'GET');
+    if (res.success) {
+      adminVFData = res.data || [];
+    }
+  } catch(e) {
+    adminVFData = dataStore.verval_fasyankes || [];
+  }
+  
+  renderAdminVFTable(adminVFData);
+}
+
+function renderAdminVFTable(data) {
+  const tbody = document.querySelector('#admin-vf-table tbody');
+  if (!tbody) return;
+  
+  const q = (document.getElementById('admin-vf-search')?.value || '').toLowerCase();
+  const jenisF = document.getElementById('admin-vf-filter-jenis')?.value || '';
+  const statusF = document.getElementById('admin-vf-filter-status')?.value || '';
+
+  let filtered = data.filter(r => {
+    const matchQ = !q || 
+      (r['Nama Fasyankes'] || r.nama_fasyankes || '').toLowerCase().includes(q) ||
+      (r['Nomor Unit'] || r.nomor_unit || '').toLowerCase().includes(q) ||
+      (r.ID || r.id || '').toLowerCase().includes(q);
+    const matchJ = !jenisF || (r['Jenis Fasyankes'] || r.jenis_fasyankes || '').toLowerCase().includes(jenisF.toLowerCase());
+    const matchS = !statusF || (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase().includes(statusF.toLowerCase());
+    return matchQ && matchJ && matchS;
+  });
+
+  tbody.innerHTML = filtered.length ? filtered.map((row, idx) => {
+    const status = row['Status Verifikasi'] || row.status_verifikasi || '-';
+    let badgeClass = 'badge-warning';
+    if(status.toLowerCase().includes('layak')) badgeClass = 'badge-success';
+    else if(status.toLowerCase().includes('tidak')) badgeClass = 'badge-danger';
+    
+    return `<tr>
+      <td><code style="font-size:10px;">${row.ID || row.id || '-'}</code></td>
+      <td style="font-size:11px;">${formatDate(row.Tanggal || row.tanggal)}</td>
+      <td>${escapeHtml(row['Nomor Unit'] || row.nomor_unit || '-')}</td>
+      <td><strong>${escapeHtml(row['Nama Fasyankes'] || row.nama_fasyankes)}</strong></td>
+      <td><span class="pill">${escapeHtml(row['Jenis Fasyankes'] || row.jenis_fasyankes || '-')}</span></td>
+      <td>${escapeHtml(row.Kecamatan || row.kecamatan || '-')}</td>
+      <td><span class="badge ${badgeClass}">${status}</span></td>
+      <td style="font-size:11px;">${escapeHtml(row.Verifikator || row.verifikator || '-')}</td>
+      <td>${isAdminOrOperator() ? `<button onclick="navigateTo('data-verval-fasyankes');setTimeout(()=>viewVFDetail(${idx}),300);" class="btn btn-sm btn-outline">👁️</button>` : '-'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="9" style="text-align:center;padding:30px;color:#94A3B8;">Tidak ada data verval fasyankes</td></tr>';
+}
+
+const debouncedFilterAVF = debounce(() => renderAdminVFTable(adminVFData), 250);
+function filterAdminVFTable() { debouncedFilterAVF(); }
 
 function doAdminLogin() {
   const user = document.getElementById('admin-user').value.trim();
