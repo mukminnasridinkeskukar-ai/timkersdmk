@@ -546,11 +546,11 @@ async function apiCall(action, payload = {}, method = 'POST') {
   }
 }
 
-async function fetchWithRetry(url, options, retries = 2) {
+async function fetchWithRetry(url, options, retries = 1) {
   for (let i = 0; i <= retries; i++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout (fast)
       options.signal = controller.signal;
       
       const res = await fetch(url, options);
@@ -560,7 +560,7 @@ async function fetchWithRetry(url, options, retries = 2) {
       return res;
     } catch (e) {
       if (i === retries) throw e;
-      await new Promise(r => setTimeout(r, 800 * (i + 1)));
+      await new Promise(r => setTimeout(r, 500 * (i + 1))); // Faster retry
     }
   }
 }
@@ -832,6 +832,8 @@ function toggleMobileSidebar() {
 // ==================== DASHBOARD (REALTIME FROM GOOGLE SHEET) ====================
 let dashboardData = { profil: [], izin: [], verval: [], vervalFasyankes: [], pengumuman: [] };
 let dashboardLoaded = false;
+let dashboardCacheTime = 0; // Timestamp of last successful load
+const DASHBOARD_CACHE_TTL = 30000; // Cache for 30 seconds (fast refresh)
 
 function renderDashboard(container) {
   container.innerHTML = `
@@ -949,33 +951,54 @@ function renderDashboard(container) {
 }
 
 async function loadDashboardData(forceRefresh = false) {
-  if (!forceRefresh && dashboardLoaded) return;
+  // Check cache first (unless force refresh)
+  const now = Date.now();
+  if (!forceRefresh && dashboardLoaded && (now - dashboardCacheTime) < DASHBOARD_CACHE_TTL) {
+    console.log('Dashboard: Using cached data (age:', now - dashboardCacheTime, 'ms)');
+    return; // Data is still fresh, skip fetch
+  }
   
   const updateEl = document.getElementById('dashboard-last-update');
+  
+  // Show loading state on stat cards
+  showStatLoading(true);
+  
+  if (updateEl) {
+    updateEl.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:4px;color:#0A66C2;"></i>Memuat...';
+  }
+  
   try {
-    // Fetch all data in parallel from Google Sheet
+    // FIX: Use correct action names that match backend!
+    // Fetch all data in PARALLEL with progressive updates
     const [profilRes, vervalRes, vfRes, pengumumanRes] = await Promise.allSettled([
-      apiCall('getAllProfil', {}, 'GET'),
+      apiCall('getProfil', {}, 'GET'),        // FIXED: was 'getAllProfil' (wrong!)
       apiCall('getAllVerval', {}, 'GET'),
       apiCall('getAllVervalFasyankes', {}, 'GET'),
       apiCall('getPengumuman', {}, 'GET')
     ]);
 
-    // Process Profil data
+    // Process Profil data - IMMEDIATE UPDATE
     dashboardData.profil = profilRes.status === 'fulfilled' && profilRes.value.success 
       ? (profilRes.value.data || []) : [];
+    setStatValue('stat-profil', dashboardData.profil.length, '👥 Aktif', '#16A34A');
+    updateProfilListUI();
     
-    // Process Verval Izin Praktik data
+    // Process Verval Izin Praktik data - IMMEDIATE UPDATE
     dashboardData.verval = vervalRes.status === 'fulfilled' && vervalRes.value.success 
       ? (vervalRes.value.data || []) : [];
+    setStatValue('stat-izin', dashboardData.verval.length, '⏳ Proses', '#D97706');
+    setStatValue('stat-verval', dashboardData.verval.length, '🔄 Terbaru', '#0A66C2');
     
-    // Process Verval Fasyankes data
+    // Process Verval Fasyankes data - IMMEDIATE UPDATE
     dashboardData.vervalFasyankes = vfRes.status === 'fulfilled' && vfRes.value.success 
       ? (vfRes.value.data || []) : [];
+    setStatValue('stat-fasyankes', dashboardData.vervalFasyankes.length, '📋 Data', '#7C3AED');
+    updateVFSummaryUI();
     
-    // Process Pengumuman data
+    // Process Pengumuman data - IMMEDIATE UPDATE
     dashboardData.pengumuman = pengumumanRes.status === 'fulfilled' && pengumumanRes.value.success 
       ? (pengumumanRes.value.data || []) : [];
+    updatePengumumanListUI();
 
     // Also sync to dataStore for compatibility
     dataStore.profil = [...dashboardData.profil];
@@ -984,27 +1007,100 @@ async function loadDashboardData(forceRefresh = false) {
     dataStore.pengumuman = [...dashboardData.pengumuman];
     dataStore.izin = dashboardData.verval; // alias
 
-    // Update UI with realtime data
-    updateDashboardUI();
+    // Update Charts with realtime data
+    initDashboardCharts();
     dashboardLoaded = true;
+    dashboardCacheTime = Date.now(); // Update cache timestamp
     
     if (updateEl) {
       updateEl.innerHTML = '<i class="fas fa-check-circle" style="margin-right:4px;color:#16A34A;"></i>' + new Date().toLocaleTimeString('id-ID');
     }
+    
+    showStatLoading(false);
+    
   } catch (err) {
     console.error('Dashboard load error:', err);
     if (updateEl) {
-      updateEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right:4px;color:#DC2626;"></i>Error loading';
+      updateEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="margin-right:4px;color:#DC2626;"></i>Error';
     }
-    // Show error state in stats
-    ['stat-profil','stat-izin','stat-verval','stat-fasyankes'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = '<span style="color:#DC2626;font-size:18px;">ERR</span>';
-    });
+    showStatLoading(false);
+    showToast('Gagal memuat data dari server. Silakan refresh.', 'error');
   }
 }
 
+// Helper: Show/hide loading state on stat cards
+function showStatLoading(show) {
+  ['stat-profil','stat-izin','stat-verval','stat-fasyankes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (show) {
+      el.dataset.origText = el.textContent;
+      el.innerHTML = '<span style="color:#94A3B8;"><i class="fas fa-spinner fa-spin"></i></span>';
+    } else if (el.dataset.origText) {
+      el.textContent = el.dataset.origText;
+    }
+  });
+}
+
+// Helper: Update Profil List UI only
+function updateProfilListUI() {
+  const profilList = document.getElementById('dash-profil-list');
+  if (!profilList) return;
+  const profil = dashboardData.profil;
+  profilList.innerHTML = profil.length > 0 ? profil.slice(0, 5).map(p => `
+    <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-weight:600;font-size:13px;">${escapeHtml(p['Nama Lengkap'] || p.nama_lengkap || p.nama || '-')}</div>
+        <div style="font-size:11px;color:#64748B;">${escapeHtml(p.NIK || p.nik || '-')} • ${escapeHtml(p['Nama Unit'] || p.nama_unit || p.unit_kerja || '-')}</div>
+      </div>
+      <span class="badge badge-${(p['Status STR']||p.status_str||'').toLowerCase().includes('aktif')?'success':'warning'}">${p['Status STR'] || p.status_str || '-'}</span>
+    </div>
+  `).join('') : '<div style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas fa-users-slash" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.4;"></i>Belum ada data SDMK</div>';
+}
+
+// Helper: Update Pengumuman List UI only
+function updatePengumumanListUI() {
+  const pengList = document.getElementById('dash-pengumuman-list');
+  if (!pengList) return;
+  const pengumuman = dashboardData.pengumuman;
+  pengList.innerHTML = pengumuman.length > 0 ? pengumuman.slice(0, 3).map(p => `
+    <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;">
+      <div style="display:flex;gap:8px;align-items:start;">
+        <i class="fas ${p.is_penting ? 'fa-exclamation-triangle' : 'fa-bullhorn'}" style="color:${p.is_penting ? '#DC2626' : '#0A66C2'};margin-top:2px;"></i>
+        <div>
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(p.judul || p.Judul || '-')}</div>
+          <div style="font-size:11px;color:#64748B;">${formatDate(p.tanggal || p.Tanggal)}</div>
+        </div>
+      </div>
+    </div>
+  `).join('') : '<div style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas fa-bell-slash" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.4;"></i>Belum ada pengumuman</div>';
+}
+
+// Helper: Update Verval Fasyankes Summary UI only
+function updateVFSummaryUI() {
+  const vf = dashboardData.vervalFasyankes;
+  const vfTotal = vf.length;
+  const vfLayak = vf.filter(r => {
+    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
+    return s.includes('layak') || s.includes('memenuhi');
+  }).length;
+  const vfTidak = vf.filter(r => {
+    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
+    return s.includes('tidak layak') || s.includes('tidak memenuhi') || s.includes('tidak valid');
+  }).length;
+  const vfPending = vf.filter(r => {
+    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
+    return s.includes('perbaikan') || s.includes('pending');
+  }).length;
+  setElementValue('vf-total', vfTotal);
+  setElementValue('vf-layak', vfLayak);
+  setElementValue('vf-tidak', vfTidak);
+  setElementValue('vf-pending', vfPending);
+}
+
+// Main update function - uses helper functions for modular updates
 function updateDashboardUI() {
+  // Update all UI components using helper functions
   const { profil, verval, vervalFasyankes, pengumuman } = dashboardData;
 
   // Update Stat Cards
@@ -1013,55 +1109,10 @@ function updateDashboardUI() {
   setStatValue('stat-verval', verval.length, '🔄 Terbaru', '#0A66C2');
   setStatValue('stat-fasyankes', vervalFasyankes.length, '📋 Data', '#7C3AED');
 
-  // Update Profil List
-  const profilList = document.getElementById('dash-profil-list');
-  if (profilList) {
-    profilList.innerHTML = profil.length > 0 ? profil.slice(0, 5).map(p => `
-      <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <div style="font-weight:600;font-size:13px;">${escapeHtml(p['Nama Lengkap'] || p.nama_lengkap || p.nama || '-')}</div>
-          <div style="font-size:11px;color:#64748B;">${escapeHtml(p.NIK || p.nik || '-')} • ${escapeHtml(p['Nama Unit'] || p.nama_unit || p.unit_kerja || '-')}</div>
-        </div>
-        <span class="badge badge-${(p['Status STR']||p.status_str||'').toLowerCase().includes('aktif')?'success':'warning'}">${p['Status STR'] || p.status_str || '-'}</span>
-      </div>
-    `).join('') : '<div style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas fa-users-slash" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.4;"></i>Belum ada data SDMK di Google Sheet</div>';
-  }
-
-  // Update Pengumuman List
-  const pengList = document.getElementById('dash-pengumuman-list');
-  if (pengList) {
-    pengList.innerHTML = pengumuman.length > 0 ? pengumuman.slice(0, 3).map(p => `
-      <div style="padding:10px 0;border-bottom:1px solid #F1F5F9;">
-        <div style="display:flex;gap:8px;align-items:start;">
-          <i class="fas ${p.is_penting || p.is_penting ? 'fa-exclamation-triangle' : 'fa-bullhorn'}" style="color:${p.is_penting || p.is_penting ? '#DC2626' : '#0A66C2'};margin-top:2px;"></i>
-          <div>
-            <div style="font-weight:600;font-size:13px;">${escapeHtml(p.judul || p.Judul || '-')}</div>
-            <div style="font-size:11px;color:#64748B;">${formatDate(p.tanggal || p.Tanggal)}</div>
-          </div>
-        </div>
-      </div>
-    `).join('') : '<div style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas fa-bell-slash" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.4;"></i>Belum ada pengumuman</div>';
-  }
-
-  // Update Verval Fasyankes Summary
-  const vfTotal = vervalFasyankes.length;
-  const vfLayak = vervalFasyankes.filter(r => {
-    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
-    return s.includes('layak') || s.includes('memenuhi');
-  }).length;
-  const vfTidak = vervalFasyankes.filter(r => {
-    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
-    return s.includes('tidak layak') || s.includes('tidak memenuhi') || s.includes('tidak valid');
-  }).length;
-  const vfPending = vervalFasyankes.filter(r => {
-    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
-    return s.includes('perbaikan') || s.includes('pending');
-  }).length;
-
-  setElementValue('vf-total', vfTotal);
-  setElementValue('vf-layak', vfLayak);
-  setElementValue('vf-tidak', vfTidak);
-  setElementValue('vf-pending', vfPending);
+  // Update individual components using helper functions
+  updateProfilListUI();
+  updatePengumumanListUI();
+  updateVFSummaryUI();
 
   // Update Charts with REALTIME data
   initDashboardCharts();
