@@ -1146,10 +1146,18 @@ function initDashboardCharts() {
     const j = p.jenis_tenaga || p['Jenis Tenaga'] || p.jenis_profesi || 'Lainnya';
     jenisData[j] = (jenisData[j] || 0) + 1;
     
-    const s = p.status_str || p['Status STR'] || p['Status SIP'] || p.status_sip || 'Aktif';
-    if (s.toLowerCase().includes('aktif')) statusData.Aktif++;
-    else if (s.toLowerCase().includes('expired')) statusData.Expired++;
-    else statusData.Prosis++;
+    // FIX: Ensure s is a string before calling toLowerCase()
+    const sRaw = p.status_str || p['Status STR'] || p['Status SIP'] || p.status_sip || 'Aktif';
+    const s = String(sRaw || '').trim(); // Convert to string, handle null/undefined/numbers
+    if (!s) {
+      statusData.Aktif++; // Default to Aktif if empty
+    } else if (s.toLowerCase().includes('aktif')) {
+      statusData.Aktif++;
+    } else if (s.toLowerCase().includes('expired') || s.toLowerCase().includes('tidak')) {
+      statusData.Expired++;
+    } else {
+      statusData.Proses++; // FIX: Typo was "Prosis"
+    }
 
     const u = p.nama_unit || p['Nama Unit'] || p.unit_kerja || p['Unit Kerja'] || 'Lainnya';
     unitData[u] = (unitData[u] || 0) + 1;
@@ -2749,8 +2757,9 @@ function switchAdminTab(tabName) {
 // Admin Stats Loader
 async function loadAdminStats() {
   try {
+    // FIX: Use correct action names
     const [profilRes, vervalRes, vfRes] = await Promise.allSettled([
-      apiCall('getAllProfil', {}, 'GET'),
+      apiCall('getProfil', {}, 'GET'),        // FIXED: was 'getAllProfil'
       apiCall('getAllVerval', {}, 'GET'),
       apiCall('getAllVervalFasyankes', {}, 'GET')
     ]);
@@ -2804,12 +2813,14 @@ async function loadAdminProfilData() {
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;"><i class="fas fa-spinner fa-spin"></i> Memuat data dari Google Sheet...</td></tr>';
 
+  // FIX: Use correct action name 'getProfil' (not 'getAllProfil')
   try {
-    const res = await apiCall('getAllProfil', {}, 'GET');
+    const res = await apiCall('getProfil', {}, 'GET');
     if (res.success) {
       adminProfilData = res.data || [];
     }
   } catch(e) {
+    console.warn('Admin Profil fallback to cache:', e);
     adminProfilData = dataStore.profil || [];
   }
   
@@ -2945,33 +2956,62 @@ function renderAdminVFTable(data) {
   const statusF = document.getElementById('admin-vf-filter-status')?.value || '';
 
   let filtered = data.filter(r => {
-    const matchQ = !q || 
-      (r['Nama Fasyankes'] || r.nama_fasyankes || '').toLowerCase().includes(q) ||
-      (r['Nomor Unit'] || r.nomor_unit || '').toLowerCase().includes(q) ||
-      (r.ID || r.id || '').toLowerCase().includes(q);
+    // Search in multiple fields for flexibility
+    const searchStr = [
+      r.ID, r.id,
+      r['Nama Fasyankes'], r.nama_fasyankes,
+      r['Nomor Unit'], r.nomor_unit,
+      r['Jenis Fasyankes'], r.jenis_fasyankes,
+      r.Kecamatan, r.kecamatan,
+      r.Kelurahan, r.kelurahan,
+      r['Nama Pemilik'], r.nama_pemilik,
+      r['Nama Penanggung Jawab'], r.nama_penanggung_jawab
+    ].filter(Boolean).join(' ').toLowerCase();
+    const matchQ = !q || searchStr.includes(q);
+    
     const matchJ = !jenisF || (r['Jenis Fasyankes'] || r.jenis_fasyankes || '').toLowerCase().includes(jenisF.toLowerCase());
     const matchS = !statusF || (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase().includes(statusF.toLowerCase());
     return matchQ && matchJ && matchS;
   });
 
-  tbody.innerHTML = filtered.length ? filtered.map((row, idx) => {
+  // Show total count
+  const totalCount = filtered.length;
+  const displayData = filtered.slice(0, 50);
+
+  tbody.innerHTML = displayData.length ? displayData.map((row, idx) => {
+    // Extract values with multiple fallbacks for Google Sheet compatibility
+    const id = row.ID || row.id || '-';
+    const tanggal = row.Tanggal || row.tanggal || row.Timestamp || row.timestamp || '-';
+    const nomorUnit = row['Nomor Unit'] || row.nomor_unit || '-';
+    const namaFas = row['Nama Fasyankes'] || row.nama_fasyankes || '-';
+    const jenisFas = row['Jenis Fasyankes'] || row.jenis_fasyankes || '-';
+    const kecamatan = row.Kecamatan || row.kecamatan || '-';
     const status = row['Status Verifikasi'] || row.status_verifikasi || '-';
+    const verifikator = row.Verifikator || row.verifikator || row['Nama Verifikator'] || row.nama_verifikator || '-';
+    
+    // Determine badge color based on status
     let badgeClass = 'badge-warning';
-    if(status.toLowerCase().includes('layak')) badgeClass = 'badge-success';
-    else if(status.toLowerCase().includes('tidak')) badgeClass = 'badge-danger';
+    const statusLower = String(status).toLowerCase();
+    if(statusLower.includes('layak')) badgeClass = 'badge-success';
+    else if(statusLower.includes('tidak')) badgeClass = 'badge-danger';
     
     return `<tr>
-      <td><code style="font-size:10px;">${row.ID || row.id || '-'}</code></td>
-      <td style="font-size:11px;">${formatDate(row.Tanggal || row.tanggal)}</td>
-      <td>${escapeHtml(row['Nomor Unit'] || row.nomor_unit || '-')}</td>
-      <td><strong>${escapeHtml(row['Nama Fasyankes'] || row.nama_fasyankes)}</strong></td>
-      <td><span class="pill">${escapeHtml(row['Jenis Fasyankes'] || row.jenis_fasyankes || '-')}</span></td>
-      <td>${escapeHtml(row.Kecamatan || row.kecamatan || '-')}</td>
+      <td><code style="font-size:10px;">${id}</code></td>
+      <td style="font-size:11px;">${formatDate(tanggal)}</td>
+      <td>${escapeHtml(nomorUnit)}</td>
+      <td><strong>${escapeHtml(namaFas)}</strong></td>
+      <td><span class="pill">${escapeHtml(jenisFas)}</span></td>
+      <td>${escapeHtml(kecamatan)}</td>
       <td><span class="badge ${badgeClass}">${status}</span></td>
-      <td style="font-size:11px;">${escapeHtml(row.Verifikator || row.verifikator || '-')}</td>
-      <td>${isAdminOrOperator() ? `<button onclick="navigateTo('data-verval-fasyankes');setTimeout(()=>viewVFDetail(${idx}),300);" class="btn btn-sm btn-outline">👁️</button>` : '-'}</td>
+      <td style="font-size:11px;">${escapeHtml(verifikator)}</td>
+      <td>${isAdminOrOperator() ? `<button onclick="navigateTo('data-verval-fasyankes');setTimeout(()=>viewVFDetail(${idx}),300);" class="btn btn-sm btn-outline" title="Lihat Detail">👁️</button>` : '-'}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="9" style="text-align:center;padding:30px;color:#94A3B8;">Tidak ada data verval fasyankes</td></tr>';
+  }).join('') : '<tr><td colspan="9" style="text-align:center;padding:30px;color:#94A3B8;"><i class="fas-inbox" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.4;"></i>Tidak ada data verval fasyankes</td></tr>';
+  
+  // Show count info if more than displayed
+  if (totalCount > 50) {
+    tbody.innerHTML += `<tr><td colspan="9" style="text-align:center;padding:12px;color:#94A3B8;font-size:12px;">Menampilkan 50 dari ${totalCount} data</td></tr>`;
+  }
 }
 
 const debouncedFilterAVF = debounce(() => renderAdminVFTable(adminVFData), 250);
@@ -3026,7 +3066,7 @@ function deleteUser(username) {
 async function loadAdminVervalTable() {
   const tbody = document.querySelector('#admin-verval-table tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Memuat data verval...</td></tr>';
 
   try {
     const res = await apiCall('getAllVerval', {}, 'GET');
@@ -3034,6 +3074,7 @@ async function loadAdminVervalTable() {
       adminVervalData = res.data || [];
     }
   } catch (e) {
+    console.warn('Admin Verval fallback:', e);
     adminVervalData = dataStore.verval || [];
   }
   
@@ -3048,28 +3089,65 @@ function renderAdminVervalTable(data) {
   const statusF = document.getElementById('admin-verval-filter')?.value || '';
 
   let filtered = data.filter(r => {
-    const matchQ = !q || JSON.stringify(r).toLowerCase().includes(q);
-    const matchS = !statusF || (r['Status SIP'] || '').includes(statusF);
+    // Search in all relevant fields
+    const searchStr = [
+      r.Timestamp, r.timestamp,
+      r.NIK, r.nik,
+      r['Nama Lengkap'], r.nama_lengkap, r.nama,
+      r['Unit Kerja'], r.unit_kerja, r['Nama Unit'], r.nama_unit,
+      r['Nomor STR'], r.nomor_str,
+      r['Nomor SIP'], r.nomor_sip
+    ].filter(Boolean).join(' ').toLowerCase();
+    const matchQ = !q || searchStr.includes(q);
+    
+    // Filter by status SIP
+    const statusVal = r['Status SIP'] || r.status_sip || '';
+    const matchS = !statusF || statusVal.toLowerCase().includes(statusF.toLowerCase());
     return matchQ && matchS;
   });
 
-  tbody.innerHTML = filtered.length ? filtered.map((row, idx) => `
-    <tr>
-      <td style="font-size:11px;">${row.Timestamp || row.timestamp || '-'}</td>
-      <td><code>${row.NIK || row.nik || '-'}</code></td>
-      <td>${escapeHtml(row['Nama Lengkap'] || row.nama_lengkap || '-')}</td>
-      <td>${escapeHtml(row['Unit Kerja'] || row.unit_kerja || '-')}</td>
-      <td><span class="badge badge-${(row['Status SIP']||'')==='Aktif'?'success':'warning'}">${row['Status SIP'] || row.status_sip || '-'}</span></td>
-      <td style="font-size:11px;">${(row['Nomor STR'] || row.nomor_str || '-').substring(0,15)}</td>
-      <td style="font-size:11px;">${(row['Nomor SIP'] || row.nomor_sip || '-').substring(0,15)}</td>
+  // Show total count
+  const totalCount = filtered.length;
+  const displayData = filtered.slice(0, 50);
+
+  tbody.innerHTML = displayData.length ? displayData.map((row, idx) => {
+    // Extract values with multiple fallbacks for Google Sheet compatibility
+    const timestamp = row.Timestamp || row.timestamp || '-';
+    const nik = row.NIK || row.nik || '-';
+    const nama = row['Nama Lengkap'] || row.nama_lengkap || row.nama || '-';
+    const unit = row['Unit Kerja'] || row.unit_kerja || row['Nama Unit'] || row.nama_unit || '-';
+    const statusSIP = row['Status SIP'] || row.status_sip || '-';
+    const noSTR = row['Nomor STR'] || row.nomor_str || '-';
+    const noSIP = row['Nomor SIP'] || row.nomor_sip || '-';
+    
+    // Determine badge color based on status
+    let sipBadgeClass = 'badge-warning';
+    const sipLower = String(statusSIP).toLowerCase();
+    if (sipLower.includes('aktif')) sipBadgeClass = 'badge-success';
+    else if (sipLower.includes('expired') || sipLower.includes('tidak')) sipBadgeClass = 'badge-danger';
+    
+    return `<tr>
+      <td>${idx+1}</td>
+      <td style="font-size:11px;">${timestamp}</td>
+      <td><code style="font-size:11px;">${nik}</code></td>
+      <td><strong>${escapeHtml(nama)}</strong></td>
+      <td>${escapeHtml(unit)}</td>
+      <td><span class="badge ${sipBadgeClass}">${statusSIP}</span></td>
+      <td style="font-size:11px;"><code>${noSTR.length > 15 ? noSTR.substring(0,15)+'...' : noSTR}</code></td>
+      <td style="font-size:11px;"><code>${noSIP.length > 15 ? noSIP.substring(0,15)+'...' : noSIP}</code></td>
       <td>
         ${isAdminOrOperator() ? `
-          <button onclick="editAdminVervalRow(${idx})" class="btn btn-sm btn-outline" style="padding:2px 6px;" title="Edit"><i class="fas fa-edit"></i></button>
-          <button onclick="deleteAdminVervalRow(${idx})" class="btn btn-sm btn-danger" style="padding:2px 6px;" title="Hapus"><i class="fas fa-trash"></i></button>
+          <button onclick="editAdminVervalRow(${idx})" class="btn btn-sm btn-outline" style="padding:2px 6px;" title="Edit Data"><i class="fas fa-edit"></i></button>
+          <button onclick="deleteAdminVervalRow(${idx})" class="btn btn-sm btn-danger" style="padding:2px 6px;" title="Hapus Data"><i class="fas fa-trash"></i></button>
         ` : '-'}
       </td>
-    </tr>
-  `).join('') : '<tr><td colspan="8" style="text-align:center;padding:20px;color:#94A3B8;">Belum ada data verval</td></tr>';
+    </tr>`;
+  }).join('') : '<tr><td colspan="9" style="text-align:center;padding:20px;color:#94A3B8;"><i class="fas-inbox" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.4;"></i>Belum ada data verval izin praktik</td></tr>';
+  
+  // Show count info if more than displayed
+  if (totalCount > 50) {
+    tbody.innerHTML += `<tr><td colspan="9" style="text-align:center;padding:12px;color:#94A3B8;font-size:12px;">Menampilkan 50 dari ${totalCount} data</td></tr>`;
+  }
 }
 
 const debouncedFilterAV = debounce(renderAdminVervalTable.bind(null, adminVervalData), 250);
