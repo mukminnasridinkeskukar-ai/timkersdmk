@@ -1869,90 +1869,220 @@ function showVervalSuccessModal(data, timestamp) {
   showModal('✅ Sukses', html, null, footer);
 }
 
+// ==================== SDM KESEHATAN STANDAR PER JENIS FASYANKES ====================
+const SDM_FASYANKES = {
+  'Rumah Sakit': ['Dokter Spesialis', 'Dokter Umum', 'Perawat', 'Bidan', 'Ahli Gizi', 'Farmapis', 'Radiografer', 'Laboran', 'Fisioterapis', 'Elektromedik', 'Sanitarian', 'Rekam Medis', 'Nutritionist', 'OK Assistant'],
+  'Puskesmas': ['Dokter Umum', 'Perawat', 'Bidan', 'Ahli Gizi', 'Sanitarian', 'Epidemiolog', 'Promosi Kesehatan', 'Entomologist', 'Admin Kesehatan'],
+  'Klinik': ['Dokter Umum', 'Dokter Gigi', 'Perawat', 'Bidan', 'Asisten Apoteker', 'Ahli Gizi', 'Fisioterapis'],
+  'Apotik': ['Apoteker', 'Asisten Apoteker', 'Teknis Kefarmasian'],
+  'Toko Obat': ['Asisten Apoteker', 'Tenaga Teknis Kefarmasian'],
+  'Optik': ['Optometris', 'Optisian', 'Tenaga Teknis Optisi'],
+  'PBF (Pedagang Besar Farmasi)': ['Apoteker', 'Staff Penjualan', 'Quality Control', 'Gudang Farmasi'],
+  'Tempat Praktik Mandiri': ['Dokter Spesialis', 'Dokter Umum', 'Dokter Gigi', 'Bidan', 'Perawat', 'Psikolog', 'Fisioterapis', 'Akupunturis']
+};
+
+function getSDMOptions(jenis) {
+  const sdmList = SDM_FASYANKES[jenis] || [];
+  return sdmList.map(sdm => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F1F5F9;">
+      <input type="checkbox" id="sdm-${sdm.replace(/\s+/g, '-')}" name="sdm_kesehatan[]" value="${sdm}" style="width:16px;height:16px;accent-color:#0A66C2;cursor:pointer;">
+      <label for="sdm-${sdm.replace(/\s+/g, '-')}" style="margin:0;font-size:13px;font-weight:500;color:#334155;cursor:pointer;">${sdm}</label>
+    </div>
+  `).join('') || '<p style="color:#94A3B8;font-size:12px;font-style:italic;">Pilih jenis fasyankes terlebih dahulu</p>';
+}
+
+function onJenisFasyankesChange() {
+  const jenis = document.getElementById('vf-jenis-fasyankes').value;
+  const container = document.getElementById('vf-sdm-container');
+  if (container) container.innerHTML = getSDMOptions(jenis);
+}
+
 // ==================== VERVAL FASYANKES FORM ====================
 function renderVervalFasyankes(container) {
+  const now = new Date();
+  const autoId = `VF-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
+  
   container.innerHTML = `
     <div style="max-width:1100px;margin:0 auto;">
       <div class="card" style="padding:28px 32px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
           <div>
             <div style="font-size:22px;font-weight:800;color:#0A66C2;">Formulir Verval Fasyankes</div>
-            <div style="color:#64748B;font-size:13px;">Verifikasi Fasilitas Pelayanan Kesehatan • SatuSehat SDMK</div>
+            <div style="color:#64748B;font-size:13px;">Verifikasi Fasilitas Pelayanan Kesehatan • Dinas Kesehatan Kutai Kartanegara</div>
+          </div>
+          <div style="background:linear-gradient(135deg,#0A66C2,#00B4D8);color:white;padding:10px 18px;border-radius:12px;font-size:11px;font-weight:700;text-align:center;">
+            <i class="fas fa-hashtag" style="margin-right:6px;"></i>ID: <strong id="auto-id-display">${autoId}</strong>
+          </div>
+        </div>
+
+        <!-- INFO PANEL -->
+        <div style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1px solid #BFDBFE;border-radius:14px;padding:16px 20px;margin-bottom:24px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:40px;height:40px;background:linear-gradient(135deg,#0A66C2,#00B4D8);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-hospital" style="color:white;font-size:16px;"></i>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">ID Pendaftaran</div>
+              <div style="font-size:15px;font-weight:800;color:#0A66C2;" id="vf-id-display">${autoId}</div>
+            </div>
+          </div>
+          <div style="height:40px;width:1px;background:#93C5FD;"></div>
+          <div>
+            <div style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tanggal Input</div>
+            <div style="font-size:15px;font-weight:700;color:#334155;" id="vf-tanggal-display">${now.toLocaleDateString('id-ID', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</div>
           </div>
         </div>
 
         <form id="vf-form" onsubmit="submitVervalFasyankesForm(event)">
-          <div class="verval-grid">
-            <div class="verval-field"><label>Tanggal <span style="color:#DC2626">*</span></label><input type="date" id="vf-tanggal" required></div>
-            <div class="verval-field"><label>Nomor Permohonan <span style="color:#DC2626">*</span></label><input type="text" id="vf-no-permohonan" required placeholder="PM-2025-XXX"></div>
-            <div class="verval-field"><label>Nama Fasyankes <span style="color:#DC2626">*</span></label><input type="text" id="vf-nama-fasyankes" required placeholder="Nama fasilitas kesehatan"></div>
-            <div class="verval-field"><label>Jenis Fasyankes <span style="color:#DC2626">*</span></label><select id="vf-jenis-fasyankes" required>
-              <option value="">-- Pilih --</option>
-              <option>Klinik Pratama</option><option>Klinik Utama</option><option>RS Tipe D</option>
-              <option>RS Tipe C</option><option>RS Tipe B</option><option>Praktik Mandiri</option>
-              <option>RB Dr. Bersama</option><option>Kesehatan Kerja</option><option>Laboratorium</option>
-              <option>Optikal</option><option>Lainnya</option>
-            </select></div>
-            <div class="verval-field"><label>Pemilik <span style="color:#DC2626">*</span></label><input type="text" id="vf-pemilik" required></div>
-            <div class="verval-field"><label>Penanggung Jawab <span style="color:#DC2626">*</span></label><input type="text" id="vf-pj" required></div>
-            <div class="verval-field"><label>Alamat <span style="color:#DC2626">*</span></label><textarea id="vf-alamat" rows="2" required></textarea></div>
-            <div class="verval-field"><label>Kecamatan <span style="color:#DC2626">*</span></label><input type="text" id="vf-kecamatan" required></div>
-            <div class="verval-field"><label>Nomor HP <span style="color:#DC2626">*</span></label><input type="tel" id="vf-hp" required></div>
-            <div class="verval-field"><label>Email</label><input type="email" id="vf-email"></div>
-            <div class="verval-field"><label>Status Verifikasi <span style="color:#DC2626">*</span></label><select id="vf-status-verifikasi" required>
-              <option value="">-- Pilih --</option><option>Memenuhi Syarat</option><option>Tidak Memenuhi Syarat</option><option>Perbaikan</option>
-            </select></div>
-            <div class="verval-field"><label>Verifikator <span style="color:#DC2626">*</span></label><input type="text" id="vf-verifikator" required value="${currentUser?.full_name || ''}"></div>
+          <!-- SECTION 1: DATA FASYANKES -->
+          <div style="margin-bottom:24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #E2E8F0;">
+              <div style="width:36px;height:36px;background:linear-gradient(135deg,#0A66C2,#00B4D8);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-hospital-alt" style="color:white;font-size:14px;"></i>
+              </div>
+              <div style="font-size:16px;font-weight:800;color:#1E293B;">Data Fasilitas Kesehatan</div>
+            </div>
+            <div class="verval-grid">
+              <div class="verval-field"><label>Nomor Unit <span style="color:#DC2626">*</span></label><input type="text" id="vf-nomor-unit" required placeholder="Contoh: UNIT-001 / No. Izin Operasional"></div>
+              <div class="verval-field"><label>Nama Fasyankes <span style="color:#DC2626">*</span></label><input type="text" id="vf-nama-fasyankes" required placeholder="Nama lengkap fasilitas kesehatan"></div>
+              <div class="verval-field"><label>Jenis Fasyankes <span style="color:#DC2626">*</span></label><select id="vf-jenis-fasyankes" required onchange="onJenisFasyankesChange()">
+                <option value="">-- Pilih Jenis Fasyankes --</option>
+                <option value="Rumah Sakit">Rumah Sakit</option>
+                <option value="Puskesmas">Puskesmas</option>
+                <option value="Klinik">Klinik</option>
+                <option value="Apotik">Apotik</option>
+                <option value="Toko Obat">Toko Obat</option>
+                <option value="Optik">Optik</option>
+                <option value="PBF (Pedagang Besar Farmasi)">PBF (Pedagang Besar Farmasi)</option>
+                <option value="Tempat Praktik Mandiri">Tempat Praktik Mandiri</option>
+              </select></div>
+              <div class="verval-field"><label>Nama Pemilik <span style="color:#DC2626">*</span></label><input type="text" id="vf-pemilik" required placeholder="Nama lengkap pemilik/usaha"></div>
+              <div class="verval-field"><label>Nama Penanggung Jawab <span style="color:#DC2626">*</span></label><input type="text" id="vf-pj" required placeholder="Nama penanggung jawab operasional"></div>
+            </div>
           </div>
 
+          <!-- SECTION 2: ALAMAT & KONTAK -->
+          <div style="margin-bottom:24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #E2E8F0;">
+              <div style="width:36px;height:36px;background:linear-gradient(135deg,#16A34A,#22C55E);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-map-marker-alt" style="color:white;font-size:14px;"></i>
+              </div>
+              <div style="font-size:16px;font-weight:800;color:#1E293B;">Alamat & Kontak</div>
+            </div>
+            <div class="verval-grid">
+              <div class="verval-field" style="grid-column:1/-1;"><label>Alamat Lengkap <span style="color:#DC2626">*</span></label><textarea id="vf-alamat" rows="3" required placeholder="Jalan, RT/RW, kelompok perumahan, dll."></textarea></div>
+              <div class="verval-field"><label>Kelurahan/Desa <span style="color:#DC2626">*</span></label><input type="text" id="vf-kelurahan" required placeholder="Nama Kelurahan/Desa"></div>
+              <div class="verval-field"><label>Kecamatan <span style="color:#DC2626">*</span></label><input type="text" id="vf-kecamatan" required placeholder="Nama Kecamatan"></div>
+              <div class="verval-field"><label>Nomor HP/WA <span style="color:#DC2626">*</span></label><input type="tel" id="vf-hp" required placeholder="08xxxxxxxxxx"></div>
+              <div class="verval-field"><label>Email</label><input type="email" id="vf-email" placeholder="email@contoh.com"></div>
+            </div>
+          </div>
+
+          <!-- SECTION 3: DATA SDM KESEHATAN -->
+          <div style="margin-bottom:24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #E2E8F0;">
+              <div style="width:36px;height:36px;background:linear-gradient(135deg,#7C3AED,#A78BFA);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-user-md" style="color:white;font-size:14px;"></i>
+              </div>
+              <div style="font-size:16px;font-weight:800;color:#1E293B;">Data SDM Kesehatan</div>
+              <span style="font-size:11px;color:#64748B;font-style:italic;margin-left:auto;">* Sesuai standar jenis fasyankes</span>
+            </div>
+            <div id="vf-sdm-container" style="background:#FAFBFC;border:1.5px solid #E2E8F0;border-radius:14px;padding:18px 20px;min-height:100px;">
+              ${getSDMOptions('')}
+            </div>
+          </div>
+
+          <!-- SECTION 4: HASIL VERIFIKASI -->
+          <div style="margin-bottom:24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #E2E8F0;">
+              <div style="width:36px;height:36px;background:linear-gradient(135deg,#D97706,#F59E0B);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-clipboard-check" style="color:white;font-size:14px;"></i>
+              </div>
+              <div style="font-size:16px;font-weight:800;color:#1E293B;">Hasil Verifikasi</div>
+            </div>
+            <div class="verval-grid">
+              <div class="verval-field"><label>Hasil Verifikasi <span style="color:#DC2626">*</span></label><select id="vf-status-verifikasi" required>
+                <option value="">-- Pilih Hasil Verifikasi --</option>
+                <option value="Layak">✅ Layak / Memenuhi Syarat</option>
+                <option value="Tidak Layak">❌ Tidak Layak / Tidak Memenuhi Syarat</option>
+                <option value="Perbaikan">⚠️ Perbaikan / Revisi Data</option>
+                <option value="Pending">📋 Pending / Menunggu Kelengkapan</option>
+                <option value="Tidak Valid">🚫 Tidak Valid / Data Palsu</option>
+              </select></div>
+              <div class="verval-field"><label>Nama Verifikator Dinkes <span style="color:#DC2626">*</span></label><input type="text" id="vf-verifikator" required value="${currentUser?.full_name || ''}" placeholder="Nama lengkap verifikator"></div>
+              <div class="verval-field" style="grid-column:1/-1;"><label>Catatan Verifikasi</label><textarea id="vf-catatan" rows="4" placeholder="Tuliskan catatan detail hasil verifikasi, temuan di lapangan, rekomendasi, atau hal-hal yang perlu diperbaiki..."></textarea></div>
+            </div>
+          </div>
+
+          <!-- HIDDEN FIELDS -->
+          <input type="hidden" id="vf-id" value="${autoId}">
+          <input type="hidden" id="vf-tanggal" value="${now.toISOString().split('T')[0]}">
+
           <div class="verval-actions">
-            <button type="submit" class="btn btn-primary btn-glow" style="flex:2;"><i class="fas fa-paper-plane"></i> SUBMIT VERVAL FASYANKES</button>
-            <button type="button" onclick="document.getElementById('vf-form').reset();" class="btn btn-outline"><i class="fas fa-undo"></i> Reset</button>
+            <button type="submit" class="btn btn-primary btn-glow" style="flex:2;"><i class="fas fa-save"></i> SIMPAN DATA VERVAL FASYANKES</button>
+            <button type="button" onclick="resetVFForm('${autoId}')" class="btn btn-outline"><i class="fas fa-redo"></i> Reset Formulir</button>
           </div>
         </form>
       </div>
     </div>
   `;
+}
 
-  // Set default date
-  setTimeout(() => {
-    const dateInput = document.getElementById('vf-tanggal');
-    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
-  }, 100);
+function resetVFForm(baseId) {
+  document.getElementById('vf-form').reset();
+  const now = new Date();
+  const newId = `VF-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${Math.random().toString(36).substr(2,5).toUpperCase()}`;
+  document.getElementById('vf-id').value = newId;
+  document.getElementById('vf-id-display').textContent = newId;
+  document.getElementById('auto-id-display').textContent = newId;
+  document.getElementById('vf-tanggal').value = now.toISOString().split('T')[0];
+  document.getElementById('vf-tanggal-display').textContent = now.toLocaleDateString('id-ID', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  document.getElementById('vf-sdm-container').innerHTML = getSDMOptions('');
 }
 
 async function submitVervalFasyankesForm(e) {
   if (e) e.preventDefault();
   
+  // Collect SDM Kesehatan data
+  const sdmCheckboxes = document.querySelectorAll('input[name="sdm_kesehatan[]"]:checked');
+  const sdmKesehatan = Array.from(sdmCheckboxes).map(cb => cb.value);
+  
   const data = {
+    id: document.getElementById('vf-id')?.value,
     tanggal: document.getElementById('vf-tanggal')?.value,
-    nomor_permohonan: document.getElementById('vf-no-permohonan')?.value.trim(),
+    nomor_unit: document.getElementById('vf-nomor-unit')?.value.trim(),
     nama_fasyankes: document.getElementById('vf-nama-fasyankes')?.value.trim(),
     jenis_fasyankes: document.getElementById('vf-jenis-fasyankes')?.value,
-    pemilik: document.getElementById('vf-pemilik')?.value.trim(),
+    nama_pemilik: document.getElementById('vf-pemilik')?.value.trim(),
     penanggung_jawab: document.getElementById('vf-pj')?.value.trim(),
-    alamat: document.getElementById('vf-alamat')?.value.trim(),
+    alamat_lengkap: document.getElementById('vf-alamat')?.value.trim(),
+    kelurahan: document.getElementById('vf-kelurahan')?.value.trim(),
     kecamatan: document.getElementById('vf-kecamatan')?.value.trim(),
     nomor_hp: document.getElementById('vf-hp')?.value.trim(),
     email: document.getElementById('vf-email')?.value.trim(),
+    sdm_kesehatan: sdmKesehatan.join('; '),
     status_verifikasi: document.getElementById('vf-status-verifikasi')?.value,
+    catatan_verifikasi: document.getElementById('vf-catatan')?.value.trim(),
     verifikator: document.getElementById('vf-verifikator')?.value.trim()
   };
 
   // Validation
   const errors = [];
-  if (!data.nomor_permohonan) errors.push('Nomor Permohonan wajib diisi');
+  if (!data.id) errors.push('ID otomatis tidak valid');
+  if (!data.tanggal) errors.push('Tanggal tidak valid');
+  if (!data.nomor_unit) errors.push('Nomor Unit wajib diisi');
   if (!data.nama_fasyankes) errors.push('Nama Fasyankes wajib diisi');
   if (!data.jenis_fasyankes) errors.push('Jenis Fasyankes wajib dipilih');
-  if (!data.pemilik) errors.push('Pemilik wajib diisi');
+  if (!data.nama_pemilik) errors.push('Nama Pemilik wajib diisi');
   if (!data.penanggung_jawab) errors.push('Penanggung Jawab wajib diisi');
-  if (!data.alamat) errors.push('Alamat wajib diisi');
+  if (!data.alamat_lengkap) errors.push('Alamat Lengkap wajib diisi');
+  if (!data.kelurahan) errors.push('Kelurahan/Desa wajib diisi');
   if (!data.kecamatan) errors.push('Kecamatan wajib diisi');
   if (!data.nomor_hp) errors.push('Nomor HP wajib diisi');
   if (!data.status_verifikasi) errors.push('Hasil Verifikasi wajib dipilih');
-  if (!data.verifikator) errors.push('Verifikator wajib diisi');
+  if (!data.verifikator) errors.push('Nama Verifikator wajib diisi');
 
-  if (errors.length > 0) { showToast(errors.join(', '), 'error'); return; }
+  if (errors.length > 0) { showToast(errors.join('<br>'), 'error'); return; }
 
   const btns = document.querySelectorAll('#vf-form button');
   btns.forEach(b => b.disabled = true);
@@ -1962,16 +2092,14 @@ async function submitVervalFasyankesForm(e) {
     btns.forEach(b => b.disabled = false);
 
     if (res.success) {
-      showToast('Data Verval Fasyankes berhasil disimpan ke Google Sheet!', 'success');
-      document.getElementById('vf-form').reset();
-      const dateInput = document.getElementById('vf-tanggal');
-      if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+      showToast('✅ Data Verval Fasyankes berhasil disimpan ke Google Sheet!', 'success');
+      resetVFForm(data.id);
     } else {
       showToast(res.error || 'Gagal menyimpan data', 'error');
     }
   } catch (err) {
     btns.forEach(b => b.disabled = false);
-    showToast('Gagal mengirim data', 'error');
+    showToast('❌ Gagal mengirim data: ' + err.message, 'error');
   }
 }
 
@@ -1979,17 +2107,31 @@ async function submitVervalFasyankesForm(e) {
 function renderDataVervalFasyankes(container) {
   container.innerHTML = `
     <div class="section">
-      <div style="font-size:22px;font-weight:800;color:var(--gray-800);margin-bottom:4px;">Data Verval Fasyankes</div>
-      <div style="color:#64748B;font-size:13px;margin-bottom:18px;">Manajemen data verifikasi fasilitas pelayanan kesehatan</div>
+      <div style="font-size:22px;font-weight:800;color:var(--gray-800);margin-bottom:4px;">📋 Data Verval Fasyankes</div>
+      <div style="color:#64748B;font-size:13px;margin-bottom:18px;">Manajemen data verifikasi fasilitas pelayanan kesehatan • Dinas Kesehatan Kutai Kartanegara</div>
+      
+      <!-- STAT CARDS -->
+      <div class="grid-4-stats" style="margin-bottom:20px;" id="vf-stats-cards">
+        <div class="card stat-card"><div class="icon" style="background:#EFF6FF;color:#0A66C2;"><i class="fas fa-hospital"></i></div><div class="value" id="stat-vf-total">0</div><div class="label">Total Fasyankes</div></div>
+        <div class="card stat-card"><div class="icon" style="background:#DCFCE7;color:#16A34A;"><i class="fas fa-check-circle"></i></div><div class="value" id="stat-vf-layak">0</div><div class="label">Layak / MS</div></div>
+        <div class="card stat-card"><div class="icon" style="background:#FEE2E2;color:#DC2626;"><i class="fas fa-times-circle"></i></div><div class="value" id="stat-vf-tidak">0</div><div class="label">Tidak Layak</div></div>
+        <div class="card stat-card"><div class="icon" style="background:#FEF3C7;color:#D97706;"><i class="fas fa-clock"></i></div><div class="value" id="stat-vf-pending">0</div><div class="label">Pending/Perbaikan</div></div>
+      </div>
       
       <div class="flex" style="margin-bottom:16px;gap:10px;flex-wrap:wrap;align-items:center;">
         <div class="search-box">
           <i class="fas fa-search"></i>
-          <input id="search-vf" placeholder="Cari nama fasyankes..." onkeyup="filterVFTable()">
+          <input id="search-vf" placeholder="Cari nama fasyankes, nomor unit..." onkeyup="filterVFTable()">
         </div>
+        <select id="filter-vf-jenis" onchange="filterVFTable()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
+          <option value="">Semua Jenis</option>
+          <option>Rumah Sakit</option><option>Puskesmas</option><option>Klinik</option>
+          <option>Apotik</option><option>Toko Obat</option><option>Optik</option>
+          <option>PBF</option><option>Tempat Praktik Mandiri</option>
+        </select>
         <select id="filter-vf-status" onchange="filterVFTable()" style="padding:9px 12px;border-radius:10px;border:1px solid #E2E8F0;">
           <option value="">Semua Status</option>
-          <option>Memenuhi Syarat</option><option>Tidak Memenuhi Syarat</option><option>Perbaikan</option>
+          <option>Layak</option><option>Tidak Layak</option><option>Perbaikan</option><option>Pending</option><option>Tidak Valid</option>
         </select>
         <button onclick="loadVFData()" class="btn btn-sm btn-outline"><i class="fas fa-sync"></i> Refresh</button>
         ${isAdminOrOperator() ? `
@@ -1999,11 +2141,11 @@ function renderDataVervalFasyankes(container) {
       </div>
 
       <div class="table-wrapper">
-        <table id="vf-table" style="min-width:900px;">
+        <table id="vf-table" style="min-width:1100px;">
           <thead>
             <tr>
-              <th>No</th><th>Tanggal</th><th>No Permohonan</th><th>Nama Fasyankes</th>
-              <th>Jenis</th><th>Pemilik</th><th>Status</th><th>Verifikator</th>
+              <th>No</th><th>ID</th><th>Tanggal</th><th>Nomor Unit</th><th>Nama Fasyankes</th>
+              <th>Jenis</th><th>Kecamatan</th><th>Status</th><th>Verifikator</th>
               <th style="width:80px;">Aksi</th>
             </tr>
           </thead>
@@ -2040,29 +2182,58 @@ function renderVFTable(data) {
   if (!tbody) return;
 
   const statusF = document.getElementById('filter-vf-status')?.value || '';
+  const jenisF = document.getElementById('filter-vf-jenis')?.value || '';
   const searchQ = (document.getElementById('search-vf')?.value || '').toLowerCase();
 
   let filtered = data;
-  if (statusF) filtered = filtered.filter(r => r['Status Verifikasi'] === statusF || r.status_verifikasi === statusF);
+  if (statusF) filtered = filtered.filter(r => {
+    const s = (r['Status Verifikasi'] || r.status_verifikasi || '').toLowerCase();
+    return s.includes(statusF.toLowerCase());
+  });
+  if (jenisF) filtered = filtered.filter(r => {
+    const j = (r['Jenis Fasyankes'] || r.jenis_fasyankes || '').toLowerCase();
+    return j.includes(jenisF.toLowerCase());
+  });
   if (searchQ) filtered = filtered.filter(r => 
-    (r['Nama Fasyankes'] || r.nama_fasyankes || '').toLowerCase().includes(searchQ)
+    (r['Nama Fasyankes'] || r.nama_fasyankes || '').toLowerCase().includes(searchQ) ||
+    (r['Nomor Unit'] || r.nomor_unit || '').toLowerCase().includes(searchQ) ||
+    (r.ID || r.id || '').toLowerCase().includes(searchQ)
   );
+
+  // Update stats
+  const total = data.length;
+  const layak = data.filter(r => (r['Status Verifikasi']||r.status_verifikasi||'').toLowerCase().includes('layak')).length;
+  const tidak = data.filter(r => (r['Status Verifikasi']||r.status_verifikasi||'').toLowerCase().includes('tidak layak') || (r['Status Verifikasi']||r.status_verifikasi||'').toLowerCase().includes('tidak valid')).length;
+  const pending = data.filter(r => { const s=(r['Status Verifikasi']||r.status_verifikasi||'').toLowerCase(); return s.includes('perbaikan') || s.includes('pending'); }).length;
+  
+  const elTotal = document.getElementById('stat-vf-total');
+  const elLayak = document.getElementById('stat-vf-layak');
+  const elTidak = document.getElementById('stat-vf-tidak');
+  const elPending = document.getElementById('stat-vf-pending');
+  if(elTotal) elTotal.textContent = total;
+  if(elLayak) elLayak.textContent = layak;
+  if(elTidak) elTidak.textContent = tidak;
+  if(elPending) elPending.textContent = pending;
 
   tbody.innerHTML = filtered.length ? filtered.map((row, i) => {
     const status = row['Status Verifikasi'] || row.status_verifikasi || '-';
-    const badgeClass = status === 'Memenuhi Syarat' ? 'badge-success' : status === 'Tidak Memenuhi Syarat' ? 'badge-danger' : 'badge-warning';
+    let badgeClass = 'badge-warning';
+    if(status.toLowerCase().includes('layak')) badgeClass = 'badge-success';
+    else if(status.toLowerCase().includes('tidak')) badgeClass = 'badge-danger';
+    else if(status.toLowerCase().includes('perbaikan') || status.toLowerCase().includes('pending')) badgeClass = 'badge-warning';
     return `<tr>
       <td>${i+1}</td>
+      <td><code style="font-size:11px;background:#F1F5F9;padding:2px 6px;border-radius:4px;">${escapeHtml(row.ID || row.id || '-')}</code></td>
       <td>${formatDate(row.Tanggal || row.tanggal)}</td>
-      <td>${escapeHtml(row['Nomor Permohonan'] || row.nomor_permohonan)}</td>
+      <td>${escapeHtml(row['Nomor Unit'] || row.nomor_unit || '-')}</td>
       <td><strong>${escapeHtml(row['Nama Fasyankes'] || row.nama_fasyankes)}</strong></td>
-      <td>${escapeHtml(row['Jenis Fasyankes'] || row.jenis_fasyankes)}</td>
-      <td>${escapeHtml(row.Pemilik || row.pemilik)}</td>
+      <td><span class="pill">${escapeHtml(row['Jenis Fasyankes'] || row.jenis_fasyankes || '-')}</span></td>
+      <td>${escapeHtml(row.Kecamatan || row.kecamatan || '-')}</td>
       <td><span class="badge ${badgeClass}">${status}</span></td>
-      <td>${escapeHtml(row.Verifikator || row.verifikator)}</td>
+      <td>${escapeHtml(row.Verifikator || row.verifikator || '-')}</td>
       <td>${isAdminOrOperator() ? `<button onclick="viewVFDetail(${i})" class="btn btn-sm btn-outline">Detail</button>` : '<span class="badge badge-info">View</span>'}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="9" style="text-align:center;padding:30px;color:#64748B;">Belum ada data</td></tr>';
+  }).join('') : '<tr><td colspan="10" style="text-align:center;padding:30px;color:#64748B;"><i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.5;"></i>Belum ada data verval fasyankes</td></tr>';
 }
 
 const debouncedFilterVF = debounce(() => renderVFTable(vfData), 250);
@@ -2073,33 +2244,75 @@ function viewVFDetail(idx) {
   if (!row) return;
 
   const status = row['Status Verifikasi'] || row.status_verifikasi || '-';
-  const profesiRows = Object.keys(row).filter(k => k.includes('SDMK') || k.includes('Profesi')).slice(0, 5).map(k =>
-    `<tr><td>${k}</td><td>${row[k] || '-'}</td><td>-</td><td>-</td><td>-</td></tr>`
-  ).join('');
+  const sdmList = (row['SDM Kesehatan'] || row.sdm_kesehatan || '').split('; ').filter(s => s);
+  
+  let badgeClass = 'badge-warning';
+  if(status.toLowerCase().includes('layak')) badgeClass = 'badge-success';
+  else if(status.toLowerCase().includes('tidak')) badgeClass = 'badge-danger';
+  else if(status.toLowerCase().includes('perbaikan') || status.toLowerCase().includes('pending')) badgeClass = 'badge-warning';
 
   const html = `<div style="font-size:13px;line-height:1.6;">
-    <div class="modal-verval-grid" style="margin-bottom:20px;">
-      <div><strong>ID:</strong> ${escapeHtml(row.ID || row.id || '')}</div>
-      <div><strong>Tanggal:</strong> ${formatDate(row.Tanggal || row.tanggal)}</div>
-      <div><strong>Nomor Permohonan:</strong> ${escapeHtml(row['Nomor Permohonan'] || '')}</div>
-      <div><strong>Nama Fasyankes:</strong> ${escapeHtml(row['Nama Fasyankes'] || '')}</div>
-      <div><strong>Jenis Fasyankes:</strong> ${escapeHtml(row['Jenis Fasyankes'] || '')}</div>
-      <div><strong>Pemilik:</strong> ${escapeHtml(row.Pemilik || '')}</div>
-      <div><strong>Penanggung Jawab:</strong> ${escapeHtml(row['Penanggung Jawab'] || '')}</div>
-      <div><strong>Alamat:</strong> ${escapeHtml(row.Alamat || '')}</div>
-      <div><strong>Kecamatan:</strong> ${escapeHtml(row.Kecamatan || '')}</div>
-      <div><strong>Nomor HP:</strong> ${escapeHtml(row['Nomor HP'] || '')}</div>
-      <div><strong>Email:</strong> ${escapeHtml(row.Email || '-')}</div>
+    <!-- HEADER -->
+    <div style="background:linear-gradient(135deg,#0A66C2,#00B4D8);color:white;padding:16px 20px;border-radius:14px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:1px;">ID Pendaftaran</div>
+        <div style="font-size:20px;font-weight:800;">${escapeHtml(row.ID || row.id || '-')}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;opacity:0.85;">Status</div>
+        <span class="badge" style="background:rgba(255,255,255,0.25);color:white;font-size:14px;padding:6px 16px;">${status}</span>
+      </div>
     </div>
-    <div style="font-weight:700;font-size:16px;color:#0A66C2;margin-bottom:8px;">Hasil Verifikasi</div>
+
+    <!-- DATA FASYANKES -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #E2E8F0;">
+      <div style="width:28px;height:28px;background:#0A66C2;border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-hospital-alt" style="color:white;font-size:12px;"></i></div>
+      <div style="font-weight:700;color:#1E293B;">Data Fasilitas Kesehatan</div>
+    </div>
+    <div class="modal-verval-grid" style="margin-bottom:20px;">
+      <div><strong style="color:#64748B;">Tanggal Input</strong><br>${formatDate(row.Tanggal || row.tanggal)}</div>
+      <div><strong style="color:#64748B;">Nomor Unit</strong><br>${escapeHtml(row['Nomor Unit'] || row.nomor_unit || '-')}</div>
+      <div style="grid-column:1/-1;"><strong style="color:#64748B;">Nama Fasyankes</strong><br><span style="font-size:15px;font-weight:700;color:#0A66C2;">${escapeHtml(row['Nama Fasyankes'] || row.nama_fasyankes || '-')}</span></div>
+      <div><strong style="color:#64748B;">Jenis Fasyankes</strong><br><span class="pill">${escapeHtml(row['Jenis Fasyankes'] || row.jenis_fasyankes || '-')}</span></div>
+      <div><strong style="color:#64748B;">Nama Pemilik</strong><br>${escapeHtml(row['Nama Pemilik'] || row.nama_pemilik || row.Pemilik || row.pemilik || '-')}</div>
+      <div><strong style="color:#64748B;">Penanggung Jawab</strong><br>${escapeHtml(row['Penanggung Jawab'] || row.penanggung_jawab || '-')}</div>
+    </div>
+
+    <!-- ALAMAT & KONTAK -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #E2E8F0;">
+      <div style="width:28px;height:28px;background:#16A34A;border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-map-marker-alt" style="color:white;font-size:12px;"></i></div>
+      <div style="font-weight:700;color:#1E293B;">Alamat & Kontak</div>
+    </div>
+    <div class="modal-verval-grid" style="margin-bottom:20px;">
+      <div style="grid-column:1/-1;"><strong style="color:#64748B;">Alamat Lengkap</strong><br>${escapeHtml(row['Alamat Lengkap'] || row.alamat_lengkap || row.Alamat || row.alamat || '-')}</div>
+      <div><strong style="color:#64748B;">Kelurahan/Desa</strong><br>${escapeHtml(row.Kelurahan || row.kelurahan || '-')}</div>
+      <div><strong style="color:#64748B;">Kecamatan</strong><br>${escapeHtml(row.Kecamatan || row.kecamatan || '-')}</div>
+      <div><strong style="color:#64748B;">Nomor HP/WA</strong><br>${escapeHtml(row['Nomor HP'] || row.nomor_hp || '-')}</div>
+      <div><strong style="color:#64748B;">Email</strong><br>${escapeHtml(row.Email || row.email || '-')}</div>
+    </div>
+
+    <!-- SDM KESEHATAN -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #E2E8F0;">
+      <div style="width:28px;height:28px;background:#7C3AED;border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-user-md" style="color:white;font-size:12px;"></i></div>
+      <div style="font-weight:700;color:#1E293B;">Data SDM Kesehatan</div>
+    </div>
+    <div style="background:#FAFBFC;border:1px solid #E2E8F0;border-radius:12px;padding:14px 18px;margin-bottom:20px;">
+      ${sdmList.length ? sdmList.map(sdm => `<span style="display:inline-block;background:linear-gradient(135deg,#EDE9FE,#DDD6FE);color:#5B21B6;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:600;margin:3px;"><i class="fas fa-user-nurse" style="margin-right:4px;font-size:10px;"></i>${escapeHtml(sdm)}</span>`).join('') : '<span style="color:#94A3B8;font-style:italic;">Tidak ada data SDM</span>'}
+    </div>
+
+    <!-- HASIL VERIFIKASI -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #E2E8F0;">
+      <div style="width:28px;height:28px;background:#D97706;border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-clipboard-check" style="color:white;font-size:12px;"></i></div>
+      <div style="font-weight:700;color:#1E293B;">Hasil Verifikasi</div>
+    </div>
     <div class="modal-verval-grid">
-      <div><strong>Status:</strong> <span class="badge ${getStatusBadge(status)}">${status}</span></div>
-      <div><strong>Verifikator:</strong> ${escapeHtml(row.Verifikator || '-')}</div>
-      <div style="grid-column:1/-1;"><strong>Tanggal Verifikasi:</strong> ${row['Tanggal Verifikasi']?formatDate(row['Tanggal Verifikasi']):'-'}</div>
+      <div><strong style="color:#64748B;">Hasil Verifikasi</strong><br><span class="badge ${badgeClass}" style="font-size:13px;padding:6px 14px;">${status}</span></div>
+      <div><strong style="color:#64748B;">Nama Verifikator Dinkes</strong><br>${escapeHtml(row.Verifikator || row.verifikator || '-')}</div>
+      <div style="grid-column:1/-1;"><strong style="color:#64748B;">Catatan Verifikasi</strong><br><div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:10px;padding:14px;margin-top:6px;font-style:italic;line-height:1.7;">${escapeHtml(row['Catatan Verifikasi'] || row.catatan_verifikasi || '<em>Tidak ada catatan</em>')}</div></div>
     </div>
   </div>`;
 
-  showModal('Detail Verval Fasyankes', html, null, '<button onclick="closeModal()" class="btn btn-outline">Tutup</button>');
+  showModal('📋 Detail Verval Fasyankes', html, null, '<button onclick="closeModal()" class="btn btn-outline"><i class="fas fa-times"></i> Tutup</button>');
   document.getElementById('modal-backdrop').classList.add('modal-large');
 }
 
@@ -2113,9 +2326,27 @@ function getStatusBadge(status) {
 
 function exportVFCSV() {
   if (!checkAccess()) return;
-  const headers = ['No','Tanggal','No Permohonan','Nama Fasyankes','Jenis','Status'];
-  const rows = vfData.map((r,i) => [i+1, r.tanggal||r.Tanggal, r.nomor_permohonan||r['Nomor Permohonan'], r.nama_fasyankes||r['Nama Fasyankes'], r.jenis_fasyankes||r['Jenis Fasyankes'], r.status_verifikasi||r['Status Verifikasi']]);
-  downloadCSV(headers, rows, 'verval_fasyankes');
+  const headers = ['No','ID','Tanggal','Nomor Unit','Nama Fasyankes','Jenis Fasyankes','Nama Pemilik','Penanggung Jawab','Alamat Lengkap','Kelurahan','Kecamatan','HP','Email','SDM Kesehatan','Status Verifikasi','Catatan','Verifikator'];
+  const rows = vfData.map((r,i) => [
+    i+1,
+    r.ID || r.id,
+    r.Tanggal || r.tanggal,
+    r['Nomor Unit'] || r.nomor_unit,
+    r['Nama Fasyankes'] || r.nama_fasyankes,
+    r['Jenis Fasyankes'] || r.jenis_fasyankes,
+    r['Nama Pemilik'] || r.nama_pemilik || r.Pemilik || r.pemilik,
+    r['Penanggung Jawab'] || r.penanggung_jawab,
+    r['Alamat Lengkap'] || r.alamat_lengkap || r.Alamat || r.alamat,
+    r.Kelurahan || r.kelurahan,
+    r.Kecamatan || r.kecamatan,
+    r['Nomor HP'] || r.nomor_hp,
+    r.Email || r.email,
+    r['SDM Kesehatan'] || r.sdm_kesehatan,
+    r['Status Verifikasi'] || r.status_verifikasi,
+    r['Catatan Verifikasi'] || r.catatan_verifikasi,
+    r.Verifikator || r.verifikator
+  ]);
+  downloadCSV(headers, rows, 'verval_fasyankes_full');
 }
 
 function exportVFPDF() {
