@@ -297,7 +297,7 @@ tr:hover { background:#F8FAFC; }
         <i class="fas fa-users"></i><span>Profil SDMK</span>
       </div>
       <div class="nav-item" data-page="cek" onclick="navigateTo('cek')">
-        <i class="fas fa-search"></i><span>Cek Data Verval</span>
+        <i class="fas fa-id-card"></i><span>Data Verval Izin Praktik</span>
       </div>
       <div class="nav-item" data-page="admin" onclick="navigateTo('admin')">
         <i class="fas fa-cog"></i><span>Panel Admin</span>
@@ -861,7 +861,7 @@ function logout() {
 const pageTitles = {
   dashboard:'Dashboard', pengumuman:'Pengumuman', verval:'Verval Izin Praktik',
   'verval-fasyankes':'Verval Fasyankes', 'data-verval-fasyankes':'Data Verval Fasyankes',
-  profil:'Profil SDMK', cek:'Cek Data Verval', admin:'Panel Admin'
+  profil:'Profil SDMK', cek:'Data Verval Izin Praktik', admin:'Panel Admin'
 };
 
 const pageSubtitles = {
@@ -869,7 +869,7 @@ const pageSubtitles = {
   verval:'Formulir pengajuan & perpanjangan izin praktik',
   'verval-fasyankes':'Input verifikasi SDM Kesehatan pada permohonan izin fasilitas pelayanan kesehatan',
   'data-verval-fasyankes':'Manajemen dan monitoring verval fasilitas pelayanan kesehatan',
-  profil:'Data lengkap Sumber Daya Manusia Kesehatan', cek:'Cari data verval izin praktik berdasarkan Nama Lengkap SDMK',
+  profil:'Data lengkap Sumber Daya Manusia Kesehatan', cek:'Pencarian dan penampilan data verval izin praktik berdasarkan NIK',
   admin:'Manajemen data & konfigurasi sistem'
 };
 
@@ -1612,113 +1612,465 @@ function exportProfilPDF() {
   showToast('PDF berhasil diunduh');
 }
 
-// ==================== CEK DATA VERVAL PAGE ====================
+// ==================== DATA VERVAL IZIN PRAKTIK PAGE (NIK-BASED SEARCH) ====================
 function renderCek(container) {
   container.innerHTML = `
     <div class="section">
-      <div style="font-size:22px;font-weight:800;color:var(--gray-800);margin-bottom:4px;">Cek Data Verval Izin Praktik</div>
-      <div style="color:#64748B;font-size:13px;margin-bottom:18px;">Pencarian data berdasarkan Nama Lengkap SDMK</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--gray-800);margin-bottom:4px;">Data Verval Izin Praktik</div>
+          <div style="color:#64748B;font-size:13px;">Pencarian data verval berdasarkan Nomor Induk Kependudukan (NIK)</div>
+        </div>
+        <div class="badge badge-info" style="font-size:12px;padding:6px 14px;"><i class="fas fa-eye" style="margin-right:6px;"></i>Mode View Only</div>
+      </div>
       
-      <div class="card" style="padding:24px;max-width:700px;">
-        <div class="form-group">
-          <label>Masukkan Nama Lengkap SDMK</label>
-          <div class="autocomplete-wrapper">
-            <input type="text" id="cek-search-nama" placeholder="Ketik minimal 2 karakter untuk mencari..." oninput="handleCekSearch(this.value)" autocomplete="off">
-            <div id="cek-dropdown" class="autocomplete-dropdown"></div>
+      <!-- SEARCH CARD -->
+      <div class="card" style="padding:24px;max-width:780px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#0A66C2,#00B4D8);border-radius:10px;display:flex;align-items:center;justify-content:center;">
+            <i class="fas fa-id-card" style="color:white;font-size:15px;"></i>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:var(--gray-800);">Pencarian Berdasarkan NIK</div>
+            <div style="font-size:11px;color:#94A3B8;">Masukkan NIK 16 digit untuk mencari data verval izin praktik</div>
           </div>
         </div>
-        <div id="cek-result" style="margin-top:16px;"></div>
+        
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:260px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="font-size:12px;font-weight:600;color:#475569;margin-bottom:6px;"><i class="fas fa-fingerprint" style="margin-right:4px;color:#0A66C2;"></i>Nomor Induk Kependudukan (NIK)</label>
+              <input type="text" id="cek-search-nik" placeholder="Contoh: 3201012345670001" maxlength="16" 
+                oninput="this.value=this.value.replace(/\\D/g '');validateNikInput()" 
+                onkeypress="if(event.key==='Enter')searchVervalIzinPraktik()">
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:8px;padding-bottom:4px;">
+            <button onclick="searchVervalIzinPraktik()" class="btn btn-primary" id="btn-search-verval" style="padding:11px 24px;">
+              <i class="fas fa-search"></i> Cari Data
+            </button>
+            <button onclick="clearVervalSearch()" class="btn btn-outline" title="Reset pencarian">
+              <i class="fas fa-undo"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Quick Info -->
+        <div style="margin-top:12px;padding:10px 14px;background:#F0F9FF;border-radius:10px;border:1px solid #BAE6FD;font-size:12px;color:#0369A1;">
+          <i class="fas fa-info-circle" style="margin-right:6px;"></i>
+          <strong>Tips:</strong> Pastikan NIK yang dimasukkan sudah benar (16 digit angka). Data yang ditampilkan berasal dari sheet <strong>verval_izin_praktik</strong>.
+        </div>
       </div>
+      
+      <!-- RESULT AREA -->
+      <div id="cek-result" style="min-height:200px;"></div>
     </div>
   `;
 }
 
-const debouncedCekSearch = debounce(async function(q) {
-  const dropdown = document.getElementById('cek-dropdown');
-  const resultDiv = document.getElementById('cek-result');
-  if (!dropdown || !resultDiv) return;
+// Validate NIK input - enable/disable search button
+function validateNikInput() {
+  const input = document.getElementById('cek-search-nik');
+  const btn = document.getElementById('btn-search-verval');
+  if (!input || !btn) return;
+  
+  const val = input.value.replace(/\D/g, '');
+  const isValid = val.length >= 10; // Allow partial search with min 10 digits
+  
+  btn.disabled = !isValid;
+  btn.style.opacity = isValid ? '1' : '0.5';
+}
 
-  if (!q || q.length < 2) {
-    dropdown.style.display = 'none';
-    resultDiv.innerHTML = '';
+// Main search function - fetch verval data by NIK
+async function searchVervalIzinPraktik() {
+  const input = document.getElementById('cek-search-nik');
+  const resultDiv = document.getElementById('cek-result');
+  const btn = document.getElementById('btn-search-verval');
+  
+  if (!input || !resultDiv) return;
+  
+  const nik = input.value.replace(/\D/g, '');
+  
+  if (nik.length < 10) {
+    showToast('Masukkan minimal 10 digit NIK untuk pencarian', 'warning');
     return;
   }
-
-  try {
-    const res = await apiCall('searchNamaVerval', { q }, 'GET');
-    if (res.success && res.data.length > 0) {
-      dropdown.innerHTML = res.data.map(item => {
-        const nama = item['Nama Lengkap'] || item.nama_lengkap || '';
-        const nik = item.NIK || item.nik || '';
-        return `<div class="item" onclick="selectCekResult('${nik}', '${escapeHtml(nama)}')">
-          <span class="nama">${escapeHtml(nama)}</span>
-          <span class="nik">${nik}</span>
-        </div>`;
-      }).join('');
-      dropdown.style.display = 'block';
-    } else {
-      dropdown.innerHTML = '<div class="no-result">Tidak ditemukan</div>';
-      dropdown.style.display = 'block';
-    }
-  } catch (e) {
-    dropdown.style.display = 'none';
+  
+  // Show loading state
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mencari...';
   }
-}, 300);
-
-function handleCekSearch(value) { debouncedCekSearch(value); }
-
-function selectCekResult(nik, nama) {
-  const dropdown = document.getElementById('cek-dropdown');
-  const input = document.getElementById('cek-search-nama');
-  const resultDiv = document.getElementById('cek-result');
   
-  if (dropdown) dropdown.style.display = 'none';
-  if (input) input.value = nama;
+  resultDiv.innerHTML = `
+    <div class="card" style="padding:40px;text-align:center;">
+      <div style="width:56px;height:56px;background:#E0F2FE;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+        <i class="fas fa-spinner fa-spin" style="font-size:24px;color:#0A66C2;"></i>
+      </div>
+      <div style="font-weight:600;font-size:15px;color:var(--gray-800);">Mencari data verval...</div>
+      <div style="color:#94A3B8;font-size:13px;margin-top:6px;">NIK: <code style="background:#F1F5F9;padding:2px 8px;border-radius:4px;">${nik}</code></div>
+    </div>
+  `;
   
-  if (resultDiv) {
-    resultDiv.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Memuat detail data...</div>';
+  try {
+    // Call API to get verval data by NIK
+    const res = await apiCall('getVervalByNik', { nik }, 'GET');
     
-    apiCall('getVervalByNik', { nik }, 'GET').then(res => {
-      if (res.success && res.latest) {
-        showCekDetail(res.latest);
-      } else {
-        resultDiv.innerHTML = `
-          <div class="card" style="padding:24px;text-align:center;margin-top:12px;">
-            <i class="fas fa-info-circle" style="font-size:32px;color:#64748B;margin-bottom:10px;display:block;"></i>
-            <div style="font-weight:600;margin-bottom:6px;">Data verval untuk NIK ini belum tersedia</div>
-            <div style="color:#94A3B8;font-size:13px;">NIK: ${nik} | Nama: ${escapeHtml(nama)}</div>
-            ${isAdminOrOperator() ? `<br><button onclick="navigateTo('verval');document.getElementById('v-nik').value='${nik}';" class="btn btn-primary btn-sm mt-2"><i class="fas fa-plus"></i> Input Data Verval</button>` : ''}
+    // Reset button
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-search"></i> Cari Data';
+    }
+    
+    if (res.success && res.latest) {
+      showVervalIzinPraktikDetail(res.latest);
+    } else if (res.success && res.data && Array.isArray(res.data) && res.data.length > 0) {
+      // If multiple records found, show list
+      showVervalMultipleRecords(res.data, nik);
+    } else {
+      // No data found
+      resultDiv.innerHTML = `
+        <div class="card" style="padding:40px;text-align:center;margin-top:12px;">
+          <div style="width:64px;height:64px;background:#FEF2F2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <i class="fas fa-user-slash" style="font-size:28px;color:#DC2626;"></i>
           </div>
-        `;
-      }
-    });
+          <div style="font-weight:700;font-size:17px;color:var(--gray-800);margin-bottom:8px;">Data Tidak Ditemukan</div>
+          <div style="color:#64748B;font-size:14px;margin-bottom:16px;">Tidak ada data verval izin praktik untuk NIK ini</div>
+          <div style="display:inline-flex;align-items:center;gap:8px;background:#F1F5F9;padding:8px 16px;border-radius:999px;font-size:13px;color:#475569;">
+            <i class="fas fa-fingerprint" style="color:#64748B;"></i>
+            <span>NIK: <strong>${nik}</strong></span>
+          </div>
+          <div style="margin-top:20px;font-size:12px;color:#94A3B8;">
+            <i class="fas fa-info-circle" style="margin-right:4px;"></i>
+            Pastikan NIK sudah terdaftar di sistem atau hubungi admin untuk verifikasi data.
+          </div>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Error searching verval:', error);
+    
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-search"></i> Cari Data';
+    }
+    
+    resultDiv.innerHTML = `
+      <div class="card" style="padding:30px;text-align:center;margin-top:12px;border-left:4px solid #DC2626;">
+        <i class="fas fa-exclamation-triangle" style="font-size:32px;color:#DC2626;margin-bottom:12px;display:block;"></i>
+        <div style="font-weight:600;color:#991B1B;margin-bottom:8px;">Terjadi Kesalahan</div>
+        <div style="color:#64748B;font-size:13px;">Gagal mengambil data dari server. Silakan coba lagi.</div>
+        <button onclick="searchVervalIzinPraktik()" class="btn btn-sm btn-outline" style="margin-top:14px;">
+          <i class="fas fa-redo"></i> Ulangi Pencarian
+        </button>
+      </div>
+    `;
   }
 }
 
-function showCekDetail(data) {
+// Show multiple records if found
+function showVervalMultipleRecords(records, nik) {
   const resultDiv = document.getElementById('cek-result');
   if (!resultDiv) return;
   
   resultDiv.innerHTML = `
     <div class="card" style="padding:24px;margin-top:12px;">
-      <div style="font-weight:700;font-size:16px;color:var(--blue);margin-bottom:16px;">Detail Data Verval</div>
-      <div class="modal-verval-grid">
-        <div class="modal-verval-field"><label>NIK</label><input value="${data.NIK || data.nik || ''}" readonly></div>
-        <div class="modal-verval-field"><label>Nama Lengkap</label><input value="${escapeHtml(data['Nama Lengkap'] || data.nama_lengkap || '')}" readonly></div>
-        <div class="modal-verval-field"><label>Status STR</label><input value="${data['Status STR'] || data.status_str || '-'}" readonly></div>
-        <div class="modal-verval-field"><label>Status SIP</label><input value="${data['Status SIP'] || data.status_sip || '-'}" readonly></div>
-        <div class="modal-verval-field"><label>Nomor STR</label><input value="${data['Nomor STR'] || data.nomor_str || '-'}" readonly></div>
-        <div class="modal-verval-field"><label>Nomor SIP</label><input value="${data['Nomor SIP'] || data.nomor_sip || '-'}" readonly></div>
-        <div class="modal-verval-field"><label>Unit Kerja</label><input value="${data['Unit Kerja'] || data.unit_kerja || '-'}" readonly></div>
-        <div class="modal-verval-field"><label>SatuSehat Status</label><input value="${data['Status SatuSehat'] || data.status_satu_sehat || '-'}" readonly></div>
-      </div>
-      ${isAdminOrOperator() ? `
-        <div style="margin-top:16px;display:flex;gap:10px;">
-          <button onclick="closeModal();navigateTo('verval');setTimeout(()=>{document.getElementById('v-nik').value='${data.NIK||data.nik}';searchVervalByNik();},500);" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i> Edit Data</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #E2E8F0;">
+        <div style="width:36px;height:36px;background:#DBEAFE;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+          <i class="fas fa-list-ul" style="color:#1E40AF;font-size:15px;"></i>
         </div>
-      ` : ''}
+        <div>
+          <div style="font-weight:700;font-size:16px;color:var(--gray-800);">Ditemukan ${records.length} Data Verval</div>
+          <div style="font-size:12px;color:#64748B;">NIK: <code>${nik}</code> — Klik untuk melihat detail</div>
+        </div>
+      </div>
+      
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${records.map((rec, idx) => {
+          const nama = rec['Nama Lengkap'] || rec.nama_lengkap || rec.Nama || rec.nama || '-';
+          const statusSTR = rec['Status STR'] || rec.status_str || '-';
+          const statusSIP = rec['Status SIP'] || rec.status_sip || '-';
+          const unitKerja = rec['Unit Kerja'] || rec.unit_kerja || '-';
+          
+          return `
+            <div onclick="showVervalIzinPraktikDetail(rec)" style="padding:16px;background:#F8FAFC;border-radius:12px;border:1px solid #E2E8F0;cursor:pointer;transition:all .2s;" 
+              onmouseover="this.style.borderColor='#0A66C2';this.style.background='#EFF6FF';"
+              onmouseout="this.style.borderColor='#E2E8F0';this.style.background='#F8FAFC';">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:40px;height:40px;background:linear-gradient(135deg,#0A66C2,#00B4D8);border-radius:10px;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;">
+                    ${idx + 1}
+                  </div>
+                  <div>
+                    <div style="font-weight:700;font-size:15px;color:var(--gray-800);">${escapeHtml(nama)}</div>
+                    <div style="font-size:12px;color:#64748B;margin-top:2px;"><i class="fas fa-hospital" style="margin-right:4px;"></i>${escapeHtml(unitKerja)}</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <span class="badge badge-success" style="font-size:10px;">STR: ${escapeHtml(statusSTR)}</span>
+                  <span class="badge badge-info" style="font-size:10px;">SIP: ${escapeHtml(statusSIP)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
     </div>
   `;
+}
+
+// Show detailed view of single verval record - COMPLETE DATA from sheet
+function showVervalIzinPraktikDetail(data) {
+  const resultDiv = document.getElementById('cek-result');
+  if (!resultDiv) return;
+  
+  // Extract all fields with comprehensive fallbacks
+  const fields = {
+    // Identitas Dasar
+    nik: data.NIK || data.nik || '-',
+    namaLengkap: escapeHtml(data['Nama Lengkap'] || data.nama_lengkap || data.Nama || data.nama || '-'),
+    jenisKelamin: escapeHtml(data['Jenis Kelamin'] || data.jenis_kelamin || data.JK || data.jk || '-'),
+    tempatLahir: escapeHtml(data['Tempat Lahir'] || data.tempat_lahir || '-'),
+    tanggalLahir: data['Tanggal Lahir'] || data.tanggal_lahir || '-',
+    
+    // Data Kepegawaian/Profesi
+    nipNrp: escapeHtml(data.NIP || data.nip || data.NRP || data.nrp || '-'),
+    jenisTenaga: escapeHtml(data['Jenis Tenaga'] || data.jenis_tenaga || data.Jenis_Tenaga || '-'),
+    golonganPangkat: escapeHtml(data.Golongan || data.golongan || data.Pangkat || data.pangkat || '-'),
+    jabatan: escapeHtml(data.Jabatan || data.jabatan || '-'),
+    
+    // Data STR (Surat Tanda Registrasi)
+    nomorSTR: escapeHtml(data['Nomor STR'] || data.nomor_str || data.No_STR || data.no_str || '-'),
+    tanggalTerbitSTR: data['Tanggal Terbit STR'] || data.tanggal_terbit_str || data['Tgl STR'] || '-',
+    tanggalBerlakuSTR: data['Tanggal Berlaku STR'] || data.tanggal_berlaku_str || data['Berlaku STR'] || '-',
+    statusSTR: data['Status STR'] || data.status_str || '-',
+    
+    // Data SIP (Surat Izin Praktik)
+    nomorSIP: escapeHtml(data['Nomor SIP'] || data.nomor_sip || data.No_SIP || data.no_sip || '-'),
+    tanggalTerbitSIP: data['Tanggal Terbit SIP'] || data.tanggal_terbit_sip || data['Tgl SIP'] || '-',
+    tanggalBerlakuSIP: data['Tanggal Berlaku SIP'] || data.tanggal_berlaku_sip || data['Berlaku SIP'] || '-',
+    statusSIP: data['Status SIP'] || data.status_sip || '-',
+    
+    // Unit Kerja / Penempatan
+    unitKerja: escapeHtml(data['Unit Kerja'] || data.unit_kerja || data.Unit_Kerja || data.Tempat_Praktik || '-'),
+    alamatKerja: escapeHtml(data['Alamat Kerja'] || data.alamat_kerja || data.Alamat_Unit || '-'),
+    kecamatanKerja: escapeHtml(data.Kecamatan || data.kecamatan || '-'),
+    kabupatenKerja: escapeHtml(data.Kabupaten || data.kabupaten || data.Kota || data.kota || '-'),
+    
+    // Data SatuSehat
+    idSatuSehat: escapeHtml(data['ID SatuSehat'] || data.id_satu_sehat || data.SatuSehat_ID || '-'),
+    statusSatuSehat: data['Status SatuSehat'] || data.status_satu_sehat || data.SatuSehat_Status || '-',
+    
+    // Data Verifikasi
+    statusVerifikasi: extractVervalStatus(data),
+    tanggalVerifikasi: data['Tanggal Verifikasi'] || data.tanggal_verifikasi || data.Tgl_Verifikasi || '-',
+    verifikator: escapeHtml(data.Verifikator || data.verifikator || data['Nama Verifikator'] || '-'),
+    catatanVerifikasi: escapeHtml(data.Catatan || data.catatan || data.Keterangan || data.keterangan || '-'),
+    
+    // Metadata
+    timestamp: data.Timestamp || data.timestamp || data.Tanggal_Input || data.tanggal_input || '-'
+  };
+  
+  // Determine status badge color
+  let statusBadgeClass = 'badge-warning';
+  const statusLower = String(fields.statusVerifikasi).toLowerCase();
+  if (statusLower.includes('sah') || statusLower.includes('valid') || statusLower.includes('aktif')) statusBadgeClass = 'badge-success';
+  else if (statusLower.includes('tidak') || statusLower.includes('gagal') || statusLower.includes('ditolak')) statusBadgeClass = 'badge-danger';
+  else if (statusLower.includes('pending') || statusLower.includes('proses') || statusLower.includes('menunggu')) statusBadgeClass = 'badge-warning';
+  else if (statusLower.includes('kadarluasa') || statusLower.includes('waktu')) statusBadgeClass = 'badge-cyan';
+  
+  resultDiv.innerHTML = `
+    <div class="card" style="padding:0;overflow:hidden;margin-top:12px;">
+      <!-- HEADER -->
+      <div style="background:linear-gradient(135deg,#0A66C2 0%,#00B4D8 100%);color:white;padding:24px 28px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:60px;height:60px;background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);border-radius:16px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-user-md" style="font-size:26px;color:white;"></i>
+            </div>
+            <div>
+              <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;">Data Verval Izin Praktik</div>
+              <div style="font-size:22px;font-weight:800;line-height:1.2;">${fields.namaLengkap}</div>
+              <div style="font-size:13px;opacity:0.9;margin-top:4px;"><i class="fas fa-fingerprint" style="margin-right:6px;"></i>NIK: <strong>${fields.nik}</strong></div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;opacity:0.85;text-transform:uppercase;letter-spacing:1px;">Status Verifikasi</div>
+            <span class="badge" style="background:rgba(255,255,255,0.25);color:white;font-size:15px;padding:8px 20px;margin-top:4px;display:inline-block;">${fields.statusVerifikasi}</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- CONTENT -->
+      <div style="padding:24px 28px;">
+        
+        <!-- SECTION 1: IDENTITAS DIRI -->
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #F1F5F9;">
+            <div style="width:32px;height:32px;background:#DBEAFE;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-user" style="color:#1E40AF;font-size:13px;"></i>
+            </div>
+            <div style="font-weight:700;font-size:15px;color:#1E293B;">Identitas Diri</div>
+          </div>
+          <div class="modal-verval-grid">
+            <div class="modal-verval-field"><label>NIK</label><input value="${fields.nik}" readonly style="background:#F8FAFC;font-family:monospace;"></div>
+            <div class="modal-verval-field"><label>Nama Lengkap</label><input value="${fields.namaLengkap}" readonly style="background:#F8FAFC;font-weight:600;"></div>
+            <div class="modal-verval-field"><label>Jenis Kelamin</label><input value="${fields.jenisKelamin}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Tempat Lahir</label><input value="${fields.tempatLahir}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Tanggal Lahir</label><input value="${formatDate(fields.tanggalLahir)}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>NIP/NRP</label><input value="${fields.nipNrp}" readonly style="background:#F8FAFC;"></div>
+          </div>
+        </div>
+        
+        <!-- SECTION 2: DATA KEPEGAWAIAN -->
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #F1F5F9;">
+            <div style="width:32px;height:32px;background:#DCFCE7;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-briefcase-medical" style="color:#166534;font-size:13px;"></i>
+            </div>
+            <div style="font-weight:700;font-size:15px;color:#1E293B;">Data Kepegawaian</div>
+          </div>
+          <div class="modal-verval-grid">
+            <div class="modal-verval-field"><label>Jenis Tenaga</label><input value="${fields.jenisTenaga}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Golongan/Pangkat</label><input value="${fields.golonganPangkat}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Jabatan</label><input value="${fields.jabatan}" readonly style="background:#F8FAFC;"></div>
+          </div>
+        </div>
+        
+        <!-- SECTION 3: SURAT TANDA REGISTRASI (STR) -->
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #F1F5F9;">
+            <div style="width:32px;height:32px;background:#FEF3C7;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-file-certificate" style="color:#92400E;font-size:13px;"></i>
+            </div>
+            <div style="font-weight:700;font-size:15px;color:#1E293B;">Surat Tanda Registrasi (STR)</div>
+            <span class="badge ${fields.statusSTR.toLowerCase().includes('aktif') ? 'badge-success' : 'badge-warning'}" style="margin-left:auto;font-size:11px;">${fields.statusSTR}</span>
+          </div>
+          <div class="modal-verval-grid">
+            <div class="modal-verval-field"><label>Nomor STR</label><input value="${fields.nomorSTR}" readonly style="background:#F8FAFC;font-family:monospace;"></div>
+            <div class="modal-verval-field"><label>Status STR</label><input value="${fields.statusSTR}" readonly style="background:#F8FAFC;font-weight:600;"></div>
+            <div class="modal-verval-field"><label>Tanggal Terbit</label><input value="${formatDate(fields.tanggalTerbitSTR)}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Berlaku Sampai</label><input value="${formatDate(fields.tanggalBerlakuSTR)}" readonly style="background:#F8FAFC;"></div>
+          </div>
+        </div>
+        
+        <!-- SECTION 4: SURAT IZIN PRAKTIK (SIP) -->
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #F1F5F9;">
+            <div style="width:32px;height:32px;background:#DBEAFE;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-file-signature" style="color:#1E40AF;font-size:13px;"></i>
+            </div>
+            <div style="font-weight:700;font-size:15px;color:#1E293B;">Surat Izin Praktik (SIP)</div>
+            <span class="badge ${fields.statusSIP.toLowerCase().includes('aktif') ? 'badge-success' : 'badge-warning'}" style="margin-left:auto;font-size:11px;">${fields.statusSIP}</span>
+          </div>
+          <div class="modal-verval-grid">
+            <div class="modal-verval-field"><label>Nomor SIP</label><input value="${fields.nomorSIP}" readonly style="background:#F8FAFC;font-family:monospace;"></div>
+            <div class="modal-verval-field"><label>Status SIP</label><input value="${fields.statusSIP}" readonly style="background:#F8FAFC;font-weight:600;"></div>
+            <div class="modal-verval-field"><label>Tanggal Terbit</label><input value="${formatDate(fields.tanggalTerbitSIP)}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Berlaku Sampai</label><input value="${formatDate(fields.tanggalBerlakuSIP)}" readonly style="background:#F8FAFC;"></div>
+          </div>
+        </div>
+        
+        <!-- SECTION 5: UNIT KERJA / PENEMPATAN -->
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #F1F5F9;">
+            <div style="width:32px;height:32px;background:#F3E8FF;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-hospital-alt" style="color:#7C3AED;font-size:13px;"></i>
+            </div>
+            <div style="font-weight:700;font-size:15px;color:#1E293B;">Unit Kerja / Tempat Praktik</div>
+          </div>
+          <div class="modal-verval-grid">
+            <div class="modal-verval-field" style="grid-column:1/-1;"><label>Nama Unit / Fasyankes</label><input value="${fields.unitKerja}" readonly style="background:#F8FAFC;font-weight:600;"></div>
+            <div class="modal-verval-field" style="grid-column:1/-1;"><label>Alamat Lengkap</label><textarea readonly rows="2" style="background:#F8FAFC;width:100%;padding:9px 12px;border:1.5px solid #CBD5E1;border-radius:10px;font-size:13.5px;resize:none;">${fields.alamatKerja}</textarea></div>
+            <div class="modal-verval-field"><label>Kecamatan</label><input value="${fields.kecamatanKerja}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Kabupaten/Kota</label><input value="${fields.kabupatenKerja}" readonly style="background:#F8FAFC;"></div>
+          </div>
+        </div>
+        
+        <!-- SECTION 6: DATA SATUSEHAT -->
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #F1F5F9;">
+            <div style="width:32px;height:32px;background:#CFFAFE;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-link-medical" style="color:#155E75;font-size:13px;"></i>
+            </div>
+            <div style="font-weight:700;font-size:15px;color:#1E293B;">Integrasi SatuSehat</div>
+            <span class="badge badge-cyan" style="margin-left:auto;font-size:11px;">${fields.statusSatuSehat}</span>
+          </div>
+          <div class="modal-verval-grid">
+            <div class="modal-verval-field"><label>ID SatuSehat</label><input value="${fields.idSatuSehat}" readonly style="background:#F8FAFC;font-family:monospace;"></div>
+            <div class="modal-verval-field"><label>Status Integrasi</label><input value="${fields.statusSatuSehat}" readonly style="background:#F8FAFC;font-weight:600;"></div>
+          </div>
+        </div>
+        
+        <!-- SECTION 7: VERIFIKASI -->
+        <div style="margin-bottom:0;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #F1F5F9;">
+            <div style="width:32px;height:32px;background:#FEE2E2;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+              <i class="fas fa-clipboard-check" style="color:#991B1B;font-size:13px;"></i>
+            </div>
+            <div style="font-weight:700;font-size:15px;color:#1E293B;">Data Verifikasi</div>
+            <span class="badge ${statusBadgeClass}" style="margin-left:auto;font-size:11px;">${fields.statusVerifikasi}</span>
+          </div>
+          <div class="modal-verval-grid">
+            <div class="modal-verval-field"><label>Status Verifikasi</label><input value="${fields.statusVerifikasi}" readonly style="background:#F8FAFC;font-weight:600;"></div>
+            <div class="modal-verval-field"><label>Tanggal Verifikasi</label><input value="${formatDate(fields.tanggalVerifikasi)}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Diverifikasi Oleh</label><input value="${fields.verifikator}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field"><label>Timestamp Input</label><input value="${formatDate(fields.timestamp)}" readonly style="background:#F8FAFC;"></div>
+            <div class="modal-verval-field" style="grid-column:1/-1;"><label>Catatan/Keterangan</label><textarea readonly rows="2" style="background:#F8FAFC;width:100%;padding:9px 12px;border:1.5px solid #CBD5E1;border-radius:10px;font-size:13.5px;resize:none;">${fields.catatanVerifikasi}</textarea></div>
+          </div>
+        </div>
+        
+      </div>
+      
+      <!-- FOOTER -->
+      <div style="background:#F8FAFC;padding:14px 28px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div style="font-size:11px;color:#94A3B8;">
+          <i class="fas fa-database" style="margin-right:4px;"></i>Data dari sheet <strong>verval_izin_praktik</strong> • Mode View Only
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="window.print()" class="btn btn-sm btn-outline" title="Cetak halaman ini"><i class="fas fa-print"></i> Cetak</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Helper: Extract status from verval izin praktik data
+function extractVervalStatus(row) {
+  const candidates = [
+    row['Status Verifikasi'],
+    row.status_verifikasi,
+    row['Status_Verifikasi'],
+    row['Hasil Verifikasi'],
+    row.hasil_verifikasi,
+    row.Status,
+    row.status,
+    row['Status Validasi'],
+    row.status_validasi,
+    row['Status Verval'],
+    row.status_verval,
+    row.Keterangan_Status,
+    row.Catatan
+  ];
+  
+  for (const val of candidates) {
+    if (val !== undefined && val !== null && String(val).trim() !== '') {
+      return String(val).trim();
+    }
+  }
+  
+  return 'Belum Diverifikasi';
+}
+
+// Clear search and reset form
+function clearVervalSearch() {
+  const input = document.getElementById('cek-search-nik');
+  const resultDiv = document.getElementById('cek-result');
+  
+  if (input) input.value = '';
+  if (resultDiv) resultDiv.innerHTML = '';
+  
+  validateNikInput();
 }
 
 // ==================== PENGUMUMAN PAGE ====================
@@ -2163,14 +2515,14 @@ function showVervalSuccessModal(data, timestamp) {
 
 // ==================== SDM KESEHATAN STANDAR PER JENIS FASYANKES ====================
 const SDM_FASYANKES = {
-   'Rumah Sakit': ['Dokter Spesialis', 'Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Nutrisionis', 'Apoteker', 'Radiografer', 'Tenaga Teknologi Laboratorium Medik', 'Fisioterapis', 'Elektromedik', 'Sanitarian', 'Perekam Medis', 'Tenaga Sanitasi Lingkungan', 'Tenaga Vokasi Kefarmasian'],
-  'Puskesmas': ['Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Nutrisionis', 'Tenaga Sanitasi Lingkungan', 'Epidemiolog Kesehatan', 'Promosi Kesehatan dan Ilmu Perilaku', 'Entomolog Kesehatan', 'Tenaga Teknologi Laboratorium Medik'],
-  'Klinik': ['Dokter Spesialis', 'Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Nutrisionis', 'Apoteker', 'Fisioterapis'],
-  'Apotik': ['Apoteker', 'Tenaga Vokasi Kefarmasian'],
-  'Toko Obat': ['Tenaga Vokasi Kefarmasian'],
+  'Rumah Sakit': ['Dokter Spesialis', 'Dokter Umum', 'Perawat', 'Bidan', 'Ahli Gizi', 'Farmapis', 'Radiografer', 'Laboran', 'Fisioterapis', 'Elektromedik', 'Sanitarian', 'Rekam Medis', 'Nutritionist', 'OK Assistant'],
+  'Puskesmas': ['Dokter Umum', 'Perawat', 'Bidan', 'Ahli Gizi', 'Sanitarian', 'Epidemiolog', 'Promosi Kesehatan', 'Entomologist', 'Admin Kesehatan'],
+  'Klinik': ['Dokter Umum', 'Dokter Gigi', 'Perawat', 'Bidan', 'Asisten Apoteker', 'Ahli Gizi', 'Fisioterapis'],
+  'Apotik': ['Apoteker', 'Asisten Apoteker', 'Teknis Kefarmasian'],
+  'Toko Obat': ['Asisten Apoteker', 'Tenaga Teknis Kefarmasian'],
   'Optik': ['Optometris', 'Optisian', 'Tenaga Teknis Optisi'],
   'PBF (Pedagang Besar Farmasi)': ['Apoteker', 'Staff Penjualan', 'Quality Control', 'Gudang Farmasi'],
-  'Tempat Praktik Mandiri': ['Dokter Spesialis', 'Dokter', 'Dokter Gigi', 'Perawat', 'Bidan', 'Psikolog Klinis', 'Fisioterapis', 'Terapis Wicara']
+  'Tempat Praktik Mandiri': ['Dokter Spesialis', 'Dokter Umum', 'Dokter Gigi', 'Bidan', 'Perawat', 'Psikolog', 'Fisioterapis', 'Akupunturis']
 };
 
 function getSDMOptions(jenis) {
