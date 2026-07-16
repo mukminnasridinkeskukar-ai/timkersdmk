@@ -505,10 +505,45 @@ function seedDemoData() {
   saveToStorage();
 }
 
-// ==================== API LAYER ====================
+// ==================== API LAYER (WITH SMART CACHE & GRACEFUL DEGRADATION) ====================
+
+// Connection state tracking
+let apiConnectionState = 'unknown'; // 'unknown' | 'online' | 'offline'
+let apiLastSuccessTime = 0;
+const API_CACHE_TTL = 60000; // Cache data for 60 seconds
+const apiCache = new Map(); // Action-based cache
+
+// Check if we should use cached data instead of fetching
+function getCachedData(action) {
+  const cached = apiCache.get(action);
+  if (cached && (Date.now() - cached.timestamp) < API_CACHE_TTL) {
+    console.log(`[API] Using cached data for: ${action} (age: ${Date.now() - cached.timestamp}ms)`);
+    return cached.data;
+  }
+  return null;
+}
+
+// Store successful response in cache
+function setCachedData(action, data) {
+  apiCache.set(action, { data, timestamp: Date.now() });
+  apiConnectionState = 'online';
+  apiLastSuccessTime = Date.now();
+}
+
 async function apiCall(action, payload = {}, method = 'POST') {
+  // If explicitly not using GAS, return mock immediately
   if (!USE_GAS) {
     return mockApi(action, payload);
+  }
+
+  // Try to use cache first for read actions (if recently fetched)
+  const isReadAction = READ_ACTIONS.has(action);
+  if (isReadAction && apiConnectionState === 'offline') {
+    const cached = getCachedData(action);
+    if (cached) {
+      console.log(`[API] Offline mode, using cache for: ${action}`);
+      return { success: true, data: cached, cached: true };
+    }
   }
 
   try {
@@ -536,21 +571,56 @@ async function apiCall(action, payload = {}, method = 'POST') {
       options.body = JSON.stringify({ action, ...payload });
     }
 
+    // Use smart fetch with longer timeout for GAS cold starts
     const res = await fetchWithRetry(url.toString(), options, 2);
-    return await res.json();
+    const result = await res.json();
+    
+    // Cache successful read responses
+    if (isReadAction && result.success) {
+      setCachedData(action, result.data || []);
+      // Update badge to online on successful fetch
+      updateConnectionBadge('online');
+    }
+    
+    return result;
 
   } catch (err) {
-    console.error('API Error (CORS / network), falling back to local demo data:', err);
-    showToast('Tidak dapat terhubung ke Google Apps Script. Menggunakan data lokal.', 'warning');
+    // Mark as offline after consecutive failures
+    const isTimeout = err.name === 'AbortError' || err.message?.includes('abort');
+    const isNetwork = err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || err.message?.includes('ERR_CONNECTION_CLOSED');
+    
+    console.warn(`[API] Error (${isTimeout ? 'timeout' : isNetwork ? 'network' : 'unknown'}):`, err.message || err);
+    
+    // Update connection state and badge
+    if (isTimeout || isNetwork) {
+      apiConnectionState = 'offline';
+      updateConnectionBadge('offline'); // Update badge to show offline status
+      
+      // Try to return cached data first before falling back to mock
+      const cached = getCachedData(action);
+      if (cached) {
+        console.log(`[API] Network error, returning cached data for: ${action}`);
+        return { success: true, data: cached, cached: true, warning: 'Using cached data (offline mode)' };
+      }
+    }
+    
+    // Only show toast once per session for network errors
+    if (apiConnectionState !== 'offline') {
+      showToast('Koneksi ke server terputus. Menggunakan data tersimpan.', 'warning');
+    }
+    
+    // Final fallback to mock/local data
     return mockApi(action, payload);
   }
 }
 
-async function fetchWithRetry(url, options, retries = 1) {
+async function fetchWithRetry(url, options, retries = 2) {
   for (let i = 0; i <= retries; i++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout (fast)
+      // Progressive timeout: 12s -> 15s -> 18s (GAS needs time for cold starts)
+      const timeoutMs = 12000 + (i * 3000); 
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       options.signal = controller.signal;
       
       const res = await fetch(url, options);
@@ -559,8 +629,13 @@ async function fetchWithRetry(url, options, retries = 1) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res;
     } catch (e) {
+      // Log retry attempt
+      if (i < retries) {
+        console.log(`[API] Retry ${i + 1}/${retries} for: ${url.substring(0, 50)}...`);
+      }
       if (i === retries) throw e;
-      await new Promise(r => setTimeout(r, 500 * (i + 1))); // Faster retry
+      // Exponential backoff: 1s -> 2s
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)));
     }
   }
 }
@@ -3308,6 +3383,127 @@ function closeModal() {
 }
 
 // ==================== INITIALIZATION ====================
+
+// Update connection badge in header
+function updateConnectionBadge(status) {
+  const badge = document.getElementById('connection-badge');
+  const connText = document.getElementById('conn-text');
+  if (!badge || !connText) return;
+  
+  switch (status) {
+    case 'online':
+      badge.style.background = '#DCFCE7';
+      badge.style.color = '#166534';
+      connText.innerHTML = '<i class="fas fa-cloud"></i> ONLINE';
+      badge.title = 'Terhubung ke Google Sheet • Klik untuk refresh';
+      badge.style.cursor = 'pointer';
+      badge.onclick = forceReconnect;
+      break;
+    case 'offline':
+      badge.style.background = '#FEE2E2';
+      badge.style.color = '#991B1B';
+      connText.innerHTML = '<i class="fas fa-cloud-slash"></i> OFFLINE';
+      badge.title = 'Tidak terhubung • Klik untuk coba lagi';
+      badge.style.cursor = 'pointer';
+      badge.onclick = forceReconnect;
+      break;
+    case 'checking':
+    default:
+      badge.style.background = '#FEF3C7';
+      badge.style.color = '#854D0E';
+      connText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> CEK...';
+      badge.title = 'Memeriksa koneksi...';
+      badge.style.cursor = 'wait';
+      badge.onclick = null;
+      break;
+    case 'cached':
+      badge.style.background = '#DBEAFE';
+      badge.style.color = '#1E40AF';
+      connText.innerHTML = '<i class="fas fa-database"></i> CACHE';
+      badge.title = 'Menggunakan data tersimpan • Klik untuk refresh';
+      badge.style.cursor = 'pointer';
+      badge.onclick = forceReconnect;
+      break;
+  }
+}
+
+// Test server connection on startup
+async function testServerConnection() {
+  if (!USE_GAS) {
+    updateConnectionBadge('offline');
+    return;
+  }
+  
+  try {
+    // Quick ping with short timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s for initial check
+    
+    const url = new URL(GAS_WEB_APP_URL);
+    url.searchParams.set('action', 'ping');
+    
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      mode: 'cors',
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (res.ok) {
+      apiConnectionState = 'online';
+      apiLastSuccessTime = Date.now();
+      updateConnectionBadge('online');
+      console.log('[API] Server connection successful');
+    } else {
+      throw new Error('HTTP ' + res.status);
+    }
+  } catch (err) {
+    console.warn('[API] Initial connection failed:', err.message);
+    apiConnectionState = 'offline';
+    updateConnectionBadge('offline');
+    // Don't show toast on initial load - user might be offline
+  }
+}
+
+// Force reconnect when user clicks connection badge
+async function forceReconnect() {
+  updateConnectionBadge('checking');
+  showToast('Menghubungkan ke server...', 'info');
+  
+  // Reset cache to force fresh fetch
+  apiCache.clear();
+  apiConnectionState = 'unknown';
+  dashboardLoaded = false;
+  dashboardCacheTime = 0;
+  
+  // Test connection
+  await testServerConnection();
+  
+  // Reload current page data
+  if (currentPage === 'dashboard') {
+    await loadDashboardData(true);
+  } else if (currentPage === 'admin') {
+    await loadAdminStats();
+    // Reload active tab
+    const activeTab = document.querySelector('.admin-tab.active');
+    if (activeTab) {
+      const tabName = activeTab.id.replace('tab-', '');
+      switchAdminTab(tabName);
+    }
+  } else {
+    // Generic reload
+    navigateTo(currentPage);
+  }
+  
+  // Update badge based on result
+  if (apiConnectionState === 'online') {
+    showToast('Koneksi berhasil! Data diperbarui.', 'success');
+  } else {
+    showToast('Masih tidak terhubung. Menggunakan data lokal.', 'warning');
+  }
+}
+
 function initApp() {
   showLoading(true);
   
@@ -3320,20 +3516,11 @@ function initApp() {
   // Check session
   checkSession();
   
-  // Connection badge
-  const badge = document.getElementById('connection-badge');
-  const connText = document.getElementById('conn-text');
-  if (USE_GAS) {
-    badge.style.background = '#DCFCE7';
-    badge.style.color = '#166534';
-    connText.innerHTML = 'TERHUBUNG';
-    badge.title = 'Data tersinkron dengan Google Sheet';
-    
-    // Test connection
-    apiCall('ping').catch(() => {});
-  } else {
-    connText.innerHTML = 'DEMO MODE';
-  }
+  // Initialize connection badge with dynamic status
+  updateConnectionBadge('checking');
+  
+  // Test connection to GAS
+  testServerConnection();
   
   // Initial navigation
   setTimeout(() => {
