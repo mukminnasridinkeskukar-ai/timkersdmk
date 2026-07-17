@@ -673,7 +673,7 @@
                 <button onclick="loadAnjab(true)" class="text-xs px-4 py-2.5 border border-white/20 rounded-2xl hover:bg-white/5 flex items-center gap-2 transition-all">
                   <i class="fa-solid fa-sync"></i> <span>Muat Ulang</span>
                 </button>
-                <button id="btn-tambah-anjab" onclick="showAnjabModal()" class="text-xs px-4 py-2.5 bg-violet-500/90 hover:bg-violet-500 rounded-2xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-violet-500/30">
+                <button id="btn-tambah-anjab" onclick="showAnjabModal()" class="admin-only text-xs px-4 py-2.5 bg-violet-500/90 hover:bg-violet-500 rounded-2xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-violet-500/30">
                   <i class="fa-solid fa-plus"></i> <span>Tambah Data</span>
                 </button>
               </div>
@@ -779,10 +779,10 @@
                 <button onclick="loadSpesialis(true)" class="text-xs px-4 py-2.5 border border-white/20 rounded-2xl hover:bg-white/5 flex items-center gap-2 transition-all">
                   <i class="fa-solid fa-sync"></i> <span>Muat Ulang</span>
                 </button>
-                <button id="btn-export-spesialis" onclick="exportSpesialisExcel()" class="text-xs px-4 py-2.5 bg-emerald-500/90 hover:bg-emerald-500 rounded-2xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/30">
+                <button id="btn-export-spesialis" onclick="exportSpesialisExcel()" class="admin-only text-xs px-4 py-2.5 bg-emerald-500/90 hover:bg-emerald-500 rounded-2xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/30">
                   <i class="fa-solid fa-file-excel"></i> <span>Export Excel</span>
                 </button>
-                <button id="btn-tambah-spesialis" onclick="showSpesialisModal()" class="text-xs px-4 py-2.5 bg-rose-500/90 hover:bg-rose-500 rounded-2xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-rose-500/30">
+                <button id="btn-tambah-spesialis" onclick="showSpesialisModal()" class="admin-only text-xs px-4 py-2.5 bg-rose-500/90 hover:bg-rose-500 rounded-2xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-rose-500/30">
                   <i class="fa-solid fa-plus"></i> <span>Tambah Data</span>
                 </button>
               </div>
@@ -2517,6 +2517,9 @@
         localStorage.setItem('simandakes_auth', JSON.stringify(currentUser));
       }
       updateUserDisplay();
+      
+      // Apply role-based visibility immediately after role is determined
+      setTimeout(() => applyRoleBasedVisibility(), 100);
 
       // === AGGRESSIVE BACKEND INTEGRATION ===
       if (API_URL) {
@@ -2690,31 +2693,23 @@
     function applyRoleBasedVisibility() {
       const isAdmin = currentUser && currentUser.role === 'admin';
       
-      // Array of all admin-only button IDs
+      // Array of all admin-only button IDs - COMPLETE LIST
       const adminOnlyButtons = [
-        // Anjab-ABK
+        // Anjab-ABK (Sidebar Menu)
         'btn-tambah-anjab',
-        'btn-admin-tambah-anjab',
         
-        // Dokter Spesialis
+        // Dokter Spesialis (Sidebar Menu)
         'btn-export-spesialis',
         'btn-tambah-spesialis',
         
-        // Renbut (Admin Panel)
+        // Admin Panel Buttons
+        'btn-admin-tambah-anjab',
         'btn-admin-tambah-renbut',
-        
-        // Profil Faskes (Admin Panel)
         'btn-admin-tambah-profil',
-        
-        // Rekap SDMK (Admin Panel)
         'btn-admin-tambah-rekap-sdmk',
         'btn-admin-export-rekap-sdmk',
-        
-        // Rekap Spesialis (Admin Panel)
         'btn-admin-tambah-rekap-spesialis',
         'btn-admin-export-rekap-spesialis',
-        
-        // User Management (Admin Panel)
         'btn-admin-tambah-user'
       ];
       
@@ -2723,11 +2718,24 @@
         const btn = document.getElementById(btnId);
         if (btn) {
           btn.style.display = isAdmin ? '' : 'none';
+          if (!isAdmin) {
+            btn.setAttribute('data-hidden-for-role', 'true');
+          } else {
+            btn.removeAttribute('data-hidden-for-role');
+          }
         }
+      });
+      
+      // Also hide any element with class 'admin-only' for non-admin
+      document.querySelectorAll('.admin-only').forEach(el => {
+        el.style.display = isAdmin ? '' : 'none';
       });
       
       console.log(`[Role Visibility] Role: ${currentUser?.role || 'unknown'}, Admin buttons: ${isAdmin ? 'VISIBLE' : 'HIDDEN'}`);
     }
+    
+    // Expose globally for debugging
+    window.applyRoleBasedVisibility = applyRoleBasedVisibility;
 
 
     function navigateTo(section) {
@@ -6989,6 +6997,7 @@ function showProfilDetail(idx) {
           };
           localStorage.setItem('simandakes_auth', JSON.stringify(currentUser));
           updateUserDisplay();
+          applyRoleBasedVisibility(); // Sembunyikan tombol admin untuk non-admin
           closeModal();
           showToast(`Login berhasil sebagai ${currentUser.role.toUpperCase()}`, 'success');
           logActivity('ADMIN_LOGIN', currentUser.username);
@@ -7013,6 +7022,7 @@ function showProfilDetail(idx) {
         currentUser = found;
         localStorage.setItem('simandakes_auth', JSON.stringify(currentUser));
         updateUserDisplay();
+        applyRoleBasedVisibility(); // Sembunyikan tombol admin untuk non-admin
         closeModal();
         showToast(`Login berhasil (mode lokal) sebagai ${found.role}`, 'success');
         logActivity('ADMIN_LOGIN', found.username);
