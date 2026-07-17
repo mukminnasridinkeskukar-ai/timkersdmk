@@ -1700,7 +1700,7 @@
     // ==================== CONFIG & STATE ====================
     // Web App URL - Gunakan URL yang SAMA dengan yang terdeploy di Google Apps Script
     // URL di code.gs: https://script.google.com/macros/s/AKfycbzAKCmCtCElNvOU6K0V8yjysYQsF00nzs8tOc-pA4Ux6avxr0Sa6MVUpw4J-ePjyLvp/exec
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbxGbDx9eCfkzh7pFoGDom7n9f1vKQjFR63dRUVqNpF67PQ1OjeLF6r0YkjpAJwfrrEm/exec';
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbzAKCmCtCElNvOU6K0V8yjysYQsF00nzs8tOc-pA4Ux6avxr0Sa6MVUpw4J-ePjyLvp/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -4537,25 +4537,43 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
     
     /**
      * Load Spesialis data from server or local storage
+     * SELALU coba ambil dari Google Sheet dulu!
      */
     async function loadSpesialis(forceRefresh = false) {
-      if (forceRefresh && isApiConnected && API_URL) {
+      // SELALU coba load dari server jika API tersedia
+      if (API_URL) {
         try {
-          showToast('Memuat data Spesialis...', 'info');
+          showToast('Memuat data Spesialis dari sheet...', 'info');
           const res = await callAPI('getSpesialisData');
-          if (res.success && res.data) {
-            DATA.spesialis = res.data;
-            showToast('Data Spesialis berhasil dimuat', 'success');
+          if (res.success && res.data && res.data.length > 0) {
+            // Convert array data to object format
+            DATA.spesialis = res.data.map((row, idx) => ({
+              id: row.id || (idx + 1),
+              tahun: row.tahun || row.tahun || new Date().getFullYear(),
+              bulan: row.bulan || row.bulan || String(new Date().getMonth() + 1).padStart(2, '0'),
+              unit: row.unit || row.unit_kerja || row.unitkerja || '',
+              jenis: row.jenis || row.jenis_spesialis || row.jenisspesialis || '',
+              jumlah: parseInt(row.jumlah || row.jumlah_dokter || 0) || 0,
+              created_at: row.created_at || row.createdat || '',
+              updated_at: row.updated_at || row.updatedat || ''
+            }));
+            
+            isApiConnected = true;
+            showToast(`Data Spesialis berhasil dimuat: ${DATA.spesialis.length} record`, 'success');
+          } else if (res.message && !res.message.includes('belum')) {
+            showToast(res.message || 'Data kosong', 'warning');
           }
         } catch (e) {
-          console.error('Failed to load spesialis:', e);
-          showToast('Gagal memuat data dari server', 'error');
+          console.error('Failed to load spesialis from sheet:', e);
+          showToast('Gagal memuat data dari sheet dokter_spesialis', 'error');
         }
       }
       
-      // Initialize with sample data if empty
+      // Hanya gunakan sample data jika BENAR-BENAR kosong dan tidak ada koneksi
       if (!DATA.spesialis || DATA.spesialis.length === 0) {
+        console.warn('[Spesialis] Using SAMPLE data - tidak ada data dari sheet');
         DATA.spesialis = generateSampleSpesialisData();
+        showToast('Menampilkan data contoh (sample)', 'info');
       }
       
       renderSpesialisTable();
@@ -5030,14 +5048,16 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
     if (!DATA.sdmk) DATA.sdmk = [];
     
     /**
-     * Load SDMK data from server or use local/sample data
+     * Load SDMK data from Google Sheet
+     * SELALU coba ambil dari sheet data_sdmk dulu!
      */
     async function loadSDMK(forceRefresh = false) {
-      if (forceRefresh && isApiConnected && API_URL) {
+      // SELALU coba load dari server jika API tersedia
+      if (API_URL) {
         try {
-          showToast('Memuat data SDMK...', 'info');
+          showToast('Memuat data SDMK dari sheet...', 'info');
           const res = await callAPI('getSDMKData');
-          if (res.success && res.data) {
+          if (res.success && res.data && res.data.length > 0) {
             // Convert array format to object format for easier handling
             DATA.sdmk = res.data.map((row, idx) => ({
               id: row.id || (idx + 1),
@@ -5051,19 +5071,23 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
               no_telepon: row.no_telepon || row.telepon || row.telp || '',
               alamat: row.alamat || ''
             }));
-            showToast('Data SDMK berhasil dimuat dari server', 'success');
+            
+            isApiConnected = true;
+            showToast(`Data SDMK berhasil dimuat: ${DATA.sdmk.length} record`, 'success');
           } else if (res.message && !res.message.includes('belum')) {
-            showToast(res.message || 'Gagal memuat data', 'warning');
+            showToast(res.message || 'Data kosong', 'warning');
           }
         } catch (e) {
-          console.error('Failed to load SDMK:', e);
-          showToast('Gagal memuat data dari server', 'error');
+          console.error('Failed to load SDMK from sheet:', e);
+          showToast('Gagal memuat data dari sheet data_sdmk', 'error');
         }
       }
       
-      // Initialize with sample data if empty
+      // Hanya gunakan sample data jika BENAR-BENAR kosong dan tidak ada koneksi
       if (!DATA.sdmk || DATA.sdmk.length === 0) {
+        console.warn('[SDMK] Using SAMPLE data - tidak ada data dari sheet');
         DATA.sdmk = generateSampleSDMKData();
+        showToast('Menampilkan data contoh (sample)', 'info');
       }
       
       renderSDMKTable();
