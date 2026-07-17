@@ -2850,6 +2850,8 @@
     function applyRoleBasedVisibility() {
       const isAdmin = currentUser && currentUser.role === 'admin';
       
+      console.log(`[Role Visibility Check] currentUser:`, currentUser, `isAdmin: ${isAdmin}`);
+      
       // Array of all admin-only button IDs - COMPLETE LIST
       const adminOnlyButtons = [
         // Anjab-ABK (Sidebar Menu)
@@ -2877,7 +2879,7 @@
       let hiddenCount = 0;
       let visibleCount = 0;
       
-      // Hide/show all admin-only buttons
+      // Hide/show all admin-only buttons by ID
       adminOnlyButtons.forEach(btnId => {
         const btn = document.getElementById(btnId);
         if (btn) {
@@ -2889,16 +2891,23 @@
             btn.style.display = 'none';
             btn.setAttribute('data-hidden-for-role', 'true');
             hiddenCount++;
+            console.log(`[Hidden] Button: ${btnId}`);
           }
         }
       });
       
-      // Also hide any element with class 'admin-only' for non-admin
+      // CRITICAL: Also hide ANY element with class 'admin-only' for non-admin
+      // This catches buttons that might not be in the ID list
       document.querySelectorAll('.admin-only').forEach(el => {
         if (isAdmin) {
           el.style.display = '';
+          el.removeAttribute('data-hidden-for-role');
         } else {
           el.style.display = 'none';
+          el.setAttribute('data-hidden-for-role', 'true');
+          hiddenCount++;
+          if (el.id) console.log(`[Hidden] .admin-only element: #${el.id}`);
+          else console.log(`[Hidden] .admin-only element: ${el.tagName}.${el.className}`);
         }
       });
       
@@ -2916,6 +2925,38 @@
           el.style.display = 'none';
           hiddenCount++;
         });
+        
+        // Hide ALL modal-triggering buttons for non-admin (showModal, showRenbutModal, etc.)
+        document.querySelectorAll('button[onclick*="Modal"]').forEach(btn => {
+          // Only hide if not already handled and is in a table/action context
+          if (!btn.classList.contains('admin-only') && !btn.getAttribute('data-hidden-for-role')) {
+            const onclick = btn.getAttribute('onclick') || '';
+            if (onclick.includes('showSpesialisModal') || 
+                onclick.includes('showSDMKModal') || 
+                onclick.includes('showRenbutModal') ||
+                onclick.includes('showAnjabModal') ||
+                onclick.includes('showProfilModal')) {
+              btn.style.display = 'none';
+              btn.setAttribute('data-hidden-for-role', 'true');
+              hiddenCount++;
+            }
+          }
+        });
+        
+        // CRITICAL: Hide Rasio table delete buttons for non-admin
+        document.querySelectorAll('button[onclick*="deleteRasioRow"]').forEach(btn => {
+          btn.style.display = 'none';
+          btn.setAttribute('data-hidden-for-role', 'true');
+          hiddenCount++;
+          console.log('[Hidden] deleteRasioRow button');
+        });
+        
+        // Hide any input fields that allow data modification in Rasio table
+        document.querySelectorAll('#rasio-tbody input').forEach(input => {
+          input.disabled = true;
+          input.classList.add('opacity-50', 'cursor-not-allowed');
+        });
+        
       } else {
         // Show Anjab table "Upload" buttons for admin
         document.querySelectorAll('button[onclick*="showAnjabModal"]').forEach(btn => {
@@ -2928,9 +2969,29 @@
           el.style.display = '';
           visibleCount++;
         });
+        
+        // Show modal-triggering buttons for admin
+        document.querySelectorAll('button[data-hidden-for-role="true"][onclick*="Modal"]').forEach(btn => {
+          btn.style.display = '';
+          btn.removeAttribute('data-hidden-for-role');
+          visibleCount++;
+        });
+        
+        // Show Rasio table delete buttons for admin
+        document.querySelectorAll('button[onclick*="deleteRasioRow"][data-hidden-for-role="true"]').forEach(btn => {
+          btn.style.display = '';
+          btn.removeAttribute('data-hidden-for-role');
+          visibleCount++;
+        });
+        
+        // Enable input fields for admin in Rasio table
+        document.querySelectorAll('#rasio-tbody input').forEach(input => {
+          input.disabled = false;
+          input.classList.remove('opacity-50', 'cursor-not-allowed');
+        });
       }
       
-      console.log(`[Role Visibility] Role: ${currentUser?.role || 'unknown'}, Hidden: ${hiddenCount}, Visible: ${visibleCount}`);
+      console.log(`[Role Visibility Result] Role: ${currentUser?.role || 'unknown'}, Hidden: ${hiddenCount}, Visible: ${visibleCount}`);
       
       return { isAdmin, hiddenCount, visibleCount };
     }
@@ -3543,6 +3604,9 @@ function renderRenbutTable(filteredData = null) {
            <td class="text-xs text-white/60 max-w-[200px] truncate">${r.keterangan || '-'}</td>
           </tr>
        `).join('');
+       
+       // Apply role-based visibility for non-admin
+       applyRoleBasedVisibility();
     }
 
 
@@ -3830,6 +3894,9 @@ function viewRenbut(id) {
           </td>
         </tr>
       `}).join('');
+      
+      // Apply role-based visibility for non-admin (hide Upload buttons)
+      applyRoleBasedVisibility();
     }
 
 
@@ -4769,6 +4836,9 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
           </td>` : ''}
         </tr>
       `}).join('');
+      
+      // CRITICAL: Apply role-based visibility AFTER rendering to hide CRUD buttons for non-admin
+      applyRoleBasedVisibility();
     }
 
     
@@ -5264,6 +5334,9 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
       
       footer.classList.remove('hidden');
       document.getElementById('sdmk-record-count').textContent = `${data.length} data`;
+      
+      // CRITICAL: Apply role-based visibility AFTER rendering to hide CRUD buttons for non-admin
+      applyRoleBasedVisibility();
     }
     
     /**
@@ -5733,6 +5806,9 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
       
       // Also update dashboard rasio bar
       updateRasibar();
+      
+      // Apply role-based visibility for non-admin (hide delete buttons in rasio table)
+      applyRoleBasedVisibility();
     }
 
     
@@ -6388,6 +6464,9 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
       
       // Update stats cards
       updateProfilStats(data);
+      
+      // Apply role-based visibility for non-admin
+      applyRoleBasedVisibility();
     }
 
     function updateProfilStats(data) {
