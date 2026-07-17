@@ -916,7 +916,7 @@
                    <th>Unit Kerja</th>
                    <th>Jenis Spesialis</th>
                    <th class="w-28 text-right">Jumlah</th>
-                   <th class="rounded-tr-2xl w-28 text-center">Aksi</th>
+                   <th id="spesialis-th-aksi" class="rounded-tr-2xl w-28 text-center">Aksi</th>
                  </tr></thead>
                 <tbody id="spesialis-tbody"></tbody>
               </table>
@@ -1054,17 +1054,15 @@
           <!-- Table -->
           <div class="glass rounded-3xl border border-white/10 overflow-hidden shadow-xl">
             <div class="overflow-x-auto modern-scroll">
-              <table id="sdmk-table" class="data-table w-full min-w-[1200px]">
+              <table id="sdmk-table" class="data-table w-full min-w-[1000px]">
                  <thead><tr>
                    <th class="rounded-tl-2xl w-16">No</th>
                    <th>Nama Lengkap</th>
-                   <th class="w-28">NIP/NIK</th>
                    <th class="w-40">Jenis Tenaga</th>
                    <th>Pendidikan</th>
                    <th>Unit Kerja</th>
                    <th class="w-28">Status</th>
-                   <th class="w-32">No. Telepon</th>
-                   <th class="rounded-tr-2xl w-28 text-center">Aksi</th>
+                   <th id="sdmk-th-aksi" class="rounded-tr-2xl w-28 text-center">Aksi</th>
                  </tr></thead>
                 <tbody id="sdmk-tbody"></tbody>
               </table>
@@ -1489,9 +1487,11 @@
             </div>
              <div class="flex items-center gap-3 text-xs">
                <div class="px-4 py-2 bg-emerald-500/10 border border-emerald-400/40 rounded-3xl text-emerald-400 flex items-center gap-2">
-                 <i class="fa-solid fa-check-double"></i> <span>LOGGED IN AS <span id="admin-user-name" class="font-bold"></span></span>
+                 <i class="fa-solid fa-circle-check"></i> <span>LOGIN: <span id="admin-user-name" class="font-bold"></span> (<span id="admin-user-role" class="font-bold">ADMIN</span>)</span>
                </div>
-               <button onclick="performLogout()" class="px-4 py-2 bg-red-500/10 border border-red-400/40 text-red-400 rounded-3xl hover:bg-red-500/20">LOGOUT</button>
+               <button onclick="performLogout()" class="px-5 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-3xl font-semibold hover:from-red-600 hover:to-rose-700 flex items-center gap-2 shadow-lg shadow-red-500/30 transition-all">
+                 <i class="fa-solid fa-right-from-bracket"></i> LOGOUT
+               </button>
              </div>
           </div>
           
@@ -1700,7 +1700,7 @@
     // ==================== CONFIG & STATE ====================
     // Web App URL - Gunakan URL yang SAMA dengan yang terdeploy di Google Apps Script
     // URL di code.gs: https://script.google.com/macros/s/AKfycbzAKCmCtCElNvOU6K0V8yjysYQsF00nzs8tOc-pA4Ux6avxr0Sa6MVUpw4J-ePjyLvp/exec
-    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbyjYyT2aJeaX11dmrvJ9nswIjx90sgAcEp13v0NYoV-0h4tlo92nBNgAoUyXPOUB3qi/exec';
+    const HARDCODED_API_URL = 'https://script.google.com/macros/s/AKfycbyjVSgS3S_Sp3qkfbYS-_7OMwQ_0JY7eNL_dZuEC_9NEa87H6p4m95TM1Ofl9IQ8So/exec';
     let API_URL = HARDCODED_API_URL;   // selalu pakai yang di atas
     let currentUser = null;
     let currentSection = 'dashboard';
@@ -2727,7 +2727,9 @@
       document.getElementById('user-name-display').textContent = currentUser.nama || currentUser.username;
       document.getElementById('user-role-display').textContent = currentUser.role.toUpperCase();
       const adminName = document.getElementById('admin-user-name');
-      if (adminName) adminName.textContent = currentUser.nama;
+      const adminRole = document.getElementById('admin-user-role');
+      if (adminName) adminName.textContent = currentUser.nama || currentUser.username;
+      if (adminRole) adminRole.textContent = (currentUser.role || 'admin').toUpperCase();
     }
 
 
@@ -2872,25 +2874,65 @@
         'btn-admin-tambah-user'
       ];
       
+      let hiddenCount = 0;
+      let visibleCount = 0;
+      
       // Hide/show all admin-only buttons
       adminOnlyButtons.forEach(btnId => {
         const btn = document.getElementById(btnId);
         if (btn) {
-          btn.style.display = isAdmin ? '' : 'none';
-          if (!isAdmin) {
-            btn.setAttribute('data-hidden-for-role', 'true');
-          } else {
+          if (isAdmin) {
+            btn.style.display = '';
             btn.removeAttribute('data-hidden-for-role');
+            visibleCount++;
+          } else {
+            btn.style.display = 'none';
+            btn.setAttribute('data-hidden-for-role', 'true');
+            hiddenCount++;
           }
         }
       });
       
       // Also hide any element with class 'admin-only' for non-admin
       document.querySelectorAll('.admin-only').forEach(el => {
-        el.style.display = isAdmin ? '' : 'none';
+        if (isAdmin) {
+          el.style.display = '';
+        } else {
+          el.style.display = 'none';
+        }
       });
       
-      console.log(`[Role Visibility] Role: ${currentUser?.role || 'unknown'}, Admin buttons: ${isAdmin ? 'VISIBLE' : 'HIDDEN'}`);
+      // Hide CRUD action columns in tables for non-admin users
+      // This hides inline edit/delete buttons within table rows
+      if (!isAdmin) {
+        // Hide Anjab table "Upload" buttons (calls showAnjabModal)
+        document.querySelectorAll('button[onclick*="showAnjabModal"]').forEach(btn => {
+          btn.style.display = 'none';
+          hiddenCount++;
+        });
+        
+        // Hide any element with CRUD-related classes
+        document.querySelectorAll('.crud-action, .admin-crud').forEach(el => {
+          el.style.display = 'none';
+          hiddenCount++;
+        });
+      } else {
+        // Show Anjab table "Upload" buttons for admin
+        document.querySelectorAll('button[onclick*="showAnjabModal"]').forEach(btn => {
+          btn.style.display = '';
+          visibleCount++;
+        });
+        
+        // Show CRUD elements for admin
+        document.querySelectorAll('.crud-action, .admin-crud').forEach(el => {
+          el.style.display = '';
+          visibleCount++;
+        });
+      }
+      
+      console.log(`[Role Visibility] Role: ${currentUser?.role || 'unknown'}, Hidden: ${hiddenCount}, Visible: ${visibleCount}`);
+      
+      return { isAdmin, hiddenCount, visibleCount };
     }
     
     // Expose globally for debugging
@@ -4637,19 +4679,27 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
       const data = filtered || DATA.spesialis || [];
       const tbody = document.getElementById('spesialis-tbody');
       const footer = document.getElementById('spesialis-footer');
+      const isAdmin = currentUser && currentUser.role === 'admin';
       
       // Update stats
       updateSpesialisStats(data);
       
+      // Hide/show action column header based on role
+      const thAksi = document.getElementById('spesialis-th-aksi');
+      if (thAksi) {
+        thAksi.style.display = isAdmin ? '' : 'none';
+      }
+      
       if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-12">
+        const colSpan = isAdmin ? 7 : 6;
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center py-12">
           <div class="flex flex-col items-center gap-3">
             <div class="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
               <i class="fa-solid fa-user-doctor text-2xl text-white/30"></i>
             </div>
             <div>
               <div class="text-white/50 font-medium">Tidak ada data Dokter Spesialis</div>
-              <div class="text-xs text-white/30 mt-1">Klik "Tambah Data" untuk memulai</div>
+              <div class="text-xs text-white/30 mt-1">${isAdmin ? 'Klik "Tambah Data" untuk memulai' : 'Belum ada data tersedia'}</div>
             </div>
           </div>
         </td></tr>`;
@@ -4703,7 +4753,7 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
           <td class="text-right">
             <span class="font-bold text-lg text-rose-400">${s.jumlah || 0}</span>
           </td>
-          <td class="text-center">
+          ${isAdmin ? `<td class="text-center">
             <div class="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button onclick="editSpesialis(${s.id})" 
                       class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-all flex items-center justify-center"
@@ -4716,7 +4766,7 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
                 <i class="fa-solid fa-trash-can text-xs"></i>
               </button>
             </div>
-          </td>
+          </td>` : ''}
         </tr>
       `}).join('');
     }
@@ -5157,19 +5207,27 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
       const data = filtered || DATA.sdmk || [];
       const tbody = document.getElementById('sdmk-tbody');
       const footer = document.getElementById('sdmk-footer');
+      const isAdmin = currentUser && currentUser.role === 'admin';
       
       // Update stats
       updateSDMKStats(data);
       
+      // Hide/show action column header based on role
+      const thAksi = document.getElementById('sdmk-th-aksi');
+      if (thAksi) {
+        thAksi.style.display = isAdmin ? '' : 'none';
+      }
+      
       if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-12">
+        const colSpan = isAdmin ? 7 : 6;
+        tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center py-12">
           <div class="flex flex-col items-center gap-3">
             <div class="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
               <i class="fa-solid fa-hospital-user text-2xl text-white/30"></i>
             </div>
             <div>
               <div class="text-white/50 font-medium">Tidak ada Data SDMK</div>
-              <div class="text-xs text-white/30 mt-1">Klik "Tambah Data" untuk memulai</div>
+              <div class="text-xs text-white/30 mt-1">${isAdmin ? 'Klik "Tambah Data" untuk memulai' : 'Belum ada data tersedia'}</div>
             </div>
           </div>
         </td></tr>`;
@@ -5177,12 +5235,11 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
         return;
       }
       
-      // Render rows
+      // Render rows - SENSITIVE DATA HIDDEN (NIP, No Telepon)
       tbody.innerHTML = data.map((item, idx) => `
         <tr class="hover:bg-white/[0.03] transition-colors">
           <td class="text-center text-white/50">${idx + 1}</td>
           <td class="font-medium">${escapeHtml(item.nama_lengkap)}</td>
-          <td class="font-mono text-xs text-white/70">${escapeHtml(item.nip)}</td>
           <td><span class="px-2 py-1 rounded-lg text-xs font-medium bg-teal-500/20 text-teal-300">${escapeHtml(item.jenis_tenaga)}</span></td>
           <td class="text-white/70 text-sm">${escapeHtml(item.pendidikan)}</td>
           <td>${escapeHtml(item.unit_kerja)}</td>
@@ -5192,8 +5249,7 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
             item.status_kepegawaian === 'Honorer' ? 'bg-amber-500/20 text-amber-300' :
             'bg-gray-500/20 text-gray-300'
           }">${escapeHtml(item.status_kepegawaian)}</span></td>
-          <td class="font-mono text-sm text-white/70">${escapeHtml(item.no_telepon)}</td>
-          <td class="text-center">
+          ${isAdmin ? `<td class="text-center">
             <div class="flex items-center justify-center gap-1">
               <button onclick="showSDMKModal('${item.id}')" class="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Edit">
                 <i class="fa-solid fa-pen-to-square text-blue-400"></i>
@@ -5202,7 +5258,7 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
                 <i class="fa-solid fa-trash text-red-400"></i>
               </button>
             </div>
-          </td>
+          </td>` : ''}
         </tr>
       `).join('');
       
@@ -5280,9 +5336,9 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
           return false;
         }
         
-        // Search query (matches nama, nip, unit)
+        // Search query (matches nama, unit, jenis - NIP disembunyikan untuk privasi)
         if (searchQuery) {
-          const searchStr = `${item.nama_lengkap} ${item.nip} ${item.unit_kerja} ${item.jenis_tenaga}`.toLowerCase();
+          const searchStr = `${item.nama_lengkap} ${item.unit_kerja} ${item.jenis_tenaga} ${item.pendidikan}`.toLowerCase();
           if (!searchStr.includes(searchQuery)) {
             return false;
           }
@@ -5510,17 +5566,15 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
         return;
       }
       
-      // Prepare export data
+      // Prepare export data - SENSITIVE DATA DIHAPUS (NIP, No Telepon untuk privasi)
       const exportData = data.map((d, i) => ({
         'No': i + 1,
         'Nama Lengkap': d.nama_lengkap,
-        'NIP/NIK': d.nip,
         'Jenis Tenaga': d.jenis_tenaga,
         'Pendidikan': d.pendidikan,
         'Unit Kerja': d.unit_kerja,
         'Status Kepegawaian': d.status_kepegawaian,
         'Tanggal Mulai': d.tanggal_mulai,
-        'No. Telepon': d.no_telepon,
         'Alamat': d.alamat
       }));
       
@@ -5534,13 +5588,11 @@ Catatan: Ini adalah dokumen demo. Untuk dokumen asli, hubungi administrator sist
         const colWidths = [
           { wch: 5 },   // No
           { wch: 25 },  // Nama Lengkap
-          { wch: 18 },  // NIP/NIK
           { wch: 22 },  // Jenis Tenaga
           { wch: 25 },  // Pendidikan
           { wch: 35 },  // Unit Kerja
           { wch: 15 },  // Status
           { wch: 12 },  // Tanggal
-          { wch: 15 },  // Telepon
           { wch: 40 }   // Alamat
         ];
         ws['!cols'] = colWidths;
@@ -7668,13 +7720,21 @@ function showProfilDetail(idx) {
     // ==================== AUTH / LOGIN (for admin) ====================
     function requireAdminLogin(callback) {
       // Selalu minta login untuk akses Panel Admin (verifikasi ke sheet users via API)
-      showModal('Login Admin Diperlukan', `
-        <div class="space-y-3 text-sm">
-          <div><input id="login-user" value="admin" class="glass w-full px-4 py-3 rounded-2xl border border-white/10" placeholder="Username"></div>
-          <div><input id="login-pass" type="password" value="" class="glass w-full px-4 py-3 rounded-2xl border border-white/10" placeholder="Password"></div>
+      showModal('🔐 Login Admin Diperlukan', `
+        <div class="space-y-4 text-sm">
+          <div class="text-white/60 text-xs mb-2">Masukkan kredensial admin untuk mengakses panel ini</div>
+          <div><label class="block text-xs text-white/50 mb-1">Username</label><input id="login-user" value="admin" class="glass w-full px-4 py-3 rounded-2xl border border-white/10 focus:border-cyan-400 outline-none" placeholder="Username"></div>
+          <div><label class="block text-xs text-white/50 mb-1">Password</label><input id="login-pass" type="password" value="" class="glass w-full px-4 py-3 rounded-2xl border border-white/10 focus:border-cyan-400 outline-none" placeholder="Password"></div>
+          <div id="login-error" class="text-red-400 text-xs hidden"></div>
         </div>
-      `, `<button onclick="doAdminLogin()" class="px-8 py-3 bg-gradient-to-r from-red-500 to-rose-500 rounded-3xl font-bold">LOGIN ADMIN</button>`);
+      `, `<button onclick="doAdminLogin()" class="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-3xl font-bold text-white"><i class="fa-solid fa-arrow-right-to-bracket mr-2"></i>LOGIN ADMIN</button>`);
       window._pendingAdminCallback = callback;
+      
+      // Focus password field
+      setTimeout(() => {
+        const passField = document.getElementById('login-pass');
+        if (passField) passField.focus();
+      }, 300);
     }
 
 
