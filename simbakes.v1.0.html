@@ -1941,6 +1941,10 @@ table.table-modern th.foto-cell {
           <span class="material-symbols-outlined">map</span>
           <span>Roadmap</span>
         </a>
+        <a class="sidebar-link" href="#" data-page="hasil_seleksi" data-tooltip="Data Hasil Seleksi">
+          <span class="material-symbols-outlined">fact_check</span>
+          <span>Data Hasil Seleksi</span>
+        </a>
       </div>
 
       <div class="sidebar-group-divider"></div>
@@ -2494,7 +2498,7 @@ table.table-modern th.foto-cell {
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbztBtNEY1j_FRGn3qJimT1SDl-4onTNUkCwJVEb99u24St9a2JR4ZggktBmTtJ9uHmC/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbynJlzMcEoZRdoq4PNthNGtcu6nB--L4CNWVh3aA-yERfox5PH9FJOzehaURgBNiyCV/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -2582,6 +2586,7 @@ document.addEventListener('DOMContentLoaded', function() {
         case 'cek_status': html = renderStatus(); break;
         case 'panel_admin': html = renderAdmin(); break;
         case 'personal_rekomendasi': html = renderPersonalRekomendasi(); break;
+        case 'hasil_seleksi': html = renderHasilSeleksi(); break;
         default:
           console.warn('Halaman tidak ditemukan:', page, '→ Fallback ke Dashboard');
           html = renderDashboard();
@@ -2601,7 +2606,8 @@ document.addEventListener('DOMContentLoaded', function() {
         ajukan_rekomendasi: 'Ajukan Rekomendasi',
         cek_status: 'Cek Status Usulan',
         panel_admin: 'Panel Admin',
-        'personal_rekomendasi': 'Personal Rekomendasi'
+        'personal_rekomendasi': 'Personal Rekomendasi',
+        'hasil_seleksi': 'Data Hasil Seleksi'
       };
       return titles[page] || 'Dashboard';
     }
@@ -3328,6 +3334,7 @@ function renderAdmin() {
       }
       if (page === 'panel_admin' && isAdminLoggedIn) loadApplications();
       if (page === 'personal_rekomendasi' && isAdminLoggedIn) loadPersonalRekomendasi();
+      if (page === 'hasil_seleksi' && isAdminLoggedIn) loadHasilSeleksi();
       console.log('Page initialized:', page);
     }
 
@@ -6302,7 +6309,283 @@ function showProfileAdmin(id) {
     }
 
 
-    </script>
+      // ========================================
+    // DATA HASIL SELEKSI
+    // ========================================
+    var hasilSeleksiMaster = [];
+    var filteredHasilSeleksi = [];
+    window.hsCurrentPage = 1;
+    window.hsPageSize = 15;
+
+    function renderHasilSeleksi() {
+      if (!isAdminLoggedIn) {
+        return '<div class="card" style="max-width:400px;margin:0 auto;">' +
+          '<div class="text-center mb-4"><i class="fas fa-user-shield" style="font-size:3rem;color:var(--primary);"></i><h2 class="mt-3">Admin Dinas Kesehatan</h2><p class="text-muted">Beasiswa Tematik Kesehatan</p></div>' +
+          '<div class="form-group"><label class="form-label">Username</label><input type="text" id="loginUser" class="form-control" value="admin"></div>' +
+          '<div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div>' +
+          '<button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button></div>';
+      }
+      return '<div class="admin-card">' +
+        '<div class="admin-header">' +
+          '<h3 class="admin-title"><i class="fas fa-clipboard-check"></i> Data Hasil Seleksi Beasiswa</h3>' +
+          '<div class="flex gap-2">' +
+            '<button class="btn btn-outline btn-sm" onclick="resetHasilSeleksiFilters()"><i class="fas fa-undo"></i> Reset</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="p-4">' +
+        '<div class="filters-grid" style="grid-template-columns: 1fr 1fr 1fr auto;">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Cari Nama / ID</label>' +
+            '<div class="flex gap-2">' +
+              '<input type="text" id="hsSearch" class="form-control" placeholder="Ketik nama atau ID..." onkeyup="applyHasilSeleksiFilters()">' +
+              '<button class="btn btn-primary" onclick="applyHasilSeleksiFilters()"><i class="fas fa-search"></i></button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Filter Formasi</label>' +
+            '<select id="hsFormasiFilter" class="form-control" onchange="applyHasilSeleksiFilters()">' +
+              '<option value="">Semua Formasi</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Filter Keputusan</label>' +
+            '<select id="hsKeputusanFilter" class="form-control" onchange="applyHasilSeleksiFilters()">' +
+              '<option value="">Semua Keputusan</option>' +
+              '<option value="Lulus">Lulus</option>' +
+              '<option value="Tidak Lulus">Tidak Lulus</option>' +
+              '<option value="">Belum Ada Keputusan</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        '<div id="hsFilterCount" class="mb-2 text-muted" style="font-size:0.875rem;"></div>' +
+        '<div class="table-wrapper"><div class="table-container"><table class="table-modern"><thead><tr>' +
+          '<th class="sticky-crud" style="min-width:50px;max-width:50px;text-align:center;">No</th>' +
+          '<th class="foto-cell">Foto</th>' +
+          '<th>Id</th>' +
+          '<th>Nama</th>' +
+          '<th>Formasi Tujuan</th>' +
+          '<th>Perguruan Tinggi Tujuan</th>' +
+          '<th>Hasil Test Masuk</th>' +
+          '<th>Hasil Keputusan Tim Beasiswa</th>' +
+        '</tr></thead>' +
+        '<tbody id="hsTable"><tr><td colspan="8" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div></div>' +
+        '<div id="hsPagination"></div>' +
+        '<div id="hsNoDataMsg" class="text-center p-4 text-muted hidden"><i class="fas fa-inbox fa-3x mb-3" style="opacity:0.5;"></i><h4>Belum ada data</h4><p>Gunakan filter untuk menampilkan data.</p></div></div></div>';
+    }
+
+    function loadHasilSeleksi() {
+      var tbody = document.getElementById('hsTable');
+      var noDataMsg = document.getElementById('hsNoDataMsg');
+      if (noDataMsg) noDataMsg.classList.add('hidden');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr>';
+      }
+      apiCall('getApplications', function(res) {
+        if (res && res.success && res.data && res.data.applications) {
+          hasilSeleksiMaster = res.data.applications;
+          filteredHasilSeleksi = hasilSeleksiMaster.slice();
+          window.hsCurrentPage = 1;
+          populateHasilSeleksiFilters();
+          applyHasilSeleksiFilters();
+        } else {
+          if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4 text-danger">Gagal memuat data</td></tr>';
+          if (noDataMsg) noDataMsg.classList.remove('hidden');
+        }
+      }, function() {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4 text-danger">Error koneksi</td></tr>';
+      });
+    }
+
+    function populateHasilSeleksiFilters() {
+      var formasiList = [...new Set(hasilSeleksiMaster.map(function(a) { return a.jurusan_tujuan; }).filter(Boolean))].sort();
+      var formasiSelect = document.getElementById('hsFormasiFilter');
+      if (formasiSelect) {
+        formasiSelect.innerHTML = '<option value="">Semua Formasi</option>';
+        formasiList.forEach(function(val) {
+          var opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          formasiSelect.appendChild(opt);
+        });
+      }
+    }
+
+    function resetHasilSeleksiFilters() {
+      var search = document.getElementById('hsSearch');
+      var formasi = document.getElementById('hsFormasiFilter');
+      var keputusan = document.getElementById('hsKeputusanFilter');
+      if (search) search.value = '';
+      if (formasi) formasi.value = '';
+      if (keputusan) keputusan.value = '';
+      applyHasilSeleksiFilters();
+    }
+
+    function applyHasilSeleksiFilters() {
+      var search = (document.getElementById('hsSearch') || {}).value || '';
+      search = search.toLowerCase();
+      var formasi = (document.getElementById('hsFormasiFilter') || {}).value || '';
+      var keputusan = (document.getElementById('hsKeputusanFilter') || {}).value || '';
+
+      filteredHasilSeleksi = hasilSeleksiMaster.filter(function(a) {
+        var matchSearch = !search ||
+          (a.full_name || '').toLowerCase().indexOf(search) !== -1 ||
+          String(a.id || '').toLowerCase().indexOf(search) !== -1;
+        var matchFormasi = !formasi || a.jurusan_tujuan === formasi;
+        var matchKeputusan = !keputusan || (a.penetapan || '') === keputusan;
+        return matchSearch && matchFormasi && matchKeputusan;
+      });
+
+      window.hsCurrentPage = 1;
+      renderHasilSeleksiTable();
+
+      var filterEl = document.getElementById('hsFilterCount');
+      if (filterEl) filterEl.textContent = filteredHasilSeleksi.length + ' dari ' + hasilSeleksiMaster.length + ' data';
+    }
+
+    function renderHasilSeleksiTable() {
+      var tbody = document.getElementById('hsTable');
+      var paginationEl = document.getElementById('hsPagination');
+      if (!tbody) return;
+
+      if (filteredHasilSeleksi.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4 text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
+        if (paginationEl) renderHasilSeleksiPagination(0);
+        return;
+      }
+
+      var pageSize = window.hsPageSize || 15;
+      var currentPage = window.hsCurrentPage || 1;
+      var totalPages = Math.ceil(filteredHasilSeleksi.length / pageSize);
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      var startIdx = (currentPage - 1) * pageSize;
+      var pageData = filteredHasilSeleksi.slice(startIdx, startIdx + pageSize);
+
+      var rows = pageData.map(function(app, idx) {
+        var rowNum = startIdx + idx + 1;
+
+        // Foto
+        var fotoHtml = app.foto_url
+          ? createTablePhoto(app.foto_url, 'Foto', app.nik).outerHTML
+          : '<span class="text-muted"><i class="fas fa-user"></i></span>';
+
+        // Formasi Tujuan
+        var formasi = escapeHtml(app.jurusan_tujuan || '-');
+        if (formasi.length > 28) {
+          formasi = '<span class="cell-ellipsis" data-tooltip="' + escapeHtml(app.jurusan_tujuan) + '">' + formasi + '</span>';
+        }
+
+        // Perguruan Tinggi Tujuan (from jenis_pendidikan)
+        var pt = escapeHtml(app.jenis_pendidikan || '-');
+        if (pt.length > 28) {
+          pt = '<span class="cell-ellipsis" data-tooltip="' + escapeHtml(app.jenis_pendidikan) + '">' + pt + '</span>';
+        }
+
+        // Hasil Test Masuk
+        var testHtml = '-';
+        if (app.bukti_lulus) {
+          testHtml = '<a href="' + escapeHtml(app.bukti_lulus) + '" target="_blank" class="btn btn-success btn-sm" title="Lihat Bukti Lulus"><i class="fas fa-external-link-alt"></i> Lihat</a>';
+        }
+
+        // Hasil Keputusan Tim Beasiswa
+        var keputusan = (app.penetapan || '-').toString().trim();
+        var keputusanHtml = '-';
+        if (keputusan && keputusan !== '-') {
+          var kLower = keputusan.toLowerCase();
+          var badgeClass = 'badge-pending';
+          if (kLower.indexOf('lulus') !== -1 || kLower.indexOf('diterima') !== -1 || kLower.indexOf('disetujui') !== -1) {
+            badgeClass = 'badge-approved';
+          } else if (kLower.indexOf('tidak') !== -1 || kLower.indexOf('ditolak') !== -1 || kLower.indexOf('gagal') !== -1) {
+            badgeClass = 'badge-rejected';
+          } else if (kLower.indexOf('proses') !== -1 || kLower.indexOf('diproses') !== -1) {
+            badgeClass = 'badge-processed';
+          }
+          keputusanHtml = '<span class="badge ' + badgeClass + '">' + escapeHtml(keputusan) + '</span>';
+        }
+
+        return '<tr>' +
+          '<td class="sticky-crud" style="text-align:center;font-weight:600;color:var(--text-secondary);font-size:0.8rem;">' + rowNum + '</td>' +
+          '<td>' + fotoHtml + '</td>' +
+          '<td>' + escapeHtml(app.id || '-') + '</td>' +
+          '<td><strong>' + escapeHtml(app.full_name || '-') + '</strong></td>' +
+          '<td>' + formasi + '</td>' +
+          '<td>' + pt + '</td>' +
+          '<td style="text-align:center;">' + testHtml + '</td>' +
+          '<td style="text-align:center;">' + keputusanHtml + '</td>' +
+          '</tr>';
+      });
+
+      tbody.innerHTML = rows.join('');
+      if (paginationEl) renderHasilSeleksiPagination(filteredHasilSeleksi.length);
+    }
+
+    function renderHasilSeleksiPagination(totalItems) {
+      var container = document.getElementById('hsPagination');
+      if (!container) return;
+      if (totalItems === 0) {
+        container.innerHTML = '<div class="pagination-container"><div class="pagination-info">Menampilkan 0 dari 0 data</div><div class="pagination-controls"></div></div>';
+        return;
+      }
+      var pageSize = window.hsPageSize || 15;
+      var currentPage = window.hsCurrentPage || 1;
+      var totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      var start = (currentPage - 1) * pageSize + 1;
+      var end = Math.min(currentPage * pageSize, totalItems);
+
+      var html = '<div class="pagination-container">' +
+        '<div class="pagination-info">Menampilkan ' + start + '-' + end + ' dari ' + totalItems + ' data</div>' +
+        '<div class="pagination-controls">';
+
+      // Page size selector
+      html += '<div class="page-size-selector">' +
+        '<select onchange="changeHsPageSize(this.value)">' +
+        '<option value="10"' + (pageSize===10?' selected':'') + '>10</option>' +
+        '<option value="15"' + (pageSize===15?' selected':'') + '>15</option>' +
+        '<option value="25"' + (pageSize===25?' selected':'') + '>25</option>' +
+        '<option value="50"' + (pageSize===50?' selected':'') + '>50</option>' +
+        '<option value="100"' + (pageSize===100?' selected':'') + '>100</option>' +
+        '</select></div>';
+
+      // Prev button
+      html += '<button class="btn btn-sm btn-outline" ' + (currentPage <= 1 ? 'disabled' : 'onclick="goHsPage(' + (currentPage-1) + ')"') + '><i class="fas fa-chevron-left"></i></button>';
+
+      // Page buttons
+      var startP = Math.max(1, currentPage - 2);
+      var endP = Math.min(totalPages, currentPage + 2);
+      if (startP > 1) {
+        html += '<button class="btn btn-sm btn-outline" onclick="goHsPage(1)">1</button>';
+        if (startP > 2) html += '<span class="pagination-ellipsis">...</span>';
+      }
+      for (var p = startP; p <= endP; p++) {
+        html += '<button class="btn btn-sm ' + (p === currentPage ? 'btn-primary' : 'btn-outline') + '" onclick="goHsPage(' + p + ')">' + p + '</button>';
+      }
+      if (endP < totalPages) {
+        if (endP < totalPages - 1) html += '<span class="pagination-ellipsis">...</span>';
+        html += '<button class="btn btn-sm btn-outline" onclick="goHsPage(' + totalPages + ')">' + totalPages + '</button>';
+      }
+
+      // Next button
+      html += '<button class="btn btn-sm btn-outline" ' + (currentPage >= totalPages ? 'disabled' : 'onclick="goHsPage(' + (currentPage+1) + ')"') + '><i class="fas fa-chevron-right"></i></button>';
+      html += '</div></div>';
+
+      container.innerHTML = html;
+    }
+
+    function goHsPage(page) {
+      window.hsCurrentPage = page;
+      renderHasilSeleksiTable();
+    }
+
+    function changeHsPageSize(size) {
+      window.hsPageSize = parseInt(size) || 15;
+      window.hsCurrentPage = 1;
+      renderHasilSeleksiTable();
+    }
+
+
+  </script>
 </div><!-- end appWrapper -->
 
 <script>
