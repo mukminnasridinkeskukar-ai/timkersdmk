@@ -1820,7 +1820,36 @@ function showToast(msg,type){type=type||'info';var c=document.getElementById('to
 function openModal(id){document.getElementById(id).classList.add('active');}
 function closeModal(id){document.getElementById(id).classList.remove('active');}
 function escHTML(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
-function statusClass(s){s=String(s||'').toLowerCase();if(s==='aktif'||s==='diterima'||s==='lulus'||s==='verified')return 'aktif';if(s==='nonaktif'||s==='ditolak')return 'nonaktif';return 'pending';}
+
+/* ========== STATUS WORKFLOW - Updated statusClass ========== */
+function getStatusLabel(s){
+  s = String(s || '').trim();
+  var map = {
+    'pending': 'Menunggu',
+    'menunggu': 'Menunggu',
+    'verifikasi': 'Proses Verifikasi',
+    'proses verifikasi': 'Proses Verifikasi',
+    'perbaikan': 'Perbaikan',
+    'revisi': 'Perbaikan',
+    'perbaikan data': 'Perbaikan',
+    'disetujui': 'Disetujui',
+    'diterima': 'Disetujui',
+    'aktif': 'Disetujui',
+    'ditolak': 'Ditolak',
+    'nonaktif': 'Ditolak'
+  };
+  return map[s.toLowerCase()] || s;
+}
+function statusClass(s){
+  s = String(s || '').toLowerCase().trim();
+  if(s === 'aktif' || s === 'diterima' || s === 'lulus' || s === 'verified' || s === 'disetujui') return 'disetujui';
+  if(s === 'nonaktif' || s === 'ditolak') return 'ditolak';
+  if(s === 'menunggu' || s === 'pending') return 'menunggu';
+  if(s === 'proses verifikasi' || s === 'verifikasi') return 'proses-verifikasi';
+  if(s === 'perbaikan' || s === 'revisi' || s === 'perbaikan data') return 'perbaikan';
+  return 'menunggu';
+}
+
 function showAdminButtons(){document.getElementById('btnTambahPengumuman').style.display=canWrite('pengumuman')?'inline-flex':'none';document.getElementById('btnTambahSDMK').style.display=canWrite('sdmk')?'inline-flex':'none';document.getElementById('btnTambahMateri').style.display=canWrite('materi')?'inline-flex':'none';}
 
 /* ========== DASHBOARD ========== */
@@ -2597,20 +2626,6 @@ function loadPendaftaran(){
     _allPendaftaran=res.data||[];renderPendaftaranTable(_allPendaftaran);
   }).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
-function renderPendaftaranTable(data){
-  var tb=document.getElementById('pendaftaranTableBody'),hd=document.getElementById('pendaftaranTableHead'),em=document.getElementById('pendaftaranEmpty');
-  if(!tb||!hd)return;
-  if(!data.length){hd.innerHTML='';tb.innerHTML='';if(em)em.style.display='block';return;}if(em)em.style.display='none';
-  var keys=Object.keys(data[0]);hd.innerHTML='<tr><th>No</th>';keys.forEach(function(k){if(k!=='ID')hd.innerHTML+='<th>'+escHTML(k.replace(/_/g,' '))+'</th>';});if(canWrite('pendaftaran'))hd.innerHTML+='<th>Aksi</th>';hd.innerHTML+='</tr>';
-  tb.innerHTML='';
-  data.forEach(function(r,i){
-    var tr=document.createElement('tr');tr.innerHTML='<td>'+(i+1)+'</td>';
-    keys.forEach(function(k){if(k!=='ID'){var v=r[k]||'-';if(k.toLowerCase().indexOf('status')!==-1)v='<span class="status-badge '+statusClass(v)+'">'+escHTML(v)+'</span>';tr.innerHTML+='<td>'+v+'</td>';}});
-    if(canWrite('pendaftaran'))tr.innerHTML+='<td><button class="btn btn-sm btn-warning" onclick="editPendaftaran('+i+')"><i class="fas fa-edit"></i></button> <button class="btn btn-sm btn-danger" onclick="confirmDelete(\'Pendaftaran\','+i+')"><i class="fas fa-trash"></i></button></td>';
-    tr.style.cursor='pointer';tr.addEventListener('click',function(e){if(!e.target.closest('.btn'))openDetailModal('Detail Pendaftar: '+(r['Nama Lengkap dengan Gelar']||r.Nama||''),r);});
-    tb.appendChild(tr);
-  });
-}
 function filterPendaftaran(){var el=document.getElementById('searchPendaftaran');if(!el)return;var q=el.value.toLowerCase();var f=_allPendaftaran.filter(function(r){return Object.values(r).some(function(v){return String(v).toLowerCase().indexOf(q)!==-1;});});renderPendaftaranTable(f);}
 
 /* ========== BUKTI PENDAFTARAN (PDF) ========== */
@@ -2974,8 +2989,6 @@ function saveEditPendaftaranWithWorkflow(i){
   }
   showLoading('Menyimpan...');
   callServer('updatePendaftaran',{idx:i,data:data}).then(function(res){hideLoading();closeModal('detailModal');showToast(res.message,res.success?'success':'error');if(res.success)loadPendaftaran();resetDetailFooter();}).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
-}
-function resetDetailFooter;}).catch(function(e){hideLoading();showToast('Error: '+(e.message||e),'error');});
 }
 function resetDetailFooter(){document.getElementById('detailModal').querySelector('.modal-footer').innerHTML='<button class="btn btn-secondary" onclick="closeModal(\'detailModal\')">Tutup</button>';}
 
@@ -4279,36 +4292,6 @@ var WORKFLOW_STATUSES = {
   'Ditolak': { next: ['Menunggu'], color: 'ditolak', icon: 'fa-times-circle', desc: 'Ditolak' }
 };
 var _workflowEditIdx = -1;
-
-/* ========== UPDATED statusClass FUNCTION ========== */
-function statusClass(s){
-  s = String(s || '').toLowerCase().trim();
-  if(s === 'aktif' || s === 'diterima' || s === 'lulus' || s === 'verified' || s === 'disetujui') return 'disetujui';
-  if(s === 'nonaktif' || s === 'ditolak') return 'ditolak';
-  if(s === 'menunggu' || s === 'pending') return 'menunggu';
-  if(s === 'proses verifikasi' || s === 'verifikasi') return 'proses-verifikasi';
-  if(s === 'perbaikan' || s === 'revisi' || s === 'perbaikan data') return 'perbaikan';
-  return 'menunggu';
-}
-
-function getStatusLabel(s){
-  s = String(s || '').trim();
-  var map = {
-    'pending': 'Menunggu',
-    'menunggu': 'Menunggu',
-    'verifikasi': 'Proses Verifikasi',
-    'proses verifikasi': 'Proses Verifikasi',
-    'perbaikan': 'Perbaikan',
-    'revisi': 'Perbaikan',
-    'perbaikan data': 'Perbaikan',
-    'disetujui': 'Disetujui',
-    'diterima': 'Disetujui',
-    'aktif': 'Disetujui',
-    'ditolak': 'Ditolak',
-    'nonaktif': 'Ditolak'
-  };
-  return map[s.toLowerCase()] || s;
-}
 
 /* ========== OPEN STATUS WORKFLOW MODAL ========== */
 function openStatusWorkflowModal(idx){
