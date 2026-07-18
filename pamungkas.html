@@ -763,7 +763,22 @@
     .cek-reg-result{display:none;animation:fadeSlideUp .4s ease;}
     .cek-reg-result.active{display:block;}
     @keyframes fadeSlideUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
-    .cek-reg-card{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:row;min-height:420px;border:1px solid var(--border-color);}
+    .cek-reg-multi-summary{display:flex;align-items:center;gap:16px;background:var(--primary);color:#fff;border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;box-shadow:var(--shadow-md);}
+    .cek-reg-multi-icon{font-size:2.2rem;opacity:.9;flex-shrink:0;}
+    .cek-reg-multi-info h3{margin:0 0 4px 0;font-size:1.15rem;font-weight:700;}
+    .cek-reg-multi-info p{margin:0;font-size:.88rem;opacity:.9;}
+    .cek-reg-multi-list{display:flex;flex-direction:column;gap:12px;}
+    .cek-reg-multi-item{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);overflow:hidden;border:1px solid var(--border-color);}
+    .cek-reg-multi-item-header{display:flex;align-items:center;padding:16px 20px;cursor:pointer;gap:14px;transition:background .2s;}
+    .cek-reg-multi-item-header:hover{background:rgba(13,110,253,.04);}
+    .cek-reg-multi-item-num{width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;}
+    .cek-reg-multi-item-info{flex:1;min-width:0;}
+    .cek-reg-multi-item-name{font-weight:600;font-size:.95rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .cek-reg-multi-item-sub{font-size:.8rem;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .cek-reg-multi-toggle-icon{transition:transform .3s ease;color:var(--text-muted);flex-shrink:0;}
+    .cek-reg-multi-toggle-icon.rotated{transform:rotate(180deg);}
+    .cek-reg-multi-item-body{border-top:1px solid var(--border-color);padding:0;animation:fadeSlideUp .3s ease;}
+    .cek-reg-card{background:#fff;border-radius:0;box-shadow:none;overflow:hidden;display:flex;flex-direction:row;min-height:420px;border:none;}
     .cek-reg-foto{flex:0 0 45%;max-width:45%;background:linear-gradient(135deg,#F0F4F8,#E2E8F0);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;min-height:380px;}
     .cek-reg-foto img{width:100%;height:100%;object-fit:cover;display:block;cursor:pointer;transition:transform .3s;}
     .cek-reg-foto img:hover{transform:scale(1.03);}
@@ -808,6 +823,8 @@
     .perbaikan-actions{margin-top:14px;display:flex;gap:10px;justify-content:flex-end;}
     @media(max-width:768px){
       .cek-reg-card{flex-direction:column;min-height:auto;}
+    .cek-reg-multi-item-header{padding:14px 16px;}
+    .cek-reg-multi-summary{flex-direction:column;text-align:center;padding:16px 20px;}
       .cek-reg-foto{flex:none;max-width:100%;min-height:250px;max-height:300px;}
       .cek-reg-data{padding:20px;max-height:none;}
       .cek-reg-data .reg-fields{grid-template-columns:1fr;}
@@ -1220,7 +1237,7 @@
                     <div class="surat-inner">
                       <div class="surat-desc">
                         <p><i class="fas fa-info-circle" style="color:var(--primary);margin-right:4px;"></i> Unduh template Surat Pernyataan, isi dan tanda tangani, lalu unggah ke Google Drive dan <strong>paste link-nya</strong> di kolom bawah.</p>
-                        <a href="https://docs.google.com/document/d/1sFN389oM-23766TXPwYvWg0AojMM8S2T/edit?usp=sharing&ouid=113049310293805241737&rtpof=true&sd=true" target="_blank" class="materi-link" style="margin-top:6px;display:inline-flex;">
+                        <a href="GANTI_DENGAN_LINK_TEMPLATE_SURAT_PERNYATAAN" target="_blank" class="materi-link" style="margin-top:6px;display:inline-flex;">
                           <i class="fas fa-download"></i> Download Template Surat Pernyataan
                         </a>
                       </div>
@@ -1600,7 +1617,7 @@ function levelIcon(){
 // GANTI INI dengan URL Web App Google Apps Script Anda.
 // Format: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 // Dapatkan dari: Deploy > Manage deployments > salin URL Web App
-var APP_URL = 'https://script.google.com/macros/s/AKfycbxK3MvlxPDWiFiXp6qhpfS_N55_U-7zmKiYlwnoNol5PNJi6yS2CM2cC5fl2xIZZQ/exec';
+var APP_URL = 'https://script.google.com/macros/s/AKfycbzyTCMGm2Jh8zi6NCHMgCA6tkriSo3A94qEOvSsN0Jg43Mjt4-rLI14vRsgOL_z51ynoQ/exec';
 
 /* ========== API HELPER — callServer() via JSONP ==========
  * Menggunakan JSONP (dynamic <script> tag) bukan fetch().
@@ -3801,6 +3818,7 @@ document.addEventListener('click',function(e){
 /* ========== CEK PENDAFTARAN ========== */
 var _cekRegData = null;
 var _cekRegOrigIdx = -1;
+var _cekRegMultiData = [];
 
 function initCekPendaftaran(){
   document.getElementById('cekRegInput').value='';
@@ -3834,9 +3852,14 @@ function searchCekPendaftaran(){
     if(!found.length){
       ct.innerHTML='<div class="cek-reg-notfound"><i class="fas fa-user-slash"></i><p>Data pendaftaran dengan NIK/NIP <strong>'+escHTML(q)+'</strong> tidak ditemukan.</p></div>';return;
     }
-    _cekRegData=found[0].data;
-    _cekRegOrigIdx=found[0].idx;
-    renderCekRegResult(ct,_cekRegData,_cekRegOrigIdx);
+    _cekRegMultiData=found;
+    if(found.length===1){
+      _cekRegData=found[0].data;
+      _cekRegOrigIdx=found[0].idx;
+      renderCekRegResult(ct,_cekRegData,_cekRegOrigIdx);
+    }else{
+      renderCekRegMultiResult(ct,found,q);
+    }
   }).catch(function(e){
     ct.innerHTML='<div class="cek-reg-notfound"><i class="fas fa-wifi"></i><p>Error: '+(e.message||e)+'</p></div>';
   });
@@ -3852,6 +3875,62 @@ function _cekRegFoto(url){
   m=url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if(m)return{thumb:'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w800',full:'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w1600'};
   return null;
+}
+
+function renderCekRegMultiResult(ct, found, query){
+  var q = escHTML(query);
+  var h = '<div class="cek-reg-multi-summary">';
+  h += '<div class="cek-reg-multi-icon"><i class="fas fa-users"></i></div>';
+  h += '<div class="cek-reg-multi-info">';
+  h += '<h3>Ditemukan ' + found.length + ' Data Pendaftaran</h3>';
+  h += '<p>NIK/NIP <strong>' + q + '</strong> memiliki ' + found.length + ' data pendaftaran kegiatan. Berikut detail masing-masing:</p>';
+  h += '</div></div>';
+
+  h += '<div class="cek-reg-multi-list">';
+  found.forEach(function(item, i) {
+    h += '<div class="cek-reg-multi-item" id="cekRegMultiItem_' + i + '">';
+    h += '<div class="cek-reg-multi-item-header" onclick="toggleCekRegMultiCard(' + i + ')">';
+    var nama = _cekRegV(item.data, ['Nama Lengkap dengan Gelar','Nama Lengkap','Nama']) || '-';
+    var judul = _cekRegV(item.data, ['Judul Kegiatan','Judul Pelatihan','Kegiatan','Pelatihan']) || '-';
+    var statusVal = String(_cekRegV(item.data, ['Status','Status Pendaftaran']) || '-');
+    var sl = statusVal.toLowerCase();
+    var scClass = (sl==='diterima'||sl==='lulus'||sl==='aktif')?'diterima':sl==='ditolak'?'ditolak':'pending';
+    h += '<div class="cek-reg-multi-item-num">' + (i+1) + '</div>';
+    h += '<div class="cek-reg-multi-item-info">';
+    h += '<div class="cek-reg-multi-item-name">' + escHTML(nama) + '</div>';
+    h += '<div class="cek-reg-multi-item-sub">' + escHTML(judul) + '</div>';
+    h += '</div>';
+    h += '<div class="reg-status-badge ' + scClass + '" style="margin-left:auto;margin-right:12px;">' + escHTML(statusVal) + '</div>';
+    h += '<i class="fas fa-chevron-down cek-reg-multi-toggle-icon" id="cekRegToggle_' + i + '"></i>';
+    h += '</div>'; // end header
+    h += '<div class="cek-reg-multi-item-body" id="cekRegBody_' + i + '" style="display:none;"></div>';
+    h += '</div>'; // end item
+  });
+  h += '</div>';
+
+  ct.innerHTML = h;
+  ct.classList.add('active');
+}
+
+function toggleCekRegMultiCard(idx){
+  var body = document.getElementById('cekRegBody_' + idx);
+  var icon = document.getElementById('cekRegToggle_' + idx);
+  if(!body) return;
+  if(body.style.display === 'none'){
+    /* Expand - render the card content */
+    var item = _cekRegMultiData[idx];
+    if(item){
+      _cekRegData = item.data;
+      _cekRegOrigIdx = item.idx;
+      renderCekRegResult(body, item.data, item.idx);
+      body.style.display = 'block';
+      if(icon) icon.classList.add('rotated');
+    }
+  } else {
+    /* Collapse */
+    body.style.display = 'none';
+    if(icon) icon.classList.remove('rotated');
+  }
 }
 
 function renderCekRegResult(ct,r,idx){
