@@ -2498,7 +2498,7 @@ table.table-modern th.foto-cell {
     // ========================================
     // CONFIG
     // ========================================
-    var API_URL = 'https://script.google.com/macros/s/AKfycbynJlzMcEoZRdoq4PNthNGtcu6nB--L4CNWVh3aA-yERfox5PH9FJOzehaURgBNiyCV/exec';
+    var API_URL = 'https://script.google.com/macros/s/AKfycbyypqsRqKcKjHOWMbCiuGXF-nQvkL4cZAVfarlEX-aZkBJZG0QusBLug4snNFYEloV3/exec';
     var currentPage = 'dashboard';
     var currentUser = null;
     var isAdminLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -3334,7 +3334,7 @@ function renderAdmin() {
       }
       if (page === 'panel_admin' && isAdminLoggedIn) loadApplications();
       if (page === 'personal_rekomendasi' && isAdminLoggedIn) loadPersonalRekomendasi();
-      if (page === 'hasil_seleksi' && isAdminLoggedIn) loadHasilSeleksi();
+      if (page === 'hasil_seleksi') loadHasilSeleksi(); // Public access - no login required
       console.log('Page initialized:', page);
     }
 
@@ -6318,13 +6318,7 @@ function showProfileAdmin(id) {
     window.hsPageSize = 15;
 
     function renderHasilSeleksi() {
-      if (!isAdminLoggedIn) {
-        return '<div class="card" style="max-width:400px;margin:0 auto;">' +
-          '<div class="text-center mb-4"><i class="fas fa-user-shield" style="font-size:3rem;color:var(--primary);"></i><h2 class="mt-3">Admin Dinas Kesehatan</h2><p class="text-muted">Beasiswa Tematik Kesehatan</p></div>' +
-          '<div class="form-group"><label class="form-label">Username</label><input type="text" id="loginUser" class="form-control" value="admin"></div>' +
-          '<div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPass" class="form-control" value="admin123"></div>' +
-          '<button class="btn btn-primary btn-block" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Login</button></div>';
-      }
+      // PUBLIC ACCESS - Tidak memerlukan login untuk melihat Data Hasil Seleksi
       return '<div class="admin-card">' +
         '<div class="admin-header">' +
           '<h3 class="admin-title"><i class="fas fa-clipboard-check"></i> Data Hasil Seleksi Beasiswa</h3>' +
@@ -6366,9 +6360,10 @@ function showProfileAdmin(id) {
           '<th>Formasi Tujuan</th>' +
           '<th>Perguruan Tinggi Tujuan</th>' +
           '<th>Hasil Test Masuk</th>' +
+          '<th>Bukti Lulus Masuk Perguruan Tinggi</th>' +
           '<th>Hasil Keputusan Tim Beasiswa</th>' +
         '</tr></thead>' +
-        '<tbody id="hsTable"><tr><td colspan="8" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div></div>' +
+        '<tbody id="hsTable"><tr><td colspan="9" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr></tbody></table></div></div>' +
         '<div id="hsPagination"></div>' +
         '<div id="hsNoDataMsg" class="text-center p-4 text-muted hidden"><i class="fas fa-inbox fa-3x mb-3" style="opacity:0.5;"></i><h4>Belum ada data</h4><p>Gunakan filter untuk menampilkan data.</p></div></div></div>';
     }
@@ -6378,7 +6373,7 @@ function showProfileAdmin(id) {
       var noDataMsg = document.getElementById('hsNoDataMsg');
       if (noDataMsg) noDataMsg.classList.add('hidden');
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4"><div class="loader"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div></td></tr>';
       }
       apiCall('getApplications', function(res) {
         if (res && res.success && res.data && res.data.applications) {
@@ -6388,11 +6383,11 @@ function showProfileAdmin(id) {
           populateHasilSeleksiFilters();
           applyHasilSeleksiFilters();
         } else {
-          if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4 text-danger">Gagal memuat data</td></tr>';
+          if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-danger">Gagal memuat data</td></tr>';
           if (noDataMsg) noDataMsg.classList.remove('hidden');
         }
       }, function() {
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4 text-danger">Error koneksi</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-danger">Error koneksi</td></tr>';
       });
     }
 
@@ -6448,7 +6443,7 @@ function showProfileAdmin(id) {
       if (!tbody) return;
 
       if (filteredHasilSeleksi.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center p-4 text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center p-4 text-muted">Tidak ada data yang cocok dengan filter</td></tr>';
         if (paginationEl) renderHasilSeleksiPagination(0);
         return;
       }
@@ -6481,10 +6476,17 @@ function showProfileAdmin(id) {
           pt = '<span class="cell-ellipsis" data-tooltip="' + escapeHtml(app.jenis_pendidikan) + '">' + pt + '</span>';
         }
 
-        // Hasil Test Masuk
+        // Hasil Test Masuk (dari kolom AH - Tindaklanjut)
         var testHtml = '-';
+        var tindaklanjut = (app.tindaklanjut || '').toString().trim();
+        if (tindaklanjut && tindaklanjut !== '-') {
+          testHtml = '<span class="badge badge-info">' + escapeHtml(tindaklanjut) + '</span>';
+        }
+
+        // Bukti Lulus Masuk Perguruan Tinggi (dari kolom AF - bukti_lulus)
+        var buktiLulusHtml = '-';
         if (app.bukti_lulus) {
-          testHtml = '<a href="' + escapeHtml(app.bukti_lulus) + '" target="_blank" class="btn btn-success btn-sm" title="Lihat Bukti Lulus"><i class="fas fa-external-link-alt"></i> Lihat</a>';
+          buktiLulusHtml = '<a href="' + escapeHtml(app.bukti_lulus) + '" target="_blank" class="btn btn-success btn-sm" title="Lihat Bukti Lulus"><i class="fas fa-external-link-alt"></i> Lihat</a>';
         }
 
         // Hasil Keputusan Tim Beasiswa
@@ -6511,6 +6513,7 @@ function showProfileAdmin(id) {
           '<td>' + formasi + '</td>' +
           '<td>' + pt + '</td>' +
           '<td style="text-align:center;">' + testHtml + '</td>' +
+          '<td style="text-align:center;">' + buktiLulusHtml + '</td>' +
           '<td style="text-align:center;">' + keputusanHtml + '</td>' +
           '</tr>';
       });
