@@ -6946,10 +6946,46 @@ function buildSafeFotoCell(fotoUrl, nama, nik) {
     return '<span class="text-muted"><i class="fas fa-user"></i></span>';
   }
   
-  // Gunakan data attribute untuk menyimpan URL, lalu attach event terpisah
-  return '<div class="hs-clickable-foto" data-hs-foto="' + encodeURIComponent(fotoUrl) + '" data-hs-nama="' + encodeURIComponent(nama || '') + '" data-hs-nik="' + encodeURIComponent(nik || '') + '" title="Klik untuk perbesar">' +
-    '<img src="' + escapeHtml(fotoUrl) + '" style="width:40px;height:50px;object-fit:cover;border-radius:8px;display:block;" alt="Foto ' + escapeHtml(nama || '') + '" onerror="this.parentElement.innerHTML=\'<span class=\\'text-muted\\'><i class=\\'fas fa-user\\'></i></span>\'" />' +
-    '</div>';
+  // Build element using DOM to avoid all quote issues
+  var container = document.createElement('div');
+  container.className = 'hs-clickable-foto';
+  container.setAttribute('data-hs-foto', fotoUrl);
+  container.setAttribute('data-hs-nama', nama || '');
+  container.setAttribute('data-hs-nik', nik || '');
+  container.title = 'Klik untuk perbesar';
+  
+  var img = document.createElement('img');
+  img.src = fotoUrl;
+  img.style.cssText = 'width:40px;height:50px;object-fit:cover;border-radius:8px;display:block;';
+  img.alt = 'Foto ' + (nama || '');
+  
+  // Safe error handler - no nested quotes!
+  img.onerror = function() {
+    this.style.display = 'none';
+    var placeholder = document.createElement('span');
+    placeholder.className = 'text-muted';
+    placeholder.innerHTML = '<i class="fas fa-user"></i>';
+    this.parentNode.insertBefore(placeholder, this);
+  };
+  
+  container.appendChild(img);
+  
+  // Attach click handler
+  container.onclick = function() {
+    showHsPhotoPopup(
+      this.getAttribute('data-hs-foto'),
+      this.getAttribute('data-hs-nama'),
+      this.getAttribute('data-hs-nik')
+    );
+  };
+  
+  return container;
+}
+
+// Render helper untuk table (menerima DOM element)
+function renderHsFotoCell(domElement) {
+  // Return outerHTML or the element itself
+  return domElement.outerHTML || '';
 }
 
 // Attach click events untuk foto di table setelah render
