@@ -1985,7 +1985,17 @@
         // ============================================
         
         // ⚙️ KONFIGURASI: Ganti URL di bawah ini dengan URL Web App Anda
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxMiG1FHttL8H2wPOpY6UoYTkTIK5jJ2aJ_Z5QtLdq2Cap9dyhAcJ7QyrR_z2bYAck2fg/exec';
+        // Contoh: https://script.google.com/macros/s/Abc123xyz/exec
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz1hEP7Pft0UlmkT5iqjrBdvfkOAfAnUvRFNN64tjmZxK0KznKVMcWeALn_8muQM_nV/exec';
+        
+        // 🔍 DEBUG MODE - Set true untuk melihat detail error di console
+        const DEBUG_MODE = true;
+        
+        function logDebug(message, data) {
+            if (DEBUG_MODE) {
+                console.log('[DEBUG]', message, data || '');
+            }
+        }
         
         document.getElementById('absensiForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -2005,6 +2015,14 @@
             }
 
             const webAppUrl = WEB_APP_URL;
+            
+            // ⚠️ Validasi URL
+            if (!webAppUrl || webAppUrl.includes('YOUR_WEB_APP_ID')) {
+                showAlert('error', '⚠️ URL Web App belum dikonfigurasi! Ganti YOUR_WEB_APP_ID dengan URL Web App Anda.');
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = '✅ Kirim Absensi Sekarang';
+                return;
+            }
 
             const btnSubmit = document.getElementById('btnSubmit');
             btnSubmit.disabled = true;
@@ -2029,17 +2047,71 @@
                 platform: navigator.platform
             };
 
-            try {
-                const response = await fetch(webAppUrl, {
-                    method: 'POST',
-                    mode: 'no-cors', // Required for Google Apps Script
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData)
-                });
+            logDebug('Mengirim data ke:', webAppUrl);
+            logDebug('Data formData:', {
+                nama: formData.namaLengkap,
+                nip: formData.nip,
+                hasPhoto: !!formData.photoBase64,
+                hasGPS: !!(formData.latitude && formData.longitude)
+            });
 
-                // With no-cors, we can't read response, assume success
+            try {
+                // 🔄 Method 1: Try with cors mode first (to get actual response)
+                let response;
+                let responseData;
+                
+                try {
+                    response = await fetch(webAppUrl, {
+                        method: 'POST',
+                        mode: 'cors', // Try cors first to read response
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    logDebug('Response status:', response.status);
+                    logDebug('Response type:', response.type);
+                    
+                    // Try to parse JSON response
+                    if (response.ok) {
+                        try {
+                            responseData = await response.json();
+                            logDebug('Response data:', responseData);
+                        } catch (parseError) {
+                            logDebug('Cannot parse response as JSON');
+                            responseData = { success: true }; // Assume success if no error
+                        }
+                    } else {
+                        logDebug('Response not OK:', response.statusText);
+                        responseData = { success: false, error: `HTTP ${response.status}` };
+                    }
+                } catch (corsError) {
+                    // 🔄 Method 2: Fallback to no-cors (cannot read response)
+                    logDebug('CORS failed, trying no-cors mode:', corsError.message);
+                    
+                    response = await fetch(webAppUrl, {
+                        method: 'POST',
+                        mode: 'no-cors', // Required for Google Apps Script
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    // With no-cors, we assume success if no exception thrown
+                    responseData = { success: true, note: 'no-cors mode' };
+                    logDebug('No-cors request sent (response unreadable)');
+                }
+
+                // Check result
+                if (responseData.success === false) {
+                    throw new Error(responseData.error || 'Server returned error');
+                }
+
+                // ✅ Success!
+                logDebug('✅ Data terkirim successfully!');
+                
                 // Show beautiful success notification with confetti
                 showSuccessNotification({
                     nama: formData.namaLengkap,
@@ -2051,8 +2123,13 @@
                 });
 
             } catch (error) {
-                console.error('Submission error:', error);
-                showAlert('error', '❌ Gagal mengirim data. Periksa koneksi dan URL Web App.');
+                console.error('❌ Submission error:', error);
+                logDebug('Error details:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                
+                showAlert('error', `❌ Gagal mengirim data: ${error.message}`);
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '✅ Kirim Absensi Sekarang';
             }
