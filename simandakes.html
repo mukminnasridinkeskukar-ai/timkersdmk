@@ -1771,7 +1771,7 @@
 // Ganti URL di bawah dengan URL Web App Anda setelah deploy
 const CONFIG = {
     // URL Web App Google Apps Script (dapatkan setelah deploy)
-    GOOGLE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzjqZrg0Vp02lEM7gRpram-o4sU8_M842y4sHeLUhzy863kmCfHwJ3Xul41krYH3c5fjg/exec',
+    GOOGLE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzZWihALRzrJkIME_7OwdRzEfSuEko7Z8-TKvEK0_CDsMp2asQ7eUJcewGvxiMqyx_qFg/exec',
     
     // Pengaturan aplikasi
     APP_NAME: 'SIMANDAKES',
@@ -3526,13 +3526,24 @@ function getProfesiConfig(jenis) {
 
 /**
  * Generate avatar initials or photo HTML
+ * Uses data attributes for error handling to avoid escaping issues
  */
 function renderPhotoOrAvatar(nakes, size = 80) {
     if (nakes.foto && nakes.foto.trim() !== '') {
+        const jenisClass = (nakes.jenis || '').toLowerCase().replace(/\s/g, '-') || 'default';
+        const initials = nakes.nama.split(' ').map(x => x[0]).join('').slice(0, 2);
+        const fontSize = Math.round(size * 0.28);
+        
         return `
             <div class="nakes-photo-wrapper" style="width:${size}px;height:${size}px;">
                 <img src="${nakes.foto}" alt="${nakes.nama}" class="nakes-photo" 
-                     onerror="this.parentElement.innerHTML='<div class=\\'nakes-avatar nakes-avatar-${nakes.jenis?.toLowerCase()?.replace(/\\s/g,\\'-\\') || \\'default\\'}\\' style=\\'width:${size}px;height:${size}px;font-size:${size*0.28}px;\\'>${nakes.nama.split(' ').map(x=>x[0]).join('').slice(0,2)}</div>'">
+                     data-nama="${nakes.nama}"
+                     data-jenis="${jenisClass}"
+                     data-size="${size}"
+                     data-fontsize="${fontSize}"
+                     data-initials="${initials}"
+                     data-status="${nakes.status || ''}"
+                     onerror="handleImageError(this)">
                 <div class="nakes-status-indicator ${nakes.status === 'aktif' ? 'status-online' : 'status-offline'}"></div>
             </div>
         `;
@@ -3542,11 +3553,35 @@ function renderPhotoOrAvatar(nakes, size = 80) {
     return `
         <div class="nakes-photo-wrapper" style="width:${size}px;height:${size}px;">
             <div class="nakes-avatar" style="width:${size}px;height:${size}px;font-size:${size*0.28}px;background:${config.bg};color:${config.color};">
-                ${nakes.nama.split(' ').map(x=>x[0]).join('').slice(0,2)}
+                ${nakes.nama.split(' ').map(x => x[0]).join('').slice(0,2)}
             </div>
             <div class="nakes-status-indicator ${nakes.status === 'aktif' ? 'status-online' : 'status-offline'}"></div>
         </div>
     `;
+}
+
+/**
+ * Handle image error - replace with avatar
+ */
+function handleImageError(img) {
+    const nama = img.dataset.nama || '';
+    const jenis = img.dataset.jenis || 'default';
+    const size = img.dataset.size || '80';
+    const fontSize = img.dataset.fontsize || '22';
+    const initials = img.dataset.initials || '??';
+    const status = img.dataset.status || '';
+    
+    const config = getProfesiConfig(jenis.replace('-', ' '));
+    
+    // Replace img with avatar div
+    const avatarDiv = document.createElement('div');
+    avatarDiv.className = `nakes-avatar nakes-avatar-${jenis}`;
+    avatarDiv.style.cssText = `width:${size}px;height:${size}px;font-size:${fontSize}px;background:${config.bg};color:${config.color};`;
+    avatarDiv.textContent = initials;
+    
+    // Replace the img element
+    img.parentNode.insertBefore(avatarDiv, img);
+    img.remove();
 }
 
 /**
