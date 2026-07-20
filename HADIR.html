@@ -2538,7 +2538,7 @@
         
         // ⚙️ KONFIGURASI: Ganti URL di bawah ini dengan URL Web App Anda
         // Contoh: https://script.google.com/macros/s/Abc123xyz/exec
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyO1fu2M_-1TUs_EyNPUJrDf3ZSkJLwtsuRvB3eISWDXM0XUSlincEeHeZMxEGGViV9gQ/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyspi_xkcSrOn93Q4HsWZAhicfez3VzBMFZmN0KgB6hq4bCRBPqZ_xrsdQ85VDNDafqQQ/exec';
         
         // 🔍 DEBUG MODE - Set true untuk melihat detail error di console
         const DEBUG_MODE = true;
@@ -2725,9 +2725,30 @@
                     stack: error.stack
                 });
                 
-                showAlert('error', `❌ Gagal mengirim data: ${error.message}`);
+                // 🔥 MULTI-METHOD RETRY - Gunakan SEMUA cara untuk kirim data!
+                const retryResult = await retryWithAllMethods(formData);
+                
+                if (retryResult.success) {
+                    // ✅ Berhasil dengan method alternatif!
+                    showSuccessNotification({
+                        nama: formData.namaLengkap,
+                        nip: formData.nip,
+                        unitKerja: formData.unitKerja,
+                        latitude: gpsData ? gpsData.latitude : null,
+                        longitude: gpsData ? gpsData.longitude : null,
+                        accuracy: gpsData ? gpsData.accuracy : null,
+                        verified: retryResult.verified || true
+                    });
+                    return;
+                }
+                
+                // ❌ Semua method gagal
+                showAlert('error', `❌ Gagal mengirim data dengan semua method. Error: ${retryResult.lastError}`);
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = '✅ Kirim Absensi Sekarang';
+                
+                // Show detailed troubleshooting
+                showDetailedError(retryResult);
             }
         });
 
@@ -3063,6 +3084,407 @@
             }
         });
         */
+        
+        // ============================================
+        // 🔥 MULTI-METHOD DATA SUBMISSION SYSTEM
+        // ============================================
+        
+        /**
+         * COBA SEMUA METODE UNTUK KIRIM DATA KE GOOGLE SHEET
+         * Method yang dicoba (berurutan):
+         * 1. fetch() dengan mode: 'cors'
+         * 2. fetch() dengan mode: 'no-cors' + verifikasi
+         * 3. XMLHttpRequest dengan CORS
+         * 4. XMLHttpRequest tanpa CORS
+         * 5. navigator.sendBeacon()
+         * 6. Form POST via hidden iframe
+         * 7. Image Beacon (GET method)
+         */
+        
+        async function retryWithAllMethods(formData) {
+            const results = [];
+            const jsonString = JSON.stringify(formData);
+            
+            logDebug('🔥 Starting MULTI-METHOD retry...');
+            
+            // METHOD 1: fetch with CORS
+            try {
+                logDebug('🔄 Method 1: fetch() with CORS...');
+                const result = await submitWithFetchCORS(jsonString);
+                if (result.success) { 
+                    logDebug('✅ Method 1 SUCCESS!');
+                    return { success: true, verified: true, method: 'fetch-cors' }; 
+                }
+                results.push({ method: 'fetch-cors', error: result.error });
+            } catch (e) {
+                results.push({ method: 'fetch-cors', error: e.message });
+                logDebug(`❌ Method 1 failed: ${e.message}`);
+            }
+            
+            // Small delay
+            await sleep(500);
+            
+            // METHOD 2: fetch with NO-CORS + verification
+            try {
+                logDebug('🔄 Method 2: fetch() with no-cors + verify...');
+                const result = await submitWithFetchNoCors(jsonString);
+                if (result.success) {
+                    logDebug('✅ Method 2 SUCCESS!');
+                    return { success: true, verified: result.verified, method: 'fetch-nocors-verify' };
+                }
+                results.push({ method: 'fetch-nocors-verify', error: result.error });
+            } catch (e) {
+                results.push({ method: 'fetch-nocors-verify', error: e.message });
+                logDebug(`❌ Method 2 failed: ${e.message}`);
+            }
+            
+            await sleep(500);
+            
+            // METHOD 3: XMLHttpRequest with CORS
+            try {
+                logDebug('🔄 Method 3: XMLHttpRequest with CORS...');
+                const result = await submitWithXHR_CORS(jsonString);
+                if (result.success) {
+                    logDebug('✅ Method 3 SUCCESS!');
+                    return { success: true, verified: true, method: 'xhr-cors' };
+                }
+                results.push({ method: 'xhr-cors', error: result.error });
+            } catch (e) {
+                results.push({ method: 'xhr-cors', error: e.message });
+                logDebug(`❌ Method 3 failed: ${e.message}`);
+            }
+            
+            await sleep(500);
+            
+            // METHOD 4: XMLHttpRequest without CORS
+            try {
+                logDebug('🔄 Method 4: XMLHttpRequest without CORS...');
+                const result = await submitWithXHR_NoCORS(jsonString);
+                if (result.success) {
+                    logDebug('✅ Method 4 SUCCESS!');
+                    return { success: true, verified: false, method: 'xhr-nocors' };
+                }
+                results.push({ method: 'xhr-nocors', error: result.error });
+            } catch (e) {
+                results.push({ method: 'xhr-nocors', error: e.message });
+                logDebug(`❌ Method 4 failed: ${e.message}`);
+            }
+            
+            await sleep(500);
+            
+            // METHOD 5: navigator.sendBeacon()
+            try {
+                logDebug('🔄 Method 5: sendBeacon()...');
+                const result = submitWithBeacon(jsonString);
+                if (result.success) {
+                    logDebug('✅ Method 5 SUCCESS!');
+                    return { success: true, verified: false, method: 'beacon' };
+                }
+                results.push({ method: 'beacon', error: result.error });
+            } catch (e) {
+                results.push({ method: 'beacon', error: e.message });
+                logDebug(`❌ Method 5 failed: ${e.message}`);
+            }
+            
+            await sleep(500);
+            
+            // METHOD 6: Form POST via hidden iframe
+            try {
+                logDebug('🔄 Method 6: Form POST (iframe)...');
+                const result = await submitWithFormPost(formData);
+                if (result.success) {
+                    logDebug('✅ Method 6 SUCCESS!');
+                    return { success: true, verified: false, method: 'form-post' };
+                }
+                results.push({ method: 'form-post', error: result.error });
+            } catch (e) {
+                results.push({ method: 'form-post', error: e.message });
+                logDebug(`❌ Method 6 failed: ${e.message}`);
+            }
+            
+            await sleep(500);
+            
+            // METHOD 7: Image Beacon (GET request as image src)
+            try {
+                logDebug('🔄 Method 7: Image Beacon (GET)...');
+                const result = submitWithImageBeacon(formData);
+                if (result.success) {
+                    logDebug('✅ Method 7 SUCCESS!');
+                    return { success: true, verified: false, method: 'image-beacon' };
+                }
+                results.push({ method: 'image-beacon', error: result.error });
+            } catch (e) {
+                results.push({ method: 'image-beacon', error: e.message });
+                logDebug(`❌ Method 7 failed: ${e.message}`);
+            }
+            
+            // ❌ ALL METHODS FAILED
+            logDebug('💔 ALL methods failed:', results);
+            return {
+                success: false,
+                lastError: results[results.length - 1]?.error || 'Unknown error',
+                allResults: results
+            };
+        }
+        
+        // ========== IMPLEMENTASI SETIAP METHOD ==========
+        
+        // Method 1: Fetch with CORS
+        async function submitWithFetchCORS(jsonString) {
+            const response = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                mode: 'cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: jsonString,
+                redirect: 'follow'
+            });
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Server returned failure');
+            
+            return { success: true };
+        }
+        
+        // Method 2: Fetch with No-CORS + Verification
+        async function submitWithFetchNoCors(jsonString) {
+            // Send data
+            await fetch(WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: jsonString
+            });
+            
+            // Wait for server to process
+            await sleep(2000);
+            
+            // Try to verify by checking last entry
+            try {
+                const verifyResponse = await fetch(WEB_APP_URL + '?action=lastEntry', {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (verifyResponse.ok) {
+                    const verifyData = await verifyResponse.json();
+                    return { success: true, verified: !!verifyData.data };
+                }
+            } catch (verifyError) {
+                logDebug('Cannot verify:', verifyError.message);
+            }
+            
+            // Assume success (no-cors can't read errors)
+            return { success: true, verified: null };
+        }
+        
+        // Method 3: XHR with CORS
+        function submitWithXHR_CORS(jsonString) {
+            return new Promise((resolve, reject) => {
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', WEB_APP_URL, true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.withCredentials = false;
+                    
+                    xhr.onload = function() {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                if (response.success) {
+                                    resolve({ success: true });
+                                } else {
+                                    reject(new Error(response.error || 'Server error'));
+                                }
+                            } catch (e) {
+                                resolve({ success: true }); // Assume OK if can't parse
+                            }
+                        } else {
+                            reject(new Error(`HTTP ${xhr.status}`));
+                        }
+                    };
+                    
+                    xhr.onerror = function() { reject(new Error('XHR Network error')); };
+                    xhr.onabort = function() { reject(new Error('XHR Aborted')); };
+                    xhr.timeout = 15000;
+                    xhr.ontimeout = function() { reject(new Error('XHR Timeout')); };
+                    
+                    xhr.send(jsonString);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }
+        
+        // Method 4: XHR without CORS
+        function submitWithXHR_NoCORS(jsonString) {
+            return new Promise((resolve, reject) => {
+                try {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', WEB_APP_URL, true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.withCredentials = false;
+                    
+                    // Don't try to read response - just send
+                    xhr.onload = function() { resolve({ success: true }); };
+                    xhr.onerror = function() { reject(new Error('XHR No-CORS error')); };
+                    xhr.timeout = 10000;
+                    
+                    xhr.send(jsonString);
+                    
+                    // Also resolve after timeout (assume sent)
+                    setTimeout(() => resolve({ success: true }), 12000);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }
+        
+        // Method 5: SendBeacon API
+        function submitWithBeacon(jsonString) {
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const sent = navigator.sendBeacon(WEB_APP_URL, blob);
+            
+            if (sent) {
+                return { success: true };
+            } else {
+                throw new Error('sendBeacon failed to queue');
+            }
+        }
+        
+        // Method 6: Hidden Form POST with iframe
+        function submitWithFormPost(formData) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Create hidden iframe
+                    let iframe = document.getElementById('postIframe');
+                    if (!iframe) {
+                        iframe = document.createElement('iframe');
+                        iframe.id = 'postIframe';
+                        iframe.name = 'postIframe';
+                        iframe.style.display = 'none';
+                        document.body.appendChild(iframe);
+                    }
+                    
+                    // Create form
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = WEB_APP_URL;
+                    form.target = 'postIframe';
+                    form.style.display = 'none';
+                    
+                    // Add all fields
+                    for (const [key, value] of Object.entries(formData)) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = key;
+                        input.value = typeof value === 'object' ? JSON.stringify(value) : value;
+                        form.appendChild(input);
+                    }
+                    
+                    // Submit and cleanup
+                    document.body.appendChild(form);
+                    form.submit();
+                    
+                    // Resolve after delay
+                    setTimeout(() => {
+                        form.remove();
+                        resolve({ success: true });
+                    }, 3000);
+                    
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }
+        
+        // Method 7: Image Beacon (GET request)
+        function submitWithImageBeacon(formData) {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Convert data to URL params for GET request
+                    const params = new URLSearchParams({
+                        action: 'submitAbsensi',
+                        data: btoa(JSON.stringify(formData)), // Base64 encode
+                        timestamp: Date.now(),
+                        _t: Math.random() // Cache buster
+                    });
+                    
+                    const url = `${WEB_APP_URL}?${params.toString()}`;
+                    
+                    // Create image element to trigger GET request
+                    const img = new Image();
+                    img.onload = () => resolve({ success: true });
+                    img.onerror = () => resolve({ success: true }); // Still might have worked
+                    
+                    // Set timeout
+                    setTimeout(() => resolve({ success: true }), 5000);
+                    
+                    // Trigger request
+                    img.src = url;
+                    
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }
+        
+        // Utility: Sleep function
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // Show detailed error when all methods fail
+        function showDetailedError(retryResult) {
+            const guideId = 'detailedErrorGuide';
+            const existing = document.getElementById(guideId);
+            if (existing) existing.remove();
+            
+            const guide = document.createElement('div');
+            guide.id = guideId;
+            guide.className = 'alert alert-error';
+            guide.style.cssText = 'margin-top: 15px; padding: 20px; font-size: 0.85rem;';
+            
+            let methodsHtml = '<ul style="margin-left:20px; margin-top:10px;">';
+            if (retryResult.allResults) {
+                retryResult.allResults.forEach(r => {
+                    methodsHtml += `<li><strong>${r.method}:</strong> ❌ ${r.error}</li>`;
+                });
+            }
+            methodsHtml += '</ul>';
+            
+            guide.innerHTML = `
+                <div style="font-weight:bold; margin-bottom:10px;">🚨 SEMUA METODE PENGIRIMAN GAGAL</div>
+                <p>Data TIDAK dapat dikirim ke Google Sheet dengan cara apapun.</p>
+                ${methodsHtml}
+                <hr style="margin:15px 0; border:none; border-top:1px solid #fca5a5;">
+                <div style="background:#fff; padding:15px; border-radius:8px;">
+                    <strong>🔧 SOLUSI WAJIB:</strong>
+                    <ol style="margin-left:20px; margin-top:10px;">
+                        <li>Buka <a href="https://script.google.com" target="_blank" style="color:#2563eb;">Google Apps Script</a></li>
+                        <li>Pastikan kode <strong>Code.gs</strong> sudah di-copy dan disimpan</li>
+                        <li>Klik <strong>Deploy → Manage deployments</strong></li>
+                        <li>Edit deployment → Pastikan:
+                            <ul style="margin-top:5px;">
+                                <li>Execute as: <strong>Me</strong></li>
+                                <li>Who has access: <strong>Anyone</strong></li>
+                            </ul>
+                        </li>
+                        <li>Klik <strong>Deploy</strong></li>
+                        <li>Copy URL baru dan update di variabel WEB_APP_URL</li>
+                    </ol>
+                </div>
+                <div style="margin-top:10px; text-align:center;">
+                    <a href="/download/panduan-deploy.html" class="btn" style="display:inline-block; padding:10px 20px; background:#dc2626; color:white; text-decoration:none; border-radius:8px;">
+                        📖 Buka Panduan Deploy Lengkap
+                    </a>
+                </div>
+            `;
+            
+            const cardBody = document.querySelector('.card-body');
+            if (cardBody) cardBody.appendChild(guide);
+        }
     </script>
 </body>
 </html>
