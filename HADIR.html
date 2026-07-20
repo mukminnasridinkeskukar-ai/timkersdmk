@@ -233,6 +233,64 @@
             display: none;
         }
 
+        /* Event Info & Attendance Status */
+        .event-info {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 2px solid #fbbf24;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .event-info h3 {
+            color: #92400e;
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .event-info .event-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #78350f;
+            margin-bottom: 5px;
+        }
+
+        .event-info .event-time {
+            font-size: 0.9rem;
+            color: #a16207;
+        }
+
+        .attendance-status-bar {
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .status-open {
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            border: 2px solid #22c55e;
+            color: #166534;
+        }
+
+        .status-closed {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            border: 2px solid #ef4444;
+            color: #991b1b;
+        }
+
+        .status-pending {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 2px solid #f59e0b;
+            color: #92400e;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -398,6 +456,21 @@
                 <div id="alertError" class="alert alert-error">
                     <span>❌</span>
                     <span id="alertErrorMsg">Terjadi kesalahan!</span>
+                </div>
+
+                <!-- Event Info from Admin -->
+                <div class="event-info" id="eventInfo" style="display: none;">
+                    <h3>📅 Informasi Acara</h3>
+                    <div class="event-name" id="eventName">-</div>
+                    <div class="event-time" id="eventDateTime">-</div>
+                    <div id="eventLocation" style="font-size: 0.85rem; color: #a16207; margin-top: 5px;"></div>
+                    <div id="eventNotes" style="font-size: 0.8rem; color: #92400e; margin-top: 5px; font-style: italic;"></div>
+                </div>
+
+                <!-- Attendance Status Bar -->
+                <div class="attendance-status-bar status-pending" id="attendanceStatus">
+                    <span>⏳</span>
+                    <span id="attendanceStatusText">Memeriksa status absensi...</span>
                 </div>
 
                 <!-- Real-time Timestamp Display -->
@@ -955,9 +1028,20 @@
                 gpsValid = true;
             }
             
-            const isValid = nama && nip && nik && unitKerja && bidang && gpsValid && photoData;
+            // ✅ Cek status absensi
+            const attendanceValid = attendanceWindowStatus !== false;
+            
+            const isValid = nama && nip && nik && unitKerja && bidang && gpsValid && photoData && attendanceValid;
             
             const btnSubmit = document.getElementById('btnSubmit');
+            
+            // Jangan disable jika attendance closed, biarkan pesan error muncul
+            if (!attendanceValid) {
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = '🔒 Absensi Ditutup';
+                return;
+            }
+            
             btnSubmit.disabled = !isValid;
             
             if (isValid) {
@@ -980,10 +1064,24 @@
         // ============================================
         
         // ⚙️ KONFIGURASI: Ganti URL di bawah ini dengan URL Web App Anda
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzIwXxMB9VGe4XxPfyqMGQuLXDG5U7NrgSjxBzulPWYMZp3yxbHllEhmsavuk5TI0A2aA/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxbOCvB8lnjNZHrRfHDszV9WqQeKIZdRinkZJALwATNV3ewsaBmIaTA12e66ltUSg9jLQ/exec';
         
         document.getElementById('absensiForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            // ✅ Cek status absensi sebelum submit
+            if (attendanceWindowStatus === false) {
+                showAlert('error', '❌ Absensi saat ini ditutup. Hubungi administrator.');
+                return;
+            }
+            
+            if (attendanceWindowStatus === null) {
+                // Cek ulang status
+                await checkAttendanceWindow();
+                if (attendanceWindowStatus === false) {
+                    return;
+                }
+            }
 
             const webAppUrl = WEB_APP_URL;
 
@@ -1037,6 +1135,115 @@
         });
 
         // ============================================
+        // ATTENDANCE WINDOW CHECKING (Admin Settings)
+        // ============================================
+        
+        let attendanceWindowStatus = null; // null = unknown, true = open, false = closed
+        
+        async function checkAttendanceWindow() {
+            const statusEl = document.getElementById('attendanceStatus');
+            const statusText = document.getElementById('attendanceStatusText');
+            
+            try {
+                const response = await fetch(WEB_APP_URL + '?action=checkAttendanceWindow');
+                
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                
+                const result = await response.json();
+                
+                if (result.status === 'ok') {
+                    attendanceWindowStatus = result.canAttend;
+                    
+                    if (result.canAttend) {
+                        // ✅ Absensi terbuka
+                        statusEl.className = 'attendance-status-bar status-open';
+                        statusEl.innerHTML = '<span>🟢</span><span>ABSENSI TERBUKA - Silakan isi form</span>';
+                        
+                        // Tampilkan info event jika ada
+                        if (result.eventName || result.location) {
+                            showEventInfo(result);
+                        }
+                    } else {
+                        // ❌ Absensi tertutup
+                        statusEl.className = 'attendance-status-bar status-closed';
+                        statusEl.innerHTML = `<span>🔴</span><span>${result.reason}</span>`;
+                        
+                        // Disable form
+                        disableForm(result.reason);
+                    }
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+                
+            } catch (error) {
+                console.warn('⚠️ Gagal cek status absensi:', error);
+                statusEl.className = 'attendance-status-bar status-pending';
+                statusEl.innerHTML = '<span>⚠️</span><span>Tidak dapat memverifikasi status absensi</span>';
+                
+                // Tetap izinkan submit (fallback)
+                attendanceWindowStatus = true;
+            }
+        }
+        
+        function showEventInfo(data) {
+            const eventInfo = document.getElementById('eventInfo');
+            const eventName = document.getElementById('eventName');
+            const eventDateTime = document.getElementById('eventDateTime');
+            const eventLocation = document.getElementById('eventLocation');
+            const eventNotes = document.getElementById('eventNotes');
+            
+            if (data.eventName) {
+                eventName.textContent = data.eventName;
+            }
+            
+            let dateTimeText = '';
+            if (data.eventDate) {
+                dateTimeText += `📅 ${formatDateID(data.eventDate)}`;
+            }
+            if (data.startTime && data.endTime) {
+                dateTimeText += ` | ⏰ ${data.startTime} - ${data.endTime} WIB`;
+            }
+            eventDateTime.textContent = dateTimeText;
+            
+            if (data.location) {
+                eventLocation.textContent = `📍 ${data.location}`;
+                eventLocation.style.display = 'block';
+            } else {
+                eventLocation.style.display = 'none';
+            }
+            
+            eventInfo.style.display = 'block';
+        }
+        
+        function formatDateID(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            
+            const months = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+                            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            
+            return `${parseInt(parts[2])} ${months[parseInt(parts[1)]]} ${parts[0]}`;
+        }
+        
+        function disableForm(reason) {
+            // Disable semua input form kecuali tidak wajib
+            const formInputs = document.querySelectorAll('#absensiForm input, #absensiForm select');
+            formInputs.forEach(input => {
+                input.disabled = true;
+            });
+            
+            // Disable tombol foto dan submit
+            document.getElementById('btnCapturePhoto').disabled = true;
+            document.getElementById('btnSubmit').disabled = true;
+            document.getElementById('btnSubmit').innerHTML = '🔒 Absensi Ditutup';
+            
+            showAlert('error', reason);
+        }
+
+        // ============================================
         // UTILITY FUNCTIONS
         // ============================================
         function showAlert(type, message) {
@@ -1084,6 +1291,12 @@
             // Start clock updates
             updateClock();
             setInterval(updateClock, 1000);
+            
+            // Check attendance window from admin settings
+            checkAttendanceWindow();
+            
+            // Refresh attendance status every 30 seconds
+            setInterval(checkAttendanceWindow, 30000);
             
             // Initialize GPS
             initGPS();
