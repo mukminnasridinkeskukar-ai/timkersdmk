@@ -490,54 +490,143 @@
         // ============================================
         // SERVER TIME SYNCHRONIZATION (Anti-Cheat)
         // ============================================
+        
+        // Status sinkronisasi
+        let timeSyncStatus = 'local'; // 'local' | 'synced'
+        
         async function syncServerTime() {
-            try {
-                // Try to get time from WorldTimeAPI (free, no API key needed)
-                const response = await fetch('https://worldtimeapi.org/api/timezone/Asia/Jakarta');
-                if (response.ok) {
-                    const data = await response.json();
-                    const serverDateTime = new Date(data.datetime);
-                    const localDateTime = new Date();
-                    serverTimeOffset = serverDateTime.getTime() - localDateTime.getTime();
+            // Set info zona default dulu (langsung tampil)
+            document.getElementById('timezoneInfo').textContent = 
+                `Zona: Asia/Jakarta (WIB) | Menyinkronkan...`;
+            
+            // Coba multiple time sources untuk reliability
+            const timeSources = [
+                'https://worldtimeapi.org/api/timezone/Asia/Jakarta',
+                'https://timeapi.io/api/Time/current/zone?timeZone=Asia/Jakarta'
+            ];
+            
+            for (const url of timeSources) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 detik timeout
                     
-                    document.getElementById('timezoneInfo').textContent = 
-                        `Zona: ${data.timezone} | UTC${data.utc_offset} | Sinkronisasi: ✅`;
-                } else {
-                    throw new Error('Failed to fetch');
+                    const response = await fetch(url, { 
+                        signal: controller.signal,
+                        mode: 'cors'
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        let serverDateTime;
+                        
+                        // Handle different API response formats
+                        if (data.datetime) {
+                            // WorldTimeAPI format
+                            serverDateTime = new Date(data.datetime);
+                            document.getElementById('timezoneInfo').textContent = 
+                                `Zona: ${data.timezone} | UTC${data.utc_offset} | ✅ Server Time`;
+                        } else if (data.dateTime) {
+                            // TimeAPI.io format
+                            serverDateTime = new Date(data.dateTime);
+                            document.getElementById('timezoneInfo').textContent = 
+                                `Zona: Asia/Jakarta | ✅ Server Time`;
+                        } else {
+                            throw new Error('Unknown format');
+                        }
+                        
+                        const localDateTime = new Date();
+                        serverTimeOffset = serverDateTime.getTime() - localDateTime.getTime();
+                        timeSyncStatus = 'synced';
+                        
+                        console.log(`✅ Time synced from: ${url}`);
+                        return; // Success, stop trying
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Failed: ${url}`, error.message);
+                    continue; // Try next source
                 }
-            } catch (error) {
-                // Fallback to local time with warning
-                console.warn('Server time sync failed, using local time');
+            }
+            
+            // Semua gagal - gunakan waktu lokal dengan timezone Indonesia
+            console.warn('⚠️ All time APIs failed, using browser local time');
+            timeSyncStatus = 'local';
+            
+            // Set offset berdasarkan timezone WIB (UTC+7)
+            try {
+                // Deteksi offset otomatis dari browser
+                const now = new Date();
+                const jakarta = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+                const local = new Date(now.toLocaleString('en-US'));
+                serverTimeOffset = jakarta.getTime() - local.getTime();
+                
                 document.getElementById('timezoneInfo').textContent = 
-                    `Zona: Asia/Jakarta (WIB) | Sinkronisasi: ⚠️ Menggunakan waktu lokal`;
+                    `Zona: Asia/Jakarta (WIB) | ⚠️ Waktu Browser`;
+            } catch (e) {
+                document.getElementById('timezoneInfo').textContent = 
+                    `Zona: WIB (UTC+7) | ⚠️ Waktu Lokal`;
             }
         }
 
         function getAccurateTimestamp() {
-            // Always use server-synced time, prevent client manipulation
-            const now = new Date(Date.now() + serverTimeOffset);
-            return now.toISOString();
+            // Generate timestamp yang sulit dimanipulasi
+            const now = new Date();
+            
+            if (timeSyncStatus === 'synced') {
+                // Gunakan waktu yang sudah disinkronkan
+                return new Date(now.getTime() + serverTimeOffset).toISOString();
+            } else {
+                // Format dengan timezone WIB secara eksplisit
+                const options = {
+                    timeZone: 'Asia/Jakarta',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                };
+                
+                // Parse formatted date kembali ke ISO string
+                const formatter = new Intl.DateTimeFormat('id-ID', options);
+                const parts = formatter.formatToParts(now);
+                
+                const year = parts.find(p => p.type === 'year').value;
+                const month = parts.find(p => p.type === 'month').value;
+                const day = parts.find(p => p.type === 'day').value;
+                const hour = parts.find(p => p.type === 'hour').value;
+                const minute = parts.find(p => p.type === 'minute').value;
+                const second = parts.find(p => p.type === 'second').value;
+                
+                return `${year}-${month}-${day}T${hour}:${minute}:${second}+07:00`;
+            }
         }
 
         function formatDisplayTime() {
             const now = new Date(Date.now() + serverTimeOffset);
-            const options = {
+            const tanggal = now.toLocaleDateString('id-ID', {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
-                day: 'numeric',
+                day: 'numeric'
+            });
+            const jam = now.toLocaleTimeString('id-ID', {
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
-                hour12: false,
-                timeZone: 'Asia/Jakarta'
-            };
-            return now.toLocaleDateString('id-ID', options) + ' WIB';
+                hour12: false
+            });
+            return `${tanggal}, ${jam} WIB`;
         }
 
         // Update time display every second
         function updateClock() {
-            document.getElementById('serverTime').textContent = formatDisplayTime();
+            const timeElement = document.getElementById('serverTime');
+            if (timeElement) {
+                timeElement.textContent = formatDisplayTime();
+            }
         }
 
         // ============================================
@@ -596,7 +685,7 @@
             validateForm();
         }
 
-        onGPSError(error) {
+        function onGPSError(error) {
             let message = '';
             switch(error.code) {
                 case error.PERMISSION_DENIED:
@@ -708,7 +797,7 @@
         // ============================================
         
         // ⚙️ KONFIGURASI: Ganti URL di bawah ini dengan URL Web App Anda
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyaZ5ucH7jHnCDnE22AMKrJCXyIBsLDyNmsD2q10kk5Hb289XcAkp8hxoAWTJTMtHD4Xg/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxV4UXZ_3Of-1PMVsnZxlD4-BxZIGryxGto2EOdfUw5jz27ZZXR6bTD_SVnGZVMtTXScw/exec';
         
         document.getElementById('absensiForm').addEventListener('submit', async function(e) {
             e.preventDefault();
