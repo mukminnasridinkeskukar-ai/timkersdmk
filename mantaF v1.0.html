@@ -3635,7 +3635,7 @@ Kirim Pendaftaran
 KONFIGURASI
 ========================== */
 
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwbUyiZ4UWF0hAL7FL67QCPnuJmd14rYSHD-G7hLEqupTYIwu5W2Z2dyk4mBW9FcV0/exec";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwDCEApJlzqeTsebHbXhZgEsEMO5SQB6kT9JshTJB-_YPsJHshLs8tvYUCmCQXCxGb-/exec";
 
 let bezettingCache = null;
 
@@ -4746,7 +4746,6 @@ function showAdminDetail(no){
   
   var status = (rowData.status_verifikasi || 'Menunggu').trim();
   var isPerbaikan = (status === 'Perbaikan');
-  var canChangeStatus = (status === 'Menunggu' || status === 'Perbaikan');
   
   var content = document.getElementById('adminLightboxContent');
   var fotoUrl = getImageUrl(rowData.foto_4x6_latar_merah);
@@ -4778,8 +4777,6 @@ function showAdminDetail(no){
     var btnColor = ADMIN_BTN_COLORS[s] || '#64748b';
     if(isActive){
       statusButtons += '<button disabled class="btn" style="padding:7px 14px;font-size:12px;background:' + btnColor + ';opacity:0.5;cursor:not-allowed;border-radius:8px">' + s + ' <i class="fas fa-check" style="font-size:10px"></i></button>';
-    } else if(!canChangeStatus){
-      statusButtons += '<button disabled class="btn" style="padding:7px 14px;font-size:12px;background:' + btnColor + ';opacity:0.25;cursor:not-allowed;border-radius:8px" title="Status ' + status + ' tidak dapat diubah">' + s + '</button>';
     } else {
       statusButtons += '<button class="btn" style="padding:7px 14px;font-size:12px;background:' + btnColor + ';border-radius:8px" onclick="updateStatus(' + rowData.no + ', \'' + s + '\')">' + s + '</button>';
     }
@@ -4790,10 +4787,8 @@ function showAdminDetail(no){
     ? '<button class="btn" style="padding:9px 22px;font-size:13px;background:#7c3aed;border-radius:10px;font-weight:600;box-shadow:0 4px 14px rgba(124,58,237,0.3)" onclick="openAdminEditForm(' + rowData.no + ')"><i class="fas fa-edit"></i> Update Data Perbaikan</button>'
     : '<span style="color:#94a3b8;font-size:12px;display:inline-flex;align-items:center;gap:6px"><i class="fas fa-lock" style="font-size:11px"></i> Hanya status <b style="color:#7c3aed">Perbaikan</b> yang dapat mengubah data</span>';
 
-  /* Status lock/unlock banner */
-  var statusBanner = canChangeStatus
-    ? '<div style="background:#dcfce7;color:#166534;padding:8px 14px;border-radius:10px;font-size:12px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><i class="fas fa-unlock"></i> Status saat ini <b>' + escapeHtml(status) + '</b> — Anda dapat mengubah status peserta.</div>'
-    : '<div style="background:#fee2e2;color:#991b1b;padding:8px 14px;border-radius:10px;font-size:12px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><i class="fas fa-lock"></i> Status <b>' + escapeHtml(status) + '</b> — tombol status dikunci. Hanya status <b>Menunggu</b> dan <b>Perbaikan</b> yang dapat diubah.</div>';
+  /* Status banner — admin selalu bisa mengubah status */
+  var statusBanner = '<div style="background:#dcfce7;color:#166534;padding:8px 14px;border-radius:10px;font-size:12px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><i class="fas fa-unlock"></i> Status saat ini <b>' + escapeHtml(status) + '</b> — Admin dapat mengubah ke status lain.</div>';
 
   content.innerHTML = ''
     + '<span class="close" onclick="document.getElementById(\'adminLightbox\').style.display=\'none\'">&times;</span>'
@@ -5151,13 +5146,7 @@ async function saveAdminEdit(no){
  ========================== */
  
 async function updateStatus(row, status){
-  /* Cegah update jika status saat ini BUKAN Perbaikan */
-  var rowData = ukomCache ? ukomCache.find(function(item){ return item.no === row; }) : null;
-  var currentStatus = rowData ? (rowData.status_verifikasi || 'Menunggu').trim() : '';
-  if(currentStatus && currentStatus !== 'Perbaikan' && currentStatus !== 'Menunggu'){
-    alert('Perubahan status hanya dapat dilakukan dari status Menunggu atau Perbaikan.\nStatus saat ini: ' + currentStatus);
-    return;
-  }
+  /* Admin dapat mengubah status dari status apa pun */
   var catatan = prompt('Catatan untuk status "' + status + '" (opsional):') || '';
   if(catatan === null) return;
   try{
@@ -5169,14 +5158,14 @@ async function updateStatus(row, status){
       dashPesertaCache = null;
       _ukomFetchPromise = null;
       pesertaUkomLoaded = false;
-      alert('Status berhasil diubah ke "' + status + '"');
       document.getElementById('adminLightbox').style.display = 'none';
       loadAdminData();
+      showNotifToast('Status berhasil diubah ke "' + status + '"', 'success');
     } else {
-      alert(result.message || 'Gagal update status');
+      showNotifToast(result.message || 'Gagal update status', 'error');
     }
   }catch(err){
-    alert('Gagal update: ' + err.message);
+    showNotifToast('Gagal update: ' + err.message, 'error');
   }
 }
 
