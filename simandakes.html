@@ -1473,7 +1473,7 @@
 // Ganti URL di bawah dengan URL Web App Anda setelah deploy
 const CONFIG = {
     // URL Web App Google Apps Script (dapatkan setelah deploy)
-    GOOGLE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbz8VLliV5ayqnuSrshVw_uGsV9VsyFo2fqqJhs8-caLggNaTui_3y2KWkPPh2ZB3dFN8g/exec',
+    GOOGLE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzgC9mX9ao8ROhCLnWaZdorl7hWr1HRQeC2PwgFt4M2-ifw5bitqpalAJrG5ZaxVrZHkg/exec',
     
     // Pengaturan aplikasi
     APP_NAME: 'SIMANDAKES',
@@ -2422,157 +2422,616 @@ function resetLinksToDefault() {
     }
 }
 
-// ==================== Named View ====================
+// ==================== DATA SAMPLE UNTUK DASHBOARD NAMED & NAKES ====================
+// Data institusi kesehatan dengan jumlah tenaga medis
+const INSTITUSI_DATA = [
+    { id: 1, nama: 'RS Umum Daerah Jakarta Pusat', tipe: 'RS', dokter: 45, dokterGigi: 12, perawat: 120, bidan: 0, apoteker: 8, lainnya: 35 },
+    { id: 2, nama: 'RS Ibu dan Anak Harapan Bunda', tipe: 'RS', dokter: 38, dokterGigi: 8, perawat: 95, bidan: 25, apoteker: 6, lainnya: 28 },
+    { id: 3, nama: 'Puskesmas Pembantu Mekar Jaya', tipe: 'Puskesmas', dokter: 4, dokterGigi: 1, perawat: 15, bidan: 8, apoteker: 2, lainnya: 5 },
+    { id: 4, nama: 'Klinik Pratama Sejahtera', tipe: 'Klinik', dokter: 6, dokterGigi: 2, perawat: 10, bidan: 3, apoteker: 2, lainnya: 4 },
+    { id: 5, nama: 'BPM Sejahtera', tipe: 'BPM', dokter: 0, dokterGigi: 0, perawat: 3, bidan: 5, apoteker: 0, lainnya: 2 },
+    { id: 6, nama: 'RS Umum Daerah Jakarta Selatan', tipe: 'RS', dokter: 52, dokterGigi: 15, perawat: 145, bidan: 0, apoteker: 10, lainnya: 42 },
+    { id: 7, nama: 'Puskesmas Kelurahan Cempaka', tipe: 'Puskesmas', dokter: 5, dokterGigi: 2, perawat: 18, bidan: 10, apoteker: 3, lainnya: 6 },
+    { id: 8, nama: 'RS Khusus Mata Jakarta', tipe: 'RS', dokter: 28, dokterGigi: 0, perawat: 65, bidan: 0, apoteker: 4, lainnya: 18 }
+];
+
+// Warna untuk grafik
+const CHART_COLORS = {
+    dokter: '#4f46e5',
+    dokterGigi: '#0891b2',
+    perawat: '#ec4899',
+    bidan: '#db2777',
+    apoteker: '#ca8a04',
+    lainnya: '#6b7280'
+};
+
+// ==================== Named View - Dashboard Dokter & Dokter Gigi ====================
 function renderNamed() {
-    const stats = getStats();
+    const totalDokter = INSTITUSI_DATA.reduce((sum, i) => sum + i.dokter, 0);
+    const totalDokterGigi = INSTITUSI_DATA.reduce((sum, i) => sum + i.dokterGigi, 0);
+    const totalMedis = totalDokter + totalDokterGigi;
+    
+    // Data untuk bar chart horizontal
+    const maxVal = Math.max(...INSTITUSI_DATA.map(i => i.dokter + i.dokterGigi));
     
     return `
         <div style="margin-bottom:24px;">
-            <h2 style="font-size:24px;font-weight:700;color:#111827;">Named</h2>
-            <p style="color:#6b7280;">Sistem Manajemen Data Nakes Terintegrasi</p>
+            <h2 style="font-size:28px;font-weight:700;color:#111827;display:flex;align-items:center;gap:12px;">
+                <span style="background:linear-gradient(135deg,#4f46e5,#0891b2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">👨‍⚕️ Named</span>
+            </h2>
+            <p style="color:#6b7280;font-size:16px;margin-top:4px;">Dashboard Tenaga Medis (Dokter & Dokter Gigi) Per Institusi Kesehatan</p>
         </div>
         
-        <div class="grid-2">
-            <div class="card">
-                <div class="card-header">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <div>
-                            <h3 style="font-size:16px;font-weight:600;">Daftar Tenaga Kesehatan</h3>
-                            <p style="font-size:14px;color:#6b7280;">Kelola data nakes dari Google Sheet</p>
-                        </div>
-                        <button class="btn btn-primary btn-sm">
-                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                            Tambah Data
-                        </button>
+        <!-- Summary Cards -->
+        <div class="stats-grid" style="margin-bottom:28px;">
+            <div class="stat-card" style="border-left:4px solid #4f46e5;">
+                <div class="stat-card-header">
+                    <div>
+                        <p class="stat-card-label">Total Dokter Umum</p>
+                        <p class="stat-card-value" style="color:#4f46e5;">${totalDokter}</p>
+                    </div>
+                    <div class="stat-card-icon" style="background:#eef2ff;">
+                        <svg width="24" height="24" fill="none" stroke="#4f46e5" stroke-width="2" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                     </div>
                 </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Nama</th>
-                                <th>Jenis</th>
-                                <th>Spesialisasi</th>
-                                <th>Status</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${state.cachedNakesData.slice(0, 5).map(n => `
-                                <tr>
-                                    <td style="font-weight:500;">${n.nama}</td>
-                                    <td><span class="badge ${n.jenis === 'dokter' ? 'badge-blue' : n.jenis === 'bidan' ? 'badge-pink' : 'badge-purple'}">${n.jenis.charAt(0).toUpperCase()+n.jenis.slice(1)}</span></td>
-                                    <td>${n.spesialisasi}</td>
-                                    <td><span class="badge ${n.status === 'aktif' ? 'badge-success' : 'badge-gray'}">${n.status === 'aktif' ? 'Aktif' : 'Non-Aktif'}</span></td>
-                                    <td>
-                                        <div style="display:flex;gap:8px;">
-                                            <button class="btn btn-secondary btn-icon"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                                            <button class="btn btn-secondary btn-icon" style="color:#ef4444;"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></span>
+                    <span style="font-size:13px;color:#16a34a;">Aktif: ${Math.round(totalDokter * 0.92)}</span>
                 </div>
             </div>
             
-            <div style="display:flex;flex-direction:column;gap:20px;">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 style="font-size:16px;font-weight:600;">Statistik Cepat</h3>
+            <div class="stat-card" style="border-left:4px solid #0891b2;">
+                <div class="stat-card-header">
+                    <div>
+                        <p class="stat-card-label">Total Dokter Gigi</p>
+                        <p class="stat-card-value" style="color:#0891b2;">${totalDokterGigi}</p>
                     </div>
-                    <div class="card-body">
-                        <div style="display:flex;justify-content:space-between;padding:8px 0;">
-                            <span style="font-size:14px;color:#6b7280;">Total Records</span>
-                            <span style="font-weight:600;">${stats.total}</span>
-                        </div>
-                        <div class="separator" style="margin:8px 0;"></div>
-                        <div style="display:flex;justify-content:space-between;padding:8px 0;">
-                            <span style="font-size:14px;color:#6b7280;">Aktif</span>
-                            <span style="font-weight:600;color:#16a34a;">${stats.aktif}</span>
-                        </div>
-                        <div class="separator" style="margin:8px 0;"></div>
-                        <div style="display:flex;justify-content:space-between;padding:8px 0;">
-                            <span style="font-size:14px;color:#6b7280;">Non-Aktif</span>
-                            <span style="font-weight:600;color:#dc2626;">${stats.total - stats.aktif}</span>
-                        </div>
+                    <div class="stat-card-icon" style="background:#cffafe;">
+                        <svg width="24" height="24" fill="none" stroke="#0891b2" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M14.5 7.5c-.83 0-1.5.67-1.5 1.5v6c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V9c0-.83-.67-1.5-1.5-1.5z"/><path d="M9.5 7.5c-.83 0-1.5.67-1.5 1.5v6c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V9c0-.83-.67-1.5-1.5-1.5z"/></svg>
                     </div>
                 </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <h3 style="font-size:16px;font-weight:600;">Sumber Data</h3>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></span>
+                    <span style="font-size:13px;color:#16a34a;">Aktif: ${Math.round(totalDokterGigi * 0.95)}</span>
+                </div>
+            </div>
+            
+            <div class="stat-card" style="border-left:4px solid #059669;">
+                <div class="stat-card-header">
+                    <div>
+                        <p class="stat-card-label">Total Tenaga Medis</p>
+                        <p class="stat-card-value" style="color:#059669;">${totalMedis}</p>
                     </div>
-                    <div class="card-body">
-                        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f9fafb;border-radius:8px;margin-bottom:16px;">
-                            <svg width="20" height="20" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-                            <div style="flex:1;min-width:0;">
-                                <p style="font-size:14px;font-weight:500;">Google Sheets</p>
-                                <p style="font-size:12px;color:#6b7280;overflow:hidden;text-ellipsis;white-space:nowrap;">https://docs.google.com/spreadsheets/d/simandakes-data</p>
+                    <div class="stat-card-icon" style="background:#d1fae5;">
+                        <svg width="24" height="24" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <span style="font-size:13px;color:#6b7280;">Dari ${INSTITUSI_DATA.length} Institusi</span>
+                </div>
+            </div>
+            
+            <div class="stat-card" style="border-left:4px solid #f59e0b;">
+                <div class="stat-card-header">
+                    <div>
+                        <p class="stat-card-label">Rasio D : DG</p>
+                        <p class="stat-card-value" style="color:#f59e0b;">1:${(totalDokterGigi/totalDokter).toFixed(1)}</p>
+                    </div>
+                    <div class="stat-card-icon" style="background:#fef3c7;">
+                        <svg width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <span style="font-size:13px;color:#6b7280;">Rata-rata per RS</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid-2" style="margin-bottom:28px;">
+            <!-- Bar Chart - Distribusi per Institusi -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;">
+                        <svg width="20" height="20" fill="none" stroke="#4f46e5" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                        Distribusi Dokter per Institusi
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        ${INSTITUSI_DATA.map(inst => {
+                            const pct = ((inst.dokter + inst.dokterGigi) / maxVal) * 100;
+                            return `
+                                <div class="chart-bar-item" style="margin-bottom:14px;">
+                                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                                        <span style="font-size:12px;font-weight:500;color:#374151;max-width:60%;overflow:hidden;text-ellipsis;white-space:nowrap;" title="${inst.nama}">${inst.nama}</span>
+                                        <span style="font-size:12px;font-weight:600;color:#111827;">${inst.dokter + inst.dokterGigi}</span>
+                                    </div>
+                                    <div style="display:flex;height:24px;background:#f3f4f6;border-radius:6px;overflow:hidden;">
+                                        <div style="width:${(inst.dokter / maxVal) * 100}%;background:#4f46e5;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;transition:width 0.5s ease;" title="Dokter: ${inst.dokter}">
+                                            ${inst.dokter > 5 ? `<span style="font-size:10px;color:white;font-weight:500;">${inst.dokter}</span>` : ''}
+                                        </div>
+                                        <div style="width:${(inst.dokterGigi / maxVal) * 100}%;background:#0891b2;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;transition:width 0.5s ease;" title="Dokter Gigi: ${inst.dokterGigi}">
+                                            ${inst.dokterGigi > 3 ? `<span style="font-size:10px;color:white;font-weight:500;">${inst.dokterGigi}</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;gap:12px;margin-top:4px;">
+                                        <span style="font-size:10px;color:#4f46e5;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4f46e5;margin-right:4px;"></span>D: ${inst.dokter}</span>
+                                        <span style="font-size:10px;color:#0891b2;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#0891b2;margin-right:4px;"></span>DG: ${inst.dokterGigi}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Donut Chart - Komposisi -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;">
+                        <svg width="20" height="20" fill="none" stroke="#ec4899" stroke-width="2" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                        Komposisi Tenaga Medis
+                    </h3>
+                </div>
+                <div class="card-body" style="display:flex;flex-direction:column;align-items:center;">
+                    <div class="donut-chart" style="position:relative;width:180px;height:180px;">
+                        <svg viewBox="0 0 100 100" style="transform:rotate(-90deg);">
+                            ${createDonutChartSVG([
+                                { value: totalDokter, color: '#4f46e5', label: 'Dokter' },
+                                { value: totalDokterGigi, color: '#0891b2', label: 'Dokter Gigi' }
+                            ])}
+                        </svg>
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                            <p style="font-size:28px;font-weight:700;color:#111827;">${totalMedis}</p>
+                            <p style="font-size:11px;color:#6b7280;">Total</p>
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:24px;margin-top:20px;flex-wrap:wrap;justify-content:center;">
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="width:14px;height:14px;border-radius:4px;background:#4f46e5;display:block;"></span>
+                            <div>
+                                <p style="font-size:14px;font-weight:600;color:#111827;">${totalDokter}</p>
+                                <p style="font-size:11px;color:#6b7280;">Dokter (${Math.round((totalDokter/totalMedis)*100)}%)</p>
                             </div>
                         </div>
-                        <button class="btn btn-secondary w-full" onclick="syncWithGoogleSheet()">
-                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            Sync dari Sheet
-                        </button>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="width:14px;height:14px;border-radius:4px;background:#0891b2;display:block;"></span>
+                            <div>
+                                <p style="font-size:14px;font-weight:600;color:#111827;">${totalDokterGigi}</p>
+                                <p style="font-size:11px;color:#6b7280;">Dokter Gigi (${Math.round((totalDokterGigi/totalMedis)*100)}%)</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Table Detail -->
+        <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;">
+                    <svg width="20" height="20" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    Detail Data Tenaga Medis per Institusi
+                </h3>
+                <button class="btn btn-secondary btn-sm" onclick="exportNamedData()">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export
+                </button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Institusi Kesehatan</th>
+                            <th>Tipe</th>
+                            <th style="text-align:center;color:#4f46e5;">👨‍⚕️ Dokter</th>
+                            <th style="text-align:center;color:#0891b2;">🦷 Dokter Gigi</th>
+                            <th style="text-align:center;">Total</th>
+                            <th style="text-align:center;">Persentase</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${INSTITUSI_DATA.map(inst => {
+                            const total = inst.dokter + inst.dokterGigi;
+                            const pct = ((total / totalMedis) * 100).toFixed(1);
+                            return `
+                                <tr>
+                                    <td style="font-weight:500;">${inst.nama}</td>
+                                    <td><span class="badge ${inst.tipe === 'RS' ? 'badge-blue' : inst.tipe === 'Puskesmas' ? 'badge-success' : 'badge-gray'}">${inst.tipe}</span></td>
+                                    <td style="text-align:center;font-weight:600;color:#4f46e5;">${inst.dokter}</td>
+                                    <td style="text-align:center;font-weight:600;color:#0891b2;">${inst.dokterGigi}</td>
+                                    <td style="text-align:center;font-weight:700;">${total}</td>
+                                    <td style="text-align:center;">
+                                        <div style="display:inline-flex;align-items:center;gap:6px;">
+                                            <div style="width:40px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
+                                                <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#4f46e5,#0891b2);border-radius:3px;"></div>
+                                            </div>
+                                            <span style="font-size:12px;color:#6b7280;">${pct}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#f9fafb;font-weight:700;">
+                            <td colspan="2">TOTAL</td>
+                            <td style="text-align:center;color:#4f46e5;">${totalDokter}</td>
+                            <td style="text-align:center;color:#0891b2;">${totalDokterGigi}</td>
+                            <td style="text-align:center;">${totalMedis}</td>
+                            <td style="text-align:center;">100%</td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
         </div>
     `;
 }
 
-// ==================== Nakes View ====================
+// ==================== Nakes View - Dashboard Non-Dokter ====================
 function renderNakes() {
+    const totalPerawat = INSTITUSI_DATA.reduce((sum, i) => sum + i.perawat, 0);
+    const totalBidan = INSTITUSI_DATA.reduce((sum, i) => sum + i.bidan, 0);
+    const totalApoteker = INSTITUSI_DATA.reduce((sum, i) => sum + i.apoteker, 0);
+    const totalLainnya = INSTITUSI_DATA.reduce((sum, i) => sum + i.lainnya, 0);
+    const totalNakes = totalPerawat + totalBidan + totalApoteker + totalLainnya;
+    
+    // Max value for chart scaling
+    const maxNakesVal = Math.max(...INSTITUSI_DATA.map(i => i.perawat + i.bidan + i.apoteker + i.lainnya));
+
     return `
         <div style="margin-bottom:24px;">
-            <h2 style="font-size:24px;font-weight:700;color:#111827;">Directory Nakes</h2>
-            <p style="color:#6b7280;">Database lengkap tenaga kesehatan Indonesia</p>
+            <h2 style="font-size:28px;font-weight:700;color:#111827;display:flex;align-items:center;gap:12px;">
+                <span style="background:linear-gradient(135deg,#ec4899,#db2777);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">👩‍⚕️ Nakes</span>
+            </h2>
+            <p style="color:#6b7280;font-size:16px;margin-top:4px;">Dashboard Tenaga Kesehatan Non-Dokter (Perawat, Bidan, Apoteker, dll) Per Institusi</p>
         </div>
-        
-        <div class="nakes-grid">
-            ${state.cachedNakesData.map(n => `
-                <div class="nakes-card">
-                    <div class="nakes-header">
-                        <div class="avatar avatar-lg" style="background:${n.jenis === 'dokter' ? '#dbeafe' : n.jenis === 'bidan' ? '#fce7f3' : '#f3e8ff'};color:${n.jenis === 'dokter' ? '#1e40af' : n.jenis === 'bidan' ? '#be185d' : '#7c3aed'};">
-                            ${n.nama.split(' ').map(x=>x[0]).join('').slice(0,2)}
+
+        <!-- Summary Cards - 4 columns -->
+        <div class="nakes-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:28px;">
+            <div class="stat-card" style="border-left:4px solid #ec4899;background:linear-gradient(135deg,#fff, #fdf2f8);">
+                <div class="stat-card-header">
+                    <div>
+                        <p class="stat-card-label">💉 Total Perawat</p>
+                        <p class="stat-card-value" style="color:#ec4899;">${totalPerawat}</p>
+                    </div>
+                    <div class="stat-card-icon" style="background:#fce7f3;">
+                        <svg width="24" height="24" fill="none" stroke="#ec4899" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                </div>
+                <div style="margin-top:8px;padding:8px;background:white;border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;">
+                        <span style="color:#6b7280;">NS</span><span style="font-weight:600;">${Math.round(totalPerawat * 0.85)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
+                        <span style="color:#6b7280;">Ns.Sp</span><span style="font-weight:600;">${Math.round(totalPerawat * 0.15)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left:4px solid #db2777;background:linear-gradient(135deg,#fff, #fff1f2);">
+                <div class="stat-card-header">
+                    <div>
+                        <p class="stat-card-label">🤱 Total Bidan</p>
+                        <p class="stat-card-value" style="color:#db2777;">${totalBidan}</p>
+                    </div>
+                    <div class="stat-card-icon" style="background:#fce7f3;">
+                        <svg width="24" height="24" fill="none" stroke="#db2777" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 8v4l3 3"/></svg>
+                    </div>
+                </div>
+                <div style="margin-top:8px;padding:8px;background:white;border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;">
+                        <span style="color:#6b7280;">Bidan</span><span style="font-weight:600;">${Math.round(totalBidan * 0.7)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
+                        <span style="color:#6b7280;">Bidanel</span><span style="font-weight:600;">${Math.round(totalBidan * 0.3)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left:4px solid #ca8a04;background:linear-gradient(135deg,#fff, #fefce8);">
+                <div class="stat-card-header">
+                    <div>
+                        <p class="stat-card-label">💊 Total Apoteker</p>
+                        <p class="stat-card-value" style="color:#ca8a04;">${totalApoteker}</p>
+                    </div>
+                    <div class="stat-card-icon" style="background:#fef9c3;">
+                        <svg width="24" height="24" fill="none" stroke="#ca8a04" stroke-width="2" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 5 9 2 6 5"/><path d="M12 5l3-3 3 3"/></svg>
+                    </div>
+                </div>
+                <div style="margin-top:8px;padding:8px;background:white;border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;">
+                        <span style="color:#6b7280;">Apt</span><span style="font-weight:600;">${Math.round(totalApoteker * 0.6)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
+                        <span style="color:#6b7280;">Apt.Asisten</span><span style="font-weight:600;">${Math.round(totalApoteker * 0.4)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card" style="border-left:4px solid #6b7280;background:linear-gradient(135deg,#fff,#f9fafb);">
+                <div class="stat-card-header">
+                    <div>
+                        <p class="stat-card-label">🏥 Lainnya</p>
+                        <p class="stat-card-value" style="color:#6b7280;">${totalLainnya}</p>
+                    </div>
+                    <div class="stat-card-icon" style="background:#f3f4f6;">
+                        <svg width="24" height="24" fill="none" stroke="#6b7280" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                </div>
+                <div style="margin-top:8px;padding:8px;background:white;border-radius:8px;">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;">
+                        <span style="color:#6b7280;">Sanitarian</span><span style="font-weight:600;">${Math.round(totalLainnya * 0.3)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px;">
+                        <span style="color:#6b7280;">Ahli Gizi/Lain</span><span style="font-weight:600;">${Math.round(totalLainnya * 0.7)}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Badge -->
+        <div style="display:flex;justify-content:center;margin-bottom:28px;">
+            <div style="display:inline-flex;align-items:center;gap:16px;padding:16px 32px;background:linear-gradient(135deg,#fce7f3,#f3e8ff);border-radius:16px;">
+                <div style="text-align:center;">
+                    <p style="font-size:32px;font-weight:800;color:#db2777;">${totalNakes}</p>
+                    <p style="font-size:13px;color:#6b7280;">Total Tenaga Non-Medis</p>
+                </div>
+                <div style="width:1px;height:40px;background:#e5e7eb;"></div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <span style="padding:6px 12px;background:white;border-radius:20px;font-size:12px;font-weight:600;color:#ec4899;">💉 ${totalPerawat} Perawat</span>
+                    <span style="padding:6px 12px;background:white;border-radius:20px;font-size:12px;font-weight:600;color:#db2777;">🤱 ${totalBidan} Bidan</span>
+                    <span style="padding:6px 12px;background:white;border-radius:20px;font-size:12px;font-weight:600;color:#ca8a04;">💊 ${totalApoteker} Apoteker</span>
+                    <span style="padding:6px 12px;background:white;border-radius:20px;font-size:12px;font-weight:600;color:#6b7280;">🏥 ${totalLainnya} Lainnya</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid-2" style="margin-bottom:28px;">
+            <!-- Stacked Bar Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;">
+                        <svg width="20" height="20" fill="none" stroke="#ec4899" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                        Distribusi Nakes per Institusi
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        ${INSTITUSI_DATA.map(inst => {
+                            const total = inst.perawat + inst.bidan + inst.apoteker + inst.lainnya;
+                            return `
+                                <div class="chart-bar-item" style="margin-bottom:16px;">
+                                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                                        <span style="font-size:11px;font-weight:500;color:#374151;max-width:55%;overflow:hidden;text-ellipsis;white-space:nowrap;" title="${inst.nama}">${inst.nama}</span>
+                                        <span style="font-size:12px;font-weight:700;color:#111827;">${total}</span>
+                                    </div>
+                                    <div style="display:flex;height:20px;background:#f3f4f6;border-radius:4px;overflow:hidden;gap:1px;">
+                                        ${inst.perawat > 0 ? `<div style="width:${(inst.perawat/maxNakesVal)*100}%;background:#ec4899;" title="Perawat: ${inst.perawat}"></div>` : ''}
+                                        ${inst.bidan > 0 ? `<div style="width:${(inst.bidan/maxNakesVal)*100}%;background:#db2777;" title="Bidan: ${inst.bidan}"></div>` : ''}
+                                        ${inst.apoteker > 0 ? `<div style="width:${(inst.apoteker/maxNakesVal)*100}%;background:#ca8a04;" title="Apoteker: ${inst.apoteker}"></div>` : ''}
+                                        ${inst.lainnya > 0 ? `<div style="width:${(inst.lainnya/maxNakesVal)*100}%;background:#6b7280;" title="Lainnya: ${inst.lainnya}"></div>` : ''}
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <!-- Legend -->
+                    <div style="display:flex;gap:16px;margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;flex-wrap:wrap;justify-content:center;">
+                        <span style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:12px;height:12px;border-radius:3px;background:#ec4899;"></span> Perawat</span>
+                        <span style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:12px;height:12px;border-radius:3px;background:#db2777;"></span> Bidan</span>
+                        <span style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:12px;height:12px;border-radius:3px;background:#ca8a04;"></span> Apoteker</span>
+                        <span style="display:flex;align-items:center;gap:4px;font-size:11px;"><span style="width:12px;height:12px;border-radius:3px;background:#6b7280;"></span> Lainnya</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pie Chart - Komposisi -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;">
+                        <svg width="20" height="20" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                        Komposisi Tenaga Kesehatan
+                    </h3>
+                </div>
+                <div class="card-body" style="display:flex;flex-direction:column;align-items:center;">
+                    <div class="donut-chart" style="position:relative;width:200px;height:200px;">
+                        <svg viewBox="0 0 100 100" style="transform:rotate(-90deg);">
+                            ${createDonutChartSVG([
+                                { value: totalPerawat, color: '#ec4899', label: 'Perawat' },
+                                { value: totalBidan, color: '#db2777', label: 'Bidan' },
+                                { value: totalApoteker, color: '#ca8a04', label: 'Apoteker' },
+                                { value: totalLainnya, color: '#6b7280', label: 'Lainnya' }
+                            ])}
+                        </svg>
+                        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                            <p style="font-size:26px;font-weight:700;color:#111827;">${totalNakes}</p>
+                            <p style="font-size:11px;color:#6b7280;">Total Nakes</p>
                         </div>
-                        <div class="nakes-info" style="flex:1;">
-                            <h3>${n.nama}</h3>
-                            <p>${n.spesialisasi}</p>
-                            <div style="display:flex;gap:8px;margin-top:8px;">
-                                <span class="badge ${n.jenis === 'dokter' ? 'badge-blue' : n.jenis === 'bidan' ? 'badge-pink' : 'badge-purple'}">${n.jenis.charAt(0).toUpperCase()+n.jenis.slice(1)}</span>
-                                <span class="badge ${n.status === 'aktif' ? 'badge-success' : 'badge-gray'}">${n.status === 'aktif' ? 'Aktif' : 'Non-aktif'}</span>
+                    </div>
+                    
+                    <!-- Legend Grid -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;width:100%;">
+                        <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#fdf2f8;border-radius:8px;">
+                            <span style="width:12px;height:12px;border-radius:3px;background:#ec4899;flex-shrink:0;"></span>
+                            <div>
+                                <p style="font-size:14px;font-weight:600;color:#111827;">${totalPerawat}</p>
+                                <p style="font-size:10px;color:#6b7280;">Perawat (${Math.round((totalPerawat/totalNakes)*100)}%)</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#fff1f2;border-radius:8px;">
+                            <span style="width:12px;height:12px;border-radius:3px;background:#db2777;flex-shrink:0;"></span>
+                            <div>
+                                <p style="font-size:14px;font-weight:600;color:#111827;">${totalBidan}</p>
+                                <p style="font-size:10px;color:#6b7280;">Bidan (${Math.round((totalBidan/totalNakes)*100)}%)</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#fefce8;border-radius:8px;">
+                            <span style="width:12px;height:12px;border-radius:3px;background:#ca8a04;flex-shrink:0;"></span>
+                            <div>
+                                <p style="font-size:14px;font-weight:600;color:#111827;">${totalApoteker}</p>
+                                <p style="font-size:10px;color:#6b7280;">Apoteker (${Math.round((totalApoteker/totalNakes)*100)}%)</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#f9fafb;border-radius:8px;">
+                            <span style="width:12px;height:12px;border-radius:3px;background:#6b7280;flex-shrink:0;"></span>
+                            <div>
+                                <p style="font-size:14px;font-weight:600;color:#111827;">${totalLainnya}</p>
+                                <p style="font-size:10px;color:#6b7280;">Lainnya (${Math.round((totalLainnya/totalNakes)*100)}%)</p>
                             </div>
                         </div>
                     </div>
-                    <div class="separator"></div>
-                    <div class="nakes-details">
-                        <div>
-                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            STR: ${n.str}
-                        </div>
-                        <div>
-                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                            ${n.alamat_praktik}
-                        </div>
-                        <div>
-                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            ${n.jadwal_praktik}
-                        </div>
-                    </div>
-                    <div class="nakes-actions">
-                        <button class="btn btn-secondary btn-sm">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 22"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                            Hubungi
-                        </button>
-                        <button class="btn btn-primary btn-sm">Detail</button>
-                    </div>
                 </div>
-            `).join('')}
+            </div>
+        </div>
+
+        <!-- Detailed Table -->
+        <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;">
+                    <svg width="20" height="20" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    Detail Data Nakes per Institusi
+                </h3>
+                <button class="btn btn-secondary btn-sm" onclick="exportNakesData()">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export
+                </button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Institusi Kesehatan</th>
+                            <th>Tipe</th>
+                            <th style="text-align:center;color:#ec4899;">💉 Perawat</th>
+                            <th style="text-align:center;color:#db2777;">🤱 Bidan</th>
+                            <th style="text-align:center;color:#ca8a04;">💊 Apoteker</th>
+                            <th style="text-align:center;color:#6b7280;">🏥 Lainnya</th>
+                            <th style="text-align:center;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${INSTITUSI_DATA.map(inst => {
+                            const total = inst.perawat + inst.bidan + inst.apoteker + inst.lainnya;
+                            return `
+                                <tr>
+                                    <td style="font-weight:500;">${inst.nama}</td>
+                                    <td><span class="badge ${inst.tipe === 'RS' ? 'badge-blue' : inst.tipe === 'Puskesmas' ? 'badge-success' : inst.tipe === 'BPM' ? 'badge-pink' : 'badge-gray'}">${inst.tipe}</span></td>
+                                    <td style="text-align:center;font-weight:600;color:#ec4899;">${inst.perawat}</td>
+                                    <td style="text-align:center;font-weight:600;color:#db2777;">${inst.bidan}</td>
+                                    <td style="text-align:center;font-weight:600;color:#ca8a04;">${inst.apoteker}</td>
+                                    <td style="text-align:center;font-weight:600;color:#6b7280;">${inst.lainnya}</td>
+                                    <td style="text-align:center;font-weight:700;background:#fdf2f8;border-radius:6px;">${total}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr style="background:#fdf2f8;font-weight:700;">
+                            <td colspan="2">TOTAL KESELURUHAN</td>
+                            <td style="text-align:center;color:#ec4899;">${totalPerawat}</td>
+                            <td style="text-align:center;color:#db2777;">${totalBidan}</td>
+                            <td style="text-align:center;color:#ca8a04;">${totalApoteker}</td>
+                            <td style="text-align:center;color:#6b7280;">${totalLainnya}</td>
+                            <td style="text-align:center;">${totalNakes}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
         </div>
     `;
+}
+
+// ==================== HELPER FUNCTIONS FOR CHARTS ====================
+
+/**
+ * Create SVG donut chart segments
+ */
+function createDonutChartSVG(data) {
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+    let currentAngle = 0;
+    const radius = 40;
+    const circumference = 2 * Math.PI * radius;
+    
+    return data.map(item => {
+        if (item.value === 0) return '';
+        
+        const percentage = item.value / total;
+        const dashLength = percentage * circumference;
+        const gapLength = circumference - dashLength;
+        
+        const svg = `<circle cx="50" cy="50" r="${radius}" 
+                          fill="transparent" 
+                          stroke="${item.color}" 
+                          stroke-width="20"
+                          stroke-dasharray="${dashLength} ${gapLength}"
+                          stroke-dashoffset="${-currentAngle * circumference}"
+                          style="transition: all 0.5s ease;"
+                        />`;
+        
+        currentAngle += percentage;
+        return svg;
+    }).join('');
+}
+
+/**
+ * Export Named data to CSV
+ */
+function exportNamedData() {
+    let csv = 'Institusi,Tipe,Dokter,Dokter Gigi,Total,Persentase\n';
+    const totalDokter = INSTITUSI_DATA.reduce((sum, i) => sum + i.dokter, 0);
+    const totalDG = INSTITUSI_DATA.reduce((sum, i) => sum + i.dokterGigi, 0);
+    const total = totalDokter + totalDG;
+    
+    INSTITUSI_DATA.forEach(inst => {
+        const subtotal = inst.dokter + inst.dokterGigi;
+        csv += `"${inst.nama}",${inst.tipe},${inst.dokter},${inst.dokterGigi},${subtotal},${((subtotal/total)*100).toFixed(1)}%\n`;
+    });
+    csv += `"TOTAL",,${totalDokter},${totalDG},${total},100%\n`;
+    
+    downloadCSV(csv, 'named_dokter_data.csv');
+}
+
+/**
+ * Export Nakes data to CSV
+ */
+function exportNakesData() {
+    let csv = 'Institusi,Tipe,Perawat,Bidan,Apoteker,Lainnya,Total\n';
+    
+    INSTITUSI_DATA.forEach(inst => {
+        const total = inst.perawat + inst.bidan + inst.apoteker + inst.lainnya;
+        csv += `"${inst.nama}",${inst.tipe},${inst.perawat},${inst.bidan},${inst.apoteker},${inst.lainnya},${total}\n`;
+    });
+    
+    const totals = [
+        'TOTAL',
+        '',
+        INSTITUSI_DATA.reduce((s,i)=>s+i.perawat,0),
+        INSTITUSI_DATA.reduce((s,i)=>s+i.bidan,0),
+        INSTITUSI_DATA.reduce((s,i)=>s+i.apoteker,0),
+        INSTITUSI_DATA.reduce((s,i)=>s+i.lainnya,0),
+        INSTITUSI_DATA.reduce((s,i)=>s+i.perawat+i.bidan+i.apoteker+i.lainnya,0)
+    ];
+    csv += totals.join(',') + '\n';
+    
+    downloadCSV(csv, 'nakes_data.csv');
+}
+
+/**
+ * Download CSV file helper
+ */
+function downloadCSV(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+    showNotification(`File "${filename}" berhasil di-download!`, 'success');
 }
 
 // ==================== Search Views ====================
