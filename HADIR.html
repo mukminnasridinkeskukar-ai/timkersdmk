@@ -2538,7 +2538,7 @@
         
         // ⚙️ KONFIGURASI: Ganti URL di bawah ini dengan URL Web App Anda
         // Contoh: https://script.google.com/macros/s/Abc123xyz/exec
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyIGStYMiggyDklIIZ8iOop-F77PQO7btf1gqd-O1yeuOdr7gTt6mrXYjomjUTWh-1o/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyO1fu2M_-1TUs_EyNPUJrDf3ZSkJLwtsuRvB3eISWDXM0XUSlincEeHeZMxEGGViV9gQ/exec';
         
         // 🔍 DEBUG MODE - Set true untuk melihat detail error di console
         const DEBUG_MODE = true;
@@ -2940,44 +2940,112 @@
             statusEl.style.color = '#92400e';
             
             try {
-                const response = await fetch(WEB_APP_URL + '?action=checkAttendanceWindow', {
+                // Try 1: With CORS (to get actual response)
+                let response = await fetch(WEB_APP_URL + '?action=checkAttendanceWindow', {
                     method: 'GET',
                     mode: 'cors',
-                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                    signal: AbortSignal.timeout(8000)
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
                     iconEl.textContent = '🟢';
-                    textEl.textContent = 'Terhubung ke server ✓';
+                    textEl.textContent = 'Terhubung ke server ✓ - Data akan tersimpan';
                     statusEl.style.background = '#dcfce7';
                     statusEl.style.color = '#166534';
-                    
-                    // Log success
                     logDebug('✅ Server connection OK:', data);
-                } else {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-            } catch (error) {
-                iconEl.textContent = '🔴';
-                
-                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                    textEl.textContent = 'Tidak terhubung - Periksa WEB_APP_URL';
-                } else if (error.name === 'TimeoutError') {
-                    textEl.textContent = 'Timeout - Server lambat merespons';
-                } else {
-                    textEl.textContent = `Error: ${error.message}`;
+                    return;
                 }
                 
-                statusEl.style.background = '#fee2e2';
-                statusEl.style.color = '#991b1b';
+                throw new Error(`HTTP ${response.status}`);
                 
-                logDebug('❌ Server connection FAILED:', error.message);
+            } catch (corsError) {
+                logDebug('CORS mode failed:', corsError.message);
                 
-                // Show warning alert
-                setTimeout(() => {
-                    showAlert('warning', '⚠️ Tidak dapat terhubung ke server. Data mungkin tidak tersimpan. Pastikan Web App URL sudah benar dan sudah di-deploy.');
-                }, 2000);
+                // Try 2: No-CORS mode (Google Apps Script compatible)
+                try {
+                    logDebug('Trying no-cors mode...');
+                    await fetch(WEB_APP_URL + '?action=checkAttendanceWindow', {
+                        method: 'GET',
+                        mode: 'no-cors',
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    
+                    // If no exception thrown, connection works but can't read response
+                    iconEl.textContent = '🟡';
+                    textEl.textContent = 'Terkirim (mode terbatas) - Cek setelah submit';
+                    statusEl.style.background = '#fef3c7';
+                    statusEl.style.color = '#92400e';
+                    logDebug('✅ Connection OK in no-cors mode');
+                    
+                } catch (finalError) {
+                    // Both methods failed - real connection problem
+                    iconEl.textContent = '🔴';
+                    
+                    let errorMsg = finalError.message || 'Unknown error';
+                    let userMessage = '';
+                    
+                    if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError') || errorMsg.includes('ERR_FAILED')) {
+                        userMessage = 'Gagal terhubung - Lihat panduan di bawah form';
+                    } else if (finalError.name === 'TimeoutError') {
+                        userMessage = 'Timeout - Server tidak merespons';
+                    } else {
+                        userMessage = `Error: ${errorMsg}`;
+                    }
+                    
+                    textEl.textContent = userMessage;
+                    statusEl.style.background = '#fee2e2';
+                    statusEl.style.color = '#991b1b';
+                    
+                    logDebug('❌ Server connection FAILED:', errorMsg);
+                    
+                    // Show detailed troubleshooting guide
+                    showTroubleshootingGuide();
+                }
+            }
+        }
+        
+        function showTroubleshootingGuide() {
+            const guideId = 'troubleshootGuide';
+            
+            // Remove existing guide if any
+            const existing = document.getElementById(guideId);
+            if (existing) existing.remove();
+            
+            const guide = document.createElement('div');
+            guide.id = guideId;
+            guide.className = 'alert alert-warning';
+            guide.style.cssText = 'margin-top: 15px; padding: 15px; font-size: 0.85rem; line-height: 1.6;';
+            guide.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 10px;">🔧 PANDUAN PERBAIKAN KONEKSI:</div>
+                <ol style="margin-left: 20px; padding: 0;">
+                    <li style="margin-bottom: 8px;"><strong>Buka Google Apps Script</strong><br>
+                        <a href="https://script.google.com" target="_blank" style="color: #2563eb;">script.google.com</a></li>
+                    <li style="margin-bottom: 8px;"><strong>Klik Deploy → Manage deployments</strong><br>
+                        Cari deployment Anda, klik ikon ✏️ (edit)</li>
+                    <li style="margin-bottom: 8px;"><strong>Pastikan pengaturan:</strong>
+                        <ul style="margin-top: 5px;">
+                            <li>✅ Execute as: <strong>Me</strong></li>
+                            <li>✅ Who has access: <strong>Anyone</strong> (PENTING!)</li>
+                        </ul>
+                    </li>
+                    <li style="margin-bottom: 8px;"><strong>Klik Deploy</strong> untuk simpan perubahan</li>
+                    <li style="margin-bottom: 8px;"><strong>Coba buka URL ini di browser:</strong><br>
+                        <a href="${WEB_APP_URL}" target="_blank" style="color: #2563eb; word-break: break-all;">${WEB_APP_URL}</a><br>
+                        <span style="font-size: 0.8rem; color: #666;">(Harus muncul JSON atau halaman, bukan error)</span></li>
+                </ol>
+                <div style="margin-top: 10px; padding: 10px; background: #fff; border-radius: 6px; border: 1px dashed #f59e0b;">
+                    <strong>💡 Tips:</strong> Jika sudah di-deploy ulang tapi masih gagal, coba:<br>
+                    • Buka URL Web App di browser baru<br>
+                    • Clear cache browser (Ctrl+Shift+R)<br>
+                    • Pastikan tidak ada extension yang blocking
+                </div>
+            `;
+            
+            // Insert after timestamp display
+            const timestampDisplay = document.querySelector('.timestamp-display');
+            if (timestampDisplay && timestampDisplay.parentNode) {
+                timestampDisplay.parentNode.insertBefore(guide, timestampDisplay.nextSibling);
             }
         }
 
