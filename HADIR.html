@@ -213,6 +213,26 @@
             color: #991b1b;
         }
 
+        /* Camera Container Styles */
+        .camera-container {
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: linear-gradient(135deg, #1e293b, #334155);
+            border-radius: 16px;
+            border: 3px solid #3b82f6;
+        }
+
+        .camera-container video {
+            border-radius: 50%;
+            border: 4px solid #60a5fa;
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+        }
+
+        .accuracy-info {
+            display: none;
+        }
+
         .btn {
             display: inline-flex;
             align-items: center;
@@ -434,11 +454,26 @@
                     <!-- Photo Capture with GPS -->
                     <div class="photo-section">
                         <label style="display: block; margin-bottom: 10px; font-weight: 600;">
-                            📸 Upload Bukti Foto (Selfie + GPS)
+                            📸 Foto Selfie Langsung dari Kamera + GPS Validasi
                         </label>
                         
-                        <div class="photo-preview-container">
-                            <img id="photoPreview" class="photo-preview" alt="Preview foto">
+                        <!-- Camera Preview Container -->
+                        <div class="camera-container" id="cameraContainer" style="display: none;">
+                            <video id="cameraPreview" autoplay playsinline style="width: 100%; max-width: 300px; border-radius: 50%; display: block; margin: 0 auto;"></video>
+                            <canvas id="cameraCanvas" style="display: none;"></canvas>
+                            <div style="text-align: center; margin-top: 10px;">
+                                <button type="button" class="btn btn-photo" id="btnTakePhoto" style="background: linear-gradient(135deg, #16a34a, #22c55e);">
+                                    📸 Ambil Foto Sekarang
+                                </button>
+                                <button type="button" class="btn btn-photo" id="btnCloseCamera" style="background: linear-gradient(135deg, #dc2626, #ef4444); margin-left: 10px;">
+                                    ✖ Tutup Kamera
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Photo Preview Container -->
+                        <div class="photo-preview-container" id="previewContainer">
+                            <img id="photoPreview" class="photo-preview" alt="Preview foto selfie">
                             <div class="photo-placeholder" id="photoPlaceholder">
                                 <svg viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
@@ -448,14 +483,18 @@
                         </div>
 
                         <button type="button" class="btn btn-photo" id="btnCapturePhoto">
-                            📷 Ambil / Upload Foto
+                            📷 Buka Kamera (Selfie)
                         </button>
 
-                        <input type="file" id="photoInput" class="hidden-input" accept="image/*" capture="environment">
+                        <!-- Hidden file input (fallback) -->
+                        <input type="file" id="photoInput" class="hidden-input" accept="image/*" capture="user">
 
                         <div class="gps-status loading" id="gpsStatus">
                             <span class="loading-spinner" style="width: 14px; height: 14px; border-width: 2px;"></span>
                             <span>Mendeteksi lokasi GPS...</span>
+                        </div>
+                        
+                        <div class="accuracy-info" id="accuracyInfo" style="display: none; text-align: center; margin-top: 10px; padding: 10px; border-radius: 8px; font-size: 0.85rem;">
                         </div>
                     </div>
 
@@ -475,7 +514,9 @@
 
         <div class="footer-note">
             <strong>⚠️ Penting:</strong>
-            <p>Waktu dicatat otomatis dari server • Foto harus disertai lokasi GPS valid</p>
+            <p>• Waktu dicatat otomatis dari server</p>
+            <p>• Foto harus diambil langsung dari kamera (selfie)</p>
+            <p>• GPS harus akurat maksimal 5 meter dari lokasi acara</p>
         </div>
     </div>
 
@@ -664,10 +705,12 @@
         }
 
         function onGPSSuccess(position) {
+            const accuracy = position.coords.accuracy;
+            
             gpsData = {
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy,
+                accuracy: accuracy,
                 timestamp: position.timestamp,
                 altitude: position.coords.altitude || null,
                 altitudeAccuracy: position.coords.altitudeAccuracy || null,
@@ -679,8 +722,24 @@
             document.getElementById('latitude').value = gpsData.latitude;
             document.getElementById('longitude').value = gpsData.longitude;
             document.getElementById('accuracy').value = gpsData.accuracy.toFixed(1);
-
-            showGPSStatus('success', `📍 Lokasi terdeteksi | Akurasi: ±${gpsData.accuracy.toFixed(0)}m`);
+            
+            // ⚠️ VALIDASI AKURASI GPS (maksimal 5 meter)
+            const accuracyInfo = document.getElementById('accuracyInfo');
+            accuracyInfo.style.display = 'block';
+            
+            if (accuracy <= MAX_GPS_ACCURACY) {
+                // ✅ Akurasi valid
+                showGPSStatus('success', `📍 Lokasi valid | Akurasi: ±${accuracy.toFixed(1)}m ✓`);
+                accuracyInfo.innerHTML = `<span style="color: #16a34a;">✅ Akurasi GPS: ${accuracy.toFixed(1)}m (maks ${MAX_GPS_ACCURACY}m)</span>`;
+                accuracyInfo.style.background = '#dcfce7';
+                accuracyInfo.style.border = '1px solid #86efac';
+            } else {
+                // ❌ Akurasi kurang tepat
+                showGPSStatus('error', `⚠️ Akurasi rendah: ±${accuracy.toFixed(1)}m (butuh ≤${MAX_GPS_ACCURACY}m)`);
+                accuracyInfo.innerHTML = `<span style="color: #dc2626;">⚠️ Akurasi GPS: ${accuracy.toFixed(1)}m (harus ≤${MAX_GPS_ACCURACY}m)<br><small>Pindah ke lokasi terbuka atau tunggu beberapa detik...</small></span>`;
+                accuracyInfo.style.background = '#fee2e2';
+                accuracyInfo.style.border = '1px solid #fca5a5';
+            }
             
             validateForm();
         }
@@ -710,20 +769,145 @@
         }
 
         // ============================================
-        // PHOTO CAPTURE & PROCESSING
+        // PHOTO CAPTURE & PROCESSING (Camera Only)
         // ============================================
+        
+        let cameraStream = null;
+        let cameraActive = false;
+        
+        // ⚙️ Konfigurasi GPS - Akurasi maksimal dalam meter
+        const MAX_GPS_ACCURACY = 5; // 5 meter
+        
         function initPhotoCapture() {
             const btnCapture = document.getElementById('btnCapturePhoto');
+            const btnTakePhoto = document.getElementById('btnTakePhoto');
+            const btnCloseCamera = document.getElementById('btnCloseCamera');
             const photoInput = document.getElementById('photoInput');
 
-            btnCapture.addEventListener('click', () => {
-                photoInput.click();
-            });
-
-            photoInput.addEventListener('change', handlePhotoSelect);
+            // Buka kamera saat tombol diklik
+            btnCapture.addEventListener('click', openCamera);
+            btnTakePhoto.addEventListener('click', capturePhotoFromCamera);
+            btnCloseCamera.addEventListener('click', closeCamera);
+            
+            // Fallback untuk browser yang tidak support getUserMedia
+            photoInput.addEventListener('change', handlePhotoFallback);
         }
-
-        function handlePhotoSelect(event) {
+        
+        async function openCamera() {
+            try {
+                // Cek apakah browser mendukung kamera
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showAlert('warning', 'Browser tidak mendukung akses kamera. Menggunakan fallback...');
+                    document.getElementById('photoInput').click();
+                    return;
+                }
+                
+                // Request akses kamera depan (selfie mode)
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user', // Kamera depan untuk selfie
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                });
+                
+                // Tampilkan preview kamera
+                const video = document.getElementById('cameraPreview');
+                video.srcObject = cameraStream;
+                
+                // Tampilkan container kamera, sembunyikan preview
+                document.getElementById('cameraContainer').style.display = 'block';
+                document.getElementById('previewContainer').style.display = 'none';
+                document.getElementById('btnCapturePhoto').style.display = 'none';
+                
+                cameraActive = true;
+                console.log('✅ Kamera dibuka (mode selfie)');
+                
+            } catch (error) {
+                console.error('❌ Error membuka kamera:', error);
+                
+                if (error.name === 'NotAllowedError') {
+                    showAlert('error', '❌ Akses kamera ditolak! Izinkan akses kamera di browser.');
+                } else if (error.name === 'NotFoundError') {
+                    showAlert('error', '❌ Tidak ada kamera ditemukan di device ini.');
+                } else {
+                    showAlert('error', 'Gagal membuka kamera: ' + error.message);
+                    
+                    // Fallback ke input file
+                    document.getElementById('photoInput').click();
+                }
+            }
+        }
+        
+        function capturePhotoFromCamera() {
+            if (!cameraActive || !cameraStream) {
+                showAlert('error', 'Kamera tidak aktif!');
+                return;
+            }
+            
+            const video = document.getElementById('cameraPreview');
+            const canvas = document.getElementById('cameraCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set ukuran canvas sama dengan video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Mirror image (selfie effect)
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            
+            // Capture frame dari video
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert ke base64
+            photoData = canvas.toDataURL('image/jpeg', 0.9);
+            
+            // Tutup kamera setelah capture
+            closeCamera();
+            
+            // Tampilkan preview foto
+            showPhotoPreview(photoData);
+            
+            // Store base64 data (without prefix)
+            document.getElementById('photoBase64').value = photoData.split(',')[1];
+            
+            validateForm();
+            showAlert('success', '✅ Foto selfie berhasil diambil dari kamera!');
+        }
+        
+        function closeCamera() {
+            // Stop semua track kamera
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+            
+            // Sembunyikan container kamera
+            document.getElementById('cameraContainer').style.display = 'none';
+            document.getElementById('previewContainer').style.display = 'block';
+            document.getElementById('btnCapturePhoto').style.display = 'inline-flex';
+            
+            // Stop video preview
+            const video = document.getElementById('cameraPreview');
+            video.srcObject = null;
+            
+            cameraActive = false;
+            console.log('🔒 Kamera ditutup');
+        }
+        
+        function showPhotoPreview(dataUrl) {
+            const preview = document.getElementById('photoPreview');
+            preview.src = dataUrl;
+            preview.style.display = 'block';
+            
+            // Hide placeholder
+            document.getElementById('photoPlaceholder').style.display = 'none';
+        }
+        
+        function handlePhotoFallback(event) {
+            // Fallback handler jika getUserMedia tidak tersedia
             const file = event.target.files[0];
             if (!file) return;
 
@@ -742,25 +926,16 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 photoData = e.target.result;
-                
-                // Show preview
-                const preview = document.getElementById('photoPreview');
-                preview.src = photoData;
-                preview.style.display = 'block';
-                
-                // Hide placeholder
-                document.getElementById('photoPlaceholder').style.display = 'none';
+                showPhotoPreview(photoData);
 
                 // Store base64 data (without prefix)
                 document.getElementById('photoBase64').value = photoData.split(',')[1];
 
                 validateForm();
-
-                showAlert('success', 'Foto berhasil diupload!');
+                showAlert('success', 'Foto berhasil diupload (mode fallback)');
             };
             reader.readAsDataURL(file);
 
-            // Reset input to allow re-selecting same file
             event.target.value = '';
         }
 
@@ -774,13 +949,21 @@
             const unitKerja = document.getElementById('unitKerja').value;
             const bidang = document.getElementById('bidang').value.trim();
             
-            const isValid = nama && nip && nik && unitKerja && bidang && gpsData && photoData;
+            // ✅ Validasi tambahan: GPS akurasi harus ≤ 5 meter
+            let gpsValid = false;
+            if (gpsData && gpsData.accuracy <= MAX_GPS_ACCURACY) {
+                gpsValid = true;
+            }
+            
+            const isValid = nama && nip && nik && unitKerja && bidang && gpsValid && photoData;
             
             const btnSubmit = document.getElementById('btnSubmit');
             btnSubmit.disabled = !isValid;
             
             if (isValid) {
                 btnSubmit.innerHTML = '✅ Kirim Absensi Sekarang';
+            } else if (gpsData && gpsData.accuracy > MAX_GPS_ACCURACY) {
+                btnSubmit.innerHTML = `⏳ Tunggu GPS akurat (≤${MAX_GPS_ACCURACY}m)`;
             } else {
                 btnSubmit.innerHTML = '✅ Kirim Absensi';
             }
@@ -797,7 +980,7 @@
         // ============================================
         
         // ⚙️ KONFIGURASI: Ganti URL di bawah ini dengan URL Web App Anda
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxV4UXZ_3Of-1PMVsnZxlD4-BxZIGryxGto2EOdfUw5jz27ZZXR6bTD_SVnGZVMtTXScw/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzIwXxMB9VGe4XxPfyqMGQuLXDG5U7NrgSjxBzulPWYMZp3yxbHllEhmsavuk5TI0A2aA/exec';
         
         document.getElementById('absensiForm').addEventListener('submit', async function(e) {
             e.preventDefault();
