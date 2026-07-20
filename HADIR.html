@@ -1674,6 +1674,11 @@
                     <span id="alertErrorMsg">Terjadi kesalahan!</span>
                 </div>
 
+                <div id="alertWarning" class="alert alert-warning" style="display: none;">
+                    <span>⚠️</span>
+                    <span id="alertWarningMsg">Peringatan!</span>
+                </div>
+
                 <!-- Event Info from Admin -->
                 <div class="event-info" id="eventInfo" style="display: none;">
                     <h3>📅 Informasi Acara</h3>
@@ -1694,6 +1699,10 @@
                     <div class="label">🕐 Waktu Server (Otomatis)</div>
                     <div class="datetime" id="serverTime">--:--:--</div>
                     <div class="timezone" id="timezoneInfo"></div>
+                    <div class="connection-status" id="connectionStatus" style="margin-top: 8px; font-size: 0.8rem; padding: 6px 10px; border-radius: 6px; display: none;">
+                        <span id="connectionStatusIcon">🔄</span>
+                        <span id="connectionStatusText">Mengecek koneksi...</span>
+                    </div>
                 </div>
 
                 <!-- Form Fields -->
@@ -1948,6 +1957,14 @@
                 <div class="success-detail-row">
                     <span class="success-detail-label">⏰ Waktu Absensi</span>
                     <span class="success-detail-value">${dateStr}, ${timeStr} WIB</span>
+                </div>
+                <div class="success-detail-row" style="${data.verified === true ? '' : (data.verified === false ? 'color: #f59e0b;' : 'color: #64748b;')}">
+                    <span class="success-detail-label">${data.verified === true ? '✅' : (data.verified === false ? '⚠️' : 'ℹ️')} Status Simpan</span>
+                    <span class="success-detail-value">${
+                        data.verified === true ? 'Terverifikasi di Google Sheet' : 
+                        (data.verified === false ? 'Belum terverifikasi - cek sheet' : 
+                        'Terkirim (verifikasi tidak tersedia)')
+                    }</span>
                 </div>
             `;
             
@@ -2521,7 +2538,7 @@
         
         // ⚙️ KONFIGURASI: Ganti URL di bawah ini dengan URL Web App Anda
         // Contoh: https://script.google.com/macros/s/Abc123xyz/exec
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz1hEP7Pft0UlmkT5iqjrBdvfkOAfAnUvRFNN64tjmZxK0KznKVMcWeALn_8muQM_nV/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyIGStYMiggyDklIIZ8iOop-F77PQO7btf1gqd-O1yeuOdr7gTt6mrXYjomjUTWh-1o/exec';
         
         // 🔍 DEBUG MODE - Set true untuk melihat detail error di console
         const DEBUG_MODE = true;
@@ -2634,9 +2651,43 @@
                         body: JSON.stringify(formData)
                     });
                     
-                    // With no-cors, we assume success if no exception thrown
-                    responseData = { success: true, note: 'no-cors mode' };
-                    logDebug('No-cors request sent (response unreadable)');
+                    // With no-cors, we need to VERIFY data was saved
+                    responseData = { success: true, note: 'no-cors mode - verifying...' };
+                    logDebug('No-cors request sent, verifying save...');
+                    
+                    // ⚠️ VERIFIKASI: Cek apakah data benar-benar tersimpan
+                    try {
+                        logDebug('🔍 Memverifikasi penyimpanan data...');
+                        await new Promise(resolve => setTimeout(resolve, 1500)); // Tunggu 1.5 detik
+                        
+                        const verifyResponse = await fetch(webAppUrl + '?action=lastEntry', {
+                            method: 'GET',
+                            mode: 'cors'
+                        });
+                        
+                        if (verifyResponse.ok) {
+                            const verifyData = await verifyResponse.json();
+                            logDebug('Verifikasi response:', verifyData);
+                            
+                            if (verifyData.status === 'ok' && verifyData.data) {
+                                const lastEntry = verifyData.data;
+                                // Cocokkan nama dan NIP untuk verifikasi
+                                if (lastEntry.Nama_Lengkap === formData.namaLengkap && 
+                                    lastEntry.NIP === formData.nip) {
+                                    logDebug('✅ Verifikasi BERHASIL - Data tersimpan!');
+                                    responseData.verified = true;
+                                } else {
+                                    logDebug('⚠️ Verifikasi tidak cocok - Data mungkin belum tersimpan');
+                                    responseData.verified = false;
+                                    responseData.warning = 'Data terkirim tapi verifikasi gagal';
+                                }
+                            }
+                        }
+                    } catch (verifyError) {
+                        logDebug('⚠️ Tidak bisa verifikasi:', verifyError.message);
+                        responseData.verified = null; // Unknown
+                        responseData.warning = 'Tidak dapat memverifikasi penyimpanan';
+                    }
                 }
 
                 // Check result
@@ -2644,8 +2695,17 @@
                     throw new Error(responseData.error || 'Server returned error');
                 }
 
+                // ⚠️ Peringatan jika verifikasi gagal
+                if (responseData.verified === false) {
+                    console.warn('⚠️ Data mungkin tidak tersimpan:', responseData.warning);
+                    showAlert('warning', `⚠️ ${responseData.warning}. Silakan cek Google Sheet atau hubungi admin.`);
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = '✅ Kirim Absensi Sekarang';
+                    return;
+                }
+
                 // ✅ Success!
-                logDebug('✅ Data terkirim successfully!');
+                logDebug('✅ Data terkirim successfully!', responseData);
                 
                 // Show beautiful success notification with confetti
                 showSuccessNotification({
@@ -2654,7 +2714,8 @@
                     unitKerja: formData.unitKerja,
                     latitude: gpsData ? gpsData.latitude : null,
                     longitude: gpsData ? gpsData.longitude : null,
-                    accuracy: gpsData ? gpsData.accuracy : null
+                    accuracy: gpsData ? gpsData.accuracy : null,
+                    verified: responseData.verified
                 });
 
             } catch (error) {
@@ -2784,20 +2845,34 @@
         // UTILITY FUNCTIONS
         // ============================================
         function showAlert(type, message) {
-            const alertId = type === 'success' ? 'alertSuccess' : 'alertError';
-            const msgId = type === 'success' ? 'alertSuccessMsg' : 'alertErrorMsg';
+            let alertId, msgId;
+            
+            if (type === 'success') {
+                alertId = 'alertSuccess';
+                msgId = 'alertSuccessMsg';
+            } else if (type === 'warning') {
+                alertId = 'alertWarning';
+                msgId = 'alertWarningMsg';
+            } else {
+                alertId = 'alertError';
+                msgId = 'alertErrorMsg';
+            }
             
             document.getElementById(alertId).style.display = 'flex';
             document.getElementById(msgId).textContent = message;
 
-            // Hide other alert
-            const otherAlertId = type === 'success' ? 'alertError' : 'alertSuccess';
-            document.getElementById(otherAlertId).style.display = 'none';
+            // Hide other alerts
+            ['alertSuccess', 'alertError', 'alertWarning'].forEach(id => {
+                if (id !== alertId) {
+                    document.getElementById(id).style.display = 'none';
+                }
+            });
 
-            // Auto hide after 5 seconds
+            // Auto hide after 5 seconds (except warning - longer)
+            const hideTime = type === 'warning' ? 8000 : 5000;
             setTimeout(() => {
                 document.getElementById(alertId).style.display = 'none';
-            }, 5000);
+            }, hideTime);
         }
 
         function resetForm() {
@@ -2841,8 +2916,70 @@
             // Initialize photo capture
             initPhotoCapture();
 
+            // Check server connection status
+            checkServerConnection();
+
 // URL Web App sudah dikonfigurasi di variabel WEB_APP_URL
         });
+        
+        // ============================================
+        // SERVER CONNECTION CHECKER
+        // ============================================
+        
+        async function checkServerConnection() {
+            const statusEl = document.getElementById('connectionStatus');
+            const iconEl = document.getElementById('connectionStatusIcon');
+            const textEl = document.getElementById('connectionStatusText');
+            
+            if (!statusEl) return;
+            
+            statusEl.style.display = 'block';
+            iconEl.textContent = '🔄';
+            textEl.textContent = 'Mengecek koneksi server...';
+            statusEl.style.background = '#fef3c7';
+            statusEl.style.color = '#92400e';
+            
+            try {
+                const response = await fetch(WEB_APP_URL + '?action=checkAttendanceWindow', {
+                    method: 'GET',
+                    mode: 'cors',
+                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    iconEl.textContent = '🟢';
+                    textEl.textContent = 'Terhubung ke server ✓';
+                    statusEl.style.background = '#dcfce7';
+                    statusEl.style.color = '#166534';
+                    
+                    // Log success
+                    logDebug('✅ Server connection OK:', data);
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                iconEl.textContent = '🔴';
+                
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    textEl.textContent = 'Tidak terhubung - Periksa WEB_APP_URL';
+                } else if (error.name === 'TimeoutError') {
+                    textEl.textContent = 'Timeout - Server lambat merespons';
+                } else {
+                    textEl.textContent = `Error: ${error.message}`;
+                }
+                
+                statusEl.style.background = '#fee2e2';
+                statusEl.style.color = '#991b1b';
+                
+                logDebug('❌ Server connection FAILED:', error.message);
+                
+                // Show warning alert
+                setTimeout(() => {
+                    showAlert('warning', '⚠️ Tidak dapat terhubung ke server. Data mungkin tidak tersimpan. Pastikan Web App URL sudah benar dan sudah di-deploy.');
+                }, 2000);
+            }
+        }
 
         // Prevent right-click context menu (additional security)
         document.addEventListener('contextmenu', function(e) {
