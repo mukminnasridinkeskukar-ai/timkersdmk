@@ -1771,7 +1771,7 @@
 // Ganti URL di bawah dengan URL Web App Anda setelah deploy
 const CONFIG = {
     // URL Web App Google Apps Script (dapatkan setelah deploy)
-    GOOGLE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwKSQ6bGTVKoVg15EjPX7FZrS8BO9FmE1jWY4N4wqvKU7LSSpvUHpKoHI-2B8JLlESLHw/exec',
+    GOOGLE_APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbzjqZrg0Vp02lEM7gRpram-o4sU8_M842y4sHeLUhzy863kmCfHwJ3Xul41krYH3c5fjg/exec',
     
     // Pengaturan aplikasi
     APP_NAME: 'SIMANDAKES',
@@ -1965,6 +1965,8 @@ let state = {
     // Data dari Google Sheets (cache)
     cachedNakesData: [],
     cachedUsersData: [],
+    cachedNamedData: [],      // Data dari sheet "Named" (Dokter & DG per institusi)
+    cachedInstitusiNakesData: [], // Data dari sheet "Nakes" (Perawat, Bidan, dll per institusi)
     lastSyncTime: null
 };
 
@@ -2098,6 +2100,69 @@ async function syncUsersData() {
     } catch (error) {
         console.error('Users sync error:', error);
     }
+}
+
+/**
+ * Sync data Named (Dokter & Dokter Gigi per Institusi) dari Google Sheets
+ * Sheet "Named": ID, Institusi, Tipe, Dokter, DokterGigi, Total, Persentase, UpdatedAt
+ */
+async function syncNamedData() {
+    try {
+        const result = await getFromSheet('getNamed');
+        
+        if (result.success && result.data) {
+            // Data dari sheet sudah dalam format objek
+            state.cachedNamedData = result.data.map(row => ({
+                id: row.id || row[0],
+                nama: row.nama || row[1] || '',
+                tipe: row.tipe || row[2] || 'Lainnya',
+                dokter: parseInt(row.dokter || row[3]) || 0,
+                dokterGigi: parseInt(row.dokterGigi || row[4]) || 0,
+                total: parseInt(row.total || row[5]) || 0,
+                persentase: row.persentase || row[6] || '',
+                updatedAt: row.updatedAt || row[7] || ''
+            }));
+            
+            console.log(`✅ Sync Named data: ${state.cachedNamedData.length} institusi`);
+            return true;
+        }
+    } catch (error) {
+        console.error('Named sync error:', error);
+        showNotification('Gagal sync data Named dari sheet', 'warning');
+    }
+    return false;
+}
+
+/**
+ * Sync data Nakes Institusi (Perawat, Bidan, Apoteker per Institusi) dari Google Sheets
+ * Sheet "Nakes": ID, Institusi, Tipe, Perawat, Bidan, Apoteker, Lainnya, Total, UpdatedAt
+ */
+async function syncInstitusiNakesData() {
+    try {
+        const result = await getFromSheet('getInstitusiNakes');
+        
+        if (result.success && result.data) {
+            // Data dari sheet sudah dalam format objek
+            state.cachedInstitusiNakesData = result.data.map(row => ({
+                id: row.id || row[0],
+                nama: row.nama || row[1] || '',
+                tipe: row.tipe || row[2] || 'Lainnya',
+                perawat: parseInt(row.perawat || row[3]) || 0,
+                bidan: parseInt(row.bidan || row[4]) || 0,
+                apoteker: parseInt(row.apoteker || row[5]) || 0,
+                lainnya: parseInt(row.lainnya || row[6]) || 0,
+                total: parseInt(row.total || row[7]) || 0,
+                updatedAt: row.updatedAt || row[8] || ''
+            }));
+            
+            console.log(`✅ Sync Nakes Institusi data: ${state.cachedInstitusiNakesData.length} institusi`);
+            return true;
+        }
+    } catch (error) {
+        console.error('Nakes Institusi sync error:', error);
+        showNotification('Gagal sync data Nakes Institusi dari sheet', 'warning');
+    }
+    return false;
 }
 
 /**
@@ -2726,18 +2791,43 @@ function resetLinksToDefault() {
     }
 }
 
-// ==================== DATA SAMPLE UNTUK DASHBOARD NAMED & NAKES ====================
-// Data institusi kesehatan dengan jumlah tenaga medis
-const INSTITUSI_DATA = [
-    { id: 1, nama: 'RS Umum Daerah Jakarta Pusat', tipe: 'RS', dokter: 45, dokterGigi: 12, perawat: 120, bidan: 0, apoteker: 8, lainnya: 35 },
-    { id: 2, nama: 'RS Ibu dan Anak Harapan Bunda', tipe: 'RS', dokter: 38, dokterGigi: 8, perawat: 95, bidan: 25, apoteker: 6, lainnya: 28 },
-    { id: 3, nama: 'Puskesmas Pembantu Mekar Jaya', tipe: 'Puskesmas', dokter: 4, dokterGigi: 1, perawat: 15, bidan: 8, apoteker: 2, lainnya: 5 },
-    { id: 4, nama: 'Klinik Pratama Sejahtera', tipe: 'Klinik', dokter: 6, dokterGigi: 2, perawat: 10, bidan: 3, apoteker: 2, lainnya: 4 },
-    { id: 5, nama: 'BPM Sejahtera', tipe: 'BPM', dokter: 0, dokterGigi: 0, perawat: 3, bidan: 5, apoteker: 0, lainnya: 2 },
-    { id: 6, nama: 'RS Umum Daerah Jakarta Selatan', tipe: 'RS', dokter: 52, dokterGigi: 15, perawat: 145, bidan: 0, apoteker: 10, lainnya: 42 },
-    { id: 7, nama: 'Puskesmas Kelurahan Cempaka', tipe: 'Puskesmas', dokter: 5, dokterGigi: 2, perawat: 18, bidan: 10, apoteker: 3, lainnya: 6 },
-    { id: 8, nama: 'RS Khusus Mata Jakarta', tipe: 'RS', dokter: 28, dokterGigi: 0, perawat: 65, bidan: 0, apoteker: 4, lainnya: 18 }
-];
+// ==================== DATA HELPER FUNCTIONS ====================
+// Data diambil dari Google Sheets (sheet "Named" dan "Nakes")
+// Cache disimpan di: state.cachedNamedData dan state.cachedInstitusiNakesData
+
+/**
+ * Get Named data dari cache (Dokter & Dokter Gigi per Institusi)
+ * Jika kosong, return array kosong
+ */
+function getNamedData() {
+    return state.cachedNamedData && state.cachedNamedData.length > 0 
+        ? state.cachedNamedData 
+        : [];
+}
+
+/**
+ * Get Nakes Institusi data dari cache (Perawat, Bidan, Apoteker per Institusi)
+ * Jika kosong, return array kosong
+ */
+function getInstitusiNakesData() {
+    return state.cachedInstitusiNakesData && state.cachedInstitusiNakesData.length > 0 
+        ? state.cachedInstitusiNakesData 
+        : [];
+}
+
+/**
+ * Check apakah data Named sudah tersedia
+ */
+function hasNamedData() {
+    return state.cachedNamedData && state.cachedNamedData.length > 0;
+}
+
+/**
+ * Check apakah data Nakes Institusi sudah tersedia
+ */
+function hasInstitusiNakesData() {
+    return state.cachedInstitusiNakesData && state.cachedInstitusiNakesData.length > 0;
+}
 
 // Warna untuk grafik
 const CHART_COLORS = {
@@ -2751,12 +2841,20 @@ const CHART_COLORS = {
 
 // ==================== Named View - Dashboard Dokter & Dokter Gigi ====================
 function renderNamed() {
-    const totalDokter = INSTITUSI_DATA.reduce((sum, i) => sum + i.dokter, 0);
-    const totalDokterGigi = INSTITUSI_DATA.reduce((sum, i) => sum + i.dokterGigi, 0);
+    // Ambil data dari Google Sheets (cache)
+    const namedData = getNamedData();
+    
+    // Jika data belum tersedia, tampilkan pesan loading/empty
+    if (namedData.length === 0) {
+        return renderEmptyState('Named', '👨‍⚕️', 'Dokter & Dokter Gigi', '#4f46e5', 'sheet "Named"');
+    }
+    
+    const totalDokter = namedData.reduce((sum, i) => sum + i.dokter, 0);
+    const totalDokterGigi = namedData.reduce((sum, i) => sum + i.dokterGigi, 0);
     const totalMedis = totalDokter + totalDokterGigi;
     
     // Data untuk bar chart horizontal
-    const maxVal = Math.max(...INSTITUSI_DATA.map(i => i.dokter + i.dokterGigi));
+    const maxVal = Math.max(...namedData.map(i => i.dokter + i.dokterGigi), 1); // Min 1 untuk avoid division by zero
     
     return `
         <div style="margin-bottom:24px;">
@@ -2764,6 +2862,7 @@ function renderNamed() {
                 <span style="background:linear-gradient(135deg,#4f46e5,#0891b2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">👨‍⚕️ Named</span>
             </h2>
             <p style="color:#6b7280;font-size:16px;margin-top:4px;">Dashboard Tenaga Medis (Dokter & Dokter Gigi) Per Institusi Kesehatan</p>
+            <p style="font-size:12px;color:#9ca3af;margin-top:4px;">📊 Data dari Google Sheets • ${namedData.length} institusi • Update: ${new Date().toLocaleString('id-ID')}</p>
         </div>
         
         <!-- Summary Cards -->
@@ -2811,7 +2910,7 @@ function renderNamed() {
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                    <span style="font-size:13px;color:#6b7280;">Dari ${INSTITUSI_DATA.length} Institusi</span>
+                    <span style="font-size:13px;color:#6b7280;">Dari ${namedData.length} Institusi</span>
                 </div>
             </div>
             
@@ -2819,7 +2918,7 @@ function renderNamed() {
                 <div class="stat-card-header">
                     <div>
                         <p class="stat-card-label">Rasio D : DG</p>
-                        <p class="stat-card-value" style="color:#f59e0b;">1:${(totalDokterGigi/totalDokter).toFixed(1)}</p>
+                        <p class="stat-card-value" style="color:#f59e0b;">${totalDokter > 0 ? '1:' + (totalDokterGigi/totalDokter).toFixed(1) : 'N/A'}</p>
                     </div>
                     <div class="stat-card-icon" style="background:#fef3c7;">
                         <svg width="24" height="24" fill="none" stroke="#f59e0b" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
@@ -2843,19 +2942,19 @@ function renderNamed() {
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
-                        ${INSTITUSI_DATA.map(inst => {
-                            const pct = ((inst.dokter + inst.dokterGigi) / maxVal) * 100;
+                        ${namedData.map(inst => {
+                            const total = inst.dokter + inst.dokterGigi;
                             return `
                                 <div class="chart-bar-item" style="margin-bottom:14px;">
                                     <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
                                         <span style="font-size:12px;font-weight:500;color:#374151;max-width:60%;overflow:hidden;text-ellipsis;white-space:nowrap;" title="${inst.nama}">${inst.nama}</span>
-                                        <span style="font-size:12px;font-weight:600;color:#111827;">${inst.dokter + inst.dokterGigi}</span>
+                                        <span style="font-size:12px;font-weight:600;color:#111827;">${total}</span>
                                     </div>
                                     <div style="display:flex;height:24px;background:#f3f4f6;border-radius:6px;overflow:hidden;">
-                                        <div style="width:${(inst.dokter / maxVal) * 100}%;background:#4f46e5;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;transition:width 0.5s ease;" title="Dokter: ${inst.dokter}">
+                                        <div style="width:${maxVal > 0 ? (inst.dokter / maxVal) * 100 : 0}%;background:#4f46e5;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;transition:width 0.5s ease;" title="Dokter: ${inst.dokter}">
                                             ${inst.dokter > 5 ? `<span style="font-size:10px;color:white;font-weight:500;">${inst.dokter}</span>` : ''}
                                         </div>
-                                        <div style="width:${(inst.dokterGigi / maxVal) * 100}%;background:#0891b2;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;transition:width 0.5s ease;" title="Dokter Gigi: ${inst.dokterGigi}">
+                                        <div style="width:${maxVal > 0 ? (inst.dokterGigi / maxVal) * 100 : 0}%;background:#0891b2;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;transition:width 0.5s ease;" title="Dokter Gigi: ${inst.dokterGigi}">
                                             ${inst.dokterGigi > 3 ? `<span style="font-size:10px;color:white;font-weight:500;">${inst.dokterGigi}</span>` : ''}
                                         </div>
                                     </div>
@@ -2897,14 +2996,14 @@ function renderNamed() {
                             <span style="width:14px;height:14px;border-radius:4px;background:#4f46e5;display:block;"></span>
                             <div>
                                 <p style="font-size:14px;font-weight:600;color:#111827;">${totalDokter}</p>
-                                <p style="font-size:11px;color:#6b7280;">Dokter (${Math.round((totalDokter/totalMedis)*100)}%)</p>
+                                <p style="font-size:11px;color:#6b7280;">Dokter (${totalMedis > 0 ? Math.round((totalDokter/totalMedis)*100) : 0}%)</p>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
                             <span style="width:14px;height:14px;border-radius:4px;background:#0891b2;display:block;"></span>
                             <div>
                                 <p style="font-size:14px;font-weight:600;color:#111827;">${totalDokterGigi}</p>
-                                <p style="font-size:11px;color:#6b7280;">Dokter Gigi (${Math.round((totalDokterGigi/totalMedis)*100)}%)</p>
+                                <p style="font-size:11px;color:#6b7280;">Dokter Gigi (${totalMedis > 0 ? Math.round((totalDokterGigi/totalMedis)*100) : 0}%)</p>
                             </div>
                         </div>
                     </div>
@@ -2937,13 +3036,13 @@ function renderNamed() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${INSTITUSI_DATA.map(inst => {
+                        ${namedData.map(inst => {
                             const total = inst.dokter + inst.dokterGigi;
-                            const pct = ((total / totalMedis) * 100).toFixed(1);
+                            const pct = totalMedis > 0 ? ((total / totalMedis) * 100).toFixed(1) : '0';
                             return `
                                 <tr>
                                     <td style="font-weight:500;">${inst.nama}</td>
-                                    <td><span class="badge ${inst.tipe === 'RS' ? 'badge-blue' : inst.tipe === 'Puskesmas' ? 'badge-success' : 'badge-gray'}">${inst.tipe}</span></td>
+                                    <td><span class="badge ${inst.tipe === 'RS' ? 'badge-blue' : inst.tipe === 'Puskesmas' ? 'badge-success' : inst.tipe === 'Klinik' ? 'badge-warning' : 'badge-gray'}">${inst.tipe || '-'}</span></td>
                                     <td style="text-align:center;font-weight:600;color:#4f46e5;">${inst.dokter}</td>
                                     <td style="text-align:center;font-weight:600;color:#0891b2;">${inst.dokterGigi}</td>
                                     <td style="text-align:center;font-weight:700;">${total}</td>
@@ -2976,14 +3075,22 @@ function renderNamed() {
 
 // ==================== Nakes View - Dashboard Non-Dokter ====================
 function renderNakes() {
-    const totalPerawat = INSTITUSI_DATA.reduce((sum, i) => sum + i.perawat, 0);
-    const totalBidan = INSTITUSI_DATA.reduce((sum, i) => sum + i.bidan, 0);
-    const totalApoteker = INSTITUSI_DATA.reduce((sum, i) => sum + i.apoteker, 0);
-    const totalLainnya = INSTITUSI_DATA.reduce((sum, i) => sum + i.lainnya, 0);
+    // Ambil data dari Google Sheets (cache)
+    const institusiData = getInstitusiNakesData();
+    
+    // Jika data belum tersedia, tampilkan pesan loading/empty
+    if (institusiData.length === 0) {
+        return renderEmptyState('Nakes', '👩‍⚕️', 'Perawat, Bidan, Apoteker, Lainnya', '#ec4899', 'sheet "Nakes"');
+    }
+    
+    const totalPerawat = institusiData.reduce((sum, i) => sum + i.perawat, 0);
+    const totalBidan = institusiData.reduce((sum, i) => sum + i.bidan, 0);
+    const totalApoteker = institusiData.reduce((sum, i) => sum + i.apoteker, 0);
+    const totalLainnya = institusiData.reduce((sum, i) => sum + i.lainnya, 0);
     const totalNakes = totalPerawat + totalBidan + totalApoteker + totalLainnya;
     
     // Max value for chart scaling
-    const maxNakesVal = Math.max(...INSTITUSI_DATA.map(i => i.perawat + i.bidan + i.apoteker + i.lainnya));
+    const maxNakesVal = Math.max(...institusiData.map(i => i.perawat + i.bidan + i.apoteker + i.lainnya), 1);
 
     return `
         <div style="margin-bottom:24px;">
@@ -2991,6 +3098,7 @@ function renderNakes() {
                 <span style="background:linear-gradient(135deg,#ec4899,#db2777);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">👩‍⚕️ Nakes</span>
             </h2>
             <p style="color:#6b7280;font-size:16px;margin-top:4px;">Dashboard Tenaga Kesehatan Non-Dokter (Perawat, Bidan, Apoteker, dll) Per Institusi</p>
+            <p style="font-size:12px;color:#9ca3af;margin-top:4px;">📊 Data dari Google Sheets • ${institusiData.length} institusi • Update: ${new Date().toLocaleString('id-ID')}</p>
         </div>
 
         <!-- Summary Cards - 4 columns -->
@@ -3105,7 +3213,7 @@ function renderNakes() {
                 </div>
                 <div class="card-body">
                     <div class="chart-container">
-                        ${INSTITUSI_DATA.map(inst => {
+                        ${institusiData.map(inst => {
                             const total = inst.perawat + inst.bidan + inst.apoteker + inst.lainnya;
                             return `
                                 <div class="chart-bar-item" style="margin-bottom:16px;">
@@ -3163,28 +3271,28 @@ function renderNakes() {
                             <span style="width:12px;height:12px;border-radius:3px;background:#ec4899;flex-shrink:0;"></span>
                             <div>
                                 <p style="font-size:14px;font-weight:600;color:#111827;">${totalPerawat}</p>
-                                <p style="font-size:10px;color:#6b7280;">Perawat (${Math.round((totalPerawat/totalNakes)*100)}%)</p>
+                                <p style="font-size:10px;color:#6b7280;">Perawat (${totalNakes > 0 ? Math.round((totalPerawat/totalNakes)*100) : 0}%)</p>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#fff1f2;border-radius:8px;">
                             <span style="width:12px;height:12px;border-radius:3px;background:#db2777;flex-shrink:0;"></span>
                             <div>
                                 <p style="font-size:14px;font-weight:600;color:#111827;">${totalBidan}</p>
-                                <p style="font-size:10px;color:#6b7280;">Bidan (${Math.round((totalBidan/totalNakes)*100)}%)</p>
+                                <p style="font-size:10px;color:#6b7280;">Bidan (${totalNakes > 0 ? Math.round((totalBidan/totalNakes)*100) : 0}%)</p>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#fefce8;border-radius:8px;">
                             <span style="width:12px;height:12px;border-radius:3px;background:#ca8a04;flex-shrink:0;"></span>
                             <div>
                                 <p style="font-size:14px;font-weight:600;color:#111827;">${totalApoteker}</p>
-                                <p style="font-size:10px;color:#6b7280;">Apoteker (${Math.round((totalApoteker/totalNakes)*100)}%)</p>
+                                <p style="font-size:10px;color:#6b7280;">Apoteker (${totalNakes > 0 ? Math.round((totalApoteker/totalNakes)*100) : 0}%)</p>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#f9fafb;border-radius:8px;">
                             <span style="width:12px;height:12px;border-radius:3px;background:#6b7280;flex-shrink:0;"></span>
                             <div>
                                 <p style="font-size:14px;font-weight:600;color:#111827;">${totalLainnya}</p>
-                                <p style="font-size:10px;color:#6b7280;">Lainnya (${Math.round((totalLainnya/totalNakes)*100)}%)</p>
+                                <p style="font-size:10px;color:#6b7280;">Lainnya (${totalNakes > 0 ? Math.round((totalLainnya/totalNakes)*100) : 0}%)</p>
                             </div>
                         </div>
                     </div>
@@ -3218,12 +3326,12 @@ function renderNakes() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${INSTITUSI_DATA.map(inst => {
+                        ${institusiData.map(inst => {
                             const total = inst.perawat + inst.bidan + inst.apoteker + inst.lainnya;
                             return `
                                 <tr>
                                     <td style="font-weight:500;">${inst.nama}</td>
-                                    <td><span class="badge ${inst.tipe === 'RS' ? 'badge-blue' : inst.tipe === 'Puskesmas' ? 'badge-success' : inst.tipe === 'BPM' ? 'badge-pink' : 'badge-gray'}">${inst.tipe}</span></td>
+                                    <td><span class="badge ${inst.tipe === 'RS' ? 'badge-blue' : inst.tipe === 'Puskesmas' ? 'badge-success' : inst.tipe === 'BPM' ? 'badge-pink' : 'badge-gray'}">${inst.tipe || '-'}</span></td>
                                     <td style="text-align:center;font-weight:600;color:#ec4899;">${inst.perawat}</td>
                                     <td style="text-align:center;font-weight:600;color:#db2777;">${inst.bidan}</td>
                                     <td style="text-align:center;font-weight:600;color:#ca8a04;">${inst.apoteker}</td>
@@ -3247,6 +3355,54 @@ function renderNakes() {
             </div>
         </div>
     `;
+}
+
+/**
+ * Render empty state when data not available
+ */
+function renderEmptyState(title, emoji, subtitle, color, sheetName) {
+    return `
+        <div style="min-height:60vh;display:flex;align-items:center;justify-content:center;">
+            <div class="card" style="max-width:520px;width:100%;padding:48px;text-align:center;">
+                <div style="width:80px;height:80px;background:${color}15;border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;font-size:36px;">
+                    ${emoji}
+                </div>
+                <h2 style="font-size:24px;font-weight:700;color:#111827;margin-bottom:8px;">Data ${title} Tersedia</h2>
+                <p style="color:#6b7280;font-size:15px;margin-bottom:24px;line-height:1.6;">
+                    Data dari ${sheetName} belum dimuat atau kosong.<br>
+                    Pastikan sheet "${sheetName}" sudah ada di Google Sheets dan berisi data.
+                </p>
+                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                    <button onclick="syncAndRender('${title.toLowerCase()}')" class="btn btn-primary">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Sync Ulang Data
+                    </button>
+                    <button onclick="renderCurrentView()" class="btn btn-secondary">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        Refresh Halaman
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Sync data dan render ulang
+ */
+async function syncAndRender(type) {
+    showNotification('Menyinkronkan data...', 'info');
+    
+    if (type === 'named') {
+        await syncNamedData();
+    } else if (type === 'nakes') {
+        await syncInstitusiNakesData();
+    } else {
+        await Promise.all([syncNamedData(), syncInstitusiNakesData()]);
+    }
+    
+    renderCurrentView();
+    showNotification('Data berhasil disinkron!', 'success');
 }
 
 // ==================== HELPER FUNCTIONS FOR CHARTS ====================
@@ -3285,14 +3441,21 @@ function createDonutChartSVG(data) {
  * Export Named data to CSV
  */
 function exportNamedData() {
+    const namedData = getNamedData();
+    
+    if (namedData.length === 0) {
+        showNotification('Tidak ada data untuk di-export', 'warning');
+        return;
+    }
+    
     let csv = 'Institusi,Tipe,Dokter,Dokter Gigi,Total,Persentase\n';
-    const totalDokter = INSTITUSI_DATA.reduce((sum, i) => sum + i.dokter, 0);
-    const totalDG = INSTITUSI_DATA.reduce((sum, i) => sum + i.dokterGigi, 0);
+    const totalDokter = namedData.reduce((sum, i) => sum + i.dokter, 0);
+    const totalDG = namedData.reduce((sum, i) => sum + i.dokterGigi, 0);
     const total = totalDokter + totalDG;
     
-    INSTITUSI_DATA.forEach(inst => {
+    namedData.forEach(inst => {
         const subtotal = inst.dokter + inst.dokterGigi;
-        csv += `"${inst.nama}",${inst.tipe},${inst.dokter},${inst.dokterGigi},${subtotal},${((subtotal/total)*100).toFixed(1)}%\n`;
+        csv += `"${inst.nama}",${inst.tipe || ''},${inst.dokter},${inst.dokterGigi},${subtotal},${total > 0 ? ((subtotal/total)*100).toFixed(1) : '0'}%\n`;
     });
     csv += `"TOTAL",,${totalDokter},${totalDG},${total},100%\n`;
     
@@ -3303,25 +3466,32 @@ function exportNamedData() {
  * Export Nakes data to CSV
  */
 function exportNakesData() {
+    const institusiData = getInstitusiNakesData();
+    
+    if (institusiData.length === 0) {
+        showNotification('Tidak ada data untuk di-export', 'warning');
+        return;
+    }
+    
     let csv = 'Institusi,Tipe,Perawat,Bidan,Apoteker,Lainnya,Total\n';
     
-    INSTITUSI_DATA.forEach(inst => {
+    institusiData.forEach(inst => {
         const total = inst.perawat + inst.bidan + inst.apoteker + inst.lainnya;
-        csv += `"${inst.nama}",${inst.tipe},${inst.perawat},${inst.bidan},${inst.apoteker},${inst.lainnya},${total}\n`;
+        csv += `"${inst.nama}",${inst.tipe || ''},${inst.perawat},${inst.bidan},${inst.apoteker},${inst.lainnya},${total}\n`;
     });
     
     const totals = [
         'TOTAL',
         '',
-        INSTITUSI_DATA.reduce((s,i)=>s+i.perawat,0),
-        INSTITUSI_DATA.reduce((s,i)=>s+i.bidan,0),
-        INSTITUSI_DATA.reduce((s,i)=>s+i.apoteker,0),
-        INSTITUSI_DATA.reduce((s,i)=>s+i.lainnya,0),
-        INSTITUSI_DATA.reduce((s,i)=>s+i.perawat+i.bidan+i.apoteker+i.lainnya,0)
+        institusiData.reduce((s,i)=>s+i.perawat,0),
+        institusiData.reduce((s,i)=>s+i.bidan,0),
+        institusiData.reduce((s,i)=>s+i.apoteker,0),
+        institusiData.reduce((s,i)=>s+i.lainnya,0),
+        institusiData.reduce((s,i)=>s+i.perawat+i.bidan+i.apoteker+i.lainnya,0)
     ];
     csv += totals.join(',') + '\n';
     
-    downloadCSV(csv, 'nakes_data.csv');
+    downloadCSV(csv, 'nakes_institusi_data.csv');
 }
 
 /**
@@ -4008,9 +4178,14 @@ document.addEventListener('DOMContentLoaded', function() {
         console.warn('Silakan ganti CONFIG.GOOGLE_APPS_SCRIPT_URL dengan URL Web App Anda');
         showNotification('Konfigurasi URL Web App diperlukan. Lihat Console untuk detail.', 'warning');
     } else {
-        // Auto-sync data
-        syncNakesData().then(() => {
-            console.log('Initial sync completed');
+        // Auto-sync semua data dari Google Sheets
+        Promise.all([
+            syncNakesData(),
+            syncNamedData(),
+            syncInstitusiNakesData()
+        ]).then(() => {
+            console.log('✅ Initial sync completed - All data loaded from Google Sheets');
+            updateHeroStats();
         });
     }
     
