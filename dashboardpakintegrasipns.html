@@ -3302,10 +3302,10 @@
     /* ============================================
      * KONFIGURASI & VARIABEL GLOBAL
      * ============================================ */
-    // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA
+    // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA (WAJIB DIISI)
     // Format: https://script.google.com/macros/s/XXXXX/exec
-    // Kalau kosong atau masih ISI_URL, akan otomatis pake demo mode
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyhohjUdyqqn5G0xNs6HwDSoOi7_jIsIxaN5JrPCpIwQ8rbgRDwiIXt_q0h3lrS1-5ynw/exec";
+    // CARA DEPLOY: script.google.com > Deploy > New deployment > Web App > Execute as: Me | Access: Anyone
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwcBrMcdsoiEB3IZFXMRciN27CuLSdGLxMKybXQD24nDV0AM4KBTpx8JcdK6ket83pF2g/exec";
     const ITEMS_PER_PAGE = 10;
 
     // State variables
@@ -3722,69 +3722,62 @@
     }
 
     // Main API Call function - uses JSONP internally
+    // TIDAK ADA FALLBACK KE DEMO DATA - menampilkan error asli jika gagal
     async function apiCall(action, params = {}) {
       try {
+        console.log('[API] Calling:', action, params);
         const response = await jsonpRequest(action, params);
         
         if (response && response.success) {
+          console.log('[API] Success:', action);
           return response;
         } else if (response === null) {
-          // Network/CORS error - will use demo data
-          console.log('[API] Using demo fallback for:', action);
-          return getDemoResponse(action, params);
+          // Network/CORS error - tampilkan error nyata
+          const errorMsg = 'Gagal terhubung ke server. Pastikan:\n' +
+            '1. Google Apps Script sudah di-deploy dengan akses "Anyone"\n' +
+            '2. URL script benar dan masih aktif\n' +
+            '3. Koneksi internet stabil\n\n' +
+            'URL: ' + SCRIPT_URL;
+          console.error('[API] Connection Failed:', action, errorMsg);
+          showToast('Koneksi Gagal - cek console untuk detail (F12)', 'error');
+          return { success: false, message: errorMsg };
         } else {
-          // API returned error
+          // API returned error dari server
+          console.warn('[API] Server Error:', action, response.message);
           return response; // Pass through the error
         }
       } catch (error) {
         console.error('[API] Exception:', error);
-        return { success: false, message: error.message };
+        return { success: false, message: 'Error: ' + error.message };
       }
-    }
-    
-    // Generate appropriate demo response based on action
-    function getDemoResponse(action, params) {
-      switch(action) {
-        case 'getAllData':
-          return { success: true, data: generateDemoData(), message: 'Data loaded (demo mode)' };
-        case 'getStats':
-          return { success: true, stats: generateDemoStats() };
-        case 'searchPAKTerbit':
-          // Search in demo data for PAK Terbit
-          const nikNip = params.nikNip || '';
-          const demoData = generateDemoData();
-          const found = demoData.find(d => 
-            d['NIP'] === nikNip && d['Status'] === 'Terbit'
-          );
-          if (found) {
-            found['Dokumen PAK'] = 'https://drive.google.com/file/d/demoPAKDocument/view';
-            return { success: true, data: found, message: 'Data ditemukan (demo)' };
-          }
-          return { success: false, message: 'Data tidak ditemukan. Pastikan NIK/NIP benar dan status Terbit.' };
-        default:
-          return { success: false, message: 'Demo mode - operasi simulasi' };
-      }
-    }
-    
-    // Generate demo statistics
-    function generateDemoStats() {
-      return {
-        total: 150,
-        ditolak: 12,
-        perbaikan: 25,
-        terbit: 85,
-        pending: 28,
-        jenisJFCount: {'JFT': 90, 'JFU': 60},
-        satuanKerjaCount: {'RSUD': 45, 'Puskesmas': 70, 'Dinkes': 35},
-        bulanCount: {'Januari 2026': 30, 'Februari 2026': 45}
-      };
     }
 
     async function apiPost(action, data = {}) {
-      // For POST requests, simulate in demo mode
+      // For POST requests via fetch with no-cors
       console.log('[API POST]:', action, data);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return { success: true, message: 'Operasi berhasil disimpan (demo mode)' };
+      
+      try {
+        const formData = new FormData();
+        for (const key in data) {
+          formData.append(key, data[key]);
+        }
+        
+        const token = sessionStorage.getItem('adminToken');
+        let url = SCRIPT_URL + '?action=' + action;
+        if (token) url += '&token=' + encodeURIComponent(token);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          body: formData,
+          mode: 'no-cors'
+        });
+        
+        // no-cors means we can't read response, assume success
+        return { success: true, message: 'Operasi berhasil dikirim' };
+      } catch (error) {
+        console.error('[API POST Error]:', error);
+        return { success: false, message: 'Gagal mengirim data: ' + error.message };
+      }
     }
 
     // Legacy JSONP Call for backward compatibility
@@ -3803,23 +3796,17 @@
     }
 
     /* ============================================
-     * DATA LOADING - Load data dari server
+     * DATA LOADING - Load data dari server (NO DEMO FALLBACK)
      * ============================================ */
     function loadDashboardData() {
       // Show loading
-      showToast('Memuat data...', 'info');
+      showToast('Memuat data dari server...', 'info');
       
       // Check if SCRIPT_URL is configured
       if (!SCRIPT_URL || SCRIPT_URL === 'ISI_URL_GOOGLE_SCRIPT_DISINI' || SCRIPT_URL === '') {
-        console.log('No API URL configured - using demo data');
-        // Use demo data if no API configured
-        const demoData = generateDemoData();
-        allData = demoData;
-        filteredData = [...allData];
-        updateStats();
-        updateCharts();
-        renderDashboardTable();
-        showToast('Mode demo - gunakan data sample untuk testing', 'info');
+        console.error('[ERROR] SCRIPT_URL tidak dikonfigurasi!');
+        showToast('Error: URL Google Apps Script belum dikonfigurasi!', 'error');
+        showConnectionErrorModal();
         return;
       }
       
@@ -3833,29 +3820,27 @@
         url += '&token=' + encodeURIComponent(token);
       }
       
-      console.log('Loading from:', url);
+      console.log('[API] Loading from:', url);
       
       // Create script element for JSONP
       const script = document.createElement('script');
       script.src = url;
       
-      // Set timeout for fallback
+      // Set timeout - longer timeout for slow connections (20 detik)
       const timeout = setTimeout(() => {
-        showToast('Timeout - menggunakan data demo', 'warning');
-        const demoData = generateDemoData();
-        allData = demoData;
-        filteredData = [...allData];
-        updateStats();
-        updateCharts();
-        renderDashboardTable();
+        console.error('[API] Timeout - server tidak merespon dalam 20 detik');
+        showToast('Timeout: Server tidak merespon. Cek koneksi dan coba lagi.', 'error');
         delete window[callbackName];
         if (script.parentNode) script.remove();
-      }, 10000);
+        showConnectionErrorModal('Timeout - server tidak merespon dalam 20 detik');
+      }, 20000);
       
       window[callbackName] = function(response) {
         clearTimeout(timeout);
+        console.log('[API] Response received:', response);
+        
         if (response && response.success) {
-          allData = response.data;
+          allData = response.data || [];
           filteredData = [...allData];
           
           // Store user info if returned
@@ -3864,47 +3849,139 @@
             sessionStorage.setItem('adminUser', JSON.stringify(response.user));
           }
           
-          // Show message if filtered
+          // Show success message
           if (response.user && response.user.role === 'sdmk') {
             showToast('Data ditampilkan untuk: ' + response.user.satuanKerja, 'info');
           } else {
-            showToast(response.message || 'Data berhasil dimuat', 'success');
+            showToast(response.message || 'Data berhasil dimuat (' + allData.length + ' record)', 'success');
           }
           
           updateStats();
           updateCharts();
           renderDashboardTable();
         } else {
-          showToast(response?.message || 'Gagal memuat data - menggunakan demo', 'warning');
-          // Fallback to demo
-          const demoData = generateDemoData();
-          allData = demoData;
-          filteredData = [...allData];
-          updateStats();
-          updateCharts();
-          renderDashboardTable();
+          // Server returned error
+          const errMsg = response?.message || 'Server mengembalikan error';
+          console.error('[API] Server Error:', errMsg);
+          showToast('Error: ' + errMsg, 'error');
+          showConnectionErrorModal(errMsg);
         }
+        
         // Cleanup
         delete window[callbackName];
         if (script.parentNode) script.remove();
       };
       
-      script.onerror = function() {
+      script.onerror = function(e) {
         clearTimeout(timeout);
-        console.log('API Error - using demo data');
-        showToast('Gagal terhubung - menggunakan data demo', 'warning');
-        // Fallback to demo
-        const demoData = generateDemoData();
-        allData = demoData;
-        filteredData = [...allData];
-        updateStats();
-        updateCharts();
-        renderDashboardTable();
+        console.error('[API] Script Error - gagal memuat script dari server', e);
+        showToast('Koneksi Gagal: Tidak dapat terhubung ke Google Apps Script', 'error');
+        showConnectionErrorModal('Network error - tidak dapat terhubung ke server');
         delete window[callbackName];
         if (script.parentNode) script.remove();
       };
       
       document.head.appendChild(script);
+    }
+    
+    /* ============================================
+     * CONNECTION ERROR MODAL - Menampilkan detail error koneksi
+     * ============================================ */
+    function showConnectionErrorModal(customMessage) {
+      var existingModal = document.getElementById('connectionErrorModal');
+      if (existingModal) { existingModal.remove(); }
+      
+      var modal = document.createElement('div');
+      modal.id = 'connectionErrorModal';
+      
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;';
+      
+      var content = document.createElement('div');
+      content.style.cssText = 'background:white;padding:30px;border-radius:16px;max-width:500px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+      
+      var header = document.createElement('div');
+      header.style.cssText = 'text-align:center;margin-bottom:20px;';
+      header.innerHTML = '<i class="fas fa-exclamation-triangle" style="font-size:48px;color:#ef4444;"></i><h2 style="margin:15px 0 10px;color:#1e293b;">Koneksi Gagal</h2>';
+      
+      var errorMsg = document.createElement('div');
+      errorMsg.id = 'connectionErrorMsg';
+      errorMsg.style.cssText = 'background:#fef2f2;padding:15px;border-radius:8px;margin-bottom:20px;color:#991b1b;font-size:14px;line-height:1.6;';
+      errorMsg.textContent = customMessage || 'Tidak dapat terhubung ke server Google Apps Script.';
+      
+      var solution = document.createElement('div');
+      solution.style.cssText = 'background:#f0f9ff;padding:15px;border-radius:8px;margin-bottom:20px;font-size:13px;';
+      solution.innerHTML = '<strong>Solusi:</strong><ol style="margin:10px 0 0 20px;padding:0;line-height:1.8;"><li>Buka <a href="https://script.google.com" target="_blank">Google Apps Script</a></li><li>Pastikan project sudah <strong>Deploy > New deployment</strong></li><li>Setting: <strong>Execute as: Me</strong> | <strong>Access: Anyone</strong></li><li>Copy URL deploy dan paste di variabel SCRIPT_URL</li></ol>';
+      
+      var buttons = document.createElement('div');
+      buttons.style.cssText = 'display:flex;gap:10px;justify-content:center;';
+      
+      var testBtn = document.createElement('button');
+      testBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Test Koneksi';
+      testBtn.style.cssText = 'padding:12px 24px;background:#1a73e8;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:500;';
+      testBtn.onclick = testConnection;
+      
+      var closeBtn = document.createElement('button');
+      closeBtn.textContent = 'Tutup';
+      closeBtn.style.cssText = 'padding:12px 24px;background:#64748b;color:white;border:none;border-radius:8px;cursor:pointer;';
+      closeBtn.onclick = function() { document.getElementById('connectionErrorModal').remove(); };
+      
+      buttons.appendChild(testBtn);
+      buttons.appendChild(closeBtn);
+      content.appendChild(header);
+      content.appendChild(errorMsg);
+      content.appendChild(solution);
+      content.appendChild(buttons);
+      overlay.appendChild(content);
+      modal.appendChild(overlay);
+      document.body.appendChild(modal);
+    }
+
+    /* ============================================
+     * TEST CONNECTION FUNCTION
+     * ============================================ */
+    async function testConnection() {
+      var btn = event.target.closest('button');
+      var originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menguji...';
+      btn.disabled = true;
+      
+      try {
+        var testCallback = 'test_cb_' + Date.now();
+        var testUrl = SCRIPT_URL + '?action=getStats&callback=' + testCallback;
+        
+        var result = await new Promise(function(resolve, reject) {
+          var timeout = setTimeout(function() {
+            resolve(null);
+          }, 15000);
+          
+          window[testCallback] = function(resp) {
+            clearTimeout(timeout);
+            resolve(resp);
+          };
+          
+          var s = document.createElement('script');
+          s.src = testUrl;
+          s.onerror = function() { clearTimeout(timeout); resolve(null); };
+          document.head.appendChild(s);
+        });
+        
+        delete window[testCallback];
+        
+        if (result && result.success) {
+          alert('Koneksi Berhasil! Server merespon dengan baik.');
+          var modal = document.getElementById('connectionErrorModal');
+          if (modal) modal.remove();
+          loadDashboardData();
+        } else {
+          alert('Koneksi Gagal. Response: ' + JSON.stringify(result));
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
     }
 
     function generateDemoData() {
