@@ -2124,6 +2124,11 @@
           </div>
         </div>
         
+        <!-- Settings button - always visible -->
+        <button class="btn btn-sm" style="background:transparent;border:1px solid rgba(255,255,255,0.3);color:var(--white);margin-right:10px;" onclick="openSettingsModal()" title="Pengaturan Koneksi Server">
+          <i class="fas fa-cog"></i>
+        </button>
+        
         <!-- Always visible logout button for logged in users -->
         <button id="headerLogoutBtn" class="btn btn-danger btn-sm" style="display: none; margin-right: 10px;" onclick="handleLogout()">
           <i class="fas fa-sign-out-alt"></i> Logout
@@ -3302,11 +3307,30 @@
     /* ============================================
      * KONFIGURASI & VARIABEL GLOBAL
      * ============================================ */
-    // GANTI INI DENGAN URL GOOGLE APPS SCRIPT ANDA (WAJIB DIISI)
-    // Format: https://script.google.com/macros/s/XXXXX/exec
-    // CARA DEPLOY: script.google.com > Deploy > New deployment > Web App > Execute as: Me | Access: Anyone
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw4CKxUYovPdQ7XKIrSWzGXRG7WILjAPhRxpUiw0eX5PuGVOA80CqUiKsQrNREXD2eSKA/exec";
-    const ITEMS_PER_PAGE = 10;
+    
+    /* === KONFIGURASI WEB APP URL ===
+     * URL disimpan di localStorage agar persisten
+     * Buka Settings (gear icon) untuk mengubah URL
+     * ================================= */
+    
+    // Default URL (akan di-override oleh localStorage jika ada)
+    var DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzxnYAvaqHKDVjAUU-aGJk6Yo-8b6-CxbncrIt5fRbpaEA-j4TGwNSUoEzwPqVapVBBkA/exec";
+    
+    // Get SCRIPT_URL from localStorage or use default
+    var SCRIPT_URL = localStorage.getItem('pakti_script_url') || DEFAULT_SCRIPT_URL;
+    
+    // Function to update SCRIPT_URL
+    function setScriptUrl(url) {
+      if (url && url.trim() !== '') {
+        localStorage.setItem('pakti_script_url', url.trim());
+        SCRIPT_URL = url.trim();
+        console.log('[CONFIG] Script URL updated:', SCRIPT_URL);
+        return true;
+      }
+      return false;
+    }
+    
+    var ITEMS_PER_PAGE = 10;
 
     // State variables
     let allData = [];
@@ -3752,7 +3776,158 @@
       }
     }
 
-    async function apiPost(action, data = {}) {
+    
+    /* ============================================
+     * SETTINGS MODAL - Konfigurasi Web App URL
+     * ============================================ */
+    function openSettingsModal() {
+      // Remove existing modal
+      var existing = document.getElementById('settingsModal');
+      if (existing) existing.remove();
+      
+      // Create modal using DOM methods (safer than innerHTML with quotes)
+      var modal = document.createElement('div');
+      modal.id = 'settingsModal';
+      
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:99998;';
+      
+      var content = document.createElement('div');
+      content.style.cssText = 'background:white;padding:30px;border-radius:16px;max-width:550px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+      
+      // Header
+      var header = document.createElement('div');
+      header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;';
+      header.innerHTML = '<h2 style="margin:0;color:#1e293b;"><i class="fas fa-cog"></i> Pengaturan Koneksi</h2>';
+      
+      var closeBtn1 = document.createElement('button');
+      closeBtn1.innerHTML = '&times;';
+      closeBtn1.style.cssText = 'background:none;border:none;font-size:24px;cursor:pointer;color:#64748b;';
+      closeBtn1.onclick = function() { modal.remove(); };
+      header.appendChild(closeBtn1);
+      
+      // URL Input section
+      var inputSection = document.createElement('div');
+      inputSection.style.cssText = 'margin-bottom:20px;';
+      inputSection.innerHTML = '<label style="display:block;margin-bottom:8px;font-weight:500;color:#374151;">Google Apps Script Web App URL</label>';
+      
+      var urlInput = document.createElement('input');
+      urlInput.type = 'text';
+      urlInput.id = 'settingsScriptUrl';
+      urlInput.value = SCRIPT_URL;
+      urlInput.placeholder = 'https://script.google.com/macros/s/XXXXX/exec';
+      urlInput.style.cssText = 'width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:monospace;';
+      inputSection.appendChild(urlInput);
+      
+      var helpText = document.createElement('p');
+      helpText.style.cssText = 'margin-top:8px;font-size:12px;color:#64748b;';
+      helpText.textContent = 'URL dari Google Apps Script Web App deployment Anda';
+      inputSection.appendChild(helpText);
+      
+      // Help section
+      var helpSection = document.createElement('div');
+      helpSection.style.cssText = 'background:#f0f9ff;padding:15px;border-radius:8px;margin-bottom:20px;font-size:13px;color:#1e40af;';
+      helpSection.innerHTML = '<strong>Cara mendapatkan URL:</strong><br>1. Buka <a href="https://script.google.com" target="_blank">script.google.com</a><br>2. Deploy > New deployment<br>3. Type: Web app | Execute as: Me | Access: Anyone<br>4. Copy URL deploy di sini';
+      
+      // Buttons
+      var buttons = document.createElement('div');
+      buttons.style.cssText = 'display:flex;gap:10px;';
+      
+      var saveBtn = document.createElement('button');
+      saveBtn.innerHTML = '<i class="fas fa-save"></i> Simpan';
+      saveBtn.style.cssText = 'flex:1;padding:12px;background:#1a73e8;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:500;';
+      saveBtn.onclick = saveSettings;
+      
+      var testBtn = document.createElement('button');
+      testBtn.innerHTML = '<i class="fas fa-plug"></i> Test Koneksi';
+      testBtn.style.cssText = 'flex:1;padding:12px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:500;';
+      testBtn.onclick = testSettingsConnection;
+      
+      var closeBtn2 = document.createElement('button');
+      closeBtn2.textContent = 'Tutup';
+      closeBtn2.style.cssText = 'padding:12px 24px;background:#64748b;color:white;border:none;border-radius:8px;cursor:pointer;';
+      closeBtn2.onclick = function() { modal.remove(); };
+      
+      buttons.appendChild(saveBtn);
+      buttons.appendChild(testBtn);
+      buttons.appendChild(closeBtn2);
+      
+      // Assemble
+      content.appendChild(header);
+      content.appendChild(inputSection);
+      content.appendChild(helpSection);
+      content.appendChild(buttons);
+      overlay.appendChild(content);
+      modal.appendChild(overlay);
+      
+      document.body.appendChild(modal);
+    }
+    
+    function saveSettings() {
+      var urlInput = document.getElementById('settingsScriptUrl');
+      var newUrl = urlInput.value.trim();
+      
+      if (!newUrl) {
+        alert('URL tidak boleh kosong!');
+        return;
+      }
+      
+      if (setScriptUrl(newUrl)) {
+        showToast('URL berhasil disimpan!', 'success');
+        document.getElementById('settingsModal').remove();
+      } else {
+        alert('Gagal menyimpan URL');
+      }
+    }
+    
+    async function testSettingsConnection() {
+      var btn = event.target.closest('button');
+      var originalText = btn.innerHTML;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menguji...';
+      btn.disabled = true;
+      
+      var testUrl = document.getElementById('settingsScriptUrl').value.trim();
+      if (!testUrl) {
+        alert('URL tidak boleh kosong!');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        return;
+      }
+      
+      try {
+        var testCallback = 'test_cb_' + Date.now();
+        var testUrlFull = testUrl + '?action=getStats&callback=' + testCallback;
+        
+        var result = await new Promise(function(resolve) {
+          var timeout = setTimeout(function() { resolve(null); }, 15000);
+          
+          window[testCallback] = function(resp) {
+            clearTimeout(timeout);
+            resolve(resp);
+          };
+          
+          var s = document.createElement('script');
+          s.src = testUrlFull;
+          s.onerror = function() { clearTimeout(timeout); resolve(null); };
+          document.head.appendChild(s);
+        });
+        
+        delete window[testCallback];
+        
+        if (result && result.success) {
+          alert('✅ Koneksi Berhasil!\n\nServer merespon dengan baik.');
+        } else {
+          alert('❌ Koneksi Gagal\n\nResponse: ' + JSON.stringify(result));
+        }
+      } catch (e) {
+        alert('❌ Error: ' + e.message);
+      } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }
+    }
+
+async function apiPost(action, data = {}) {
       // For POST requests via fetch with no-cors
       console.log('[API POST]:', action, data);
       
@@ -3984,171 +4159,6 @@
       }
     }
 
-    function generateDemoData() {
-      // Fixed test data with known NIPs for testing PAK Terbit search
-      const testData = [
-        {
-          'Timestamp': '2026-01-15T08:30:00.000Z',
-          'Email': 'ahmad.faisal@gmail.com',
-          'NoHP': '081234567890',
-          'Nama Lengkap dengan Gelar': 'Dr. Ahmad Faisal, M.Kes',
-          'NIP': '197501012001011001',
-          'No Karpeg': 'K123456',
-          'Tempat & Tanggal Lahir': 'Samarinda, 01 Januari 1975',
-          'Pendidikan': 'S2',
-          'Jenis Kelamin': 'Laki-laki',
-          'Pangkat/Gol': 'IV/c',
-          'TMT Pangkat': '2018-04-01',
-          'Jenis JF': 'JFT',
-          'Jenjang JF': 'Utama',
-          'TMT JF': '2020-01-01',
-          'Masa Kerja Gol': '20 Tahun 06 Bulan',
-          'Satuan Kerja': 'Dinas Kesehatan',
-          'Upload Dokumen (Drive Link)': 'https://drive.google.com/file/d/PAK_DEMO_001/view',
-          'Status': 'Terbit',
-          'Catatan Admin': 'PAK telah terbit dan dapat diunduh',
-          'Update Terakhir': '2026-02-20T10:30:00.000Z'
-        },
-        {
-          'Timestamp': '2026-01-20T09:15:00.000Z',
-          'Email': 'siti.rahayu@gmail.com',
-          'NoHP': '081298765432',
-          'Nama Lengkap dengan Gelar': 'Dr. Siti Rahayu, M.KM',
-          'NIP': '198003052002032002',
-          'No Karpeg': 'K234567',
-          'Tempat & Tanggal Lahir': 'Balikpapan, 05 Maret 1980',
-          'Pendidikan': 'S2',
-          'Jenis Kelamin': 'Perempuan',
-          'Pangkat/Gol': 'IV/b',
-          'TMT Pangkat': '2019-09-01',
-          'Jenis JF': 'JFT',
-          'Jenjang JF': 'Madya',
-          'TMT JF': '2020-07-01',
-          'Masa Kerja Gol': '18 Tahun 03 Bulan',
-          'Satuan Kerja': 'UPTD Puskesmas Loa Kulu',
-          'Upload Dokumen (Drive Link)': 'https://drive.google.com/file/d/PAK_DEMO_002/view',
-          'Status': 'Terbit',
-          'Catatan Admin': '',
-          'Update Terakhir': '2026-02-18T14:20:00.000Z'
-        },
-        {
-          'Timestamp': '2026-02-01T10:45:00.000Z',
-          'Email': 'rudi.hermawan@gmail.com',
-          'NoHP': '081311223344',
-          'Nama Lengkap dengan Gelar': 'Dr. Rudi Hermawan, M.Fis',
-          'NIP': '197808102003043003',
-          'No Karpeg': 'K345678',
-          'Tempat & Tanggal Lahir': 'Tenggarong, 10 Agustus 1978',
-          'Pendidikan': 'S1',
-          'Jenis Kelamin': 'Laki-laki',
-          'Pangkat/Gol': 'III/d',
-          'TMT Pangkat': '2021-03-01',
-          'Jenis JF': 'JFU',
-          'Jenjang JF': 'Mahir',
-          'TMT JF': '2022-01-01',
-          'Masa Kerja Gol': '12 Tahun 08 Bulan',
-          'Satuan Kerja': 'RSUD Aji Muhammad Parikesit',
-          'Upload Dokumen (Drive Link)': 'https://drive.google.com/file/d/PAK_DEMO_003/view',
-          'Status': 'Terbit',
-          'Catatan Admin': 'Dokumen lengkap, PAK disetujui',
-          'Update Terakhir': '2026-02-19T09:15:00.000Z'
-        },
-        {
-          'Timestamp': '2026-02-05T11:30:00.000Z',
-          'Email': 'dewi.susilowati@gmail.com',
-          'NoHP': '081455667788',
-          'Nama Lengkap dengan Gelar': 'Dr. Dewi Susilowati, Sp.A',
-          'NIP': '198205152004054004',
-          'No Karpeg': 'K456789',
-          'Tempat & Tanggal Lahir': 'Samarinda, 15 Mei 1982',
-          'Pendidikan': 'S1 Profesi',
-          'Jenis Kelamin': 'Perempuan',
-          'Pangkat/Gol': 'III/c',
-          'TMT Pangkat': '2020-10-01',
-          'Jenis JF': 'JFT',
-          'Jenjang JF': 'Muda',
-          'TMT JF': '2021-06-01',
-          'Masa Kerja Gol': '14 Tahun 02 Bulan',
-          'Satuan Kerja': 'UPTD Puskesmas Sungai Merdeka',
-          'Upload Dokumen (Drive Link)': 'https://drive.google.com/file/d/PAK_DEMO_004/view',
-          'Status': 'Terbit',
-          'Catatan Admin': '',
-          'Update Terakhir': '2026-02-17T16:40:00.000Z'
-        },
-        {
-          'Timestamp': '2026-02-10T13:00:00.000Z',
-          'Email': 'maya.kartika@gmail.com',
-          'NoHP': '081599887766',
-          'Nama Lengkap dengan Gelar': 'Dr. Maya Kartika, M.Biomed',
-          'NIP': '197612202005065005',
-          'No Karpeg': 'K567890',
-          'Tempat & Tanggal Lahir': 'Kutai Kartanegara, 20 Desember 1976',
-          'Pendidikan': 'S2',
-          'Jenis Kelamin': 'Perempuan',
-          'Pangkat/Gol': 'IV/a',
-          'TMT Pangkat': '2019-04-01',
-          'Jenis JF': 'JFT',
-          'Jenjang JF': 'Madya',
-          'TMT JF': '2020-09-01',
-          'Masa Kerja Gol': '17 Tahun 05 Bulan',
-          'Satuan Kerja': 'RSUD Aji Muhammad Idris',
-          'Upload Dokumen (Drive Link)': 'https://drive.google.com/file/d/PAK_DEMO_005/view',
-          'Status': 'Terbit',
-          'Catatan Admin': 'PAK Terbit periode 2025-2030',
-          'Update Terakhir': '2026-02-20T08:55:00.000Z'
-        }
-      ];
-      
-      // Generate additional random data
-      const names = [
-        'Dr. Budi Santoso, Sp.PD', 'Dr. Hasan Wijaya, M.PD', 
-        'Dr. Ferry Susanto, Sp.B', 'Dr. Nita Wahyuni, M.Kes',
-        'Dr. Wahyu Nugroho, M.PH', 'Dr. Lisa Permata, Sp.KG', 
-        'Dr. Bayu Pratama, M.Ked', 'Dr. Rina Susilowati, Sp.M', 
-        'Dr. Indra Jaya, M.Si', 'Dr. Sari Dewi, M.KM'
-      ];
-      const satkers = [
-        'Dinas Kesehatan', 'UPTD Puskesmas Badak Baru', 'UPTD Puskesmas Batuah',
-        'UPTD Puskesmas Bunga Jadi', 'UPTD Puskesmas Handil Baru', 'UPTD Puskesmas Jonggon Jaya',
-        'UPTD Puskesmas Kota Bangun', 'UPTD Puskesmas Marangkayu', 'UPTD Puskesmas Muara Badak',
-        'RSUD Aji Batara Agung Dewa Sakti', 'RSUD Dayaku Raja'
-      ];
-      const statuses = ['Menunggu', 'Menunggu', 'Menunggu', 'Perbaikan', 'Ditolak'];
-      const jfts = ['JFT', 'JFU'];
-      const jenjangs = ['Pertama', 'Muda', 'Madya', 'Terampil', 'Mahir'];
-      const pangkats = ['III/a', 'III/b', 'III/c', 'III/d', 'IV/a'];
-
-      // Add random data to make total ~25 records
-      for (let i = 0; i < 20; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() - Math.floor(Math.random() * 60));
-        
-        testData.push({
-          'Timestamp': date.toISOString(),
-          'Email': `pegawai${i + 10}@gmail.com`,
-          'NoHP': `0812${Math.floor(Math.random() * 100000000)}`,
-          'Nama Lengkap dengan Gelar': names[Math.floor(Math.random() * names.length)],
-          'NIP': `${Math.floor(Math.random() * 900000000000000000) + 100000000000000000}`,
-          'No Karpeg': `K${Math.floor(Math.random() * 900000) + 100000}`,
-          'Tempat & Tanggal Lahir': 'Kutai Kartanegara, 15 Maret 1985',
-          'Pendidikan': ['S1', 'S2', 'Profesi'][Math.floor(Math.random() * 3)],
-          'Jenis Kelamin': Math.random() > 0.5 ? 'Laki-laki' : 'Perempuan',
-          'Pangkat/Gol': pangkats[Math.floor(Math.random() * pangkats.length)],
-          'TMT Pangkat': '2020-01-01',
-          'Jenis JF': jfts[Math.floor(Math.random() * jfts.length)],
-          'Jenjang JF': jenjangs[Math.floor(Math.random() * jenjangs.length)],
-          'TMT JF': '2021-06-01',
-          'Masa Kerja Gol': `${Math.floor(Math.random() * 15)} Tahun ${Math.floor(Math.random() * 12)} Bulan`,
-          'Satuan Kerja': satkers[Math.floor(Math.random() * satkers.length)],
-          'Upload Dokumen (Drive Link)': 'https://drive.google.com/file/d/demo',
-          'Status': statuses[Math.floor(Math.random() * statuses.length)],
-          'Catatan Admin': '',
-          'Update Terakhir': new Date().toISOString()
-        });
-      }
-      
-      return testData;
-    }
 
     function loadTrackingData() {
       filteredData = [...allData];
