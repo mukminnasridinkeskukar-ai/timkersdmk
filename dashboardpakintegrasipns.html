@@ -3314,7 +3314,7 @@
      * ================================= */
     
     // Default URL (akan di-override oleh localStorage jika ada)
-    var DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzxnYAvaqHKDVjAUU-aGJk6Yo-8b6-CxbncrIt5fRbpaEA-j4TGwNSUoEzwPqVapVBBkA/exec";
+    var DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyADg8crZTkHb4c0Yp1tfSQo6qF6a64dMLM7fKH0_PdngW-IkOBhsNoB-SsQH8Fjb1WYA/exec";
     
     // Get SCRIPT_URL from localStorage or use default
     var SCRIPT_URL = localStorage.getItem('pakti_script_url') || DEFAULT_SCRIPT_URL;
@@ -4230,12 +4230,42 @@ async function apiPost(action, data = {}) {
     function renderPakTerbitCard(data) {
       const resultContainer = document.getElementById('pakTerbitResult');
       
-      // Ambil data dokumen PAK dari kolom U (Dokumen PAK) atau kolom lainnya
+      // Ambil data dokumen PAK (cari di berbagai kemungkinan nama kolom)
       const dokumenPAK = data['Dokumen PAK'] || data['Dokumen_PAK'] || data['Upload Dokumen (Drive Link)'] || data['Upload_Dokumen_Drive_Link'] || '';
       
       // Format tanggal update terakhir
       const updateTerakhir = data['Update Terakhir'] || data['Update_Terakhir'] || data['Timestamp'] || '-';
       const formattedDate = formatDate(updateTerakhir);
+
+      // Define ALL fields to display in order
+      const allFields = [
+        {key: 'Nama Lengkap dengan Gelar', icon: 'fa-user', label: 'Nama Lengkap'},
+        {key: 'NIP', icon: 'fa-id-badge', label: 'NIP'},
+        {key: 'No Karpeg', icon: 'fa-id-card', label: 'No Karpeg'},
+        {key: 'Tempat & Tanggal Lahir', icon: 'fa-calendar-alt', label: 'TTL'},
+        {key: 'Pendidikan', icon: 'fa-graduation-cap', label: 'Pendidikan'},
+        {key: 'Jenis Kelamin', icon: 'fa-venus-mars', label: 'Jenis Kelamin'},
+        {key: 'Pangkat/Gol', icon: 'fa-star', label: 'Pangkat/Gol'},
+        {key: 'TMT Pangkat', icon: 'fa-calendar', label: 'TMT Pangkat'},
+        {key: 'Jenis JF', icon: 'fa-briefcase', label: 'Jenis JF'},
+        {key: 'Jenjang JF', icon: 'fa-layer-group', label: 'Jenjang JF'},
+        {key: 'TMT JF', icon: 'fa-calendar-check', label: 'TMT JF'},
+        {key: 'Masa Kerja Gol', icon: 'fa-hourglass-half', label: 'Masa Kerja Gol'},
+        {key: 'Satuan Kerja', icon: 'fa-building', label: 'Satuan Kerja'}
+      ];
+      
+      // Build info grid HTML with ALL fields
+      let infoGridHTML = '';
+      for (const field of allFields) {
+        if (data[field.key] !== undefined && data[field.key] !== '') {
+          infoGridHTML += `
+            <div class="pak-info-item">
+              <span class="pak-info-label"><i class="fas ${field.icon}"></i> ${field.label}</span>
+              <span class="pak-info-value">${escapeHtml(data[field.key])}</span>
+            </div>
+          `;
+        }
+      }
 
       // Generate HTML kartu data
       const cardHTML = `
@@ -4253,16 +4283,11 @@ async function apiPost(action, data = {}) {
           
           <!-- Card Body -->
           <div class="pak-card-body">
-            <!-- Info Grid -->
+            <!-- Info Grid - SEMUA DATA -->
             <div class="pak-info-grid">
-              <div class="pak-info-item">
-                <span class="pak-info-label"><i class="fas fa-id-card"></i> No Karpeg</span>
-                <span class="pak-info-value">${escapeHtml(data['No Karpeg'] || data['No_Karpeg'] || '-')}</span>
-              </div>
-              <div class="pak-info-item">
-                <span class="pak-info-label"><i class="fas fa-building"></i> Satuan Kerja</span>
-                <span class="pak-info-value">${escapeHtml(data['Satuan Kerja'] || data['Satuan_Kerja'] || '-')}</span>
-              </div>
+              ${infoGridHTML}
+              
+              <!-- Status & Update Info -->
               <div class="pak-info-item">
                 <span class="pak-info-label"><i class="fas fa-info-circle"></i> Status</span>
                 <span class="pak-info-value">${getStatusBadge(data['Status'] || 'Terbit')}</span>
@@ -5507,17 +5532,18 @@ async function apiPost(action, data = {}) {
     let currentEditData = null;
     let currentRowNumber = null;
 
-    // Fungsi untuk cek status berdasarkan NIK
+    // Fungsi untuk cek status berdasarkan NIP/NIK
     function cekStatusByNIK() {
-      const nik = document.getElementById('cekNikInput').value.trim();
+      const nip = document.getElementById('cekNikInput').value.trim();
       
-      if (!nik) {
-        showToast('Silakan masukkan NIK terlebih dahulu!', 'warning');
+      if (!nip) {
+        showToast('Silakan masukkan NIP terlebih dahulu!', 'warning');
         return;
       }
       
-      if (nik.length !== 18 || isNaN(nik)) {
-        showToast('NIK harus 18 digit angka!', 'error');
+      // Validasi: minimal 10 karakter (NIP biasanya 18 digit)
+      if (nip.length < 10) {
+        showToast('NIP/NIK minimal 10 digit!', 'error');
         return;
       }
       
@@ -5525,7 +5551,7 @@ async function apiPost(action, data = {}) {
       document.getElementById('cekStatusResult').innerHTML = '<div class="loading-spinner"></div> Mencari data...';
       
       // Cari di local data allData
-      const foundData = allData.find(row => row['NIP'] === nik);
+      const foundData = allData.find(row => row['NIP'] === nip);
       
       if (foundData) {
         currentEditData = {...foundData};
@@ -5534,7 +5560,7 @@ async function apiPost(action, data = {}) {
         displayStatusResult(foundData);
       } else {
         // Jika tidak ditemukan di local, coba via API
-        jsonpCall('getDataByNIK', {nip: nik}, 
+        jsonpCall('getDataByNIK', {nip: nip}, 
           function(response) {
             if (response && response.success && response.data) {
               currentEditData = {...response.data};
@@ -5551,11 +5577,57 @@ async function apiPost(action, data = {}) {
       }
     }
 
-    // Fungsi untuk menampilkan hasil pencarian
+    // Fungsi untuk menampilkan hasil pencarian (SEMUA data dari baris)
     function displayStatusResult(data) {
       const resultDiv = document.getElementById('cekStatusResult');
       const status = data['Status'] || 'Menunggu';
       const statusBadge = getStatusBadge(status);
+      
+      // Define fields to display in order
+      const importantFields = [
+        'Nama Lengkap dengan Gelar',
+        'NIP',
+        'No Karpeg',
+        'Tempat & Tanggal Lahir',
+        'Pendidikan',
+        'Jenis Kelamin',
+        'Pangkat/Gol',
+        'TMT Pangkat',
+        'Jenis JF',
+        'Jenjang JF',
+        'TMT JF',
+        'Masa Kerja Gol',
+        'Satuan Kerja',
+        'Status',
+        'Catatan Admin',
+        'Update Terakhir'
+      ];
+      
+      // Build detail grid HTML
+      let detailsHTML = '';
+      
+      for (const field of importantFields) {
+        if (data[field] !== undefined && data[field] !== '') {
+          let value = data[field];
+          
+          // Special formatting for Status
+          if (field === 'Status') {
+            value = statusBadge;
+          }
+          
+          // Escape HTML to prevent XSS
+          if (field !== 'Status') {
+            value = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          }
+          
+          detailsHTML += `
+            <div class="detail-item">
+              <label>${field}</label>
+              <span>${value}</span>
+            </div>
+          `;
+        }
+      }
       
       let html = `
         <div class="status-result-card">
@@ -5564,30 +5636,7 @@ async function apiPost(action, data = {}) {
             ${statusBadge}
           </div>
           <div class="status-detail-grid">
-            <div class="detail-item">
-              <label>Nama Lengkap</label>
-              <span>${data['Nama Lengkap dengan Gelar'] || '-'}</span>
-            </div>
-            <div class="detail-item">
-              <label>NIP</label>
-              <span>${data['NIP'] || '-'}</span>
-            </div>
-            <div class="detail-item">
-              <label>Satuan Kerja</label>
-              <span>${data['Satuan Kerja'] || '-'}</span>
-            </div>
-            <div class="detail-item">
-              <label>Jenis JF</label>
-              <span>${data['Jenis JF'] || '-'}</span>
-            </div>
-            <div class="detail-item">
-              <label>Status</label>
-              <span>${statusBadge}</span>
-            </div>
-            <div class="detail-item">
-              <label>Catatan Admin</label>
-              <span>${data['Catatan Admin'] || '-'}</span>
-            </div>
+            ${detailsHTML}
           </div>
       `;
       
