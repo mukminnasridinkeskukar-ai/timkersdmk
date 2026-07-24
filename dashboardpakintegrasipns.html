@@ -3419,7 +3419,7 @@
      * ================================= */
     
     // Default URL (akan di-override oleh localStorage jika ada)
-    var DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxeiZOEfuZBiM1269bwEalrGixVNMYg2j-lJF2cnkxBZYGlpcfII_CBWoFRWSIqdJyvvg/exec";
+    var DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzL-seh2LGvZn2p9JSaTcQ0ZLXToIdIpVBD6A6Ulf1aSdjsmcp0gDywuiRj1ZDMEC7L-g/exec";
     
     // Get SCRIPT_URL from localStorage or use default
     var SCRIPT_URL = localStorage.getItem('pakti_script_url') || DEFAULT_SCRIPT_URL;
@@ -3451,6 +3451,14 @@
       skPangkat: null,
       skJabfung: null,
       pakKonvensional: null
+    };
+    
+    // Multiple file storage for UPDATE form
+    let selectedUpdateFiles = {
+      upd_foto: null,
+      upd_skPangkat: null,
+      upd_skJabfung: null,
+      upd_pakKonvensional: null
     };
 
     // Chart instances
@@ -5115,28 +5123,38 @@ async function apiPost(action, data = {}) {
 
     // Validate and store file
     function validateAndStoreFile(file, type) {
-      const config = fileConfig[type];
+      // Check if this is for UPDATE form (prefix 'upd_')
+      const isUpdateForm = type.startsWith('upd_');
+      const actualType = isUpdateForm ? type.substring(4) : type; // Remove 'upd_' prefix
+      
+      // Get config based on actual type
+      const config = fileConfig[actualType];
       
       // Validate file type
       if (!config.accept.includes(file.type)) {
-        const acceptStr = type === 'foto' ? 'JPG, JPEG, atau PNG' : 'PDF';
+        const acceptStr = actualType === 'foto' ? 'JPG, JPEG, atau PNG' : 'PDF';
         showToast(`Hanya file ${acceptStr} yang diizinkan untuk ${config.name}!`, 'error');
         return;
       }
       
       // Validate file size
       if (file.size > config.maxSize) {
-        const maxSizeStr = type === 'foto' ? '2MB' : '1MB';
+        const maxSizeStr = actualType === 'foto' ? '2MB' : '1MB';
         showToast(`Ukuran file maksimal ${maxSizeStr} untuk ${config.name}!`, 'error');
         return;
       }
 
-      // Store the file
-      selectedFiles[type] = file;
+      // Store the file in appropriate storage
+      if (isUpdateForm) {
+        selectedUpdateFiles[type] = file;
+      } else {
+        selectedFiles[type] = file;
+      }
       
-      // Update UI
-      const fileNameEl = document.getElementById('fileName' + type.charAt(0).toUpperCase() + type.slice(1));
-      const uploadAreaEl = document.getElementById('fileUploadArea' + type.charAt(0).toUpperCase() + type.slice(1));
+      // Update UI - construct element IDs based on form type
+      const prefix = isUpdateForm ? 'upd_' : '';
+      const fileNameEl = document.getElementById(prefix + 'fileName' + actualType.charAt(0).toUpperCase() + actualType.slice(1));
+      const uploadAreaEl = document.getElementById(prefix + 'fileUploadArea' + actualType.charAt(0).toUpperCase() + actualType.slice(1));
       
       if (fileNameEl) {
         fileNameEl.textContent = '✓ ' + file.name + ' (' + formatFileSize(file.size) + ')';
@@ -6058,6 +6076,71 @@ async function apiPost(action, data = {}) {
               </div>
             </div>
             
+            <!-- Upload Dokumen Kelengkapan - 4 Field Terpisah (Sama dengan Formulir Pengajuan) -->
+            <div class="form-group full-width" style="margin-top: 24px; padding-top: 20px; border-top: 2px dashed var(--border-color);">
+              <label class="form-label"><i class="fas fa-file-upload"></i> Upload Ulang Dokumen Kelengkapan (Jika Ada Perbaikan) <span style="font-weight: normal; font-size: 0.85rem; color: var(--text-light);">*Opsional - Hanya upload jika ada dokumen yang perlu diperbaiki</span></label>
+              
+              <!-- 1. Upload Foto Berwarna 4x6 cm -->
+              <div class="file-upload-item">
+                <label class="file-upload-label">1. Upload Foto Berwarna 4x6 cm</label>
+                <div class="file-upload-wrapper">
+                  <div class="file-upload-area" id="upd_fileUploadAreaFoto" ondrop="handleDrop(event, 'upd_foto')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('upd_fileInputFoto').click()">
+                    <i class="fas fa-image"></i>
+                    <p>Klik atau drag file foto di sini</p>
+                    <span>Format: JPG/JPEG/PNG | Ukuran maksimal: 2MB</span>
+                  </div>
+                  <input type="file" id="upd_fileInputFoto" accept=".jpg,.jpeg,.png" style="display: none;" onchange="handleFileSelect(this, 'upd_foto')">
+                  <div class="file-name" id="upd_fileNameFoto" style="display: none;"></div>
+                </div>
+              </div>
+
+              <!-- 2. Upload SK Pangkat Terakhir Tahun 2022/2023 -->
+              <div class="file-upload-item">
+                <label class="file-upload-label">2. Upload SK Pangkat Terakhir Tahun 2022/2023</label>
+                <div class="file-upload-wrapper">
+                  <div class="file-upload-area" id="upd_fileUploadAreaSKPangkat" ondrop="handleDrop(event, 'upd_skPangkat')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('upd_fileInputSKPangkat').click()">
+                    <i class="fas fa-file-pdf"></i>
+                    <p>Klik atau drag file PDF di sini</p>
+                    <span>Format: PDF | Ukuran maksimal: 1MB</span>
+                  </div>
+                  <input type="file" id="upd_fileInputSKPangkat" accept=".pdf" style="display: none;" onchange="handleFileSelect(this, 'upd_skPangkat')">
+                  <div class="file-name" id="upd_fileNameSKPangkat" style="display: none;"></div>
+                </div>
+              </div>
+
+              <!-- 3. Upload SK Jabfung Tahun 2022/2023 -->
+              <div class="file-upload-item">
+                <label class="file-upload-label">3. Upload SK Jabatan Fungsional (Jabfung) Tahun 2022/2023</label>
+                <div class="file-upload-wrapper">
+                  <div class="file-upload-area" id="upd_fileUploadAreaSKJabfung" ondrop="handleDrop(event, 'upd_skJabfung')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('upd_fileInputSKJabfung').click()">
+                    <i class="fas fa-file-pdf"></i>
+                    <p>Klik atau drag file PDF di sini</p>
+                    <span>Format: PDF | Ukuran maksimal: 1MB</span>
+                  </div>
+                  <input type="file" id="upd_fileInputSKJabfung" accept=".pdf" style="display: none;" onchange="handleFileSelect(this, 'upd_skJabfung')">
+                  <div class="file-name" id="upd_fileNameSKJabfung" style="display: none;"></div>
+                </div>
+              </div>
+
+              <!-- 4. Upload PAK Konvensional Sampai Tahun 2022 -->
+              <div class="file-upload-item">
+                <label class="file-upload-label">4. Upload PAK Konvensional Periode Sampai Tahun 2022</label>
+                <div class="file-upload-wrapper">
+                  <div class="file-upload-area" id="upd_fileUploadAreaPAK" ondrop="handleDrop(event, 'upd_pakKonvensional')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" onclick="document.getElementById('upd_fileInputPAK').click()">
+                    <i class="fas fa-file-pdf"></i>
+                    <p>Klik atau drag file PDF di sini</p>
+                    <span>Format: PDF | Ukuran maksimal: 1MB</span>
+                  </div>
+                  <input type="file" id="upd_fileInputPAK" accept=".pdf" style="display: none;" onchange="handleFileSelect(this, 'upd_pakKonvensional')">
+                  <div class="file-name" id="upd_fileNamePAK" style="display: none;"></div>
+                </div>
+              </div>
+
+              <small class="text-muted upload-info-text">
+                <i class="fas fa-info-circle"></i> Upload ulang hanya dokumen yang perlu diperbaiki sesuai catatan admin. Kosongkan jika tidak ada perubahan.
+              </small>
+            </div>
+            
             <div class="form-actions">
               <button type="button" class="btn btn-secondary" onclick="displayStatusResult(currentEditData)">
                 <i class="fas fa-arrow-left"></i> Kembali
@@ -6168,12 +6251,14 @@ async function apiPost(action, data = {}) {
       submitBtn.innerHTML = '<span class="loading-spinner"></span> Menyimpan...';
       
       try {
+        const nip = document.getElementById('upd_nip').value;
+        
         // Prepare updated data
         const updatedData = {
           email: document.getElementById('upd_email').value,
           noHP: document.getElementById('upd_noHP').value,
           nama: document.getElementById('upd_nama').value.toUpperCase(),
-          nip: document.getElementById('upd_nip').value,
+          nip: nip,
           noKarpeg: document.getElementById('upd_noKarpeg').value,
           tempatLahir: document.getElementById('upd_tempatLahir').value,
           tanggalLahir: document.getElementById('upd_tanggalLahir').value,
@@ -6188,6 +6273,75 @@ async function apiPost(action, data = {}) {
           satuanKerja: document.getElementById('upd_satuanKerja').value,
           rowNumber: currentRowNumber
         };
+        
+        // Upload files if any were selected for update
+        const updateFileTypes = ['upd_foto', 'upd_skPangkat', 'upd_skJabfung', 'upd_pakKonvensional'];
+        let uploadedCount = 0;
+        
+        for (const fileType of updateFileTypes) {
+          if (selectedUpdateFiles[fileType]) {
+            showToast(`Mengupload ${fileConfig[fileType.substring(4)].name}...`, 'info');
+            
+            await new Promise((resolve) => {
+              const reader = new FileReader();
+              
+              reader.onload = async function(event) {
+                try {
+                  const base64Data = event.target.result.split(',')[1];
+                  const actualType = fileType.substring(4); // Remove 'upd_' prefix
+                  const fileName = selectedUpdateFiles[fileType].name;
+                  const maxSize = fileConfig[actualType].maxSize;
+                  
+                  // Check size limits
+                  if (base64Data.length > maxSize * 1.37) {
+                    showToast(`File ${fileConfig[actualType].name} terlalu besar!`, 'error');
+                    resolve();
+                    return;
+                  }
+                  
+                  console.log(`Uploading ${fileType}:`, fileName);
+                  
+                  // Use FormData with POST
+                  const formDataUpload = new FormData();
+                  formDataUpload.append('fileName', nip + '_PERBAIKAN_' + actualType + '_' + fileName);
+                  formDataUpload.append('base64Data', base64Data);
+                  formDataUpload.append('folderId', '1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
+                  
+                  try {
+                    await fetch(SCRIPT_URL + '?action=uploadFile', {
+                      method: 'POST',
+                      body: formDataUpload,
+                      mode: 'no-cors'
+                    });
+                    
+                    uploadedCount++;
+                    
+                  } catch (err) {
+                    console.error('Upload error for', fileType, ':', err);
+                  }
+                  
+                  resolve();
+                  
+                } catch (err) {
+                  showToast('Error: ' + err.message, 'error');
+                  resolve();
+                }
+              };
+              
+              reader.onerror = function() {
+                showToast('Gagal membaca file', 'error');
+                resolve();
+              };
+              
+              reader.readAsDataURL(selectedUpdateFiles[fileType]);
+            });
+          }
+        }
+        
+        // Show upload success message if any files uploaded
+        if (uploadedCount > 0) {
+          showToast(`${uploadedCount} dokumen berhasil diupload!`, 'success');
+        }
         
         // Submit via JSONP
         jsonpCall('updatePerbaikan', updatedData,
@@ -6219,6 +6373,14 @@ async function apiPost(action, data = {}) {
               }
               
               showToast('✓ Data perbaikan berhasil disimpan! Status dikembalikan ke Menunggu.', 'success');
+              
+              // Reset update files storage
+              selectedUpdateFiles = {
+                upd_foto: null,
+                upd_skPangkat: null,
+                upd_skJabfung: null,
+                upd_pakKonvensional: null
+              };
               
               // Tampilkan hasil update
               setTimeout(() => {
@@ -6258,6 +6420,15 @@ async function apiPost(action, data = {}) {
             }
             
             showToast('✓ Data perbaikan berhasil disimpan (local)!', 'success');
+            
+            // Reset update files storage
+            selectedUpdateFiles = {
+              upd_foto: null,
+              upd_skPangkat: null,
+              upd_skJabfung: null,
+              upd_pakKonvensional: null
+            };
+            
             setTimeout(() => {
               displayStatusResult(currentEditData);
             }, 1500);
