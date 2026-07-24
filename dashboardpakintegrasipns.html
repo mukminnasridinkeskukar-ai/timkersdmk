@@ -3419,7 +3419,7 @@
      * ================================= */
     
     // Default URL (akan di-override oleh localStorage jika ada)
-    var DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzL-seh2LGvZn2p9JSaTcQ0ZLXToIdIpVBD6A6Ulf1aSdjsmcp0gDywuiRj1ZDMEC7L-g/exec";
+    var DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFV7mIfjsfy0-6uOgGK03PCIhs0UiovwX5lo0db17ZkpH8IMqclBUmamtBnMsMKfiVbg/exec";
     
     // Get SCRIPT_URL from localStorage or use default
     var SCRIPT_URL = localStorage.getItem('pakti_script_url') || DEFAULT_SCRIPT_URL;
@@ -5178,42 +5178,116 @@ async function apiPost(action, data = {}) {
     async function handleFormSubmit(e) {
       e.preventDefault();
 
-      const nip = document.getElementById('nip').value;
+      // ========== VALIDASI DATA WAJIB ==========
+      const requiredFields = [
+        {id: 'email', label: 'Email'},
+        {id: 'noHP', label: 'No HP / Whatsapp'},
+        {id: 'nama', label: 'Nama Lengkap'},
+        {id: 'nip', label: 'NIP'},
+        {id: 'tempatLahir', label: 'Tempat Lahir'},
+        {id: 'tanggalLahir', label: 'Tanggal Lahir'},
+        {id: 'pendidikan', label: 'Pendidikan'},
+        {id: 'jenisKelamin', label: 'Jenis Kelamin'},
+        {id: 'pangkatGol', label: 'Pangkat/Gol'},
+        {id: 'tmtPangkat', label: 'TMT Pangkat'},
+        {id: 'jenisJF', label: 'Jenis JF'},
+        {id: 'jenjangJF', label: 'Jenjang JF'},
+        {id: 'tmtJF', label: 'TMT JF'},
+        {id: 'masaKerjaGol', label: 'Masa Kerja Gol'},
+        {id: 'satuanKerja', label: 'Satuan Kerja'}
+      ];
+      
+      // Validasi setiap field wajib
+      for (const field of requiredFields) {
+        const value = document.getElementById(field.id).value.trim();
+        if (!value) {
+          showToast(`❌ Field "${field.label}" wajib diisi!`, 'error');
+          document.getElementById(field.id).focus();
+          document.getElementById(field.id).classList.add('error');
+          return;
+        }
+        document.getElementById(field.id).classList.remove('error');
+      }
       
       // Validate NIP (18 digits)
+      const nip = document.getElementById('nip').value;
       if (nip.length !== 18 || isNaN(nip)) {
-        showToast('NIP harus 18 digit angka!', 'error');
+        showToast('❌ NIP harus 18 digit angka!', 'error');
+        document.getElementById('nip').focus();
         return;
       }
 
       // Check for duplicate NIP in local data
       const isDuplicate = allData.some(row => row['NIP'] === nip);
       if (isDuplicate) {
-        showToast('NIP sudah terdaftar!', 'error');
+        showToast('❌ NIP sudah terdaftar! Gunakan NIP yang berbeda.', 'error');
         return;
       }
 
-      // Validate all 4 documents are uploaded
+      // ========== VALIDASI DOKUMEN WAJIB ==========
       const requiredFiles = ['foto', 'skPangkat', 'skJabfung', 'pakKonvensional'];
       const missingFiles = requiredFiles.filter(key => !selectedFiles[key]);
       
       if (missingFiles.length > 0) {
         const missingNames = missingFiles.map(key => fileConfig[key].name).join(', ');
-        showToast('Silakan lengkapi semua dokumen: ' + missingNames, 'error');
+        showToast(`❌ Silakan lengkapi semua dokumen:\n${missingNames}`, 'error');
+        return;
+      }
+
+      // ========== KONFIRMASI SUBMIT ==========
+      const confirmed = confirm(
+        '⚠️ PASTIKAN DATA SUDAH BENAR!\n\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+        'Data yang dikirim:\n' +
+        '• NIP: ' + nip + '\n' +
+        '• Nama: ' + document.getElementById('nama').value.toUpperCase() + '\n' +
+        '• Satuan Kerja: ' + document.getElementById('satuanKerja').value + '\n' +
+        '• Dokumen: 4 file (Foto, SK Pangkat, SK Jabfung, PAK)\n' +
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+        'Klik OK untuk mengirim, atau Cancel untuk memeriksa kembali.'
+      );
+      
+      if (!confirmed) {
+        showToast('Silakan periksa kembali data Anda.', 'info');
         return;
       }
 
       const submitBtn = document.getElementById('submitBtn');
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="loading-spinner"></span> Mengirim...';
+      submitBtn.innerHTML = '<span class="loading-spinner"></span> Memproses & Mengupload...';
 
       try {
-        // Prepare form data
+        // ========== BACA SEMUA FILE SEBAGAI BASE64 ==========
+        showToast('📂 Membaca dokumen yang diupload...', 'info');
+        
+        const fileBase64Data = {};
+        
+        for (const fileType of requiredFiles) {
+          if (selectedFiles[fileType]) {
+            // Baca file sebagai base64
+            const base64Promise = new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = function(event) {
+                resolve(event.target.result.split(',')[1]); // Ambil hanya data base64
+              };
+              reader.onerror = function() {
+                showToast('❌ Gagal membaca file: ' + fileConfig[fileType].name, 'error');
+                resolve(null);
+              };
+              reader.readAsDataURL(selectedFiles[fileType]);
+            });
+            
+            fileBase64Data['dok_' + fileType] = await base64Promise;
+          }
+        }
+        
+        // ========== SIAPKAN DATA FORM LENGKAP ==========
         const formData = {
+          // Data pribadi
           email: document.getElementById('email').value,
           noHP: document.getElementById('noHP').value,
           nama: document.getElementById('nama').value.toUpperCase(),
-          nip: document.getElementById('nip').value,
+          nip: nip,
           noKarpeg: document.getElementById('noKarpeg').value,
           tempatLahir: document.getElementById('tempatLahir').value,
           tanggalLahir: document.getElementById('tanggalLahir').value,
@@ -5226,81 +5300,31 @@ async function apiPost(action, data = {}) {
           tmtJF: document.getElementById('tmtJF').value,
           masaKerjaGol: document.getElementById('masaKerjaGol').value,
           satuanKerja: document.getElementById('satuanKerja').value,
-          driveLink: ''
+          
+          // Base64 data untuk 4 dokumen
+          ...fileBase64Data
         };
 
-        // Upload all 4 files to Google Drive via fetch POST
-        let uploadSuccessCount = 0;
-        
-        for (const fileType of requiredFiles) {
-          if (selectedFiles[fileType]) {
-            showToast(`Mengupload ${fileConfig[fileType].name}...`, 'info');
-            
-            await new Promise((resolve) => {
-              const reader = new FileReader();
-              
-              reader.onload = async function(event) {
-                try {
-                  const base64Data = event.target.result.split(',')[1];
-                  const fileName = selectedFiles[fileType].name;
-                  
-                  // Check size limits
-                  const maxSize = fileConfig[fileType].maxSize;
-                  if (base64Data.length > maxSize * 1.37) { // base64 overhead factor
-                    showToast(`File ${fileConfig[fileType].name} terlalu besar!`, 'error');
-                    resolve();
-                    return;
-                  }
-                  
-                  console.log(`Uploading ${fileType}:`, fileName, '- Size:', base64Data.length, 'chars');
-                  
-                  // Use FormData with POST
-                  const formDataUpload = new FormData();
-                  formDataUpload.append('fileName', nip + '_' + fileType + '_' + fileName);
-                  formDataUpload.append('base64Data', base64Data);
-                  formDataUpload.append('folderId', '1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF');
-                  
-                  try {
-                    await fetch(SCRIPT_URL + '?action=uploadFile', {
-                      method: 'POST',
-                      body: formDataUpload,
-                      mode: 'no-cors'
-                    });
-                    
-                    uploadSuccessCount++;
-                    
-                  } catch (err) {
-                    console.error('Upload error for', fileType, ':', err);
-                  }
-                  
-                  resolve();
-                  
-                } catch (err) {
-                  showToast('Error: ' + err.message, 'error');
-                  resolve();
-                }
-              };
-              
-              reader.onerror = function() {
-                showToast('Gagal membaca file ' + fileConfig[fileType].name, 'error');
-                resolve();
-              };
-              
-              reader.readAsDataURL(selectedFiles[fileType]);
-            });
-          }
-        }
-        
-        // Check if at least some files were uploaded
-        if (uploadSuccessCount > 0) {
-          formData.driveLink = 'https://drive.google.com/drive/folders/1mav4Cgzs5VCPT3Ft2ko5ZeQbEHorBFLF';
-          showToast(`${uploadSuccessCount} dari 4 file berhasil diupload ke Google Drive!`, 'success');
-        }
+        console.log('📤 Mengirim data lengkap ke server...');
+        console.log('- Data fields:', Object.keys(formData).length - 4, '(excluding files)');
+        console.log('- Files to upload:', requiredFiles.length);
 
-        // Submit to Google Sheet via JSONP
+        // ========== SUBMIT KE BACKEND (submitFormLengkap) ==========
         const callbackName = 'submit_callback_' + Math.round(Math.random() * 100000);
-        const url = SCRIPT_URL + '?action=submitForm&callback=' + callbackName + '&' + 
-          Object.keys(formData).map(key => key + '=' + encodeURIComponent(formData[key])).join('&');
+        
+        // Build URL dengan parameter data
+        const params = new URLSearchParams();
+        params.append('action', 'submitFormLengkap');
+        params.append('callback', callbackName);
+        
+        // Tambahkan semua data form
+        Object.keys(formData).forEach(key => {
+          if (formData[key]) {
+            params.append(key, formData[key]);
+          }
+        });
+        
+        const url = SCRIPT_URL + '?' + params.toString();
         
         // Create script element for JSONP
         const script = document.createElement('script');
@@ -5309,20 +5333,46 @@ async function apiPost(action, data = {}) {
         await new Promise((resolve, reject) => {
           window[callbackName] = function(response) {
             if (response && response.success) {
+              // Success!
+              let successMsg = response.message || '✅ Pengajuan berhasil disubmit!';
+              
+              if (response.data) {
+                successMsg += '\n\n📁 Folder: ' + (response.data.folderName || '');
+                if (response.data.folderUrl) {
+                  successMsg += '\n🔗 Link: ' + response.data.folderUrl;
+                }
+              }
+              
+              showToast(successMsg, 'success');
+              
               // Add to local data
               const newRow = {
                 'Timestamp': new Date().toISOString(),
-                ...formData,
+                Email: formData.email,
+                'NoHP': formData.noHP,
+                'Nama Lengkap dengan Gelar': formData.nama,
+                'NIP': formData.nip,
+                'No Karpeg': formData.noKarpeg,
                 'Tempat & Tanggal Lahir': formData.tempatLahir + ', ' + formData.tanggalLahir,
+                'Pendidikan': formData.pendidikan,
+                'Jenis Kelamin': formData.jenisKelamin,
+                'Pangkat/Gol': formData.pangkatGol,
+                'TMT Pangkat': formData.tmtPangkat,
+                'Jenis JF': formData.jenisJF,
+                'Jenjang JF': formData.jenjangJF,
+                'TMT JF': formData.tmtJF,
+                'Masa Kerja Gol': formData.masaKerjaGol,
+                'Satuan Kerja': formData.satuanKerja,
                 'Status': 'Menunggu',
                 'Catatan Admin': '',
-                'Update Terakhir': new Date().toISOString()
+                'Update Terakhir': new Date().toISOString(),
+                'Drive Link': response.data?.folderUrl || ''
               };
               allData.unshift(newRow);
-              showToast(response.message || 'Pengajuan berhasil disubmit!', 'success');
+              
               resolve();
             } else {
-              showToast(response?.message || 'Gagal submit', 'error');
+              showToast('❌ ' + (response?.message || 'Gagal submit'), 'error');
               reject(new Error(response?.message));
             }
             delete window[callbackName];
@@ -5330,7 +5380,7 @@ async function apiPost(action, data = {}) {
           };
           
           script.onerror = function() {
-            showToast('Gagal terhubung ke server', 'error');
+            showToast('❌ Gagal terhubung ke server. Periksa koneksi internet.', 'error');
             reject(new Error('Network error'));
             delete window[callbackName];
             script.remove();
@@ -5339,7 +5389,7 @@ async function apiPost(action, data = {}) {
           document.head.appendChild(script);
         });
         
-        // Reset form
+        // ========== RESET FORM ==========
         document.getElementById('pengajuanForm').reset();
         
         // Reset all file selections
@@ -5362,10 +5412,11 @@ async function apiPost(action, data = {}) {
         // Redirect to tracking page
         setTimeout(() => {
           navigateTo('tracking');
-        }, 1500);
+        }, 2000);
 
       } catch (error) {
-        showToast('Error: ' + error.message, 'error');
+        console.error('Submit error:', error);
+        showToast('❌ Error: ' + error.message, 'error');
       } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Pengajuan';
